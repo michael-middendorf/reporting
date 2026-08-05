@@ -63,12 +63,8 @@ npx sst deploy --stage production
 
 ```bash
 npm ci
-# API without full SST (optional):
-cp .env.example .env
-cd services/api && PYTHONPATH=. python3 serve_api.py
-
-# Web
-cd apps/web && npm install && npm run dev
+npm ci --prefix apps/web-next
+cd apps/web-next && npm run dev
 ```
 
 Or: `npx sst dev --stage dev` (requires secrets set for the `dev` stage).

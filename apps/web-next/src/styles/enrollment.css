@@ -5,12 +5,11 @@
   --surf:#fff;--bdr:#C8D6E8;--t1:#1A3F6F;--t2:#4A6A90;--t3:#8AABCC;
   --up:#1E7A50;--dn:#B83A3A;--teal:#0F7A74;--purple:#4A2090;--red:#8B2020;
 }
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--pale);color:var(--t1);font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.enrollment-root{background:var(--pale);color:var(--t1);font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
 
 /* ── Cycle visibility ─────────────── */
-body[data-cycle="fa26"] .c27{display:none!important}
-body[data-cycle="fa27"] .c26{display:none!important}
+.enrollment-root[data-cycle="fa26"] .c27{display:none!important}
+.enrollment-root[data-cycle="fa27"] .c26{display:none!important}
 
 /* ── Global header ───────────────── */
 .gh{background:#fff;border-bottom:1px solid var(--bdr);height:54px;display:flex;align-items:center;padding:0 36px;justify-content:space-between;position:sticky;top:0;z-index:100;gap:16px}
@@ -52,8 +51,8 @@ body[data-cycle="fa27"] .c26{display:none!important}
 .card:hover{box-shadow:0 8px 26px rgba(26,63,111,.13);transform:translateY(-2px)}
 .card:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .card-feat{background:#F4F7FC}
-body[data-cycle="fa26"] .enroll-26{border-top-color:var(--gold)!important}
-body[data-cycle="fa27"] .enroll-27{border-top-color:var(--gold)!important}
+.enrollment-root[data-cycle="fa26"] .enroll-26{border-top-color:var(--gold)!important}
+.enrollment-root[data-cycle="fa27"] .enroll-27{border-top-color:var(--gold)!important}
 .card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
 .pill{font-size:9px;font-weight:900;letter-spacing:.13em;text-transform:uppercase;padding:3px 9px;border-radius:100px;background:var(--pb,var(--pale));color:var(--pf,var(--blue));flex-shrink:0}
 .iw{width:30px;height:30px;flex-shrink:0;border-radius:7px;background:var(--ib,var(--pale));display:flex;align-items:center;justify-content:center}
@@ -154,7 +153,7 @@ tr:hover td{background:#F5F8FD}
 .cfg-hdr-title{font-size:15px;font-weight:700;color:var(--blue)}
 .cfg-close{background:none;border:none;font-size:18px;cursor:pointer;color:var(--t3);line-height:1;padding:2px 6px;border-radius:3px}
 .cfg-close:hover{background:var(--pale);color:var(--blue)}
-.cfg-body{padding:16px 20px;display:flex;flex-direction:column;gap:10px}
+.cfg-.enrollment-root{padding:16px 20px;display:flex;flex-direction:column;gap:10px}
 .cfg-note{font-size:12px;color:var(--t2);background:var(--pale);border-radius:5px;padding:8px 11px;line-height:1.5}
 .cfg-note strong{color:var(--blue)}
 .cfg-fields{display:grid;grid-template-columns:130px 1fr;gap:7px 12px;align-items:center}
@@ -167,3 +166,19 @@ tr:hover td{background:#F5F8FD}
 .cfg-save:hover{background:var(--blue-mid)}
 .cfg-clear{background:none;border:1px solid var(--bdr);border-radius:5px;padding:7px 14px;font-size:13px;cursor:pointer;color:var(--t2);font-family:inherit}
 .cfg-clear:hover{background:#FFF0F0;border-color:var(--dn);color:var(--dn)}
+
+.view.active{display:block}
+.kpi-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:22px}
+.kpi{background:var(--surf);border:1px solid var(--bdr);border-radius:6px;padding:12px 14px}
+.kpi-label{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)}
+.kpi-val{font-size:22px;font-weight:700;color:var(--blue);margin-top:4px}
+.kpi-delta{font-size:12px;margin-top:4px}
+.panel{background:var(--surf);border:1px solid var(--bdr);border-radius:6px;padding:14px 16px;margin-bottom:16px}
+.data-table{width:100%;border-collapse:collapse;font-size:13px}
+.data-table th,.data-table td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--bdr)}
+.data-table th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
+.delta-up{color:var(--up);font-weight:700}
+.delta-dn{color:var(--dn);font-weight:700}
+.delta-flat{color:var(--t3);font-weight:600}
+.gh-wordmark{text-decoration:none}
+.tab-btn{text-decoration:none}

@@ -1,23 +1,88 @@
 "use client";
 
-import { useCallback } from "react";
-import { LegacyModuleMount } from "@/components/LegacyModuleMount";
-import { ReportShell } from "@/components/ReportShell";
-import { POINTS_METHODOLOGY_BODY } from "@/lib/reports/points/body_methodology";
+import { AccessGate, ReportTopBar } from "@/components/AccessGate";
+import { CONFLICTS, DAY_TARGETS, POINTS_MAP, TIERS } from "@/lib/reports/points/scoring";
 import "@/styles/points.css";
 
 export default function PointsMethodologyPage() {
-  const boot = useCallback(
-    () =>
-      import("@/lib/reports/points/methodology.js").then((m) =>
-        m.bootPointsMethodology(),
-      ),
-    [],
-  );
+  const rules = Object.entries(POINTS_MAP as Record<string, { points: number; label: string; source?: string; bucket?: string }>);
 
   return (
-    <ReportShell report="points" title="MA Points" chrome={false}>
-      <LegacyModuleMount bodyHtml={POINTS_METHODOLOGY_BODY} boot={boot} />
-    </ReportShell>
+    <AccessGate report="points">
+      <div className="points-root">
+        <ReportTopBar
+          title="MA Points"
+          nav={[
+            { href: "/points", label: "Dashboard" },
+            { href: "/points/methodology", label: "Methodology" },
+          ]}
+        />
+        <main style={{ padding: "24px 20px 48px", maxWidth: 900, margin: "0 auto" }}>
+          <h1>Methodology &amp; Scoring</h1>
+          <p style={{ maxWidth: "70ch" }}>
+            Points are computed in this Next.js app from raw Virtuous notes/events. Scoring follows the MAS
+            Points PDF rubric; spreadsheet divergences are listed below.
+          </p>
+
+          <section style={{ marginTop: 28 }}>
+            <h2>Point values</h2>
+            <table style={{ width: "100%", background: "#fff", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th align="left">Activity</th>
+                  <th align="right">Points</th>
+                  <th align="left">Source</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rules.map(([key, rule]) => (
+                  <tr key={key}>
+                    <td>{rule.label || key}</td>
+                    <td align="right">{rule.points}</td>
+                    <td>{rule.source || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+          <section style={{ marginTop: 28 }}>
+            <h2>Tiers</h2>
+            <ul>
+              {TIERS.map((t) => (
+                <li key={t.id}>
+                  <strong>{t.label}</strong> — avg ≥ {t.min}/weekday · payout $
+                  {(t.payout ?? 0).toLocaleString()}
+                  {DAY_TARGETS[t.id] && (
+                    <div style={{ opacity: 0.75, fontSize: 13 }}>
+                      Example day: {DAY_TARGETS[t.id].blurb}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section style={{ marginTop: 28 }} id="events">
+            <h2>Documented conflicts</h2>
+            {Object.entries(CONFLICTS).map(([id, c]) => (
+              <article key={id} style={{ background: "#fff", borderRadius: 12, padding: 14, marginBottom: 12 }}>
+                <h3 style={{ marginTop: 0 }}>{(c as { title: string }).title}</h3>
+                <p>
+                  <strong>PDF:</strong> {(c as { pdf: string }).pdf}
+                </p>
+                <p>
+                  <strong>Spreadsheet:</strong> {(c as { spreadsheet: string }).spreadsheet}
+                </p>
+                <p>
+                  <strong>Resolved:</strong> {(c as { resolved: string }).resolved}
+                </p>
+                <p style={{ opacity: 0.75 }}>{(c as { note: string }).note}</p>
+              </article>
+            ))}
+          </section>
+        </main>
+      </div>
+    </AccessGate>
   );
 }

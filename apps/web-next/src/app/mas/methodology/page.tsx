@@ -1,38 +1,35 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
-import { LegacyModuleMount } from "@/components/LegacyModuleMount";
-import { ReportShell } from "@/components/ReportShell";
-import { MAS_METHODOLOGY_BODY } from "@/lib/reports/mas/body_methodology";
-import "@/styles/mas.css";
-
-declare global {
-  interface Window {
-    MAS_REPORT_CONFIG?: { dataBasePath?: string };
-  }
-}
-
-function ensureMasConfig() {
-  window.MAS_REPORT_CONFIG = {
-    ...(window.MAS_REPORT_CONFIG || {}),
-    dataBasePath: "/api/reports/mas",
-  };
-}
+import { useEffect, useState } from "react";
+import { MasShell } from "../MasShell";
+import { loadMasJson } from "@/lib/reports/mas/load";
 
 export default function MasMethodologyPage() {
+  const [doc, setDoc] = useState<Record<string, unknown> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
-    ensureMasConfig();
-  }, []);
-  const boot = useCallback(() => {
-    ensureMasConfig();
-    return import("@/lib/reports/mas/methodology.js").then((m) =>
-      m.bootMasMethodology(),
-    );
+    loadMasJson<Record<string, unknown>>("methodology.json")
+      .then(setDoc)
+      .catch((e) => setError(String(e)));
   }, []);
 
   return (
-    <ReportShell report="mas" title="MA Follow-on Giving" chrome={false}>
-      <LegacyModuleMount bodyHtml={MAS_METHODOLOGY_BODY} boot={boot} />
-    </ReportShell>
+    <MasShell>
+      <h1>Methodology</h1>
+      {error && <p>{error}</p>}
+      {doc && (
+        <article style={{ maxWidth: "70ch", lineHeight: 1.6 }}>
+          {Object.entries(doc).map(([k, v]) => (
+            <section key={k} style={{ marginBottom: 16 }}>
+              <h2 style={{ fontSize: 18 }}>{k.replaceAll("_", " ")}</h2>
+              <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit" }}>
+                {typeof v === "string" ? v : JSON.stringify(v, null, 2)}
+              </pre>
+            </section>
+          ))}
+        </article>
+      )}
+    </MasShell>
   );
 }
