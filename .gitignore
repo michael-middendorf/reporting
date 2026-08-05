@@ -14,6 +14,9 @@ __pycache__/
 .build/
 .dist/
 apps/web/dist/
+apps/web-next/.open-next/
+apps/web-next/.next/
+
 
 # Secrets / env
 .env
