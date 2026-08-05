@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import { currentUserEmail } from "@/lib/auth";
+import { requireReportAccess } from "@/lib/s3-proxy";
 
 /** Housing live data — requires Qlik/eRezLife secrets (not PLACEHOLDER). */
 export async function GET(req: Request) {
-  if (!currentUserEmail(req)) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-  }
+  const denied = requireReportAccess(req, "housing");
+  if (denied) return denied;
   const qlik = process.env.QLIK_API_KEY || "";
   if (!qlik || qlik === "PLACEHOLDER") {
     return NextResponse.json(

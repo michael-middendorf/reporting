@@ -2,39 +2,51 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import type { ReportId } from "@/lib/access";
 import { apiFetch, fetchMe, setBearer } from "@/lib/api";
 import styles from "./home.module.css";
 
-const REPORTS = [
+const REPORTS: {
+  id: ReportId;
+  href: string;
+  title: string;
+  desc: string;
+}[] = [
   {
+    id: "enrollment",
     href: "/enrollment",
     title: "Enrollment",
     desc: "Admissions funnel, decisions, SLC, PSW, visits, and withdrawals.",
   },
   {
+    id: "housing",
     href: "/housing",
     title: "Housing",
     desc: "Residence occupancy by building and gender for the current session.",
   },
   {
+    id: "mas",
     href: "/mas",
     title: "MA Follow-on Giving",
     desc: "Mission Advancement outreach correlated with follow-on gifts.",
   },
   {
+    id: "points",
     href: "/points",
     title: "MA Points",
     desc: "Activity points, tiers, and leaderboard for scoped MAs.",
   },
   {
+    id: "alumni",
     href: "/alumni",
     title: "Alumni Coverage",
     desc: "Alumni donor coverage, touch activity, and assignment opportunity.",
   },
-] as const;
+];
 
 export default function HomePage() {
   const [email, setEmail] = useState("");
+  const [allowed, setAllowed] = useState<ReportId[]>([]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -44,6 +56,7 @@ export default function HomePage() {
         return;
       }
       setEmail(me.email || "");
+      setAllowed(me.reports || []);
       setReady(true);
     });
   }, []);
@@ -61,6 +74,8 @@ export default function HomePage() {
       </div>
     );
   }
+
+  const visible = REPORTS.filter((r) => allowed.includes(r.id));
 
   return (
     <main className={styles.hub}>
@@ -80,13 +95,16 @@ export default function HomePage() {
         </div>
       </header>
       <div className={styles.grid}>
-        {REPORTS.map((r) => (
+        {visible.map((r) => (
           <Link key={r.href} href={r.href} className={styles.card}>
             <h2>{r.title}</h2>
             <p>{r.desc}</p>
             <span className={styles.open}>Open →</span>
           </Link>
         ))}
+        {visible.length === 0 && (
+          <p className={styles.sub}>No reports are available for your account.</p>
+        )}
       </div>
     </main>
   );

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   MAS_CACHE_BUCKET,
-  requireUser,
+  requireReportAccess,
   safeKey,
   streamS3Object,
 } from "@/lib/s3-proxy";
@@ -12,7 +12,7 @@ type Ctx = { params: Promise<{ path: string[] }> };
  * Serve MA Points raw JSON from the legacy cache bucket (points/data/*).
  */
 export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireUser(req);
+  const denied = requireReportAccess(req, "points");
   if (denied) return denied;
 
   const { path } = await ctx.params;

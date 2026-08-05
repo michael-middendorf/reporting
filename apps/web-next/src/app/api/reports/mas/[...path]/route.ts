@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   MAS_CACHE_BUCKET,
-  requireUser,
+  requireReportAccess,
   safeKey,
   streamS3Object,
 } from "@/lib/s3-proxy";
@@ -14,7 +14,7 @@ type Ctx = { params: Promise<{ path: string[] }> };
  * (Static HTML lives on the report bucket; published JSON/CSV is on the cache bucket.)
  */
 export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireUser(req);
+  const denied = requireReportAccess(req, "mas");
   if (denied) return denied;
 
   const { path } = await ctx.params;

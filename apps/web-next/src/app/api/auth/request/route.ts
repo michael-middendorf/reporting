@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
+import { canLogin } from "@/lib/access";
 import {
   createMagicToken,
   isValidEmail,
   normalizeEmail,
-  parseAllowed,
   sendMagicEmail,
 } from "@/lib/auth";
 
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   if (!secret) return NextResponse.json({ error: "Authentication is not configured." }, { status: 500 });
   if (!base) return NextResponse.json({ error: "APP_BASE_URL is not configured." }, { status: 500 });
 
-  if (!parseAllowed().has(email)) {
+  if (!canLogin(email)) {
     console.log("Auth request ignored for non-allowlisted email:", email);
     return NextResponse.json({ ok: true, message: MSG });
   }

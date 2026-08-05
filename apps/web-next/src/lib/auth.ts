@@ -24,9 +24,13 @@ export function isValidEmail(email: string) {
   return true;
 }
 
+/** @deprecated Prefer canLogin / allowedEmailsForReport from access.ts */
 export function parseAllowed(csv?: string) {
+  if (csv) {
+    return new Set(csv.split(",").map(normalizeEmail).filter(Boolean));
+  }
+  // Lazy import avoided: re-export union via access in call sites.
   const source =
-    csv ||
     process.env.ALLOWED_EMAILS ||
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu";
   return new Set(source.split(",").map(normalizeEmail).filter(Boolean));

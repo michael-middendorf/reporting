@@ -1,5 +1,6 @@
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
+import { canAccessReport, type ReportId } from "@/lib/access";
 import { currentUserEmail } from "@/lib/auth";
 
 const region = process.env.AWS_REGION || "us-east-2";
@@ -14,6 +15,21 @@ export function requireUser(req: Request) {
       { error: "Authentication required", redirect: "/login" },
       { status: 401 },
     );
+  }
+  return null;
+}
+
+/** Require login + access to a specific report. */
+export function requireReportAccess(req: Request, report: ReportId) {
+  const email = currentUserEmail(req);
+  if (!email) {
+    return NextResponse.json(
+      { error: "Authentication required", redirect: "/login" },
+      { status: 401 },
+    );
+  }
+  if (!canAccessReport(email, report)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   return null;
 }

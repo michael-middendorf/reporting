@@ -41,6 +41,16 @@ export default $config({
         SLATE_QUERY_URL: slateQueryUrl.value,
         SLATE_DEPOSITS_URL: slateDepositsUrl.value,
         ALLOWED_EMAILS: allowedEmails.value,
+        ENROLLMENT_ALLOWED_EMAILS:
+          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
+        HOUSING_ALLOWED_EMAILS:
+          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
+        MAS_ALLOWED_EMAILS:
+          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
+        POINTS_ALLOWED_EMAILS:
+          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
+        ALUMNI_ALLOWED_EMAILS:
+          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
         DATA_BUCKET: data.name,
         ENROLLMENT_CACHE_BUCKET:
           "amu-enrollment-pipeline-slate-dashboard-cache-us-east-2",
@@ -105,6 +115,16 @@ export default $config({
           AUTH_SECRET: authSecret.value,
           RESEND_API_KEY: resendApiKey.value,
           ALLOWED_EMAILS: allowedEmails.value,
+          ENROLLMENT_ALLOWED_EMAILS:
+            "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
+          HOUSING_ALLOWED_EMAILS:
+            "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
+          MAS_ALLOWED_EMAILS:
+            "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
+          POINTS_ALLOWED_EMAILS:
+            "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
+          ALUMNI_ALLOWED_EMAILS:
+            "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
           APP_BASE_URL: site.url,
           EMAIL_FROM:
             "AMU Project Manager <noreply@notifications.avemaria.edu>",

@@ -1,7 +1,34 @@
 /**
- * Daily magic-link blast for allowlisted emails.
+ * Daily magic-link blast for allowlisted emails (union of all report ACLs + admins).
  * Invoked by EventBridge via sst.aws.Cron.
  */
+
+function parseCsv(csv: string) {
+  return csv
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function allLoginEmails(): string[] {
+  const admins = ["cole.j.cantu@avemaria.edu", "regina.m.pirolli@avemaria.edu"];
+  const defaults: Record<string, string> = {
+    ENROLLMENT_ALLOWED_EMAILS:
+      "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
+    HOUSING_ALLOWED_EMAILS: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
+    MAS_ALLOWED_EMAILS: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
+    POINTS_ALLOWED_EMAILS: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
+    ALUMNI_ALLOWED_EMAILS: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
+  };
+  const set = new Set(admins);
+  for (const [key, fallback] of Object.entries(defaults)) {
+    for (const e of parseCsv(process.env[key] || fallback)) set.add(e);
+  }
+  // Legacy global list still honored if set
+  for (const e of parseCsv(process.env.ALLOWED_EMAILS || "")) set.add(e);
+  return [...set].sort();
+}
+
 export async function handler() {
   const secret = process.env.AUTH_SECRET || "";
   const base = (process.env.APP_BASE_URL || "").replace(/\/$/, "");
@@ -9,10 +36,7 @@ export async function handler() {
   const from =
     process.env.EMAIL_FROM ||
     "AMU Project Manager <noreply@notifications.avemaria.edu>";
-  const allowed = (process.env.ALLOWED_EMAILS || "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
+  const allowed = allLoginEmails();
   const ttl = 15;
 
   if (!secret || !base) {

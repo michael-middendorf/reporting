@@ -1,5 +1,7 @@
 /** Client fetch helpers for AMU Reporting. */
 
+import type { ReportId } from "@/lib/access";
+
 const SESSION_KEY = "amu_reporting_session";
 
 export function getBearer(): string | null {
@@ -23,7 +25,12 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
   return fetch(path, { ...init, credentials: "include", headers });
 }
 
-export type AuthMe = { authenticated: boolean; email?: string };
+export type AuthMe = {
+  authenticated: boolean;
+  email?: string;
+  admin?: boolean;
+  reports?: ReportId[];
+};
 
 export async function fetchMe(): Promise<AuthMe> {
   try {

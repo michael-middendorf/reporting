@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   MAS_REPORT_BUCKET,
-  requireUser,
+  requireReportAccess,
   safeKey,
   streamS3Object,
 } from "@/lib/s3-proxy";
@@ -13,7 +13,7 @@ type Ctx = { params: Promise<{ path: string[] }> };
  * publishing under MAS report bucket alumni/ if present.
  */
 export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireUser(req);
+  const denied = requireReportAccess(req, "alumni");
   if (denied) return denied;
 
   const { path } = await ctx.params;

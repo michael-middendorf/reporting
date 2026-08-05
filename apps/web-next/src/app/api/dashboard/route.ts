@@ -1,7 +1,7 @@
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { NextResponse } from "next/server";
-import { currentUserEmail } from "@/lib/auth";
+import { requireReportAccess } from "@/lib/s3-proxy";
 
 const REPORT_FILES: Record<string, string> = {
   admissions: "admissions",
@@ -13,12 +13,8 @@ const REPORT_FILES: Record<string, string> = {
 };
 
 export async function GET(req: Request) {
-  if (!currentUserEmail(req)) {
-    return NextResponse.json(
-      { error: "Authentication required", redirect: "/login" },
-      { status: 401 },
-    );
-  }
+  const denied = requireReportAccess(req, "enrollment");
+  if (denied) return denied;
 
   const bucket =
     process.env.ENROLLMENT_CACHE_BUCKET ||

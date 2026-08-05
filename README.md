@@ -21,13 +21,17 @@ Auth is a shared magic-link gate (Resend + email allowlist).
 ## Layout
 
 ```
-apps/web/                 Vite + React SPA (hub, auth, report frames)
-services/api/             Unified API (Python Lambda via SST)
-services/refresh/         Scheduled refresh jobs
-sst.config.ts             SST app: secrets, Router, StaticSite, Functions, Crons
-infra/                    Legacy boto3 scripts (optional / cutover)
+apps/web-next/            Next.js App Router (hub, auth, report pages)
+services/api/             Python helpers (optional)
+services/refresh/         Scheduled refresh jobs (enrollment cache)
+sst.config.ts             SST Nextjs + secrets + crons
 .github/workflows/deploy.yml   sst deploy --stage production on main
 ```
+
+## Access control
+
+Admins (`cole.j.cantu@avemaria.edu`, `regina.m.pirolli@avemaria.edu`) can open every report.
+Everyone else is gated per report via env CSV lists (`ENROLLMENT_ALLOWED_EMAILS`, `HOUSING_ALLOWED_EMAILS`, `MAS_ALLOWED_EMAILS`, `POINTS_ALLOWED_EMAILS`, `ALUMNI_ALLOWED_EMAILS`). Defaults match the legacy deployments.
 
 ## SST secrets (like the form remakes)
 
