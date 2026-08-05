@@ -7,6 +7,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import time
 import zipfile
 from pathlib import Path
@@ -76,7 +77,7 @@ def package() -> None:
     req = API_DIR / "requirements.txt"
     if req.exists():
         subprocess.run(
-            ["pip", "install", "-r", str(req), "-t", str(pkg), "--quiet"],
+            [sys.executable, "-m", "pip", "install", "-r", str(req), "-t", str(pkg), "--quiet"],
             check=True,
         )
     with zipfile.ZipFile(ZIP_PATH, "w", zipfile.ZIP_DEFLATED) as zf:

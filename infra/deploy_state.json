@@ -1,0 +1,10 @@
+{
+  "account": "905418447941",
+  "api_function_name": "amu-reporting-api",
+  "api_role_arn": "arn:aws:iam::905418447941:role/amu-reporting-api-role",
+  "data_bucket": "amu-reporting-data-us-east-2",
+  "frontend_bucket": "amu-reporting-frontend-us-east-2",
+  "github_repo": "colecantu904/reporting",
+  "oidc_role_arn": "arn:aws:iam::905418447941:role/amu-reporting-github-deploy",
+  "region": "us-east-2"
+}

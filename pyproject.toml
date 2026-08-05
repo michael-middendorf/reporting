@@ -1,0 +1,11 @@
+[project]
+name = "amu-reporting"
+version = "0.1.0"
+requires-python = "==3.12.*"
+dependencies = []
+
+[tool.uv.workspace]
+members = ["services/api", "services/refresh/enrollment_pipeline"]
+
+[tool.uv]
+package = false

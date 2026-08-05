@@ -3,6 +3,11 @@ node_modules/
 **/node_modules/
 .venv/
 **/.venv/
+.sst/
+uv.lock
+
+# SST / Python
+*.egg-info/
 __pycache__/
 **/__pycache__/
 *.pyc

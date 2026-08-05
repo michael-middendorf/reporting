@@ -1,0 +1,14 @@
+{
+  "name": "amu-reporting",
+  "private": true,
+  "scripts": {
+    "dev": "sst dev --stage dev",
+    "deploy": "sst deploy --stage production",
+    "secret:list": "sst secret list --stage production",
+    "build:web": "npm run build --prefix apps/web"
+  },
+  "devDependencies": {
+    "sst": "^4.15.2",
+    "typescript": "^5.8.2"
+  }
+}
