@@ -106,6 +106,43 @@ export default $config({
       },
     });
 
+    new sst.aws.Cron("HousingRefresh", {
+      schedule: "rate(6 hours)",
+      function: {
+        handler: "services/refresh/housing_refresh/handler.handler",
+        runtime: "python3.12",
+        timeout: "10 minutes",
+        memory: "1024 MB",
+        link: [data],
+        python: {
+          uv: true,
+        },
+        copyFiles: [
+          {
+            from: "services/api/reporting_api",
+            to: "reporting_api",
+          },
+        ],
+        environment: {
+          DATA_BUCKET: data.name,
+          QLIK_API_KEY: qlikApiKey.value,
+          QLIK_TENANT: qlikTenant.value,
+          EREZLIFE_API_KEY: erezlifeApiKey.value,
+          SLATE_QUERY_URL: slateQueryUrl.value,
+          SLATE_DEPOSITS_URL: slateDepositsUrl.value,
+        },
+        permissions: [
+          {
+            actions: ["s3:GetObject", "s3:PutObject", "s3:ListBucket"],
+            resources: [
+              $interpolate`arn:aws:s3:::${data.name}`,
+              $interpolate`arn:aws:s3:::${data.name}/*`,
+            ],
+          },
+        ],
+      },
+    });
+
     new sst.aws.Cron("DailyMagicLinks", {
       schedule: "cron(0 12 * * ? *)",
       function: {

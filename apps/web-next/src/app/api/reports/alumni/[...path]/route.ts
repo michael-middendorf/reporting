@@ -24,13 +24,22 @@ export async function GET(req: Request, ctx: Ctx) {
   const dataBucket = process.env.DATA_BUCKET || "";
   try {
     if (dataBucket) {
-      try {
-        return await streamS3Object(dataBucket, safeKey(path, "alumni"));
-      } catch {
-        // fall through
-      }
+      const primary = await streamS3Object(dataBucket, safeKey(path, "alumni"));
+      if (primary.status !== 404) return primary;
     }
-    return await streamS3Object(MAS_REPORT_BUCKET, safeKey(path, "alumni/data"));
+    const fallback = await streamS3Object(
+      MAS_REPORT_BUCKET,
+      safeKey(path, "alumni/data"),
+    );
+    if (fallback.status !== 404) return fallback;
+
+    return NextResponse.json(
+      {
+        error: "Not found",
+        hint: "Publish alumni JSON under DATA_BUCKET/alumni/ (summary.json, etc.).",
+      },
+      { status: 404 },
+    );
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: msg }, { status: 502 });

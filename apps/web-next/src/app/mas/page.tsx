@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MasShell, MetricCard, money } from "./MasShell";
+import { MasShell, MetricCard } from "./MasShell";
 import {
   drilldownHref,
+  leaderboardFrom,
   loadMasJson,
+  money,
   type Scorecards,
   type Trends,
 } from "@/lib/reports/mas/load";
@@ -28,6 +30,9 @@ export default function MasOverviewPage() {
       })
       .catch((e) => setError(String(e)));
   }, []);
+
+  const board = leaderboardFrom(scorecards);
+  const typeMix = Object.entries(trends?.type_mix || {}).sort((a, b) => b[1] - a[1]);
 
   return (
     <MasShell>
@@ -79,12 +84,12 @@ export default function MasOverviewPage() {
                 <th align="left">MA</th>
                 <th align="right">Outreach</th>
                 <th align="right">Two-way</th>
-                <th align="right">Gifts</th>
-                <th align="right">Amount</th>
+                <th align="right">Donors (30d)</th>
+                <th align="right">$ (30d)</th>
               </tr>
             </thead>
             <tbody>
-              {(scorecards?.ma_leaderboard || []).map((row) => (
+              {board.map((row) => (
                 <tr key={row.ma_owner}>
                   <td>
                     <a
@@ -98,25 +103,36 @@ export default function MasOverviewPage() {
                     </a>
                   </td>
                   <td align="right">{row.outreach_notes ?? "—"}</td>
-                  <td align="right">{row.two_way ?? "—"}</td>
-                  <td align="right">{row.follow_on_gifts ?? "—"}</td>
-                  <td align="right">{money(row.follow_on_amount)}</td>
+                  <td align="right">{row.two_way_engagements ?? "—"}</td>
+                  <td align="right">{row.follow_on_donors_30 ?? "—"}</td>
+                  <td align="right">{money(row.follow_on_dollars_30)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        {!board.length && !error && <p>No leaderboard rows yet.</p>}
       </section>
 
       <section>
         <h2>Engagement mix</h2>
         <ul>
-          {(trends?.engagement_type_mix || []).map((x) => (
-            <li key={x.label}>
-              {x.label}: <strong>{x.count}</strong>
+          {typeMix.map(([label, count]) => (
+            <li key={label}>
+              <a
+                href={drilldownHref({
+                  title: label,
+                  view: "engagements",
+                  predicates: [{ kind: "eq", key: "engagement_type", value: label }],
+                })}
+              >
+                {label}
+              </a>
+              : <strong>{count}</strong>
             </li>
           ))}
         </ul>
+        {!typeMix.length && !error && <p>No type mix in trends.json.</p>}
       </section>
     </MasShell>
   );

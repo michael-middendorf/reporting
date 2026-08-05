@@ -1,23 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MasShell, money } from "../MasShell";
-import { drilldownHref, loadMasJson } from "@/lib/reports/mas/load";
-
-type GiftRow = {
-  contact_name?: string;
-  contact_id?: string;
-  amount?: number;
-  gift_date?: string;
-  ma_owner?: string;
-};
+import { MasShell } from "../MasShell";
+import {
+  drilldownHref,
+  loadMasJson,
+  money,
+  type FollowOnGift,
+} from "@/lib/reports/mas/load";
 
 export default function MasGiftsPage() {
-  const [rows, setRows] = useState<GiftRow[]>([]);
+  const [rows, setRows] = useState<FollowOnGift[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadMasJson<{ recent?: GiftRow[]; follow_on_gifts?: GiftRow[] } | GiftRow[]>(
+    loadMasJson<FollowOnGift[] | { recent?: FollowOnGift[]; follow_on_gifts?: FollowOnGift[] }>(
       "follow_on_gifts.json",
     )
       .then((data) => {
@@ -30,7 +27,7 @@ export default function MasGiftsPage() {
   return (
     <MasShell>
       <h1>Follow-on gifts</h1>
-      {error && <p>{error}</p>}
+      {error && <p style={{ color: "#8f2d1f" }}>{error}</p>}
       <div style={{ overflowX: "auto", background: "#fff", borderRadius: 12 }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
@@ -38,12 +35,13 @@ export default function MasGiftsPage() {
               <th align="left">Contact</th>
               <th align="left">MA</th>
               <th align="left">Date</th>
+              <th align="left">Type</th>
               <th align="right">Amount</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={`${r.contact_id}-${i}`}>
+              <tr key={`${r.gift_id}-${i}`}>
                 <td>
                   <a
                     href={drilldownHref({
@@ -55,14 +53,16 @@ export default function MasGiftsPage() {
                     {r.contact_name || "—"}
                   </a>
                 </td>
-                <td>{r.ma_owner || "—"}</td>
+                <td>{r.linked_ma_owner || "—"}</td>
                 <td>{r.gift_date || "—"}</td>
-                <td align="right">{money(r.amount)}</td>
+                <td>{r.linked_engagement_type || r.segment || "—"}</td>
+                <td align="right">{money(r.gift_amount)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {!rows.length && !error && <p>No follow-on gifts found.</p>}
       <p style={{ marginTop: 12 }}>
         <a href="/api/reports/mas/exports/recent_follow_on_gifts.csv">Download CSV</a>
       </p>
