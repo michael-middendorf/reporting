@@ -3,6 +3,7 @@ name: Deploy
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -31,7 +32,9 @@ jobs:
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
 
       - name: Install JS deps
-        run: npm ci
+        run: |
+          npm ci
+          npm ci --prefix apps/web-next
 
       - name: Sync Python workspace
         run: |
@@ -44,8 +47,8 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: us-east-2
 
-      # SST secrets (AuthSecret, ResendApiKey, VirtuousApiKey, …) live in SST/SSM.
-      # CI deploys pick them up automatically — they are not needed in GitHub Secrets.
+      # SST secrets (AuthSecret, ResendApiKey, …) live in SST/SSM — not GitHub Secrets.
+      # Runtime S3 access is IAM on the Next.js Lambda (sst.config permissions), not CI keys.
       - name: Deploy
         run: |
           export PATH="$HOME/.local/bin:$PATH"

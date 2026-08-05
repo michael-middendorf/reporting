@@ -185,6 +185,15 @@ def ensure_oidc_deploy_role() -> Optional[str]:
         }))
         return None
 
+    # Include both default and ID-qualified subject claims (orgs that customize
+    # OIDC subjects emit owner@id/repo@id; personal repos usually use owner/repo).
+    owner, repo = GITHUB_REPO.split("/", 1)
+    owner_id = os.getenv("GITHUB_OWNER_ID", "").strip()
+    repo_id = os.getenv("GITHUB_REPO_ID", "").strip()
+    sub_patterns = [f"repo:{GITHUB_REPO}:*"]
+    if owner_id and repo_id:
+        sub_patterns.append(f"repo:{owner}@{owner_id}/{repo}@{repo_id}:*")
+
     trust = {
         "Version": "2012-10-17",
         "Statement": [
@@ -197,7 +206,7 @@ def ensure_oidc_deploy_role() -> Optional[str]:
                         "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
                     },
                     "StringLike": {
-                        "token.actions.githubusercontent.com:sub": f"repo:{GITHUB_REPO}:*",
+                        "token.actions.githubusercontent.com:sub": sub_patterns,
                     },
                 },
             }

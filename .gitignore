@@ -5,6 +5,10 @@ node_modules/
 **/.venv/
 .sst/
 uv.lock
+sst-env.d.ts
+**/sst-env.d.ts
+sst.pyi
+**/sst.pyi
 
 # SST / Python
 *.egg-info/
@@ -32,15 +36,6 @@ apps/web-next/.next/
 .idea/
 .vscode/
 *.swp
-
-# Nested legacy git checkouts (kept locally for reference; not part of monorepo)
-enrollment-dashboard/
-enrollment-pipeline/
-housing-dashboard/
-housing-dashboard-ref/
-mas-follow-up-report/
-pc-current-students-report/
-virt-reporting/
 
 # Report data / PII
 **/data/**/*.json
