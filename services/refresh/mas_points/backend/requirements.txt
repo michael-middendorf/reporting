@@ -1,0 +1,3 @@
+# Backend refresh only needs boto3 for the S3 publish step.
+# Virtuous fetching uses the stdlib (urllib) client.
+boto3>=1.34

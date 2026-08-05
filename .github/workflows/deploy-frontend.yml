@@ -1,0 +1,45 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "apps/web/**"
+      - "infra/deploy_frontend.py"
+      - ".github/workflows/deploy-frontend.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install boto3
+        run: python -m pip install boto3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-2' }}
+
+      - name: Deploy frontend
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+          FRONTEND_BUCKET: ${{ vars.FRONTEND_BUCKET || 'amu-reporting-frontend-us-east-2' }}
+          API_FUNCTION_NAME: ${{ vars.API_FUNCTION_NAME || 'amu-reporting-api' }}
+        run: python infra/deploy_frontend.py

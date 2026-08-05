@@ -1,0 +1,12 @@
+{
+    "admissions" : "https://apply.avemaria.edu/manage/query/run?id=eee04674-3f22-4f6e-be97-2b69a12d7834&cmd=service&output=json&h=0f23b92e-e58b-4130-a2b1-9c63f351db8f",
+    "psw"  : "https://apply.avemaria.edu/manage/query/run?id=a569aed1-ac1b-4314-8a82-186793c7fc96&cmd=service&output=json&h=345f6e2c-9613-4249-8337-b889dea47ca5",
+    "messages" : "https://apply.avemaria.edu/manage/query/run?id=2609f749-59db-43fb-8e07-9c7223f6075c&cmd=service&output=json&h=a0b4e5d9-cee2-4d7d-b5d3-72f856927130",
+    "campus_vists" : "https://apply.avemaria.edu/manage/query/run?id=a0088087-bf28-43db-8435-88e4818cf88b&cmd=service&output=json&h=08590e97-6973-4f35-88ef-8c962d895aff",
+    "app_decisions" : "https://apply.avemaria.edu/manage/query/run?id=adf9e3c3-e8dd-48a7-974e-cb75420739c3&cmd=service&output=json&h=f74e22fe-050a-412e-9dd8-fda484343513",
+    "Interactions" : "https://apply.avemaria.edu/manage/query/run?id=3f9f4860-2cc3-48a4-85ba-2af6f5b027f2&cmd=service&output=json&h=1cb467c2-203f-4791-a77c-5dfca592b411",
+    "slc" : "https://apply.avemaria.edu/manage/query/run?id=a34874b1-07ff-4451-9b51-1d0ab73528e2&cmd=service&output=json&h=d576d0fe-df24-450a-a4da-373afad41242",
+    "islc" : "https://apply.avemaria.edu/manage/query/run?id=a929c1d2-e18c-44e4-9247-167c429d57d0&cmd=service&output=json&h=b0f70487-1562-4f01-957a-5a2fe24c5578",
+    "slc_stucents" : "https://apply.avemaria.edu/manage/query/run?id=a929c1d2-e18c-44e4-9247-167c429d57d0&cmd=service&output=json&h=b0f70487-1562-4f01-957a-5a2fe24c5578",
+    "withdrawn" : "https://apply.avemaria.edu/manage/query/run?id=d646a357-a5bb-4402-9bbc-0ff3a80461c4&cmd=service&output=json&h=7224bf1d-4010-46bd-b164-243503f68034"
+}

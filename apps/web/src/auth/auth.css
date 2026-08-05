@@ -1,0 +1,119 @@
+:root {
+  --blue: #1a3f6f;
+  --blue-mid: #2a5899;
+  --gold: #b8922e;
+  --pale: #ebf0f7;
+  --bdr: #c8d6e8;
+  --t1: #1a3f6f;
+  --t2: #4a6a90;
+  --dn: #b83a3a;
+  --up: #1e7a50;
+}
+
+.auth-card {
+  width: min(100%, 440px);
+  margin: 10vh auto;
+  background: #fff;
+  border: 1px solid var(--bdr);
+  border-radius: 10px;
+  padding: 28px 26px 24px;
+  box-shadow: 0 8px 28px rgba(26, 63, 111, 0.08);
+  color: var(--t1);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.auth-card .eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+
+.auth-card h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--blue);
+  margin: 0 0 8px;
+}
+
+.auth-card .copy {
+  color: var(--t2);
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+
+.auth-card label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--t2);
+  margin-bottom: 6px;
+}
+
+.auth-card input {
+  width: 100%;
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--t1);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.auth-card input:focus {
+  border-color: var(--blue-mid);
+}
+
+.auth-card button {
+  margin-top: 14px;
+  width: 100%;
+  border: 0;
+  border-radius: 6px;
+  padding: 11px 14px;
+  background: var(--blue);
+  color: #fff;
+  font: 700 13px/1 inherit;
+  cursor: pointer;
+}
+
+.auth-card button:hover:not(:disabled) {
+  background: var(--blue-mid);
+}
+
+.auth-card button:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.auth-card .status {
+  margin-top: 14px;
+  min-height: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.auth-card .status.ok {
+  color: var(--up);
+}
+
+.auth-card .status.err {
+  color: var(--dn);
+}
+
+.auth-card .hint {
+  margin-top: 18px;
+  font-size: 12px;
+  color: var(--t2);
+  line-height: 1.45;
+}
+
+.auth-card a {
+  color: var(--blue);
+}

@@ -1,0 +1,48 @@
+/* theme.css — AMU giving-site theme tokens.
+   Mirrors AMU-Marketing/giving-refactor globals.css:
+   navy #0c233f, gold #c8972d, slate text, Outfit (sans) + Libre Baskerville (serif). */
+
+:root {
+  --navy: #0c233f;
+  --navy-700: #14345c;
+  --navy-100: #e7ecf3;
+  --gold: #c8972d;
+  --gold-soft: #f3e7c8;
+  --slate: #475569;
+  --slate-400: #94a3b8;
+  --line: #e2e8f0;
+  --bg: #ffffff;
+  --bg-soft: #f7f9fc;
+  --ok: #3f7d54;
+  --warn: #c85a3a;
+
+  --sans: "Outfit", system-ui, -apple-system, sans-serif;
+  --serif: "Libre Baskerville", Georgia, serif;
+
+  --shadow: 0 1px 2px rgba(12, 35, 63, .06), 0 8px 24px rgba(12, 35, 63, .06);
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  font-weight: 300;
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  color: var(--slate);
+  background: var(--bg-soft);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, .serif { font-family: var(--serif); color: var(--navy); font-weight: 700; }
+h1 { font-size: 1.9rem; letter-spacing: -.01em; }
+h2 { font-size: 1.3rem; }
+h3 { font-size: 1.05rem; }
+
+a { color: var(--navy); text-decoration: none; }
+a:hover { color: var(--gold); }
+::selection { background: var(--gold); color: #fff; }
+
+.tabular { font-variant-numeric: tabular-nums; }

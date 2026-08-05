@@ -1,0 +1,10 @@
+/* Per-report CSS tokens live primarily inside each static report under
+   apps/web/public/reports/. This package is a placeholder for shared tokens
+   if/when reports are fully ported into React components. */
+
+:root {
+  --amu-navy: #1a3f6f;
+  --amu-gold: #b8922e;
+  --amu-cream-bg: #f5ecd9;
+  --amu-cream-accent: #b4532d;
+}

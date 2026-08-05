@@ -1,0 +1,126 @@
+.hub {
+  min-height: 100vh;
+  background: #ebf0f7;
+  color: #1a3f6f;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  padding: 36px 28px 60px;
+}
+
+.hub-header {
+  max-width: 1100px;
+  margin: 0 auto 28px;
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.hub-eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #b8922e;
+  margin-bottom: 8px;
+}
+
+.hub h1 {
+  margin: 0;
+  font-size: 32px;
+  letter-spacing: -0.02em;
+}
+
+.hub-sub {
+  margin: 8px 0 0;
+  color: #4a6a90;
+  font-size: 14px;
+}
+
+.hub-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: #4a6a90;
+}
+
+.hub-user button {
+  border: 1px solid #c8d6e8;
+  background: #fff;
+  border-radius: 6px;
+  padding: 7px 12px;
+  font: 700 12px/1 inherit;
+  color: #1a3f6f;
+  cursor: pointer;
+}
+
+.hub-grid {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.hub-card {
+  background: #fff;
+  border: 1px solid #c8d6e8;
+  border-top: 3px solid #1a3f6f;
+  border-radius: 8px;
+  padding: 18px 18px 16px;
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: box-shadow 0.18s, transform 0.18s;
+}
+
+.hub-card.cream {
+  border-top-color: #b4532d;
+  background: #fffbf5;
+}
+
+.hub-card:hover {
+  box-shadow: 0 8px 26px rgba(26, 63, 111, 0.13);
+  transform: translateY(-2px);
+}
+
+.hub-card h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.hub-card p {
+  margin: 0;
+  flex: 1;
+  font-size: 13px;
+  color: #4a6a90;
+  line-height: 1.5;
+}
+
+.hub-card .open {
+  font-size: 12px;
+  font-weight: 700;
+  color: #b8922e;
+}
+
+.loading-shell {
+  min-height: 40vh;
+  display: grid;
+  place-items: center;
+  color: #4a6a90;
+  font-family: system-ui, sans-serif;
+}
+
+.report-frame-wrap {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+}
+
+.report-frame-wrap iframe {
+  border: 0;
+  width: 100%;
+  height: 100%;
+}
