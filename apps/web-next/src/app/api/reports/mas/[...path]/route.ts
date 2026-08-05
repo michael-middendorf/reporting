@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import {
-  MAS_REPORT_BUCKET,
+  MAS_CACHE_BUCKET,
   requireUser,
   safeKey,
   streamS3Object,
@@ -9,8 +9,9 @@ import {
 type Ctx = { params: Promise<{ path: string[] }> };
 
 /**
- * Serve MAS giving report artifacts from the legacy report bucket.
- * Keys live under data/ (e.g. data/metadata.json).
+ * Serve MAS giving report artifacts from the cache bucket (data/*).
+ * Legacy layout: mas-report-cache-…/data/metadata.json etc.
+ * (Static HTML lives on the report bucket; published JSON/CSV is on the cache bucket.)
  */
 export async function GET(req: Request, ctx: Ctx) {
   const denied = requireUser(req);
@@ -22,12 +23,10 @@ export async function GET(req: Request, ctx: Ctx) {
   }
 
   try {
-    // Primary: data/<file> on the public report bucket (how the old CF site published)
-    const primary = await streamS3Object(MAS_REPORT_BUCKET, safeKey(path, "data"));
+    const primary = await streamS3Object(MAS_CACHE_BUCKET, safeKey(path, "data"));
     if (primary.status !== 404) return primary;
 
-    // Fallback: some publishes used a bare prefix (no data/)
-    const fallback = await streamS3Object(MAS_REPORT_BUCKET, safeKey(path, ""));
+    const fallback = await streamS3Object(MAS_CACHE_BUCKET, safeKey(path, ""));
     if (fallback.status !== 404) return fallback;
 
     return primary;
