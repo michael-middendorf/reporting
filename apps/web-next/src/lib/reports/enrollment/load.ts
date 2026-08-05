@@ -17,21 +17,34 @@ export type EnrollmentBundle = {
   campus: ReturnType<typeof _procCampus>;
 };
 
+async function loadSession() {
+  const r = await apiFetch("/api/dashboard");
+  if (r.status === 401) throw new Error("Authentication required");
+  if (!r.ok) throw new Error(`Dashboard API ${r.status}`);
+  const json = await r.json();
+  if (!json.success) throw new Error(json.error || "Dashboard API failed");
+  return json;
+}
+
 export async function loadEnrollmentBundle(): Promise<EnrollmentBundle> {
-  const session = await (async () => {
-    const r = await apiFetch("/api/dashboard");
-    if (r.status === 401) throw new Error("Authentication required");
-    if (!r.ok) throw new Error(`Dashboard API ${r.status}`);
-    const json = await r.json();
-    if (!json.success) throw new Error(json.error || "Dashboard API failed");
-    return json;
-  })();
+  // Session is optional metadata (generated_at); report rows come from same-origin proxy.
+  const session = await loadSession().catch((e) => {
+    // Still try report proxies if dashboard metadata fails for a non-auth reason.
+    if (e instanceof Error && /Authentication required|401/.test(e.message)) throw e;
+    return { generated_at: undefined, report_presigned_urls: {} };
+  });
+
+  const fetchImpl: typeof fetch = (input, init) => {
+    const path = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    return apiFetch(path, init);
+  };
+
   const [admRows, pswRows, slcRows, wdRows, campusRows] = await Promise.all([
-    _dataFetch("admissions", session),
-    _dataFetch("psw", session),
-    _dataFetch("slc", session),
-    _dataFetch("withdrawn", session),
-    _dataFetch("campus", session),
+    _dataFetch("admissions", session, fetchImpl),
+    _dataFetch("psw", session, fetchImpl),
+    _dataFetch("slc", session, fetchImpl),
+    _dataFetch("withdrawn", session, fetchImpl),
+    _dataFetch("campus", session, fetchImpl).catch(() => []),
   ]);
   return {
     generatedAt: session.generated_at,

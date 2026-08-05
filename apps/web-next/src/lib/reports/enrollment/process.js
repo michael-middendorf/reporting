@@ -13,22 +13,29 @@ export const DATA = {
 };
 
 /** Fetch a (possibly gzipped) JSON URL and return parsed object. */
-export async function _fetchJsonMaybeGzip(url) {
-  const r = await fetch(url);
+export async function _fetchJsonMaybeGzip(url, fetchImpl = fetch) {
+  const r = await fetchImpl(url, { credentials: "include" });
   if (!r.ok) throw new Error(`HTTP ${r.status} for report URL`);
+  // If the server already decoded Content-Encoding:gzip, body is plain JSON.
+  const encoding = (r.headers.get("content-encoding") || "").toLowerCase();
+  if (encoding === "gzip" || encoding === "x-gzip") {
+    // Some runtimes auto-decompress; prefer text() when body is already decoded.
+    // Fall through to byte check when needed.
+  }
   const buf = await r.arrayBuffer();
   const bytes = new Uint8Array(buf);
   // Raw gzip magic → decompress in-session (DecompressionStream).
-  // If S3 Content-Encoding:gzip already decoded the body, bytes are plain JSON.
   let text;
   if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
-    if (typeof DecompressionStream === 'undefined') {
-      throw new Error('Browser lacks DecompressionStream — use a current Chromium/Firefox/Safari');
+    if (typeof DecompressionStream === "undefined") {
+      throw new Error(
+        "Browser lacks DecompressionStream — use a current Chromium/Firefox/Safari",
+      );
     }
-    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
     text = await new Response(stream).text();
   } else {
-    text = new TextDecoder('utf-8').decode(bytes);
+    text = new TextDecoder("utf-8").decode(bytes);
   }
   return JSON.parse(text);
 }
@@ -46,16 +53,30 @@ export async function _loadDashboardSession(fetchImpl = fetch) {
   return session;
 }
 
-export async function _dataFetch(name, session) {
+/**
+ * Load a report dataset.
+ * Prefer same-origin /api/enrollment/:name (no S3 CORS). Fall back to
+ * legacy presigned gzip URLs from the dashboard session when provided.
+ */
+export async function _dataFetch(name, session, fetchImpl = fetch) {
   const key = DATA.reports[name];
   if (!key) throw new Error(`Unknown dataset: ${name}`);
-  const urls = (session.report_presigned_urls || {})[key]
-    || (session.report_presigned_urls || {})[name];
-  if (!urls || !urls.json_gzip) {
-    throw new Error(`No presigned gzip URL for ${name} (${key})`);
+
+  try {
+    const payload = await _fetchJsonMaybeGzip(`/api/enrollment/${name}`, fetchImpl);
+    return payload.row || [];
+  } catch (proxyErr) {
+    const urls =
+      (session?.report_presigned_urls || {})[key] ||
+      (session?.report_presigned_urls || {})[name];
+    if (!urls?.json_gzip) {
+      throw proxyErr instanceof Error
+        ? proxyErr
+        : new Error(`Enrollment proxy failed for ${name}`);
+    }
+    const payload = await _fetchJsonMaybeGzip(urls.json_gzip, fetchImpl);
+    return payload.row || [];
   }
-  const payload = await _fetchJsonMaybeGzip(urls.json_gzip);
-  return payload.row || [];
 }
 
 // ── processors ───────────────────────────────────────────
