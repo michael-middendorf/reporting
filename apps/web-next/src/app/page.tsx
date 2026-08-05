@@ -1,0 +1,93 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { apiFetch, fetchMe, setBearer } from "@/lib/api";
+import styles from "./home.module.css";
+
+const REPORTS = [
+  {
+    href: "/enrollment",
+    title: "Enrollment",
+    desc: "Admissions funnel, decisions, SLC, PSW, visits, and withdrawals.",
+  },
+  {
+    href: "/housing",
+    title: "Housing",
+    desc: "Residence occupancy by building and gender for the current session.",
+  },
+  {
+    href: "/mas",
+    title: "MA Follow-on Giving",
+    desc: "Mission Advancement outreach correlated with follow-on gifts.",
+  },
+  {
+    href: "/points",
+    title: "MA Points",
+    desc: "Activity points, tiers, and leaderboard for scoped MAs.",
+  },
+  {
+    href: "/alumni",
+    title: "Alumni Coverage",
+    desc: "Alumni donor coverage, touch activity, and assignment opportunity.",
+  },
+] as const;
+
+export default function HomePage() {
+  const [email, setEmail] = useState("");
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    fetchMe().then((me) => {
+      if (!me.authenticated) {
+        window.location.href = "/login";
+        return;
+      }
+      setEmail(me.email || "");
+      setReady(true);
+    });
+  }, []);
+
+  async function logout() {
+    await apiFetch("/api/auth/logout", { method: "POST" });
+    setBearer(null);
+    window.location.href = "/login";
+  }
+
+  if (!ready) {
+    return (
+      <div className={styles.loading}>
+        <p>Loading…</p>
+      </div>
+    );
+  }
+
+  return (
+    <main className={styles.hub}>
+      <header className={styles.header}>
+        <div>
+          <div className={styles.eyebrow}>Ave Maria University</div>
+          <h1>Reporting</h1>
+          <p className={styles.sub}>
+            Internal dashboards for admissions, housing, and advancement.
+          </p>
+        </div>
+        <div className={styles.user}>
+          {email && <span>{email}</span>}
+          <button type="button" onClick={logout}>
+            Sign out
+          </button>
+        </div>
+      </header>
+      <div className={styles.grid}>
+        {REPORTS.map((r) => (
+          <Link key={r.href} href={r.href} className={styles.card}>
+            <h2>{r.title}</h2>
+            <p>{r.desc}</p>
+            <span className={styles.open}>Open →</span>
+          </Link>
+        ))}
+      </div>
+    </main>
+  );
+}

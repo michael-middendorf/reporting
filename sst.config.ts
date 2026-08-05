@@ -1,22 +1,8 @@
 /// <reference path="./.sst/platform/config.d.ts" />
 
 /**
- * AMU Reporting — SST stack (same secrets pattern as undergraduate-form-remake).
- *
- * Secrets are stored by SST (SSM). Set once per stage; every `sst deploy`
- * (including CI on main) re-injects them into Lambda environment:
- *
- *   npx sst secret set AuthSecret '…' --stage production
- *   npx sst secret set ResendApiKey '…' --stage production
- *   npx sst secret set VirtuousApiKey '…' --stage production
- *   npx sst secret set QlikApiKey '…' --stage production
- *   npx sst secret set QlikTenant 'tenant.region.qlikcloud.com' --stage production
- *   npx sst secret set ErezlifeApiKey '…' --stage production
- *   npx sst secret set SlateQueryUrl 'https://…' --stage production
- *   npx sst secret set SlateDepositsUrl 'https://…' --stage production
- *   npx sst secret set AllowedEmails 'a@avemaria.edu,b@avemaria.edu' --stage production
- *
- * CI only needs AWS_DEPLOY_ROLE_ARN (OIDC). App secrets are not duplicated in GitHub.
+ * AMU Reporting — Next.js + SST (form-remake secrets pattern).
+ * Legacy report folders are not modified; UIs are copied into apps/web-next.
  */
 export default $config({
   app(input) {
@@ -40,14 +26,9 @@ export default $config({
     const allowedEmails = new sst.Secret("AllowedEmails");
 
     const data = new sst.aws.Bucket("ReportData");
-    const router = new sst.aws.Router("Router");
 
-    const api = new sst.aws.Function("Api", {
-      handler: "services/api/reporting_api/handler.lambda_handler",
-      runtime: "python3.12",
-      timeout: "2 minutes",
-      memory: "1024 MB",
-      url: true,
+    const site = new sst.aws.Nextjs("Web", {
+      path: "apps/web-next",
       link: [data],
       environment: {
         AUTH_SECRET: authSecret.value,
@@ -55,7 +36,6 @@ export default $config({
         VIRTUOUS_API_KEY: virtuousApiKey.value,
         EREZLIFE_API_KEY: erezlifeApiKey.value,
         API_KEY: erezlifeApiKey.value,
-        SITE_URL: "https://avemaria.erezlife.com/",
         QLIK_API_KEY: qlikApiKey.value,
         QLIK_TENANT: qlikTenant.value,
         SLATE_QUERY_URL: slateQueryUrl.value,
@@ -66,11 +46,8 @@ export default $config({
           "amu-enrollment-pipeline-slate-dashboard-cache-us-east-2",
         CACHE_BUCKET: "amu-enrollment-pipeline-slate-dashboard-cache-us-east-2",
         CACHE_KEY: "dashboard/slate-report-cache.json",
-        TARGET_SESSION: "2026FALL01",
-        DATA_DIR: "/tmp",
         EMAIL_FROM:
           "AMU Project Manager <noreply@notifications.avemaria.edu>",
-        APP_BASE_URL: router.url,
       },
       permissions: [
         {
@@ -85,41 +62,6 @@ export default $config({
           ],
         },
       ],
-    });
-
-    router.route(
-      "/api",
-      api.url.apply((u) => (u ? u.replace(/\/$/, "") : "")),
-    );
-
-    const web = new sst.aws.StaticSite("Web", {
-      path: "apps/web",
-      build: {
-        command: "npm ci && npm run build",
-        output: "dist",
-      },
-      errorPage: "index.html",
-      router: {
-        instance: router,
-      },
-    });
-
-    new sst.aws.Cron("DailyMagicLinks", {
-      schedule: "cron(0 12 * * ? *)",
-      function: {
-        handler: "services/api/reporting_api/handler.lambda_handler",
-        runtime: "python3.12",
-        timeout: "2 minutes",
-        memory: "512 MB",
-        environment: {
-          AUTH_SECRET: authSecret.value,
-          RESEND_API_KEY: resendApiKey.value,
-          ALLOWED_EMAILS: allowedEmails.value,
-          APP_BASE_URL: router.url,
-          EMAIL_FROM:
-            "AMU Project Manager <noreply@notifications.avemaria.edu>",
-        },
-      },
     });
 
     new sst.aws.Cron("EnrollmentRefresh", {
@@ -152,11 +94,22 @@ export default $config({
       },
     });
 
-    return {
-      url: router.url,
-      apiUrl: api.url,
-      dataBucket: data.name,
-      webUrl: web.url,
-    };
+    new sst.aws.Cron("DailyMagicLinks", {
+      schedule: "cron(0 12 * * ? *)",
+      function: {
+        handler: "functions/daily-magic.handler",
+        timeout: "2 minutes",
+        environment: {
+          AUTH_SECRET: authSecret.value,
+          RESEND_API_KEY: resendApiKey.value,
+          ALLOWED_EMAILS: allowedEmails.value,
+          APP_BASE_URL: site.url,
+          EMAIL_FROM:
+            "AMU Project Manager <noreply@notifications.avemaria.edu>",
+        },
+      },
+    });
+
+    return { url: site.url, dataBucket: data.name };
   },
 });

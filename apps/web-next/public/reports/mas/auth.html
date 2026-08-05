@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Report Access</title>
+    <script>
+      (function () {
+        var next = encodeURIComponent(location.pathname + location.search);
+        location.replace("/login?next=" + next);
+      })();
+    </script>
+  </head>
+  <body>
+    <p>Redirecting to sign in…</p>
+  </body>
+</html>

@@ -1,0 +1,1260 @@
+<title>AMU Housing Dashboard — FA26</title>
+<style>
+  :root {
+    --navy:        #EEF2F8;
+    --navy-card:   #FFFFFF;
+    --navy-raised: #F0F5FF;
+    --gold:        #B8892A;
+    --gold-muted:  #8A6C28;
+    --gold-lt:     #D4A843;
+    --text:        #0D2B5E;
+    --text-dim:    #4A6490;
+    --men:         #1B5EA8;
+    --men-dim:     #0D4080;
+    --men-glow:    #2E75C8;
+    --women:       #943060;
+    --women-dim:   #72204A;
+    --women-glow:  #B84080;
+    --other:       #1F6B42;
+    --other-glow:  #2E8A55;
+    --border:      #D8E2F0;
+    --border-hi:   #C0D0E8;
+    --good:        #1F6B42;
+    --good-bg:     #EBF7F1;
+    --warn-bg:     #FEF8EE;
+    --crit:        #C0392B;
+    --crit-bg:     #FDF0EF;
+    --shadow-sm:   0 1px 3px rgba(13,43,94,.07),0 1px 2px rgba(13,43,94,.05);
+    --shadow:      0 4px 16px rgba(13,43,94,.10),0 2px 6px rgba(13,43,94,.06);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--navy);
+    color: var(--text);
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  .site-header {
+    background: #FFFFFF;
+    border-bottom: 3px solid var(--gold);
+    box-shadow: var(--shadow-sm);
+    padding: 20px 40px 16px;
+    display: flex;
+    align-items: flex-end;
+    gap: 48px;
+    flex-wrap: wrap;
+  }
+  .site-title { flex: 0 0 auto; }
+  .site-title .eyebrow {
+    font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--gold); margin-bottom: 5px;
+  }
+  .site-title h1 {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 22px; font-weight: normal; color: var(--text);
+  }
+  .site-title .session-tag {
+    margin-top: 4px; font-size: 12px; color: var(--text-dim); letter-spacing: .04em;
+  }
+  .header-stats { display: flex; gap: 36px; flex-wrap: wrap; padding-bottom: 2px; }
+  .stat-item { text-align: right; }
+  .stat-item .num {
+    display: block; font-size: 28px; font-variant-numeric: tabular-nums;
+    font-weight: 300; color: var(--text); letter-spacing: -.02em; line-height: 1.1;
+  }
+  .stat-item .lbl {
+    font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim);
+  }
+  .header-legend {
+    margin-left: auto; display: flex; flex-direction: column;
+    gap: 6px; justify-content: flex-end; padding-bottom: 2px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--text-dim); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* ── PLANNING STRIP ── */
+  .plan-strip {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr;
+    gap: 10px;
+    padding: 16px 40px;
+    background: var(--navy-raised);
+    border-bottom: 1px solid var(--border);
+  }
+  .pcard {
+    background: var(--navy-card);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 12px 14px;
+  }
+  .pcard-label {
+    font-size: 9px; font-weight: 700; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px;
+  }
+  .pcard-num {
+    font-size: 28px; font-weight: 300; font-variant-numeric: tabular-nums;
+    letter-spacing: -.03em; line-height: 1; margin-bottom: 5px;
+  }
+  .pcard-num.gold  { color: var(--gold-lt); }
+  .pcard-num.good  { color: var(--good); }
+  .pcard-num.warn  { color: var(--gold-lt); }
+  .pcard-num.crit  { color: #D07070; }
+  .pbar-wrap {
+    height: 3px; background: var(--border);
+    border-radius: 2px; margin-bottom: 8px;
+  }
+  .pbar { height: 100%; border-radius: 2px; }
+  .pbar.good { background: var(--good); }
+  .pbar.warn { background: var(--gold); }
+  .pbar.crit { background: var(--crit); }
+  .pcard-split { display: flex; gap: 14px; }
+  .psplit-item { display: flex; flex-direction: column; gap: 1px; }
+  .psplit-lbl { font-size: 8.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); }
+  .psplit-val { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .psplit-val.men-c   { color: var(--men-glow); }
+  .psplit-val.women-c { color: var(--women-glow); }
+  /* capacity card layout */
+  .pcap-grid {
+    display: grid; grid-template-columns: auto 1fr 1fr; gap: 3px 10px;
+    font-size: 11px; font-variant-numeric: tabular-nums; margin-top: 2px;
+  }
+  .pcap-lbl { color: var(--text-dim); }
+  .pcap-w { color: var(--women-glow); font-weight: 600; }
+  .pcap-m { color: var(--men-glow); font-weight: 600; }
+  .pcap-div { grid-column: 1/-1; height: 1px; background: var(--border); margin: 3px 0; }
+  .pcap-total { color: var(--text); font-weight: 600; }
+
+  /* ── MAIN ── */
+  main { padding: 32px 40px 60px; }
+
+  /* ── SECTION ── */
+  .section { margin-bottom: 40px; }
+  .section-header { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+  .section-label { font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--text-dim); white-space: nowrap; }
+  .section-rule { flex: 1; height: 1px; background: var(--border); }
+  .section-count { font-size: 10px; letter-spacing: .1em; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+  /* ── BUILDING GRID ── */
+  .bldg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
+
+  /* ── BUILDING CARD ── */
+  .bldg-card {
+    background: var(--navy-card); border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer; transition: border-color .18s, transform .18s;
+    user-select: none;
+    display: flex; flex-direction: column;
+  }
+  .bldg-card:hover { border-color: var(--men); transform: translateY(-2px); }
+  .bldg-card:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .bldg-card.no-rooms { cursor: default; }
+  .bldg-card.no-rooms:hover { transform: none; }
+
+  .card-header { padding: 14px 16px 12px; display: flex; align-items: flex-start; gap: 12px; }
+  .card-abbr {
+    font-family: Georgia, 'Times New Roman', serif; font-size: 28px;
+    font-weight: normal; line-height: 1; letter-spacing: -.03em; flex-shrink: 0;
+  }
+  .men-card   .card-abbr { color: var(--men-glow); }
+  .women-card .card-abbr { color: var(--women-glow); }
+  .other-card .card-abbr { color: var(--other-glow); }
+  .card-names { flex: 1; min-width: 0; }
+  .card-fullname {
+    font-family: Georgia, 'Times New Roman', serif; font-size: 13.5px;
+    font-weight: normal; color: var(--text); line-height: 1.3; text-wrap: balance;
+  }
+  .card-type { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; margin-top: 3px; }
+  .men-card   .card-type { color: var(--men-glow); }
+  .women-card .card-type { color: var(--women-glow); }
+  .other-card .card-type { color: var(--other-glow); }
+
+  .card-grid-wrap { padding: 0 16px 14px; }
+  .card-canvas { display: block; }
+  /* ── COMPACT OTHER CARDS ── */
+  .other-card { flex-direction: row; align-items: center; padding: 14px 16px; gap: 14px; cursor: default; min-height: 70px; }
+  .other-card:hover { transform: none; }
+  .other-card .oc-name { flex: 1; min-width: 80px; }
+  .other-card .oc-abbr { font-family: Georgia,'Times New Roman',serif; font-size: 14px; font-weight: normal; letter-spacing: -.02em; color: var(--other-glow, #2DA05A); margin-bottom: 2px; }
+  .other-card .oc-full { font-size: 11px; font-weight: 600; color: var(--text); line-height: 1.3; }
+  .other-card .oc-type { font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); margin-top: 2px; }
+  .other-card .oc-stats { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+  .other-card .oc-stat { text-align: center; }
+  .other-card .oc-stat .n { font-size: 18px; font-weight: 300; font-variant-numeric: tabular-nums; color: var(--text); letter-spacing: -.02em; line-height: 1; }
+  .other-card .oc-stat .l { font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); margin-top: 2px; }
+  .other-card .oc-pair { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .other-card .oc-pair .oc-stat { padding: 4px 8px; }
+  .other-card .oc-pair .oc-stat + .oc-stat { border-left: 1px solid var(--border); }
+  .other-card .oc-divider { width: 1px; height: 28px; background: var(--border); }
+  .oc-stat.total .n { color: var(--other-glow); }
+  .oc-stat.women .n { color: var(--women-glow); }
+  .oc-stat.men   .n { color: var(--men-glow); }
+
+  .card-footer {
+    padding: 12px 16px 14px; border-top: 1px solid var(--border);
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+    margin-top: auto;
+  }
+  .foot-stat .n {
+    font-size: 20px; font-weight: 300; font-variant-numeric: tabular-nums;
+    color: var(--text); letter-spacing: -.02em; line-height: 1.1;
+  }
+  .foot-stat .l { font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: var(--text-dim); margin-top: 1px; }
+  .fill-row { grid-column: 1/-1; margin-top: 6px; }
+  .fill-track { height: 4px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .fill-bar { height: 100%; border-radius: 99px; transition: width .6s cubic-bezier(.4,0,.2,1); }
+  .men-card   .fill-bar { background: var(--men); }
+  .women-card .fill-bar { background: var(--women); }
+  .other-card .fill-bar { background: var(--other); }
+  .fill-label { font-size: 10px; color: var(--text-dim); margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .commuter-split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 16px 14px; }
+  .commuter-half { background: var(--navy-raised); border-radius: 4px; padding: 12px; text-align: center; }
+  .commuter-half .ch-n { font-size: 24px; font-weight: 300; font-variant-numeric: tabular-nums; color: var(--text); letter-spacing: -.02em; }
+  .commuter-half .ch-l { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); margin-top: 3px; }
+
+  /* ── PLANNING TABLES SECTION ── */
+  .plan-tables-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;
+  }
+  .plan-tables-row-3 {
+    display: grid; grid-template-columns: minmax(190px, 210px) 1fr 1fr; gap: 14px;
+  }
+  .pt-card {
+    background: var(--navy-card); border: 1px solid var(--border);
+    border-radius: 6px; overflow: hidden;
+  }
+  .pt-head {
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--navy-raised);
+  }
+  .pt-title { font-family: Georgia, serif; font-size: 14px; font-weight: normal; color: var(--text); }
+  .pt-title.men-t   { color: var(--men-glow); }
+  .pt-title.women-t { color: var(--women-glow); }
+  .pt-badge {
+    font-size: 10.5px; color: var(--text-dim);
+    display: flex; align-items: baseline; gap: 5px;
+  }
+  .pt-badge strong { font-size: 18px; font-weight: 300; color: var(--text); font-variant-numeric: tabular-nums; }
+  .pt-badge .goal-n { color: var(--gold-lt); font-weight: 600; }
+
+  .pt-table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .pt-table th {
+    padding: 7px 14px; text-align: right;
+    font-size: 9px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--text-dim); background: var(--navy-raised); border-bottom: 1px solid var(--border);
+  }
+  .pt-table th:first-child { text-align: left; }
+  .pt-table td { padding: 8px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .pt-table td:not(:first-child) { text-align: right; }
+  .pt-table td:first-child { color: var(--text-dim); font-size: 11.5px; }
+  .pt-table tbody tr:last-child td { border-bottom: none; }
+  .pt-table .row-sub td:first-child { padding-left: 26px; font-size: 11px; }
+  .pt-table .row-total td { background: var(--navy-raised); font-weight: 600; border-top: 1px solid var(--border); }
+  .pt-table .row-total td:first-child { color: var(--text); font-size: 12px; }
+  .val-actual { color: var(--text); font-weight: 600; }
+  .val-goal   { color: var(--gold-lt); font-weight: 600; }
+  .delta { font-size: 9.5px; font-weight: 700; padding: 2px 5px; border-radius: 3px; }
+  .delta-up   { background: var(--good-bg); color: var(--good); }
+  .delta-down { background: var(--crit-bg); color: var(--crit); }
+
+  /* analysis tables */
+  .pt-table .val-men   { color: var(--men-glow); font-weight: 600; }
+  .pt-table .val-women { color: var(--women-glow); font-weight: 600; }
+  .pt-table .val-pred  { color: var(--gold-lt); font-weight: 600; }
+  .pt-table .sub-head td {
+    padding-top: 10px; padding-bottom: 3px;
+    font-size: 9px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--text-dim); border-bottom: none;
+  }
+  .beds-badge {
+    display: inline-block; font-size: 11.5px; font-weight: 700;
+    padding: 2px 7px; border-radius: 3px;
+  }
+  .beds-badge.ok   { background: var(--good-bg); color: var(--good); }
+  .beds-badge.warn { background: var(--warn-bg); color: var(--gold-lt); }
+
+  /* collier/lee card */
+  .cl-card { background: var(--navy-card); border: 1px solid var(--border); border-radius: 6px; padding: 16px; }
+  .cl-label { font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
+  .cl-desc { font-size: 10.5px; color: var(--text-dim); line-height: 1.5; margin-bottom: 14px; }
+  .cl-rows { display: flex; flex-direction: column; gap: 8px; }
+  .cl-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--navy-raised); border: 1px solid var(--border);
+    border-radius: 4px; padding: 8px 12px;
+  }
+  .cl-row .cl-rlbl { font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .cl-row.cl-w .cl-rlbl { color: var(--women-glow); }
+  .cl-row.cl-m .cl-rlbl { color: var(--men-glow); }
+  .cl-row .cl-rval { font-size: 22px; font-weight: 300; font-variant-numeric: tabular-nums; color: var(--text); letter-spacing: -.02em; }
+  .cl-total {
+    display: flex; align-items: baseline; justify-content: center;
+    gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
+  }
+  .cl-total .clt-n { font-size: 30px; font-weight: 300; color: var(--gold-lt); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .cl-total .clt-l { font-size: 10.5px; color: var(--text-dim); }
+
+  /* ── MODAL ── */
+  .modal-backdrop {
+    display: none; position: fixed; inset: 0;
+    background: rgba(13,43,94,.5); z-index: 100;
+    align-items: flex-start; justify-content: center;
+    padding: 60px 20px 40px; overflow-y: auto;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--navy-card); border: 1px solid var(--border);
+    border-radius: 8px; width: 100%; max-width: 660px;
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .modal-head {
+    padding: 24px 28px 20px; display: flex; align-items: flex-start;
+    justify-content: space-between; border-bottom: 1px solid var(--border);
+  }
+  .modal-title { font-family: Georgia, serif; font-size: 20px; font-weight: normal; color: var(--text); }
+  .modal-subtitle { font-size: 12px; color: var(--text-dim); margin-top: 4px; letter-spacing: .06em; }
+  .modal-close { background: none; border: none; color: var(--text-dim); font-size: 22px; cursor: pointer; line-height: 1; padding: 2px 6px; border-radius: 4px; transition: color .15s; }
+  .modal-close:hover { color: var(--text); }
+  .modal-body { padding: 20px 28px 28px; }
+  .room-table-wrap { overflow-x: auto; }
+  .room-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; }
+  .room-table th { text-align: left; font-size: 10px; letter-spacing: .15em; text-transform: uppercase; color: var(--text-dim); padding: 0 12px 10px 0; border-bottom: 1px solid var(--border); font-weight: normal; }
+  .room-table td { padding: 9px 12px 9px 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .room-table tr:last-child td { border-bottom: none; }
+  .occ-pips { display: flex; gap: 3px; align-items: center; }
+  .pip { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .pip.filled-men    { background: var(--men); }
+  .pip.filled-women  { background: var(--women); }
+  .pip.filled-other  { background: var(--other); }
+  .pip.empty         { background: var(--border); }
+  .occ-num { font-size: 13px; color: var(--text); font-variant-numeric: tabular-nums; margin-left: 6px; }
+  .cap-note {
+    display: inline-block; margin-left: 8px; padding: 1px 6px; border-radius: 3px;
+    font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    background: var(--warn-bg); color: var(--gold-lt); vertical-align: middle;
+  }
+  .room-cap-footnote {
+    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+    font-size: 11px; color: var(--text-dim); line-height: 1.45;
+  }
+  .room-cap-footnote strong { color: var(--gold-lt); font-weight: 600; }
+  .modal-summary-bar { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 18px; padding: 14px 16px; background: var(--navy-raised); border-radius: 5px; }
+  .modal-stat .n { font-size: 22px; font-weight: 300; font-variant-numeric: tabular-nums; color: var(--text); line-height: 1.1; }
+  .modal-stat .l { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); margin-top: 2px; }
+
+  @media (max-width: 800px) {
+    .site-header, main { padding-left: 20px; padding-right: 20px; }
+    .plan-strip { padding: 12px 20px; grid-template-columns: 1fr 1fr; }
+    .plan-tables-row, .plan-tables-row-3 { grid-template-columns: 1fr; }
+    .header-legend { display: none; }
+    .bldg-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bldg-card, .fill-bar { transition: none; }
+  }
+</style>
+
+<!-- HEADER -->
+<header class="site-header">
+  <div class="site-title">
+    <p class="eyebrow">Ave Maria University</p>
+    <h1>Housing Dashboard</h1>
+    <p class="session-tag">Fall 2026 &nbsp;·&nbsp; Current Assignments + Planning Projections &nbsp;<span id="live-badge" style="font-size:10px;letter-spacing:.06em;font-weight:600;color:#3A5278;" title="● LIVE = data just fetched from eRezLife · ○ CACHED = using last saved snapshot">○ CACHED</span>&nbsp;&nbsp;<button id="refresh-btn" onclick="refreshHousingData()" style="font-size:10px;font-weight:600;letter-spacing:.05em;padding:3px 10px;border:1.5px solid var(--border-hi);border-radius:20px;background:var(--card);color:var(--text-dim);cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border-hi)';this.style.color='var(--text-dim)'">↻ Refresh</button>&nbsp;&nbsp;<span id="auth-email" style="font-size:10px;font-weight:600;letter-spacing:.06em;color:var(--text-dim);display:none;"></span>&nbsp;<button id="logout-btn" onclick="logout()" style="font-size:10px;font-weight:600;letter-spacing:.05em;padding:3px 10px;border:1.5px solid var(--border-hi);border-radius:20px;background:var(--card);color:var(--text-dim);cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border-hi)';this.style.color='var(--text-dim)'">Sign Out</button></p>
+  </div>
+  <div class="header-stats">
+    <div class="stat-item">
+      <span class="num" id="stat-in-halls">1,074</span>
+      <span class="lbl">In Halls</span>
+    </div>
+    <div class="stat-item">
+      <span class="num">6</span>
+      <span class="lbl">Halls</span>
+    </div>
+    <div class="stat-item">
+      <span class="num" id="stat-beds-open">129</span>
+      <span class="lbl">Beds Open</span>
+    </div>
+  </div>
+  <div class="header-legend">
+    <div class="legend-item"><span class="legend-dot" style="background:#1B5EA8"></span> Men's Residence</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#943060"></span> Women's Residence</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#1F6B42"></span> Other / Commuter</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#D8E2F0"></span> Partial occupancy</div>
+    <div class="legend-item"><span class="legend-dot" style="background:var(--gold-lt);box-shadow:inset 0 0 0 1px var(--gold);"></span> Reduced capacity (2-bed)</div>
+  </div>
+</header>
+
+<!-- PLANNING METRICS STRIP -->
+<div class="plan-strip">
+
+  <!-- Domestic Capacity -->
+  <div class="pcard">
+    <div class="pcard-label">FA26 Domestic Capacity</div>
+    <div class="pcard-num gold">1,203</div>
+    <div class="pcap-grid">
+      <span></span>
+      <span style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--women-glow);">Women</span>
+      <span style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--men-glow);">Men</span>
+      <div class="pcap-div"></div>
+      <span class="pcap-lbl">Halls</span>
+      <span class="pcap-w">626</span>
+      <span class="pcap-m">577</span>
+    </div>
+    <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:9.5px;color:var(--text-dim);display:flex;justify-content:space-between;">
+      <span>Overseas (not for placement)</span>
+      <span>Ireland 97 · Rome 25</span>
+    </div>
+  </div>
+
+  <!-- Current Capacity -->
+  <div class="pcard">
+    <div class="pcard-label">FA26 Current Fill</div>
+    <div class="pcard-num warn" id="fill-total">89.3%</div>
+    <div class="pbar-wrap"><div class="pbar warn" id="fill-bar" style="width:89.3%"></div></div>
+    <div class="pcard-split">
+      <div class="psplit-item">
+        <span class="psplit-lbl">Women</span>
+        <span class="psplit-val women-c" id="fill-women">93.8%</span>
+      </div>
+      <div class="psplit-item">
+        <span class="psplit-lbl">Men</span>
+        <span class="psplit-val men-c" id="fill-men">84.4%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Predicted Capacity -->
+  <div class="pcard">
+    <div class="pcard-label">FA26 Predicted Fill</div>
+    <div class="pcard-num warn">85.5%</div>
+    <div class="pbar-wrap"><div class="pbar warn" style="width:85.5%"></div></div>
+    <div class="pcard-split">
+      <div class="psplit-item">
+        <span class="psplit-lbl">Women</span>
+        <span class="psplit-val women-c">90.7%</span>
+      </div>
+      <div class="psplit-item">
+        <span class="psplit-lbl">Men</span>
+        <span class="psplit-val men-c">79.7%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Melt Rate YoY -->
+  <div class="pcard">
+    <div class="pcard-label">Melt Rate — YoY</div>
+    <div style="display:flex;align-items:flex-end;gap:12px;margin-bottom:6px;">
+      <div>
+        <div style="font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-bottom:2px;">FA25 Final</div>
+        <div class="pcard-num crit" style="font-size:24px;line-height:1;">12.6%</div>
+      </div>
+      <div style="padding-bottom:3px;">
+        <div style="font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-bottom:2px;">FA26 Running</div>
+        <div style="font-size:18px;font-weight:300;color:var(--text-dim);font-variant-numeric:tabular-nums;" id="melt-fa26">—</div>
+      </div>
+    </div>
+    <div class="pbar-wrap"><div class="pbar crit" style="width:12.6%"></div></div>
+    <div class="pcard-split" style="margin-top:6px;">
+      <div class="psplit-item">
+        <span class="psplit-lbl">FA25 W</span>
+        <span class="psplit-val women-c">12.9%</span>
+      </div>
+      <div class="psplit-item">
+        <span class="psplit-lbl">FA25 M</span>
+        <span class="psplit-val men-c">12.2%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Retention -->
+  <div class="pcard">
+    <div class="pcard-label">S25 → FA25 Retention</div>
+    <div class="pcard-num good">91.1%</div>
+    <div class="pbar-wrap"><div class="pbar good" style="width:91.1%"></div></div>
+    <div class="pcard-split">
+      <div class="psplit-item">
+        <span class="psplit-lbl">Women</span>
+        <span class="psplit-val women-c">93.5%</span>
+      </div>
+      <div class="psplit-item">
+        <span class="psplit-lbl">Men</span>
+        <span class="psplit-val men-c">88.2%</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MAIN -->
+<main>
+
+  <!-- WOMEN'S -->
+  <section class="section" id="sec-women">
+    <div class="section-header">
+      <span class="section-label">Women's Residences</span>
+      <span class="section-rule"></span>
+      <span class="section-count" id="cnt-women"></span>
+    </div>
+    <div class="bldg-grid" id="grid-women"></div>
+  </section>
+
+  <!-- MEN'S -->
+  <section class="section" id="sec-men">
+    <div class="section-header">
+      <span class="section-label">Men's Residences</span>
+      <span class="section-rule"></span>
+      <span class="section-count" id="cnt-men"></span>
+    </div>
+    <div class="bldg-grid" id="grid-men"></div>
+  </section>
+
+  <!-- OTHER -->
+  <section class="section" id="sec-other">
+    <div class="section-header">
+      <span class="section-label">Townhomes, Other &amp; Commuter</span>
+      <span class="section-rule"></span>
+      <span class="section-count" id="cnt-other"></span>
+    </div>
+    <div class="bldg-grid" id="grid-other" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr));"></div>
+  </section>
+
+  <!-- FA26 PLANNING SECTION -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-label">FA26 Planning — Incoming &amp; Projections</span>
+      <span class="section-rule"></span>
+    </div>
+
+    <!-- DEPOSITS CONTEXT CARD -->
+    <div class="pt-card" style="margin-bottom:14px;">
+      <div class="pt-head" style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="pt-title">FA26 Deposits vs Housing Assignments</div>
+        <span id="dep-badge" style="font-size:9.5px;font-weight:600;letter-spacing:.06em;color:var(--text-dim);">loading…</span>
+      </div>
+      <div style="display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;margin:10px 0 6px;">
+        <div style="text-align:center;min-width:80px;">
+          <div style="font-size:28px;font-weight:300;color:var(--gold-lt);font-variant-numeric:tabular-nums;letter-spacing:-.02em;" id="dep-total">—</div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);margin-top:1px;">Net Deposits</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <div style="display:flex;height:18px;border-radius:3px;overflow:hidden;background:var(--border);">
+            <div id="dep-bar-assigned" style="background:#2DA05A;transition:width .4s;" title="Assigned in eRezLife"></div>
+            <div id="dep-bar-gap" style="background:#B8892A;opacity:.7;transition:width .4s;" title="Not yet in eRezLife"></div>
+          </div>
+          <div style="display:flex;gap:14px;font-size:9.5px;color:var(--text-dim);">
+            <span style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:8px;height:8px;border-radius:1px;background:#2DA05A;"></span>Assigned in halls — <strong id="dep-assigned" style="color:var(--text);">459</strong></span>
+            <span style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:8px;height:8px;border-radius:1px;background:#B8892A;opacity:.8;"></span>Not yet assigned — <strong id="dep-gap" style="color:var(--text);">—</strong></span>
+          </div>
+        </div>
+        <div style="text-align:right;min-width:120px;display:flex;gap:16px;">
+          <div style="text-align:center;">
+            <div style="font-size:18px;font-weight:300;color:var(--women-glow);font-variant-numeric:tabular-nums;" id="dep-women">—</div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);">Women</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:18px;font-weight:300;color:var(--men-glow);font-variant-numeric:tabular-nums;" id="dep-men">—</div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);">Men</div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:9.5px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px;line-height:1.5;">
+        Gap includes students in overseas programs (Rome 25 · Ireland 97 capacity), students not yet assigned housing, and expected melt. Deposits ≠ residential placements.
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;">
+
+      <!-- TABLE 1: Hall Occupancy -->
+      <div class="pt-card" style="grid-column:1/3;">
+        <div class="pt-head">
+          <div class="pt-title">Hall Occupancy</div>
+          <div class="pt-badge" style="font-size:10px;color:var(--text-dim);">Capacity · FA26 Now · FA26 Predicted · Beds Open</div>
+        </div>
+        <table class="pt-table">
+          <thead>
+            <tr>
+              <th style="text-align:left;"></th>
+              <th>Capacity</th>
+              <th>FA26 Now</th>
+              <th>Fill %</th>
+              <th>FA26 Predicted</th>
+              <th>Fill %</th>
+              <th>Open Now</th>
+              <th>Open Predicted</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="color:var(--women-glow);font-weight:700;">Women</td>
+              <td>626</td>
+              <td class="val-women">587</td>
+              <td style="color:var(--women-glow);font-weight:600;">93.8%</td>
+              <td class="val-pred">568</td>
+              <td style="color:var(--text-dim);">90.7%</td>
+              <td><span class="beds-badge ok">39</span></td>
+              <td><span class="beds-badge ok">58</span></td>
+            </tr>
+            <tr>
+              <td style="color:var(--men-glow);font-weight:700;">Men</td>
+              <td>577</td>
+              <td class="val-men">487</td>
+              <td style="color:var(--men-glow);font-weight:600;">84.4%</td>
+              <td class="val-pred">460</td>
+              <td style="color:var(--text-dim);">79.7%</td>
+              <td><span class="beds-badge warn">90</span></td>
+              <td><span class="beds-badge warn">117</span></td>
+            </tr>
+            <tr class="row-total">
+              <td>Total</td>
+              <td>1,203</td>
+              <td class="val-actual">1,074</td>
+              <td style="font-weight:600;">89.3%</td>
+              <td class="val-pred" style="font-size:14px;">1,028</td>
+              <td style="color:var(--text-dim);">85.5%</td>
+              <td><span class="beds-badge warn">129</span></td>
+              <td><span class="beds-badge warn">175</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- TABLE SIDE: Possible Commuters -->
+      <div class="cl-card" style="display:flex;flex-direction:column;justify-content:center;">
+        <div class="cl-label">Possible Commuters</div>
+        <div class="cl-desc">FA26 freshmen from<br>Collier or Lee County</div>
+        <div class="cl-rows">
+          <div class="cl-row cl-w"><span class="cl-rlbl">Women</span><span class="cl-rval">34</span></div>
+          <div class="cl-row cl-m"><span class="cl-rlbl">Men</span><span class="cl-rval">24</span></div>
+        </div>
+        <div class="cl-total">
+          <span class="clt-n">58</span>
+          <span class="clt-l">potential commuters</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+
+      <!-- TABLE 2: Incoming Freshmen -->
+      <div class="pt-card">
+        <div class="pt-head">
+          <div class="pt-title">Incoming Freshmen</div>
+          <div class="pt-badge" style="font-size:10px;color:var(--text-dim);">FA26 Actual · FA26 Goal · FA26 Est. after melt</div>
+        </div>
+        <table class="pt-table">
+          <thead>
+            <tr>
+              <th style="text-align:left;"></th>
+              <th>FA26 Actual</th>
+              <th>FA26 Goal</th>
+              <th>vs Goal</th>
+              <th>FA26 Est.</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="sub-head"><td colspan="5">Residential</td></tr>
+            <tr>
+              <td style="color:var(--women-glow);font-weight:600;">Women</td>
+              <td class="val-women">211</td>
+              <td class="val-goal">254</td>
+              <td><span class="delta delta-down">−43</span></td>
+              <td class="val-pred">201</td>
+            </tr>
+            <tr>
+              <td style="color:var(--men-glow);font-weight:600;">Men</td>
+              <td class="val-men">212</td>
+              <td class="val-goal">277</td>
+              <td><span class="delta delta-down">−65</span></td>
+              <td class="val-pred">172</td>
+            </tr>
+            <tr class="row-total"><td>Total</td><td class="val-actual">423</td><td class="val-goal">531</td><td><span class="delta delta-down">−108</span></td><td class="val-pred">373</td></tr>
+            <tr class="sub-head"><td colspan="5">Commuter</td></tr>
+            <tr>
+              <td style="color:var(--women-glow);font-weight:600;">Women</td>
+              <td class="val-women">19</td>
+              <td class="val-goal">20</td>
+              <td><span class="delta delta-down">−1</span></td>
+              <td style="color:var(--text-dim);">—</td>
+            </tr>
+            <tr>
+              <td style="color:var(--men-glow);font-weight:600;">Men</td>
+              <td class="val-men">17</td>
+              <td class="val-goal">20</td>
+              <td><span class="delta delta-down">−3</span></td>
+              <td style="color:var(--text-dim);">—</td>
+            </tr>
+            <tr class="row-total"><td>Total Incoming</td><td class="val-actual" id="incoming-total-actual">459</td><td class="val-goal">571</td><td><span class="delta delta-down" id="incoming-total-delta">−112</span></td><td style="color:var(--text-dim);">—</td></tr>
+            <tr id="dep-pending-row" style="display:none;">
+              <td style="color:var(--gold-lt);font-weight:600;padding-left:12px;">↳ Pending app</td>
+              <td id="dep-pending-count" style="color:var(--gold-lt);font-weight:600;font-variant-numeric:tabular-nums;text-align:right;">—</td>
+              <td colspan="3" style="color:var(--text-dim);font-size:10px;font-style:italic;">deposited, no housing assignment yet</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- TABLE 3: Returner Status -->
+      <div class="pt-card">
+        <div class="pt-head">
+          <div class="pt-title">Returner Status</div>
+          <div class="pt-badge" style="font-size:10px;color:var(--text-dim);">Eligible · Assigned Now · Predicted Final</div>
+        </div>
+        <table class="pt-table">
+          <thead>
+            <tr>
+              <th style="text-align:left;"></th>
+              <th>Eligible</th>
+              <th>Assigned Now</th>
+              <th>Rate</th>
+              <th>Predicted</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="sub-head"><td colspan="5">In Halls (retention rate applied to eligible)</td></tr>
+            <tr>
+              <td style="color:var(--women-glow);font-weight:600;">Women</td>
+              <td class="val-actual">559</td>
+              <td class="val-women">388</td>
+              <td style="color:var(--text-dim);font-size:10.5px;">69.4%</td>
+              <td class="val-pred">367</td>
+            </tr>
+            <tr>
+              <td style="color:var(--men-glow);font-weight:600;">Men</td>
+              <td class="val-actual">510</td>
+              <td class="val-men">327</td>
+              <td style="color:var(--text-dim);font-size:10.5px;">64.1%</td>
+              <td class="val-pred">288</td>
+            </tr>
+            <tr class="row-total"><td>Total</td><td class="val-actual">1,069</td><td class="val-actual">715</td><td style="color:var(--text-dim);font-size:10.5px;">66.9%</td><td class="val-pred">655</td></tr>
+            <tr class="sub-head"><td colspan="5">Retention rates applied (FA25 → FA26)</td></tr>
+            <tr>
+              <td style="color:var(--women-glow);font-weight:600;">Women</td>
+              <td colspan="3" style="color:var(--text-dim);font-size:10.5px;">559 eligible × 93.5% retention</td>
+              <td class="val-pred">523</td>
+            </tr>
+            <tr>
+              <td style="color:var(--men-glow);font-weight:600;">Men</td>
+              <td colspan="3" style="color:var(--text-dim);font-size:10.5px;">510 eligible × 88.2% retention</td>
+              <td class="val-pred">450</td>
+            </tr>
+            <tr class="row-total"><td>Total Expected</td><td colspan="3"></td><td class="val-pred">973</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <!-- Notes -->
+    <div style="padding:10px 14px;background:var(--navy-raised);border:1px solid var(--border);border-radius:6px;display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;font-size:10.5px;color:var(--text-dim);line-height:1.5;">
+      <div><strong style="color:var(--text);">Sources</strong> — Occupancy from eRezLife FA26 (<span id="erez-data-date">—</span>). Retention from Student ID matching across S25/FA25 Census. Eligible returners exclude confirmed graduates (Jul 9 2026). FA25 actuals from Fall 2025 Census Final (9.23.25).</div>
+      <div><strong style="color:var(--text);">Notes</strong> — FA26 melt rate pending housing cancellation report. Predicted returning residential = expected-to-return × current residential rate. Incoming women (201) uses deposit goal; will update when FA26 deposit actuals confirmed.</div>
+    </div>
+
+  </section>
+
+</main>
+
+<!-- MODAL -->
+<div class="modal-backdrop" id="modal-backdrop" role="dialog" aria-modal="true">
+  <div class="modal" id="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title" id="modal-title"></div>
+        <div class="modal-subtitle" id="modal-subtitle"></div>
+      </div>
+      <button class="modal-close" id="modal-close" aria-label="Close">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-summary-bar" id="modal-summary"></div>
+      <div class="room-table-wrap">
+        <table class="room-table" id="modal-table">
+          <thead><tr><th>Room</th><th>Occupants</th><th>Occupancy</th></tr></thead>
+          <tbody id="modal-tbody"></tbody>
+        </table>
+      </div>
+      <div class="room-cap-footnote" id="modal-cap-footnote" hidden></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Official building capacities (from facilities records — not derived from room data)
+const CAP_WOMEN = 626;   // JPII + Xavier + Goretti
+const CAP_MEN   = 577;   // Teresa + Sebastian + St. Joseph
+const CAP_TOTAL = CAP_WOMEN + CAP_MEN;  // 1,203
+let DEPOSIT_GAP = 0;     // deposited students not yet assigned housing (set by tryDepositData)
+
+// FA25 melt rate (used as basis for final predictions)
+const MELT_FA25_W = 0.129;
+const MELT_FA25_M = 0.122;
+
+const STATIC_RAW = {"MBK": {"students": 21, "rooms": {}}, "JPII": {"students": 247, "rooms": {"103": 2, "105": 4, "106": 4, "107": 4, "108": 4, "109": 4, "110": 4, "111": 4, "112": 3, "113": 4, "114": 4, "115": 4, "116": 4, "117": 4, "118": 4, "202": 4, "204": 3, "205": 4, "206": 4, "207": 4, "208": 4, "209": 4, "210": 4, "211": 4, "212": 4, "213": 4, "214": 4, "215": 4, "216": 4, "217": 4, "218": 4, "302": 4, "303": 4, "304": 4, "305": 4, "306": 4, "307": 4, "308": 4, "309": 4, "310": 4, "311": 4, "312": 4, "313": 4, "314": 4, "315": 4, "316": 4, "317": 4, "402": 4, "403": 4, "404": 4, "405": 4, "406": 4, "407": 2, "408": 4, "409": 4, "410": 3, "411": 4, "412": 3, "413": 4, "414": 4, "415": 3, "416": 4, "417": 4, "418": 4}}, "Commuter": {"students": 164, "rooms": {"Female": 88, "Male": 76}}, "XAVIER": {"students": 171, "rooms": {"137": 8, "153": 3, "155": 3, "157": 3, "159": 3, "161": 3, "165": 3, "167": 3, "169": 3, "171": 3, "173": 3, "175": 3, "183": 8, "192": 7, "221": 8, "237": 7, "238": 8, "253": 3, "255": 3, "257": 3, "259": 3, "261": 3, "263": 3, "265": 3, "267": 3, "269": 3, "271": 3, "273": 3, "275": 2, "292": 8, "293": 8, "351": 1, "353": 3, "355": 3, "357": 3, "359": 3, "361": 3, "363": 3, "365": 3, "367": 3, "369": 3, "371": 2, "373": 3, "375": 3, "377": 3, "379": 2}}, "GORET": {"students": 169, "rooms": {"137": 8, "153": 3, "155": 3, "157": 3, "159": 3, "161": 3, "165": 3, "167": 3, "169": 3, "171": 3, "173": 3, "175": 3, "183": 6, "192": 8, "221": 8, "237": 8, "238": 8, "253": 3, "255": 3, "257": 3, "259": 3, "261": 3, "263": 3, "265": 3, "267": 3, "269": 3, "271": 3, "273": 3, "275": 3, "277": 3, "292": 8, "351": 2, "353": 3, "355": 3, "357": 3, "359": 3, "361": 3, "363": 3, "365": 3, "367": 3, "369": 3, "371": 3, "373": 3, "375": 3, "377": 2, "379": 3}}, "STJOSE": {"students": 117, "rooms": {"108A": 2, "108B": 2, "115A": 2, "115B": 2, "203A": 2, "212A": 2, "212B": 2, "303A": 2, "312A": 2, "312B": 2, "113A": 2, "113B": 2, "112A": 2, "112B": 2, "204A": 2, "204B": 2, "205A": 2, "205B": 2, "111A": 2, "111B": 2, "302A": 2, "302B": 2, "202A": 2, "202B": 2, "201A": 2, "201B": 2, "114A": 2, "114B": 2, "109A": 2, "109B": 2, "110A": 2, "110B": 2, "310A": 2, "310B": 2, "306A": 2, "306B": 2, "206B": 2, "206A": 2, "208A": 2, "208B": 2, "305A": 2, "305B": 2, "209A": 2, "209B": 2, "309A": 2, "309B": 2, "210B": 1, "210A": 2, "304B": 2, "211A": 2, "213A": 2, "213B": 2, "214A": 2, "203B": 2, "303B": 2, "211B": 2, "214B": 2, "304A": 2, "107A": 2}}, "TERESA": {"students": 228, "rooms": {"103": 4, "105": 4, "106": 3, "107": 4, "108": 4, "109": 4, "110": 4, "111": 4, "112": 4, "113": 3, "115": 4, "116": 4, "117": 4, "118": 4, "203": 4, "204": 4, "205": 4, "206": 4, "207": 3, "208": 4, "209": 4, "210": 4, "211": 3, "212": 3, "213": 4, "214": 4, "215": 4, "216": 4, "217": 4, "218": 4, "302": 4, "303": 4, "304": 4, "305": 3, "306": 4, "307": 3, "308": 4, "309": 4, "310": 3, "311": 3, "312": 4, "313": 4, "314": 4, "315": 2, "316": 3, "317": 4, "403": 4, "404": 4, "405": 4, "406": 4, "407": 3, "408": 4, "409": 4, "410": 4, "411": 4, "412": 2, "413": 2, "414": 3, "415": 4, "416": 4, "417": 2, "418": 4}}, "SEBAST": {"students": 142, "rooms": {"151": 1, "153": 3, "155": 3, "157": 2, "159": 3, "161": 3, "165": 3, "167": 2, "169": 3, "171": 3, "173": 3, "175": 3, "183": 8, "192": 8, "221": 6, "237": 8, "238": 8, "251": 1, "253": 1, "255": 1, "257": 2, "259": 2, "261": 1, "263": 2, "265": 3, "267": 2, "269": 3, "271": 2, "273": 2, "275": 3, "277": 2, "292": 8, "293": 7, "351": 2, "353": 3, "357": 3, "359": 3, "361": 2, "363": 3, "365": 3, "367": 3, "369": 2, "371": 2, "375": 2, "379": 2}}, "CIARA": {"students": 47, "rooms": {}}, "MALAC": {"students": 44, "rooms": {}}};
+let RAW = STATIC_RAW;
+
+const META = {
+  JPII:     { abbr: 'JPII', full: 'John Paul II Hall',       gender: 'women', section: 'women', maxOcc: 4,    mixedRooms: false },
+  TERESA:   { abbr: 'MT',   full: 'Mother Teresa Hall',      gender: 'men',   section: 'men',   maxOcc: 4,    mixedRooms: false },
+  XAVIER:   { abbr: 'Xav',  full: 'Francis Xavier Hall',     gender: 'women', section: 'women', maxOcc: null, mixedRooms: true, standardMax: 3, suiteMax: 8, suiteThreshold: 6 },
+  GORET:    { abbr: 'Gor',  full: 'Maria Goretti Hall',      gender: 'women', section: 'women', maxOcc: null, mixedRooms: true, standardMax: 3, suiteMax: 8, suiteThreshold: 6 },
+  SEBAST:   { abbr: 'Seb',  full: 'St. Sebastian Hall',      gender: 'men',   section: 'men',   maxOcc: null, mixedRooms: true, standardMax: 3, suiteMax: 8, suiteThreshold: 6 },
+  STJOSE:   { abbr: 'Joe',  full: 'St. Joseph Hall',         gender: 'men',   section: 'men',   maxOcc: 2,    mixedRooms: false },
+  MBK:      { abbr: 'MBK',  full: 'Middle Brook Townhomes',  gender: 'other', section: 'other', maxOcc: null, mixedRooms: false },
+  CIARA:    { abbr: 'CIA',  full: 'Study Abroad',              gender: 'other', section: 'other', maxOcc: null, mixedRooms: false },
+  MALAC:    { abbr: 'MAL',  full: 'Study Abroad',              gender: 'other', section: 'other', maxOcc: null, mixedRooms: false },
+  Commuter: { abbr: 'Com',  full: 'Commuter Students',       gender: 'other', section: 'other', maxOcc: null, mixedRooms: false },
+};
+
+// Rooms furnished below the hall default (accessibility / layout) — capacity is hard-coded
+const ROOM_CAP_OVERRIDES = {
+  XAVIER: { '151': 2, '251': 2, '351': 2 },
+  JPII:   { '104': 2 },
+};
+
+const SECTION_ORDER = {
+  women: ['JPII','XAVIER','GORET'],
+  men:   ['SEBAST','TERESA','STJOSE'],
+  other: ['MBK','CIARA','MALAC','Commuter'],
+};
+
+function getRoomCapOverride(key, roomId) {
+  const overrides = ROOM_CAP_OVERRIDES[key];
+  if (!overrides) return null;
+  return overrides[String(roomId)] ?? null;
+}
+
+function getRoomMax(key, roomId, occ) {
+  const override = getRoomCapOverride(key, roomId);
+  if (override != null) return override;
+  const m = META[key];
+  if (m.mixedRooms) return occ >= m.suiteThreshold ? m.suiteMax : m.standardMax;
+  return m.maxOcc || occ;
+}
+
+function fmt(n) { return n.toLocaleString(); }
+
+function getOccColor(occ, maxOcc, gender) {
+  const base = gender === 'men'   ? [27,94,168]
+             : gender === 'women' ? [148,48,96]
+             :                      [31,107,66];
+  const a = 0.18 + Math.min(occ / maxOcc, 1) * 0.82;
+  return `rgba(${base[0]},${base[1]},${base[2]},${a.toFixed(2)})`;
+}
+
+function drawRoomGrid(canvas, rooms, meta, key) {
+  const roomList = Object.entries(rooms);
+  if (!roomList.length) return;
+  const n = roomList.length;
+  const dpr  = window.devicePixelRatio || 1;
+  const GAP  = 2;
+  const cols = Math.min(Math.ceil(Math.sqrt(n * 1.6)), 12);
+  const rows = Math.ceil(n / cols);
+
+  // Fit cells exactly to the available pixel width — no fractional scaling
+  const wrap    = canvas.parentElement;
+  const wStyle  = getComputedStyle(wrap);
+  const availW  = wrap.clientWidth - parseFloat(wStyle.paddingLeft) - parseFloat(wStyle.paddingRight);
+  const cellSize = Math.floor((availW - GAP * (cols - 1)) / cols);
+  const gridW   = cols * cellSize + (cols - 1) * GAP;
+  const gridH   = rows * cellSize + (rows - 1) * GAP;
+
+  canvas.width  = gridW * dpr;
+  canvas.height = gridH * dpr;
+  canvas.style.width  = gridW + 'px';
+  canvas.style.height = gridH + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, gridW, gridH);
+
+  roomList.forEach(([rm, occ], i) => {
+    const col = i % cols, row = Math.floor(i / cols);
+    const x = col * (cellSize + GAP);
+    const y = row * (cellSize + GAP);
+    const roomMax = getRoomMax(key, rm, occ);
+    ctx.fillStyle = getOccColor(occ, roomMax, meta.gender);
+    ctx.fillRect(x, y, cellSize, cellSize);
+    // Corner mark for rooms with a reduced hard-coded capacity
+    if (getRoomCapOverride(key, rm) != null) {
+      ctx.fillStyle = '#C9A84C';
+      ctx.beginPath();
+      ctx.moveTo(x + cellSize, y);
+      ctx.lineTo(x + cellSize, y + Math.max(3, Math.floor(cellSize * 0.28)));
+      ctx.lineTo(x + cellSize - Math.max(3, Math.floor(cellSize * 0.28)), y);
+      ctx.closePath();
+      ctx.fill();
+    }
+  });
+}
+
+function makePips(occ, maxOcc, gender) {
+  const cls = `filled-${gender}`;
+  const total = Math.min(maxOcc, 8);
+  let html = '<span class="occ-pips">';
+  for (let i = 0; i < total; i++)
+    html += `<span class="pip ${i < occ ? cls : 'empty'}"></span>`;
+  return html + `<span class="occ-num">${occ}</span></span>`;
+}
+
+function buildCard(key) {
+  const meta = META[key], data = RAW[key], rooms = data.rooms;
+  const roomEntries = Object.entries(rooms);
+  const hasRooms = roomEntries.length > 0 && key !== 'Commuter';
+  const capacity = hasRooms ? roomEntries.reduce((s,[rm,occ]) => s + getRoomMax(key,rm,occ), 0) : null;
+  const fillPct  = capacity ? Math.round(data.students / capacity * 100) : null;
+
+  const card = document.createElement('div');
+  const isOther = meta.section === 'other';
+  card.className = `bldg-card ${meta.gender}-card${isOther ? ' other-card' : (hasRooms ? '' : ' no-rooms')}`;
+  card.setAttribute('tabindex', hasRooms ? '0' : '-1');
+  card.setAttribute('data-key', key);
+
+  let html = isOther ? '' : `
+    <div class="card-header">
+      <div class="card-abbr">${meta.abbr}</div>
+      <div class="card-names">
+        <div class="card-fullname">${meta.full}</div>
+        <div class="card-type">${meta.gender === 'men' ? "Men's" : meta.gender === 'women' ? "Women's" : 'Other'}</div>
+      </div>
+    </div>`;
+
+  if (meta.section === 'other') {
+    // Compact horizontal layout for other/commuter cards
+    const fem = rooms['Female'] || 0, mal = rooms['Male'] || 0;
+    const hasSplit = fem > 0 || mal > 0;
+    html = `<div class="oc-name">
+        <div class="oc-abbr">${meta.abbr}</div>
+        <div class="oc-full">${meta.full}</div>
+      </div>
+      <div class="oc-stats">`;
+    if (hasSplit) {
+      html += `<div class="oc-pair">
+          <div class="oc-stat women"><div class="n">${fmt(fem)}</div><div class="l">Women</div></div>
+          <div class="oc-stat men"><div class="n">${fmt(mal)}</div><div class="l">Men</div></div>
+        </div>
+        <div class="oc-divider"></div>
+        <div class="oc-stat total"><div class="n">${fmt(data.students)}</div><div class="l">Total</div></div>`;
+    } else {
+      html += `<div class="oc-stat"><div class="n">${fmt(data.students)}</div><div class="l">Students</div></div>`;
+    }
+    html += `</div>`;
+  } else if (hasRooms) {
+    html += `<div class="card-grid-wrap"><canvas class="card-canvas" id="cv-${key}"></canvas></div>`;
+    html += `<div class="card-footer"><div class="foot-stat"><div class="n">${fmt(data.students)}</div><div class="l">Students</div></div>
+    <div class="foot-stat"><div class="n">${roomEntries.length}</div><div class="l">Rooms</div></div>
+    <div class="foot-stat"><div class="n">${fillPct}%</div><div class="l">vs. capacity</div></div>
+    <div class="fill-row"><div class="fill-track"><div class="fill-bar" style="width:${fillPct}%"></div></div>
+    <div class="fill-label">${fmt(data.students)} of ${fmt(capacity)} beds occupied</div></div></div>`;
+  }
+  card.innerHTML = html;
+  return card;
+}
+
+const backdrop   = document.getElementById('modal-backdrop');
+const modalClose = document.getElementById('modal-close');
+
+function openModal(key) {
+  const meta = META[key], data = RAW[key], rooms = data.rooms;
+  const roomEntries = Object.entries(rooms);
+  document.getElementById('modal-title').textContent = meta.full;
+  document.getElementById('modal-subtitle').textContent =
+    `${meta.gender === 'men' ? "Men's Residence" : meta.gender === 'women' ? "Women's Residence" : 'Townhomes / Other'} · ${roomEntries.length} rooms`;
+  const cap = roomEntries.reduce((s,[rm,occ]) => s + getRoomMax(key,rm,occ), 0);
+  document.getElementById('modal-summary').innerHTML = `
+    <div class="modal-stat"><div class="n">${fmt(data.students)}</div><div class="l">Students</div></div>
+    <div class="modal-stat"><div class="n">${roomEntries.length}</div><div class="l">Rooms</div></div>
+    <div class="modal-stat"><div class="n">${roomEntries.length ? (data.students/roomEntries.length).toFixed(1) : '—'}</div><div class="l">Avg / Room</div></div>
+    <div class="modal-stat"><div class="n">${cap ? Math.round(data.students/cap*100)+'%' : '—'}</div><div class="l">Occupancy Rate</div></div>`;
+  const sorted = [...roomEntries].sort((a,b) => {
+    const na = parseFloat(a[0]), nb = parseFloat(b[0]);
+    return (!isNaN(na) && !isNaN(nb)) ? na - nb : a[0].localeCompare(b[0]);
+  });
+  let hasReduced = false;
+  document.getElementById('modal-tbody').innerHTML = sorted.map(([rm, occ]) => {
+    const roomMax = getRoomMax(key, rm, occ);
+    const reduced = getRoomCapOverride(key, rm) != null;
+    if (reduced) hasReduced = true;
+    const note = reduced
+      ? `<span class="cap-note" title="Furnished for ${roomMax} (accessibility / layout)">2-bed</span>`
+      : '';
+    return `<tr>
+      <td style="font-variant-numeric:tabular-nums;color:var(--text);">${rm}${note}</td>
+      <td>${makePips(occ, roomMax, meta.gender)}</td>
+      <td style="color:var(--text-dim);font-variant-numeric:tabular-nums;">${occ} / ${roomMax}</td>
+    </tr>`;
+  }).join('');
+  const foot = document.getElementById('modal-cap-footnote');
+  if (hasReduced) {
+    foot.hidden = false;
+    foot.innerHTML = `<strong>2-bed</strong> rooms are furnished for two (accessibility / layout) and are not counted at the hall’s default occupancy.`;
+  } else {
+    foot.hidden = true;
+    foot.innerHTML = '';
+  }
+  backdrop.classList.add('open');
+  modalClose.focus();
+}
+
+modalClose.addEventListener('click', () => backdrop.classList.remove('open'));
+backdrop.addEventListener('click', e => { if (e.target === backdrop) backdrop.classList.remove('open'); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') backdrop.classList.remove('open'); });
+
+function renderAll() {
+  const HALL_KEYS = ['JPII','XAVIER','GORET','SEBAST','TERESA','STJOSE'];
+  ['men','women','other'].forEach(sec => {
+    const grid = document.getElementById(`grid-${sec}`);
+    grid.innerHTML = '';
+    let secStudents = 0;
+    SECTION_ORDER[sec].forEach(key => {
+      const card = buildCard(key);
+      grid.appendChild(card);
+      secStudents += RAW[key].students;
+      if (Object.keys(RAW[key].rooms).length > 0 && key !== 'Commuter') {
+        const canvas = document.getElementById(`cv-${key}`);
+        if (canvas) drawRoomGrid(canvas, RAW[key].rooms, META[key], key);
+      }
+      card.addEventListener('click', () => { if (Object.keys(RAW[key].rooms).length > 0) openModal(key); });
+      card.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (Object.keys(RAW[key].rooms).length > 0) openModal(key); }
+      });
+    });
+    document.getElementById(`cnt-${sec}`).textContent = `${fmt(secStudents)} students`;
+  });
+  // Recompute header stats and fill pcard from current RAW
+  const WOMEN_KEYS = ['JPII','XAVIER','GORET'];
+  const MEN_KEYS   = ['TERESA','SEBAST','STJOSE'];
+  const womenIn = WOMEN_KEYS.reduce((s,k) => s + (RAW[k]?.students||0), 0);
+  const menIn   = MEN_KEYS.reduce((s,k)   => s + (RAW[k]?.students||0), 0);
+  const totalInHalls = womenIn + menIn;
+
+  const ihEl = document.getElementById('stat-in-halls');
+  const boEl = document.getElementById('stat-beds-open');
+  if (ihEl) ihEl.textContent = totalInHalls.toLocaleString();
+  if (boEl) boEl.textContent = Math.max(CAP_TOTAL - totalInHalls - DEPOSIT_GAP, 0).toLocaleString();
+
+  // Current fill pcard (uses official building capacities)
+  const fillTotal = (totalInHalls / CAP_TOTAL * 100).toFixed(1) + '%';
+  const fillW     = (womenIn / CAP_WOMEN * 100).toFixed(1) + '%';
+  const fillM     = (menIn   / CAP_MEN   * 100).toFixed(1) + '%';
+  const fillPct   = totalInHalls / CAP_TOTAL * 100;
+  const ftEl = document.getElementById('fill-total');
+  const fwEl = document.getElementById('fill-women');
+  const fmEl = document.getElementById('fill-men');
+  const fbEl = document.getElementById('fill-bar');
+  if (ftEl) ftEl.textContent = fillTotal;
+  if (fwEl) fwEl.textContent = fillW;
+  if (fmEl) fmEl.textContent = fillM;
+  if (fbEl) fbEl.style.width = fillPct.toFixed(1) + '%';
+}
+
+renderAll();
+
+// ── Live data from proxy server ──────────────────────────────────────────────
+function processApiRecords(records) {
+  const raw = {};
+  Object.keys(STATIC_RAW).forEach(k => { raw[k] = {students:0, rooms:{}}; });
+  // Initialize gender counts only for buildings where it's tracked
+  ['MBK','Commuter'].forEach(k => {
+    raw[k] = {students:0, rooms:{Female:0, Male:0}};
+  });
+
+  let hasGender = false;
+  records.forEach(r => {
+    const bld  = r.building_id;
+    const room = r.room_id;
+    const gen  = (r.gender || '').toLowerCase();
+    const isFem = gen.startsWith('f');
+    const isMal = gen.startsWith('m');
+    if (gen) hasGender = true;
+
+    if (bld && raw[bld] !== undefined) {
+      raw[bld].students++;
+      const tracksGender = 'Female' in raw[bld].rooms;
+      if (tracksGender) {
+        if (isFem) raw[bld].rooms.Female++;
+        else if (isMal) raw[bld].rooms.Male++;
+      } else if (room) {
+        raw[bld].rooms[room] = (raw[bld].rooms[room] || 0) + 1;
+      }
+    } else {
+      raw.Commuter.students++;
+      if (isFem) raw.Commuter.rooms.Female++;
+      else if (isMal) raw.Commuter.rooms.Male++;
+    }
+  });
+
+  // If no gender data in API, fall back to static ratio for Commuter
+  if (!hasGender) {
+    const cTotal   = STATIC_RAW.Commuter.students || 1;
+    const cFem     = STATIC_RAW.Commuter.rooms.Female || 0;
+    const femRatio = cFem / cTotal;
+    raw.Commuter.rooms.Female = Math.round(raw.Commuter.students * femRatio);
+    raw.Commuter.rooms.Male   = raw.Commuter.students - raw.Commuter.rooms.Female;
+  }
+
+  return raw;
+}
+
+async function fetchJsonWithAuth(url, options = {}) {
+  const resp = await fetch(url, options);
+  if (resp.status === 401) {
+    window.location.replace('/');
+    throw new Error('Authentication required');
+  }
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  return resp.json();
+}
+
+async function loadAuthState() {
+  try {
+    const json = await fetchJsonWithAuth('/api/auth/me');
+    if (!json.authenticated) {
+      window.location.replace('/');
+      return;
+    }
+    const emailEl = document.getElementById('auth-email');
+    if (emailEl && json.email) {
+      emailEl.textContent = json.email;
+      emailEl.style.display = 'inline';
+    }
+  } catch (e) {
+    console.error('Auth check failed:', e.message);
+  }
+}
+
+async function logout() {
+  const btn = document.getElementById('logout-btn');
+  btn.disabled = true;
+  btn.textContent = 'Signing Out...';
+  try {
+    await fetch('/api/auth/logout', {method: 'POST'});
+  } finally {
+    window.location.replace('/');
+  }
+}
+
+async function tryLiveData() {
+  const badge = document.getElementById('live-badge');
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const json = await fetchJsonWithAuth('/api/housing-data', {signal: controller.signal});
+    clearTimeout(timeout);
+    if (json.error) throw new Error(json.error);
+    RAW = processApiRecords(json.records);
+    renderAll();
+    if (badge) { badge.textContent = '● LIVE'; badge.style.color = '#2DA05A'; }
+    const dateEl = document.getElementById('erez-data-date');
+    if (dateEl && json.cached_at) dateEl.textContent = json.cached_at;
+    console.log(`Housing data refreshed — ${json.total} assignments loaded.`);
+  } catch (e) {
+    clearTimeout(timeout);
+    if (badge) { badge.textContent = '○ CACHED'; badge.style.color = '#3A5278'; }
+    console.log('Live data unavailable (run serve.py to enable). Showing cached snapshot.', e.message);
+  }
+}
+
+async function refreshHousingData() {
+  const btn   = document.getElementById('refresh-btn');
+  const badge = document.getElementById('live-badge');
+  btn.textContent = '↻ Refreshing…';
+  btn.disabled = true;
+  badge.textContent = '⟳ FETCHING';
+  badge.style.color = '#B8892A';
+  try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 120000);
+    const json = await fetchJsonWithAuth('/api/refresh-housing', {signal: ctrl.signal});
+    if (json.error) throw new Error(json.error);
+    RAW = processApiRecords(json.records);
+    renderAll();
+    badge.textContent = '● LIVE';
+    badge.style.color = '#2DA05A';
+    const dateEl = document.getElementById('erez-data-date');
+    if (dateEl && json.cached_at) dateEl.textContent = json.cached_at;
+    console.log(`Cache refreshed — ${json.total} assignments loaded.`);
+  } catch (e) {
+    badge.textContent = '✕ ERROR';
+    badge.style.color = '#C0392B';
+    console.error('Refresh failed:', e.message);
+    alert('Refresh failed: ' + e.message);
+  } finally {
+    btn.textContent = '↻ Refresh';
+    btn.disabled = false;
+  }
+}
+
+async function tryDepositData() {
+  const ASSIGNED_IN_HALLS = 459;
+  try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 20000);
+    const json = await fetchJsonWithAuth('/api/slate-deposits', {signal: ctrl.signal});
+    if (json.error) throw new Error(json.error);
+    const records = json.records || [];
+    if (!records.length) return;
+
+    const net = records.filter(r => {
+      const withdrawn = r['Dep_ApplicationWithdrawnDate'] || r['Dep_WithdrawnDate'] || '';
+      const status    = (r['Dep_ApplicationStatus'] || '').toLowerCase();
+      return !withdrawn.trim() && !status.includes('withdrawn');
+    });
+    const total = net.length;
+    if (!total) return;
+
+    const women = net.filter(r => (r['Dep_Gender'] || '').toLowerCase().startsWith('f')).length;
+    const men   = net.filter(r => (r['Dep_Gender'] || '').toLowerCase().startsWith('m')).length;
+    const gap   = Math.max(0, total - ASSIGNED_IN_HALLS);
+    const assignedPct = Math.min(100, (ASSIGNED_IN_HALLS / total) * 100).toFixed(1);
+    const gapPct      = (100 - parseFloat(assignedPct)).toFixed(1);
+
+    document.getElementById('dep-total').textContent   = total.toLocaleString();
+    document.getElementById('dep-women').textContent   = women ? women.toLocaleString() : '—';
+    document.getElementById('dep-men').textContent     = men   ? men.toLocaleString()   : '—';
+    document.getElementById('dep-gap').textContent     = gap.toLocaleString();
+    document.getElementById('dep-bar-assigned').style.width = assignedPct + '%';
+    document.getElementById('dep-bar-gap').style.width      = gapPct + '%';
+    document.getElementById('dep-badge').textContent = '● LIVE';
+    document.getElementById('dep-badge').style.color = '#2DA05A';
+
+    // Factor unassigned deposits into capacity counts
+    if (gap > 0) {
+      DEPOSIT_GAP = gap;
+
+      // Update beds open (subtract gap from available beds)
+      const inHalls = parseInt((document.getElementById('stat-in-halls')?.textContent || '0').replace(/,/g, '')) || 0;
+      const boEl = document.getElementById('stat-beds-open');
+      if (boEl) boEl.textContent = Math.max(CAP_TOTAL - inHalls - DEPOSIT_GAP, 0).toLocaleString();
+
+      // Show pending row in Incoming Freshmen table
+      const pendingRow = document.getElementById('dep-pending-row');
+      const pendingCount = document.getElementById('dep-pending-count');
+      if (pendingRow) pendingRow.style.display = '';
+      if (pendingCount) pendingCount.textContent = gap.toLocaleString();
+
+      // Update Total Incoming to include pending
+      const totalCell = document.getElementById('incoming-total-actual');
+      const deltaCell = document.getElementById('incoming-total-delta');
+      if (totalCell) totalCell.textContent = (ASSIGNED_IN_HALLS + gap).toLocaleString();
+      if (deltaCell) {
+        const vsGoal = (ASSIGNED_IN_HALLS + gap) - 571;
+        deltaCell.textContent = (vsGoal >= 0 ? '+' : '−') + Math.abs(vsGoal);
+        deltaCell.className = 'delta ' + (vsGoal >= 0 ? 'delta-up' : 'delta-down');
+      }
+    }
+  } catch(e) {
+    document.getElementById('dep-badge').textContent = '○ unavailable';
+    console.log('Deposit data unavailable:', e.message);
+  }
+}
+
+loadAuthState();
+tryLiveData();
+tryDepositData();
+</script>

@@ -2,10 +2,10 @@
   "name": "amu-reporting",
   "private": true,
   "scripts": {
-    "dev": "sst dev --stage dev",
+    "dev": "npm run dev --prefix apps/web-next",
+    "build": "npm run build --prefix apps/web-next",
     "deploy": "sst deploy --stage production",
-    "secret:list": "sst secret list --stage production",
-    "build:web": "npm run build --prefix apps/web"
+    "secret:list": "sst secret list --stage production"
   },
   "devDependencies": {
     "sst": "^4.15.2",
