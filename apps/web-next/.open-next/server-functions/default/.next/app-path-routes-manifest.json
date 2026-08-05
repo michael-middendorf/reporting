@@ -1,0 +1,18 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/alumni/page": "/alumni",
+  "/api/auth/complete/route": "/api/auth/complete",
+  "/api/auth/logout/route": "/api/auth/logout",
+  "/api/auth/me/route": "/api/auth/me",
+  "/api/auth/request/route": "/api/auth/request",
+  "/api/dashboard/route": "/api/dashboard",
+  "/api/housing-data/route": "/api/housing-data",
+  "/auth/magic/page": "/auth/magic",
+  "/enrollment/page": "/enrollment",
+  "/favicon.ico/route": "/favicon.ico",
+  "/housing/page": "/housing",
+  "/login/page": "/login",
+  "/mas/page": "/mas",
+  "/page": "/",
+  "/points/page": "/points"
+}

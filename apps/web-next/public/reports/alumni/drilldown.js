@@ -43,7 +43,8 @@ try {
 }
 
 async function fetchJson(path) {
-  const response = await fetch(path);
+  const rel = String(path || "").replace(/^data\//, "");
+  const response = await fetch(`/api/reports/alumni/${rel}`);
   if (!response.ok) {
     throw new Error(`Failed to load ${path}: ${response.status}`);
   }

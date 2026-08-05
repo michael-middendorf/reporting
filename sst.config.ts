@@ -48,6 +48,8 @@ export default $config({
         CACHE_KEY: "dashboard/slate-report-cache.json",
         EMAIL_FROM:
           "AMU Project Manager <noreply@notifications.avemaria.edu>",
+        MAS_REPORT_BUCKET: "mas-report-report-905418447941-us-east-2",
+        MAS_CACHE_BUCKET: "mas-report-cache-905418447941-us-east-2",
       },
       permissions: [
         {

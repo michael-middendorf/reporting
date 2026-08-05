@@ -158,7 +158,7 @@ export const EVENT_RULES = [
  * Locally we read from ./data; in production from the CloudFront-fronted
  * cache bucket. Override with ?data=<baseUrl> for testing. */
 export const DATA_BASE =
-  (typeof location !== "undefined" && new URLSearchParams(location.search).get("data")) || "./data";
+  (typeof location !== "undefined" && new URLSearchParams(location.search).get("data")) || "/api/reports/points";
 
 export const RAW_FILES = {
   notes: "notes.json",
