@@ -93,6 +93,7 @@ export default $config({
         ],
         environment: {
           DATA_BUCKET: data.name,
+          QUERY_LINKS_FILE: "/var/task/query_links.json",
         },
         permissions: reportDataPerms,
       },

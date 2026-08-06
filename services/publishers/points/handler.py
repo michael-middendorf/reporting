@@ -5,7 +5,9 @@ from __future__ import annotations
 import datetime as dt
 import json
 import os
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any
 
@@ -24,6 +26,7 @@ NOTE_TYPE_PREFIXES = ["Mission Advancement"]
 NOTE_TYPE_EXACT = ["Letter", "In Person", "Text Message"]
 EVENT_MATCH_KEYWORDS = ["Near You", "Market"]
 EVENT_FIELDS = ("id", "name", "startDateTime", "endDateTime", "locationName", "createdByUser")
+RETRYABLE = {429, 500, 502, 503, 504}
 
 
 class VirtuousClient:
@@ -36,36 +39,40 @@ class VirtuousClient:
         rows: list[dict] = []
         skip = 0
         while True:
-            payload = {**body, "skip": skip, "take": page_size}
-            data = self._post(path, payload)
-            batch = data.get("list") or data.get("records") or []
-            if not isinstance(batch, list):
-                batch = []
+            # Virtuous expects skip/take as query params, not body fields.
+            payload = self._post(path, body, params={"skip": skip, "take": page_size})
+            batch = payload.get("list") or []
+            total = int(payload.get("total") or 0)
             rows.extend(batch)
-            total = int(data.get("total") or 0)
-            skip += len(batch)
-            if not batch or (total and skip >= total) or len(batch) < page_size:
+            skip += page_size
+            if not batch or skip >= total:
                 break
         return rows
 
-    def _post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
-        url = f"{self.base_url}{path}"
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-            },
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                return json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")[:500]
-            raise RuntimeError(f"Virtuous {path} → {exc.code}: {detail}") from exc
+    def _post(self, path: str, body: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+        url = f"{self.base_url}{path}?{urllib.parse.urlencode(params)}"
+        data = json.dumps(body).encode("utf-8")
+        for attempt in range(6):
+            req = urllib.request.Request(
+                url,
+                data=data,
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    return json.loads(resp.read().decode("utf-8"))
+            except urllib.error.HTTPError as exc:
+                if exc.code in RETRYABLE and attempt < 5:
+                    time.sleep(min(30, 2 * (attempt + 1)))
+                    continue
+                detail = exc.read().decode("utf-8", errors="replace")[:500]
+                raise RuntimeError(f"Virtuous {path} → {exc.code}: {detail}") from exc
+        raise RuntimeError(f"Virtuous {path} failed after retries")
 
 
 def _note_query(start: dt.date, end: dt.date) -> dict[str, Any]:
@@ -137,6 +144,7 @@ def handler(event, context):  # noqa: ANN001, ARG001
             continue
         notes_by_id[rid] = row
     notes = list(notes_by_id.values())
+    print(f"  raw={len(raw_notes)} roster-kept={len(notes)}", flush=True)
 
     print(f"Fetching events {start} → {today}", flush=True)
     raw_events = client.paged_query("/api/Event/Query", _event_query(start, today), page_size)
@@ -147,6 +155,7 @@ def handler(event, context):  # noqa: ANN001, ARG001
             continue
         events_by_id[rid] = {k: row.get(k) for k in EVENT_FIELDS}
     events = list(events_by_id.values())
+    print(f"  events={len(events)}", flush=True)
 
     dates = sorted(d for d in (n.get("noteDate") for n in notes) if d)
     meta = {
@@ -164,5 +173,5 @@ def handler(event, context):  # noqa: ANN001, ARG001
     put_json(f"{prefix}/notes.json", notes, bucket=bucket)
     put_json(f"{prefix}/events.json", events, bucket=bucket)
     put_json(f"{prefix}/meta.json", meta, bucket=bucket)
-    print(f"published {len(notes)} notes, {len(events)} events → s3://{bucket}/{prefix}/", flush=True)
+    print(f"published → s3://{bucket}/{prefix}/", flush=True)
     return {"ok": True, "record_counts": meta["record_counts"], "generated_at": meta["generated_at"]}

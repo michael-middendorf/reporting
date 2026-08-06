@@ -32,7 +32,15 @@ def _links_path() -> Path:
     env = os.getenv("QUERY_LINKS_FILE")
     if env:
         return Path(env)
-    return Path(__file__).resolve().parent / "query_links.json"
+    here = Path(__file__).resolve().parent
+    for candidate in (
+        here / "query_links.json",
+        Path("/var/task/query_links.json"),
+        Path.cwd() / "query_links.json",
+    ):
+        if candidate.exists():
+            return candidate
+    return here / "query_links.json"
 
 
 def _load_links() -> list[tuple[str, str]]:
