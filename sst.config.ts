@@ -2,7 +2,8 @@
 
 /**
  * AMU Reporting — Next.js + SST.
- * Clean publishers write directly into ReportData (DATA_BUCKET).
+ * Publishers write canonical sources/{source}/{dataset}/ raw only.
+ * MAS/Alumni processors derive on-read (no derived S3 writes).
  */
 export default $config({
   app(input) {
@@ -38,6 +39,16 @@ export default $config({
       },
     ];
 
+    const readDataPerms = [
+      {
+        actions: ["s3:GetObject", "s3:ListBucket"],
+        resources: [
+          $interpolate`arn:aws:s3:::${data.name}`,
+          $interpolate`arn:aws:s3:::${data.name}/*`,
+        ],
+      },
+    ];
+
     const commonFiles = [
       {
         from: "services/publishers/common",
@@ -45,9 +56,53 @@ export default $config({
       },
     ];
 
+    const masProcess = new sst.aws.Function("MasProcess", {
+      handler: "services/publishers/mas/handler.handler",
+      runtime: "python3.12",
+      timeout: "15 minutes",
+      memory: "3008 MB",
+      link: [data],
+      python: { uv: true },
+      copyFiles: [
+        ...commonFiles,
+        {
+          from: "services/publishers/mas/mas_follow_up_report",
+          to: "mas_follow_up_report",
+        },
+      ],
+      environment: {
+        DATA_BUCKET: data.name,
+        API_KEY: virtuousApiKey.value,
+        VIRTUOUS_API_KEY: virtuousApiKey.value,
+      },
+      permissions: readDataPerms,
+    });
+
+    const alumniProcess = new sst.aws.Function("AlumniProcess", {
+      handler: "services/publishers/alumni/handler.handler",
+      runtime: "python3.12",
+      timeout: "15 minutes",
+      memory: "3008 MB",
+      link: [data],
+      python: { uv: true },
+      copyFiles: [
+        ...commonFiles,
+        {
+          from: "services/publishers/alumni/virt_reporting",
+          to: "virt_reporting",
+        },
+      ],
+      environment: {
+        DATA_BUCKET: data.name,
+        API_KEY: virtuousApiKey.value,
+        VIRTUOUS_API_KEY: virtuousApiKey.value,
+      },
+      permissions: readDataPerms,
+    });
+
     const site = new sst.aws.Nextjs("Web", {
       path: "apps/web-next",
-      link: [data],
+      link: [data, masProcess, alumniProcess],
       environment: {
         AUTH_SECRET: authSecret.value,
         RESEND_API_KEY: resendApiKey.value,
@@ -72,10 +127,17 @@ export default $config({
         ALUMNI_ALLOWED_EMAILS:
           "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
         DATA_BUCKET: data.name,
-        ENROLLMENT_MANIFEST_KEY: "enrollment/slate-report-cache.json",
+        MAS_PROCESS_FUNCTION: masProcess.name,
+        ALUMNI_PROCESS_FUNCTION: alumniProcess.name,
         EMAIL_FROM:
           "AMU Project Manager <noreply@notifications.avemaria.edu>",
       },
+      permissions: [
+        {
+          actions: ["lambda:InvokeFunction"],
+          resources: [masProcess.arn, alumniProcess.arn],
+        },
+      ],
     });
 
     new sst.aws.Cron("EnrollmentRefresh", {
@@ -102,66 +164,16 @@ export default $config({
       },
     });
 
-    new sst.aws.Cron("MasGivingRefresh", {
+    new sst.aws.Cron("VirtuousRawRefresh", {
       schedule: "rate(15 minutes)",
       function: {
-        handler: "services/publishers/mas/handler.handler",
+        handler: "services/publishers/virtuous/handler.handler",
         runtime: "python3.12",
         timeout: "15 minutes",
         memory: "2048 MB",
-        link: [data],
-        python: { uv: true },
-        copyFiles: [
-          ...commonFiles,
-          {
-            from: "services/publishers/mas/mas_follow_up_report",
-            to: "mas_follow_up_report",
-          },
-        ],
-        environment: {
-          DATA_BUCKET: data.name,
-          API_KEY: virtuousApiKey.value,
-          VIRTUOUS_API_KEY: virtuousApiKey.value,
-        },
-        permissions: reportDataPerms,
-      },
-    });
-
-    new sst.aws.Cron("PointsRefresh", {
-      schedule: "rate(15 minutes)",
-      function: {
-        handler: "services/publishers/points/handler.handler",
-        runtime: "python3.12",
-        timeout: "15 minutes",
-        memory: "1024 MB",
         link: [data],
         python: { uv: true },
         copyFiles: commonFiles,
-        environment: {
-          DATA_BUCKET: data.name,
-          API_KEY: virtuousApiKey.value,
-          VIRTUOUS_API_KEY: virtuousApiKey.value,
-        },
-        permissions: reportDataPerms,
-      },
-    });
-
-    new sst.aws.Cron("AlumniRefresh", {
-      schedule: "rate(6 hours)",
-      function: {
-        handler: "services/publishers/alumni/handler.handler",
-        runtime: "python3.12",
-        timeout: "15 minutes",
-        memory: "2048 MB",
-        link: [data],
-        python: { uv: true },
-        copyFiles: [
-          ...commonFiles,
-          {
-            from: "services/publishers/alumni/virt_reporting",
-            to: "virt_reporting",
-          },
-        ],
         environment: {
           DATA_BUCKET: data.name,
           API_KEY: virtuousApiKey.value,
@@ -248,6 +260,11 @@ export default $config({
       },
     });
 
-    return { url: site.url, dataBucket: data.name };
+    return {
+      url: site.url,
+      dataBucket: data.name,
+      masProcess: masProcess.name,
+      alumniProcess: alumniProcess.name,
+    };
   },
 });

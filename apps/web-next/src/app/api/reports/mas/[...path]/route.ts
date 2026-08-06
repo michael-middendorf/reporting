@@ -1,14 +1,10 @@
 import { NextResponse } from "next/server";
-import {
-  dataBucket,
-  requireReportAccess,
-  safeKey,
-  streamS3Object,
-} from "@/lib/s3-proxy";
+import { requireReportAccess } from "@/lib/s3-proxy";
+import { fetchProcessedArtifact } from "@/lib/process-invoke";
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
-/** Serve MAS giving artifacts from DATA_BUCKET/mas/data/*. */
+/** MAS artifacts derived on-read from sources/virtuous via MasProcess Lambda. */
 export async function GET(req: Request, ctx: Ctx) {
   const denied = requireReportAccess(req, "mas");
   if (denied) return denied;
@@ -17,19 +13,27 @@ export async function GET(req: Request, ctx: Ctx) {
   if (!path?.length) {
     return NextResponse.json({ error: "Missing path" }, { status: 400 });
   }
-
-  const bucket = dataBucket();
-  if (!bucket) {
-    return NextResponse.json({ error: "DATA_BUCKET is not configured" }, { status: 500 });
-  }
+  const artifact = path.join("/");
 
   try {
-    const primary = await streamS3Object(bucket, safeKey(path, "mas/data"));
-    if (primary.status !== 404) return primary;
-    return primary;
+    const body = await fetchProcessedArtifact("MAS_PROCESS_FUNCTION", artifact);
+    if (typeof body === "string") {
+      return new NextResponse(body, {
+        status: 200,
+        headers: {
+          "Content-Type": artifact.endsWith(".csv")
+            ? "text/csv; charset=utf-8"
+            : "text/plain; charset=utf-8",
+          "Cache-Control": "private, max-age=120",
+        },
+      });
+    }
+    return NextResponse.json(body, {
+      headers: { "Cache-Control": "private, max-age=120" },
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error("MAS data proxy error", msg);
+    console.error("MAS process error", msg);
     return NextResponse.json({ error: msg }, { status: 502 });
   }
 }

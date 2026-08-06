@@ -1,30 +1,77 @@
 import { NextResponse } from "next/server";
-import {
-  dataBucket,
-  requireReportAccess,
-  safeKey,
-  streamS3Object,
-} from "@/lib/s3-proxy";
+import { requireReportAccess } from "@/lib/s3-proxy";
+import { loadSourceRows } from "@/lib/sources";
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
-/** Serve MA Points raw JSON from DATA_BUCKET/points/data/*. */
+const MA_NAMES = new Set([
+  "Sean Kelly",
+  "Joseph Blaso",
+  "Alanna McCann",
+  "Caleb Metzen",
+  "Elena Barnes",
+  "Betsy Scaletty",
+  "Natalia Abrams",
+]);
+
+const EVENT_FIELDS = [
+  "id",
+  "name",
+  "startDateTime",
+  "endDateTime",
+  "locationName",
+  "createdByUser",
+] as const;
+
+/** Serve points payloads from sources/virtuous/{contact_notes,events}. */
 export async function GET(req: Request, ctx: Ctx) {
   const denied = requireReportAccess(req, "points");
   if (denied) return denied;
 
   const { path } = await ctx.params;
-  if (!path?.length) {
+  const file = path?.[0];
+  if (!file) {
     return NextResponse.json({ error: "Missing path" }, { status: 400 });
   }
 
-  const bucket = dataBucket();
-  if (!bucket) {
-    return NextResponse.json({ error: "DATA_BUCKET is not configured" }, { status: 500 });
-  }
-
   try {
-    return await streamS3Object(bucket, safeKey(path, "points/data"));
+    if (file === "notes.json") {
+      const { rows, latest } = await loadSourceRows<Record<string, unknown>>(
+        "virtuous",
+        "contact_notes",
+      );
+      const notes = rows.filter((r) => MA_NAMES.has(String(r.createdByUser || "").trim()));
+      return NextResponse.json(notes, {
+        headers: { "X-AMU-Source-Dt": latest.dt, "Cache-Control": "private, max-age=60" },
+      });
+    }
+    if (file === "events.json") {
+      const { rows, latest } = await loadSourceRows<Record<string, unknown>>("virtuous", "events");
+      const events = rows.map((r) => {
+        const lean: Record<string, unknown> = {};
+        for (const k of EVENT_FIELDS) lean[k] = r[k];
+        return lean;
+      });
+      return NextResponse.json(events, {
+        headers: { "X-AMU-Source-Dt": latest.dt, "Cache-Control": "private, max-age=60" },
+      });
+    }
+    if (file === "meta.json") {
+      const notes = await loadSourceRows("virtuous", "contact_notes");
+      const events = await loadSourceRows("virtuous", "events");
+      const kept = notes.rows.filter((r) =>
+        MA_NAMES.has(String((r as { createdByUser?: string }).createdByUser || "").trim()),
+      );
+      return NextResponse.json({
+        sample: false,
+        provenance: "sources/virtuous contact_notes + events (roster-filtered for points).",
+        generated_at: notes.latest.pulled_at,
+        note_window_days: 365,
+        record_counts: { notes: kept.length, events: events.rows.length },
+        roster: [...MA_NAMES],
+      });
+    }
+    return NextResponse.json({ error: `Unknown points file: ${file}` }, { status: 404 });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     const status = msg.includes("NoSuchKey") || msg.includes("NotFound") ? 404 : 502;

@@ -1,55 +1,63 @@
-import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
-import { dataBucket, requireReportAccess } from "@/lib/s3-proxy";
+import { requireReportAccess } from "@/lib/s3-proxy";
+import { loadLatestPointer, readJson } from "@/lib/sources";
 
-/** Enrollment dashboard metadata from DATA_BUCKET/enrollment/ (no S3 presigns). */
+/** Enrollment dashboard metadata from sources/slate catalog pointers. */
+const SLATE_DATASETS = [
+  "admissions",
+  "psw",
+  "messages",
+  "campus_visits",
+  "app_decisions",
+  "interactions",
+  "slc",
+  "islc",
+  "slc_students",
+  "withdrawn",
+];
+
 export async function GET(req: Request) {
   const denied = requireReportAccess(req, "enrollment");
   if (denied) return denied;
 
-  const bucket = dataBucket();
-  if (!bucket) {
-    return NextResponse.json(
-      { success: false, error: "DATA_BUCKET is not configured" },
-      { status: 500 },
-    );
-  }
-  const manifestKey =
-    process.env.ENROLLMENT_MANIFEST_KEY || "enrollment/slate-report-cache.json";
-  const region = process.env.AWS_REGION || "us-east-2";
-  const s3 = new S3Client({ region });
-
   try {
-    const obj = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: manifestKey }));
-    const manifest = JSON.parse(await obj.Body!.transformToString());
-    const reportsMeta = (manifest.reports || {}) as Record<string, Record<string, unknown>>;
+    const reports: Record<string, Record<string, unknown>> = {};
+    let generatedAt: string | undefined;
+    for (const name of SLATE_DATASETS) {
+      try {
+        const latest = await loadLatestPointer("slate", name);
+        generatedAt = generatedAt || latest.pulled_at;
+        reports[name] = {
+          success: true,
+          row_count: latest.record_count,
+          dt: latest.dt,
+          prefix: latest.prefix,
+        };
+      } catch {
+        reports[name] = { success: false, error: "missing" };
+      }
+    }
+
+    let catalogGenerated: string | undefined;
+    try {
+      const catalog = await readJson<{ generated_at?: string }>("sources/_catalog.json");
+      catalogGenerated = catalog.generated_at;
+    } catch {
+      /* optional */
+    }
 
     return NextResponse.json({
       success: true,
       mode: "dashboard",
-      source: "report-data",
+      source: "sources/slate",
       inline: false,
-      bucket,
-      key: manifestKey,
-      generated_at: manifest.generated_at,
-      // Same-origin /api/enrollment/:name is the data path; keep empty map for compatibility.
+      generated_at: generatedAt || catalogGenerated,
       report_presigned_urls: {},
       manifest: {
-        success: manifest.success,
-        generated_at: manifest.generated_at,
-        report_order: manifest.report_order,
-        reports: Object.fromEntries(
-          Object.entries(reportsMeta).map(([name, meta]) => [
-            name,
-            {
-              success: meta.success,
-              row_count: meta.row_count,
-              json_key: meta.json_key,
-              gzip_key: meta.gzip_key,
-              error: meta.error,
-            },
-          ]),
-        ),
+        success: true,
+        generated_at: generatedAt || catalogGenerated,
+        report_order: SLATE_DATASETS,
+        reports,
       },
     });
   } catch (e) {

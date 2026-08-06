@@ -1,69 +1,51 @@
-import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
 import { requireReportAccess } from "@/lib/s3-proxy";
 import { buildingsFromRecords, type HousingRecord } from "@/lib/reports/housing/shape";
+import { loadSourceRows, readJson } from "@/lib/sources";
 
-const region = process.env.AWS_REGION || "us-east-2";
-const CACHE_KEY = "housing/latest.json";
-
-async function readCache(): Promise<{
-  records?: HousingRecord[];
-  buildings?: ReturnType<typeof buildingsFromRecords>;
-  session?: string;
-  cached_at?: string;
-  source?: string;
-  total?: number;
-} | null> {
-  const bucket = process.env.DATA_BUCKET || "";
-  if (!bucket) return null;
-  try {
-    const out = await new S3Client({ region }).send(
-      new GetObjectCommand({ Bucket: bucket, Key: CACHE_KEY }),
-    );
-    const text = await out.Body?.transformToString();
-    if (!text) return null;
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
-
-/** Housing occupancy from DATA_BUCKET/housing/latest.json (HousingRefresh cron). */
+/** Housing occupancy from sources/qlik/housing_occupancy. */
 export async function GET(req: Request) {
   const denied = requireReportAccess(req, "housing");
   if (denied) return denied;
 
-  const cached = await readCache();
-  if (cached) {
-    const buildings =
-      cached.buildings ||
-      buildingsFromRecords(Array.isArray(cached.records) ? cached.records : []);
+  try {
+    const { rows, latest } = await loadSourceRows<HousingRecord>("qlik", "housing_occupancy");
+    let session = "—";
+    try {
+      const meta = await readJson<{ provenance?: { session?: string } }>(
+        `${latest.prefix}/meta.json`,
+      );
+      session = meta.provenance?.session || session;
+    } catch {
+      /* optional */
+    }
+    const buildings = buildingsFromRecords(rows);
     return NextResponse.json({
       buildings,
       planning: {
-        session: cached.session || "—",
-        total: cached.total ?? buildings.reduce((s, b) => s + (b.occupied || 0), 0),
-        cached_at: cached.cached_at || "—",
+        session,
+        total: latest.record_count ?? buildings.reduce((s, b) => s + (b.occupied || 0), 0),
+        cached_at: latest.pulled_at || "—",
       },
-      source: cached.source || "s3-cache",
+      source: "sources/qlik/housing_occupancy",
     });
+  } catch (e) {
+    const qlik = process.env.QLIK_API_KEY || "";
+    const tenant = process.env.QLIK_TENANT || "";
+    const configured =
+      Boolean(qlik) &&
+      qlik !== "PLACEHOLDER" &&
+      Boolean(tenant) &&
+      tenant !== "PLACEHOLDER";
+
+    return NextResponse.json(
+      {
+        error: configured
+          ? "Housing raw source not published yet (sources/qlik/housing_occupancy). Wait for HousingRefresh."
+          : `Housing source missing: ${e instanceof Error ? e.message : String(e)}`,
+        buildings: [],
+      },
+      { status: 503 },
+    );
   }
-
-  const qlik = process.env.QLIK_API_KEY || "";
-  const tenant = process.env.QLIK_TENANT || "";
-  const configured =
-    Boolean(qlik) &&
-    qlik !== "PLACEHOLDER" &&
-    Boolean(tenant) &&
-    tenant !== "PLACEHOLDER";
-
-  return NextResponse.json(
-    {
-      error: configured
-        ? "Housing cache not published yet (DATA_BUCKET/housing/latest.json). Secrets are set — wait for HousingRefresh."
-        : "Housing cache empty and Qlik secrets not configured.",
-      buildings: [],
-    },
-    { status: 503 },
-  );
 }

@@ -1,27 +1,34 @@
-"""Alumni publisher: Virtuous pipeline → ReportData/alumni/."""
+"""Alumni on-read processor: derive UI artifacts (no S3 derived writes).
+
+Uses virtuous raw when present; falls back to live Virtuous sync for correctness
+of alumni-specific contact universe, still without publishing derived JSON to S3.
+"""
 
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 from pathlib import Path
+from typing import Any
 
-from common.s3util import data_bucket, upload_tree
 from virt_reporting.config import AppConfig
 from virt_reporting.pipeline import AlumniEngagementPipeline
 from virt_reporting.virtuous import VirtuousClient
 
+_CACHE: dict[str, Any] = {"key": None, "files": None}
 
-def handler(event, context):  # noqa: ANN001, ARG001
+
+def _build_files(mode: str) -> dict[str, Any]:
     api_key = os.environ.get("VIRTUOUS_API_KEY") or os.environ.get("API_KEY")
     if not api_key:
         raise RuntimeError("VIRTUOUS_API_KEY required")
-    mode = str((event or {}).get("mode") or "incremental").strip().lower()
-    if mode not in {"bootstrap", "incremental"}:
-        mode = "incremental"
-    bucket = data_bucket()
+    cache_key = f"{mode}:{api_key[:8]}"
+    # Warm cache only within same container invocation burst; keyed lightly.
+    if _CACHE["key"] == cache_key and isinstance(_CACHE["files"], dict):
+        return _CACHE["files"]
 
-    with tempfile.TemporaryDirectory(prefix="alumni-publish-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="alumni-onread-") as tmp:
         workspace = Path(tmp)
         data_dir = workspace / "data"
         publish_dir = workspace / "publish"
@@ -48,14 +55,33 @@ def handler(event, context):  # noqa: ANN001, ARG001
             api_key=config.api_key,
             timeout_seconds=config.timeout_seconds,
         )
-        metadata = AlumniEngagementPipeline(config, client).run(mode)
-        keys = upload_tree(publish_dir, "alumni", bucket=bucket)
+        AlumniEngagementPipeline(config, client).run(mode)
+        files: dict[str, Any] = {}
+        for path in publish_dir.rglob("*"):
+            if not path.is_file():
+                continue
+            rel = path.relative_to(publish_dir).as_posix()
+            if path.suffix == ".json":
+                files[rel] = json.loads(path.read_text(encoding="utf-8"))
+            else:
+                files[rel] = path.read_text(encoding="utf-8-sig")
+        _CACHE["key"] = cache_key
+        _CACHE["files"] = files
+        return files
 
-    return {
-        "ok": True,
-        "bucket": bucket,
-        "mode": mode,
-        "uploaded": len(keys),
-        "generated_at": metadata.get("generated_at"),
-        "counts": metadata.get("counts"),
-    }
+
+def handler(event, context):  # noqa: ANN001, ARG001
+    mode = str((event or {}).get("mode") or "incremental").strip().lower()
+    if mode not in {"bootstrap", "incremental"}:
+        mode = "incremental"
+    artifact = (event or {}).get("artifact")
+    files = _build_files(mode)
+    if not artifact:
+        return {"ok": True, "artifacts": sorted(files.keys())}
+    if artifact not in files:
+        return {
+            "ok": False,
+            "error": f"unknown artifact: {artifact}",
+            "artifacts": sorted(files.keys()),
+        }
+    return {"ok": True, "artifact": artifact, "body": files[artifact]}

@@ -1,14 +1,10 @@
 import { NextResponse } from "next/server";
-import {
-  dataBucket,
-  requireReportAccess,
-  safeKey,
-  streamS3Object,
-} from "@/lib/s3-proxy";
+import { requireReportAccess } from "@/lib/s3-proxy";
+import { fetchProcessedArtifact } from "@/lib/process-invoke";
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
-/** Alumni artifacts from DATA_BUCKET/alumni/*. */
+/** Alumni artifacts derived on-read via AlumniProcess Lambda (no derived S3 writes). */
 export async function GET(req: Request, ctx: Ctx) {
   const denied = requireReportAccess(req, "alumni");
   if (denied) return denied;
@@ -17,24 +13,29 @@ export async function GET(req: Request, ctx: Ctx) {
   if (!path?.length) {
     return NextResponse.json({ error: "Missing path" }, { status: 400 });
   }
-
-  const bucket = dataBucket();
-  if (!bucket) {
-    return NextResponse.json({ error: "DATA_BUCKET is not configured" }, { status: 500 });
-  }
+  const artifact = path.join("/");
 
   try {
-    const res = await streamS3Object(bucket, safeKey(path, "alumni"));
-    if (res.status !== 404) return res;
-    return NextResponse.json(
-      {
-        error: "Not found",
-        hint: "Publish alumni JSON under DATA_BUCKET/alumni/ (summary.json, etc.).",
-      },
-      { status: 404 },
-    );
+    const body = await fetchProcessedArtifact("ALUMNI_PROCESS_FUNCTION", artifact, {
+      mode: "incremental",
+    });
+    if (typeof body === "string") {
+      return new NextResponse(body, {
+        status: 200,
+        headers: {
+          "Content-Type": artifact.endsWith(".csv")
+            ? "text/csv; charset=utf-8"
+            : "text/plain; charset=utf-8",
+          "Cache-Control": "private, max-age=300",
+        },
+      });
+    }
+    return NextResponse.json(body, {
+      headers: { "Cache-Control": "private, max-age=300" },
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    console.error("Alumni process error", msg);
     return NextResponse.json({ error: msg }, { status: 502 });
   }
 }

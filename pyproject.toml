@@ -7,7 +7,7 @@ dependencies = []
 [tool.uv.workspace]
 members = [
   "services/publishers/enrollment",
-  "services/publishers/points",
+  "services/publishers/virtuous",
   "services/publishers/housing",
   "services/publishers/mas",
   "services/publishers/alumni",

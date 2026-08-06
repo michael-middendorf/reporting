@@ -1,7 +1,6 @@
 # AMU Reporting
 
-Single web app for Ave Maria University internal reports, deployed with **SST**
-(same pattern as the undergraduate / prospect form remakes).
+Single web app for Ave Maria University internal reports, deployed with **SST**.
 
 Remote: https://github.com/colecantu904/reporting
 
@@ -18,34 +17,35 @@ Remote: https://github.com/colecantu904/reporting
 
 Auth is a shared magic-link gate (Resend + email allowlist).
 
-## Data layout
+## Data layout (canonical raw)
 
-All reads and writes go through the SST `ReportData` bucket (`DATA_BUCKET`):
+All upstream data lands in the SST `ReportData` bucket under a single convention:
 
 ```
-enrollment/          # EnrollmentRefresh (Slate)
-mas/data/            # MasGivingRefresh (Virtuous)
-points/data/         # PointsRefresh (Virtuous)
-alumni/              # AlumniRefresh (Virtuous)
-housing/latest.json  # HousingRefresh (Qlik)
+sources/
+  {source}/{dataset}/
+    dt=YYYY-MM-DD/
+      data.jsonl.gz
+      meta.json
+    _latest.json
+sources/_catalog.json
 ```
 
-Publishers live under `services/publishers/` — one clean handler per report,
-writing straight into ReportData. Next APIs are same-origin proxies over that bucket.
+| Source | Datasets | Publisher cron |
+|--------|----------|----------------|
+| `slate` | admissions, psw, messages, campus_visits, … | EnrollmentRefresh |
+| `virtuous` | contact_notes, gifts, events, contacts | VirtuousRawRefresh |
+| `qlik` | housing_occupancy | HousingRefresh |
+
+Each dataset keeps ~3 dated days. Report pages read `_latest` (or invoke on-read processors for MAS/alumni derived views). **No derived report packages are stored in S3.**
 
 ## Layout
 
 ```
-apps/web-next/              Next.js App Router (hub, auth, report pages)
-services/publishers/        Scheduled publishers → ReportData
-sst.config.ts               SST Nextjs + secrets + crons
-.github/workflows/deploy.yml
+apps/web-next/              Next.js App Router
+services/publishers/        Raw publishers + MAS/Alumni on-read processors
+sst.config.ts
 ```
-
-## Access control
-
-Each report has an allowlist env (`ENROLLMENT_ALLOWED_EMAILS`, etc.). Magic links
-are scoped per report.
 
 ## Local
 
