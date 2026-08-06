@@ -81,7 +81,7 @@ export default $config({
         handler: "services/publishers/enrollment/handler.handler",
         runtime: "python3.12",
         timeout: "15 minutes",
-        memory: "1024 MB",
+        memory: "3008 MB",
         link: [data],
         python: { uv: true },
         copyFiles: [
