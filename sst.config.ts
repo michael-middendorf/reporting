@@ -2,7 +2,7 @@
 
 /**
  * AMU Reporting — Next.js + SST.
- * Publishers write directly into ReportData (DATA_BUCKET). App reads only that bucket.
+ * Clean publishers write directly into ReportData (DATA_BUCKET).
  */
 export default $config({
   app(input) {
@@ -37,6 +37,13 @@ export default $config({
       },
     ];
 
+    const commonFiles = [
+      {
+        from: "services/publishers/common",
+        to: "common",
+      },
+    ];
+
     const site = new sst.aws.Nextjs("Web", {
       path: "apps/web-next",
       link: [data],
@@ -68,54 +75,47 @@ export default $config({
       },
     });
 
-    // Slate enrollment → ReportData/enrollment/
     new sst.aws.Cron("EnrollmentRefresh", {
       schedule: "rate(15 minutes)",
       function: {
-        handler:
-          "services/refresh/enrollment_pipeline/slate_dashboard_cache_lambda.lambda_handler",
+        handler: "services/publishers/enrollment/handler.handler",
         runtime: "python3.12",
         timeout: "15 minutes",
         memory: "1024 MB",
         link: [data],
         python: { uv: true },
         copyFiles: [
+          ...commonFiles,
           {
-            from: "services/refresh/enrollment_pipeline/real-query-links.json",
-            to: "real-query-links.json",
+            from: "services/publishers/enrollment/query_links.json",
+            to: "query_links.json",
           },
         ],
         environment: {
-          CACHE_BUCKET: data.name,
-          CACHE_KEY: "enrollment/slate-report-cache.json",
+          DATA_BUCKET: data.name,
         },
         permissions: reportDataPerms,
       },
     });
 
-    // Virtuous MAS giving artifacts → ReportData/mas/data/
     new sst.aws.Cron("MasGivingRefresh", {
       schedule: "rate(15 minutes)",
       function: {
-        handler: "services/refresh/mas_giving/handler.handler",
+        handler: "services/publishers/mas/handler.handler",
         runtime: "python3.12",
         timeout: "15 minutes",
         memory: "2048 MB",
         link: [data],
         python: { uv: true },
         copyFiles: [
+          ...commonFiles,
           {
-            from: "services/refresh/mas_giving/backend/src/mas_report_backend",
-            to: "mas_report_backend",
-          },
-          {
-            from: "services/refresh/mas_giving/mas_follow_up_report",
+            from: "services/publishers/mas/mas_follow_up_report",
             to: "mas_follow_up_report",
           },
         ],
         environment: {
-          MAS_REPORT_REPORT_BUCKET: data.name,
-          MAS_REPORT_REPORT_PREFIX: "mas/data",
+          DATA_BUCKET: data.name,
           API_KEY: virtuousApiKey.value,
           VIRTUOUS_API_KEY: virtuousApiKey.value,
         },
@@ -123,25 +123,18 @@ export default $config({
       },
     });
 
-    // Virtuous MA points raw JSON → ReportData/points/data/
     new sst.aws.Cron("PointsRefresh", {
       schedule: "rate(15 minutes)",
       function: {
-        handler: "services/refresh/mas_points/handler.handler",
+        handler: "services/publishers/points/handler.handler",
         runtime: "python3.12",
         timeout: "15 minutes",
         memory: "1024 MB",
         link: [data],
         python: { uv: true },
-        copyFiles: [
-          {
-            from: "services/refresh/mas_points/backend/src/mas_cache",
-            to: "mas_cache",
-          },
-        ],
+        copyFiles: commonFiles,
         environment: {
-          MAS_CACHE_BUCKET: data.name,
-          MAS_CACHE_PREFIX: "points/data",
+          DATA_BUCKET: data.name,
           API_KEY: virtuousApiKey.value,
           VIRTUOUS_API_KEY: virtuousApiKey.value,
         },
@@ -149,30 +142,24 @@ export default $config({
       },
     });
 
-    // Alumni coverage → ReportData/alumni/
     new sst.aws.Cron("AlumniRefresh", {
       schedule: "rate(6 hours)",
       function: {
-        handler: "services/refresh/alumni/handler.handler",
+        handler: "services/publishers/alumni/handler.handler",
         runtime: "python3.12",
         timeout: "15 minutes",
         memory: "2048 MB",
         link: [data],
         python: { uv: true },
         copyFiles: [
+          ...commonFiles,
           {
-            from: "services/refresh/alumni/lambda_handler.py",
-            to: "lambda_handler.py",
-          },
-          {
-            from: "services/refresh/alumni/virt_reporting",
+            from: "services/publishers/alumni/virt_reporting",
             to: "virt_reporting",
           },
         ],
         environment: {
           DATA_BUCKET: data.name,
-          ALUMNI_DATA_PREFIX: "alumni",
-          PUBLISH_DIR: "/tmp/alumni_publish",
           API_KEY: virtuousApiKey.value,
           VIRTUOUS_API_KEY: virtuousApiKey.value,
         },
@@ -183,16 +170,17 @@ export default $config({
     new sst.aws.Cron("HousingRefresh", {
       schedule: "rate(6 hours)",
       function: {
-        handler: "services/refresh/housing_refresh/handler.handler",
+        handler: "services/publishers/housing/handler.handler",
         runtime: "python3.12",
         timeout: "10 minutes",
         memory: "1024 MB",
         link: [data],
         python: { uv: true },
         copyFiles: [
+          ...commonFiles,
           {
-            from: "services/api/reporting_api",
-            to: "reporting_api",
+            from: "services/publishers/housing/housing_data.py",
+            to: "housing_data.py",
           },
         ],
         environment: {

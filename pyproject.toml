@@ -6,12 +6,11 @@ dependencies = []
 
 [tool.uv.workspace]
 members = [
-  "services/api",
-  "services/refresh/enrollment_pipeline",
-  "services/refresh/housing_refresh",
-  "services/refresh/mas_giving",
-  "services/refresh/mas_points",
-  "services/refresh/alumni",
+  "services/publishers/enrollment",
+  "services/publishers/points",
+  "services/publishers/housing",
+  "services/publishers/mas",
+  "services/publishers/alumni",
 ]
 
 [tool.uv]
