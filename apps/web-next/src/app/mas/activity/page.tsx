@@ -2,110 +2,141 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { MasShell } from "../MasShell";
+import { ColumnChart } from "@/components/mas/charts";
 import {
   drilldownHref,
+  leaderboardFrom,
   loadMasJson,
-  type Engagement,
+  money,
+  type Scorecards,
+  type Trends,
 } from "@/lib/reports/mas/load";
 
+type Monthly = {
+  period_start?: string;
+  outreach_notes?: number;
+  two_way_engagements?: number;
+};
+
 export default function MasActivityPage() {
-  const [rows, setRows] = useState<Engagement[]>([]);
+  const [scorecards, setScorecards] = useState<Scorecards | null>(null);
+  const [trends, setTrends] = useState<Trends | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadMasJson<Engagement[] | { engagements?: Engagement[]; by_ma?: Engagement[] }>(
-      "engagements.json",
-    )
-      .then((data) => {
-        if (Array.isArray(data)) setRows(data);
-        else setRows(data.engagements || data.by_ma || []);
+    Promise.all([
+      loadMasJson<Scorecards>("scorecards.json"),
+      loadMasJson<Trends>("trends.json"),
+    ])
+      .then(([s, t]) => {
+        setScorecards(s);
+        setTrends(t);
       })
       .catch((e) => setError(String(e)));
   }, []);
 
-  const byMa = useMemo(() => {
-    const map = new Map<string, { outreach: number; types: Record<string, number> }>();
-    for (const r of rows) {
-      const owner = r.ma_owner || "Unassigned";
-      const cur = map.get(owner) || { outreach: 0, types: {} };
-      cur.outreach += 1;
-      const t = r.engagement_type || "Other";
-      cur.types[t] = (cur.types[t] || 0) + 1;
-      map.set(owner, cur);
-    }
-    return [...map.entries()].sort((a, b) => b[1].outreach - a[1].outreach);
-  }, [rows]);
-
-  const byType = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const r of rows) {
-      const t = r.engagement_type || "Other";
-      map.set(t, (map.get(t) || 0) + 1);
-    }
-    return [...map.entries()].sort((a, b) => b[1] - a[1]);
-  }, [rows]);
+  const owners = leaderboardFrom(scorecards);
+  const typeMix = Object.entries(trends?.type_mix || {}).sort((a, b) => b[1] - a[1]);
+  const monthly = useMemo(
+    () => ((trends?.monthly || []) as Monthly[]).slice(-18),
+    [trends],
+  );
+  const labels = monthly.map((r) => String(r.period_start || "").slice(0, 10));
 
   return (
     <MasShell>
       <h1>Activity</h1>
       {error && <p style={{ color: "#8f2d1f" }}>{error}</p>}
-      <p style={{ opacity: 0.75 }}>{rows.length.toLocaleString()} engagements</p>
 
-      <h2>By MA</h2>
-      <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", marginBottom: 24 }}>
-        <thead>
-          <tr>
-            <th align="left">MA</th>
-            <th align="right">Engagements</th>
-          </tr>
-        </thead>
-        <tbody>
-          {byMa.map(([owner, v]) => (
-            <tr key={owner}>
-              <td>
-                <a
-                  href={drilldownHref({
-                    title: owner,
-                    view: "engagements",
-                    predicates: [{ kind: "eq", key: "ma_owner", value: owner }],
-                  })}
-                >
-                  {owner}
-                </a>
-              </td>
-              <td align="right">{v.outreach}</td>
+      <h2>Monthly Outreach Notes</h2>
+      <ColumnChart
+        labels={labels}
+        values={monthly.map((r) => Number(r.outreach_notes || 0))}
+        hrefForIndex={(_i, label) =>
+          drilldownHref({
+            title: `Engagements in ${String(label).slice(0, 7)}`,
+            view: "engagements",
+            predicates: [{ kind: "prefix", key: "engagement_date", value: String(label).slice(0, 7) }],
+          })
+        }
+      />
+
+      <h2 style={{ marginTop: 24 }}>Monthly Two-Way Engagements</h2>
+      <ColumnChart
+        labels={labels}
+        values={monthly.map((r) => Number(r.two_way_engagements || 0))}
+        color="rgba(46, 95, 70, 0.88)"
+      />
+
+      <h2 style={{ marginTop: 24 }}>By MA</h2>
+      <div style={{ overflowX: "auto", background: "#fff", borderRadius: 12, marginBottom: 24 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <thead>
+            <tr>
+              <th align="left">MA</th>
+              <th align="right">Notes</th>
+              <th align="right">Two-way</th>
+              <th align="right">One-way</th>
+              <th align="right">Failed</th>
+              <th align="right">Donors 365</th>
+              <th align="right">$ 365</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {owners.map((row) => (
+              <tr key={row.ma_owner}>
+                <td>
+                  <a
+                    href={drilldownHref({
+                      title: row.ma_owner,
+                      view: "engagements",
+                      predicates: [{ kind: "eq", key: "ma_owner", value: row.ma_owner }],
+                    })}
+                  >
+                    {row.ma_owner}
+                  </a>
+                </td>
+                <td align="right">{row.outreach_notes ?? "—"}</td>
+                <td align="right">{row.two_way_engagements ?? "—"}</td>
+                <td align="right">{row.one_way_outreach ?? "—"}</td>
+                <td align="right">{row.failed_contacts ?? "—"}</td>
+                <td align="right">{row.follow_on_donors_365 ?? "—"}</td>
+                <td align="right">{money(row.follow_on_dollars_365)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <h2>By type</h2>
-      <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff" }}>
-        <thead>
-          <tr>
-            <th align="left">Type</th>
-            <th align="right">Count</th>
-          </tr>
-        </thead>
-        <tbody>
-          {byType.map(([type, count]) => (
-            <tr key={type}>
-              <td>
-                <a
-                  href={drilldownHref({
-                    title: type,
-                    view: "engagements",
-                    predicates: [{ kind: "eq", key: "engagement_type", value: type }],
-                  })}
-                >
-                  {type}
-                </a>
-              </td>
-              <td align="right">{count}</td>
+      <div style={{ overflowX: "auto", background: "#fff", borderRadius: 12 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <thead>
+            <tr>
+              <th align="left">Type</th>
+              <th align="right">Count</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {typeMix.map(([type, count]) => (
+              <tr key={type}>
+                <td>
+                  <a
+                    href={drilldownHref({
+                      title: type,
+                      view: "engagements",
+                      predicates: [{ kind: "eq", key: "engagement_type", value: type }],
+                    })}
+                  >
+                    {type}
+                  </a>
+                </td>
+                <td align="right">{count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <p style={{ marginTop: 12 }}>
         <a href="/api/reports/mas/exports/engagement_ledger.csv">Download ledger CSV</a>

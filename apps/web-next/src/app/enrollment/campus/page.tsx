@@ -1,21 +1,38 @@
 "use client";
 
 import { useEnrollment } from "../EnrollmentProvider";
+import { Section } from "@/components/enrollment/ui";
 import { fmt } from "@/lib/reports/enrollment/load";
 
 export default function CampusPage() {
   const { data, loading, error } = useEnrollment();
-  if (loading) return <div className="view active"><p>Loading…</p></div>;
-  if (error || !data) return <div className="view active"><p>{error}</p></div>;
+  if (loading)
+    return (
+      <div className="view active">
+        <p>Loading…</p>
+      </div>
+    );
+  if (error || !data)
+    return (
+      <div className="view active">
+        <p>{error}</p>
+      </div>
+    );
   const c = data.campus;
+
   return (
     <div className="view active">
       <div className="rpt-hdr">
         <div>
           <h1 className="rpt-title">AME / Campus Visits</h1>
-          <p className="rpt-sub">Registration outcomes</p>
+          <p className="rpt-sub">
+            Live status counts from campus_visits. Event-date AME conversion tables from the
+            legacy hub were static fixtures and are not yet re-derived.
+          </p>
         </div>
       </div>
+
+      <Section label="Campus Visit Overview" />
       <div className="kpi-strip">
         {[
           ["Total", c.total],

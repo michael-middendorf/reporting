@@ -5,6 +5,7 @@ import { AccessGate, ReportTopBar } from "@/components/AccessGate";
 import { apiFetch } from "@/lib/api";
 import {
   aggregate,
+  BUCKETS,
   dailyTotals,
   scoreAll,
   scoreEventsForDisplay,
@@ -21,6 +22,21 @@ const RANGES: Record<string, { label: string; days?: number; weekToDate?: boolea
   "14": { label: "Last 14 days", days: 14 },
   week: { label: "This week", weekToDate: true },
   all: { label: "All" },
+};
+
+type Owner = {
+  name: string;
+  points: number;
+  avgPerWeekday: number;
+  conversations?: number;
+  dials?: number;
+  convRate?: number;
+  count?: number;
+  weekdaysWorked?: number;
+  buckets?: Record<string, number>;
+  bucketPoints?: Record<string, number>;
+  weekList?: { key: string; points: number; conversations: number; dials: number }[];
+  tier?: { id: string; label: string; color?: string; min: number };
 };
 
 function bounds(key: RangeKey, customStart: string | null, customEnd: string | null) {
@@ -60,6 +76,25 @@ async function loadRaw() {
   return { notes: arr(notes), events: arr(events), meta: meta || {} };
 }
 
+function MixBar({ buckets }: { buckets?: Record<string, number> }) {
+  const total = Object.values(buckets || {}).reduce((s, n) => s + n, 0) || 1;
+  return (
+    <div style={{ display: "flex", height: 10, borderRadius: 999, overflow: "hidden", marginTop: 8 }}>
+      {BUCKETS.map((b: { id: string; color: string; label: string }) => {
+        const n = buckets?.[b.id] || 0;
+        if (!n) return null;
+        return (
+          <div
+            key={b.id}
+            title={`${b.label}: ${n}`}
+            style={{ width: `${(n / total) * 100}%`, background: b.color }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 export default function PointsPage() {
   const [rows, setRows] = useState<Array<Record<string, unknown>> | null>(null);
   const [events, setEvents] = useState<Array<Record<string, unknown>> | null>(null);
@@ -74,13 +109,8 @@ export default function PointsPage() {
   useEffect(() => {
     loadRaw()
       .then((raw) => {
-        // Points scoring modules are plain JS — cast through unknown.
-        const scored = scoreAll({ notes: raw.notes }) as unknown as Array<
-          Record<string, unknown>
-        >;
-        const ev = scoreEventsForDisplay(raw.events) as unknown as Array<
-          Record<string, unknown>
-        >;
+        const scored = scoreAll({ notes: raw.notes }) as unknown as Array<Record<string, unknown>>;
+        const ev = scoreEventsForDisplay(raw.events) as unknown as Array<Record<string, unknown>>;
         setRows(scored);
         setEvents(ev);
         setMeta(raw.meta as Record<string, unknown>);
@@ -92,14 +122,17 @@ export default function PointsPage() {
   const model = useMemo(() => {
     const { start, end } = bounds(range, customStart || null, customEnd || null);
     return aggregate(rows || [], { start, end }) as {
-      totals: { points?: number; avgPerWeekday?: number; activities?: number };
-      owners: Array<{
-        name: string;
-        points: number;
-        avgPerWeekday: number;
-        byWeek?: unknown;
-      }>;
+      totals: {
+        points?: number;
+        count?: number;
+        conversations?: number;
+        dials?: number;
+        convRate?: number;
+        weekdays?: number;
+      };
+      owners: Owner[];
       rows: unknown[];
+      buckets: typeof BUCKETS;
     };
   }, [rows, range, customStart, customEnd]);
 
@@ -108,6 +141,16 @@ export default function PointsPage() {
     [model.rows],
   );
   const selectedOwner = model.owners.find((o) => o.name === selected);
+  const teamMix = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const o of model.owners) {
+      for (const [k, v] of Object.entries(o.bucketPoints || o.buckets || {})) {
+        map[k] = (map[k] || 0) + Number(v || 0);
+      }
+    }
+    return map;
+  }, [model.owners]);
+  const mixPeak = Math.max(1, ...Object.values(teamMix));
 
   return (
     <AccessGate report="points">
@@ -126,7 +169,6 @@ export default function PointsPage() {
               <button
                 key={key}
                 type="button"
-                className={range === key ? "active" : ""}
                 onClick={() => {
                   setRange(key as RangeKey);
                   setCustomStart("");
@@ -172,29 +214,43 @@ export default function PointsPage() {
           <section
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))",
+              gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))",
               gap: 12,
               marginBottom: 24,
             }}
           >
             {[
-              ["Team points", model.totals?.points],
-              ["Weekday avg", model.totals?.avgPerWeekday?.toFixed?.(1)],
-              ["Active MAs", model.owners?.length],
-              ["Activities", model.totals?.activities],
-            ].map(([l, v]) => (
-              <div key={String(l)} style={{ background: "#fff", border: "1px solid #d7e0ec", borderRadius: 10, padding: 12 }}>
+              ["Total Points", model.totals?.points, `${model.totals?.count ?? 0} activities`],
+              [
+                "Conversations",
+                model.totals?.conversations,
+                `Dial rate ${((model.totals?.convRate || 0) * 100).toFixed(0)}%`,
+              ],
+              ["Weekdays Covered", model.totals?.weekdays, "Across selected range"],
+              [
+                "Team Avg / Weekday",
+                model.totals?.weekdays
+                  ? ((model.totals.points || 0) / model.totals.weekdays).toFixed(1)
+                  : "—",
+                `${model.owners.length} MAs`,
+              ],
+            ].map(([l, v, sub]) => (
+              <div
+                key={String(l)}
+                style={{ background: "#fff", border: "1px solid #d7e0ec", borderRadius: 10, padding: 12 }}
+              >
                 <div style={{ fontSize: 11, textTransform: "uppercase", opacity: 0.65 }}>{l as string}</div>
                 <div style={{ fontSize: 24, fontWeight: 700 }}>{v ?? "—"}</div>
+                <div style={{ fontSize: 12, opacity: 0.7 }}>{sub as string}</div>
               </div>
             ))}
           </section>
 
           <section style={{ marginBottom: 28 }}>
             <h2>Leaderboard</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 12 }}>
-              {model.owners.map((o: { name: string; points: number; avgPerWeekday: number }) => {
-                const tier = tierFor(o.avgPerWeekday || 0);
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: 12 }}>
+              {model.owners.map((o, idx) => {
+                const tier = o.tier || tierFor(o.avgPerWeekday || 0);
                 return (
                   <button
                     key={o.name}
@@ -209,9 +265,18 @@ export default function PointsPage() {
                       cursor: "pointer",
                     }}
                   >
-                    <div style={{ fontWeight: 700 }}>{o.name}</div>
-                    <div style={{ fontSize: 22 }}>{o.points}</div>
-                    <div style={{ fontSize: 12, color: tier.color }}>{tier.label}</div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <strong>
+                        #{idx + 1} {o.name}
+                      </strong>
+                      <span style={{ color: tier.color || "#0c233f", fontSize: 12 }}>{tier.label}</span>
+                    </div>
+                    <div style={{ fontSize: 22, fontWeight: 700 }}>{o.points}</div>
+                    <div style={{ fontSize: 12, opacity: 0.75 }}>
+                      Avg/wkdy {(o.avgPerWeekday || 0).toFixed(1)} · Convos {o.conversations ?? 0} · Rate{" "}
+                      {(((o.convRate || 0) as number) * 100).toFixed(0)}%
+                    </div>
+                    <MixBar buckets={o.buckets} />
                   </button>
                 );
               })}
@@ -221,17 +286,73 @@ export default function PointsPage() {
           {selectedOwner && (
             <section style={{ marginBottom: 28, background: "#fff", borderRadius: 12, padding: 16 }}>
               <h2>{selectedOwner.name} — weekly breakdown</h2>
-              <pre style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>
-                {JSON.stringify(selectedOwner.byWeek || selectedOwner, null, 2)}
-              </pre>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    <th align="left">Week</th>
+                    <th align="right">Points</th>
+                    <th align="right">Convos</th>
+                    <th align="right">Dials</th>
+                    <th align="right">Rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(selectedOwner.weekList || []).map((w) => (
+                    <tr key={w.key}>
+                      <td>{w.key}</td>
+                      <td align="right">{w.points}</td>
+                      <td align="right">{w.conversations}</td>
+                      <td align="right">{w.dials}</td>
+                      <td align="right">
+                        {w.dials ? `${((w.conversations / w.dials) * 100).toFixed(0)}%` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </section>
           )}
 
           <section style={{ marginBottom: 28 }}>
+            <h2>Activity mix (team points)</h2>
+            <div style={{ background: "#fff", borderRadius: 12, padding: 16 }}>
+              {BUCKETS.map((b: { id: string; label: string; color: string }) => {
+                const v = teamMix[b.id] || 0;
+                return (
+                  <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                    <div style={{ width: 140, fontSize: 13 }}>{b.label}</div>
+                    <div style={{ flex: 1, height: 14, background: "#eef3fa", borderRadius: 4 }}>
+                      <div
+                        style={{
+                          width: `${(v / mixPeak) * 100}%`,
+                          height: "100%",
+                          background: b.color,
+                          borderRadius: 4,
+                        }}
+                      />
+                    </div>
+                    <div style={{ width: 56, textAlign: "right", fontWeight: 700 }}>{v}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section style={{ marginBottom: 28 }}>
             <h2>Daily team points</h2>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 160, background: "#fff", padding: 12, borderRadius: 12 }}>
-              {daily.map((d: { date: string; points: number; weekend?: boolean }) => {
-                const max = Math.max(1, ...daily.map((x: { points: number }) => x.points));
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-end",
+                gap: 3,
+                height: 160,
+                background: "#fff",
+                padding: 12,
+                borderRadius: 12,
+              }}
+            >
+              {daily.map((d) => {
+                const max = Math.max(1, ...daily.map((x) => x.points));
                 const h = (d.points / max) * 130;
                 return (
                   <div
@@ -251,48 +372,72 @@ export default function PointsPage() {
 
           <section style={{ marginBottom: 28 }}>
             <h2>All MAs</h2>
-            <table style={{ width: "100%", background: "#fff", borderCollapse: "collapse" }}>
+            <table style={{ width: "100%", background: "#fff", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr>
                   <th align="left">MA</th>
                   <th align="right">Points</th>
-                  <th align="right">Weekday avg</th>
+                  <th align="right">Avg/wkdy</th>
                   <th align="left">Tier</th>
+                  <th align="right">Convos</th>
+                  <th align="right">Dials</th>
+                  <th align="right">Rate</th>
+                  <th align="right">Activities</th>
                 </tr>
               </thead>
               <tbody>
-                {model.owners.map((o: { name: string; points: number; avgPerWeekday: number }) => (
-                  <tr key={o.name}>
-                    <td>{o.name}</td>
-                    <td align="right">{o.points}</td>
-                    <td align="right">{(o.avgPerWeekday || 0).toFixed(1)}</td>
-                    <td>{tierFor(o.avgPerWeekday || 0).label}</td>
-                  </tr>
-                ))}
+                {model.owners.map((o) => {
+                  const tier = o.tier || tierFor(o.avgPerWeekday || 0);
+                  return (
+                    <tr key={o.name}>
+                      <td>{o.name}</td>
+                      <td align="right">{o.points}</td>
+                      <td align="right">{(o.avgPerWeekday || 0).toFixed(1)}</td>
+                      <td style={{ color: tier.color }}>{tier.label}</td>
+                      <td align="right">{o.conversations ?? 0}</td>
+                      <td align="right">{o.dials ?? 0}</td>
+                      <td align="right">{(((o.convRate || 0) as number) * 100).toFixed(0)}%</td>
+                      <td align="right">{o.count ?? 0}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </section>
+
+          <section style={{ marginBottom: 28 }}>
+            <h2>Events (reference only)</h2>
+            <table style={{ width: "100%", background: "#fff", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th align="left">Event</th>
+                  <th align="left">Date</th>
+                  <th align="left">Rule</th>
+                  <th align="right">Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {((events || []) as { date?: Date | string; name?: string; points?: number; rule?: string; label?: string }[])
+                  .slice(0, 50)
+                  .map((e, i) => (
+                    <tr key={i}>
+                      <td>{e.name || "Event"}</td>
+                      <td>{String(e.date || "").slice(0, 10)}</td>
+                      <td>{e.rule || e.label || "—"}</td>
+                      <td align="right">{e.points ?? 0}</td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </section>
 
           <section>
-            <h2>Events (reference only)</h2>
-            <p style={{ opacity: 0.7 }}>{(events || []).length} events in range (not attributed to MAs)</p>
-            <ul>
-              {((events || []) as { date?: Date; name?: string; points?: number }[])
-                .slice(0, 30)
-                .map((e, i) => (
-                  <li key={i}>
-                    {String(e.date || "")} — {e.name || "Event"} ({e.points ?? 0} pts)
-                  </li>
-                ))}
-            </ul>
-          </section>
-
-          <section style={{ marginTop: 24 }}>
             <h3>Tiers</h3>
             <ul>
-              {TIERS.map((t: { id: string; label: string; min: number }) => (
-                <li key={t.id}>
+              {TIERS.map((t) => (
+                <li key={t.id} style={{ color: t.color }}>
                   {t.label}: ≥ {t.min} avg pts / weekday
+                  {t.payout != null ? ` · $${t.payout.toLocaleString()}` : ""}
                 </li>
               ))}
             </ul>
