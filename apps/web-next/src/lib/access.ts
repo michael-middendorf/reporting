@@ -4,6 +4,7 @@ import { normalizeEmail } from "@/lib/auth";
 export const REPORT_IDS = [
   "enrollment",
   "housing",
+  "institute",
   "mas",
   "points",
   "alumni",
@@ -24,6 +25,7 @@ const DEFAULT_REPORT_ALLOWED: Record<ReportId, string> = {
   enrollment:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
   housing: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
+  institute: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
   mas: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
   points: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
   alumni: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
@@ -32,6 +34,7 @@ const DEFAULT_REPORT_ALLOWED: Record<ReportId, string> = {
 const ENV_KEYS: Record<ReportId, string> = {
   enrollment: "ENROLLMENT_ALLOWED_EMAILS",
   housing: "HOUSING_ALLOWED_EMAILS",
+  institute: "INSTITUTE_ALLOWED_EMAILS",
   mas: "MAS_ALLOWED_EMAILS",
   points: "POINTS_ALLOWED_EMAILS",
   alumni: "ALUMNI_ALLOWED_EMAILS",

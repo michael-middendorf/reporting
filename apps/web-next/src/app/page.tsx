@@ -25,6 +25,12 @@ const REPORTS: {
     desc: "Residence occupancy by building and gender for the current session.",
   },
   {
+    id: "institute",
+    href: "/institute",
+    title: "The Institute",
+    desc: "Admissions pipeline: applicant funnel, pace vs goals, and recruiting.",
+  },
+  {
     id: "mas",
     href: "/mas",
     title: "MA Follow-on Giving",
