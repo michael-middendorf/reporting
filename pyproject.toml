@@ -5,7 +5,12 @@ requires-python = "==3.12.*"
 dependencies = []
 
 [tool.uv.workspace]
-members = ["services/api", "services/refresh/enrollment_pipeline", "services/refresh/housing_refresh"]
+members = [
+  "services/api",
+  "services/refresh/enrollment_pipeline",
+  "services/refresh/housing_refresh",
+  "services/refresh/report_data_sync",
+]
 
 [tool.uv]
 package = false

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import {
-  MAS_CACHE_BUCKET,
+  dataBucket,
   requireReportAccess,
   safeKey,
   streamS3Object,
@@ -8,11 +8,7 @@ import {
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
-/**
- * Serve MAS giving report artifacts from the cache bucket (data/*).
- * Legacy layout: mas-report-cache-…/data/metadata.json etc.
- * (Static HTML lives on the report bucket; published JSON/CSV is on the cache bucket.)
- */
+/** Serve MAS giving artifacts from DATA_BUCKET/mas/data/*. */
 export async function GET(req: Request, ctx: Ctx) {
   const denied = requireReportAccess(req, "mas");
   if (denied) return denied;
@@ -22,13 +18,14 @@ export async function GET(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Missing path" }, { status: 400 });
   }
 
+  const bucket = dataBucket();
+  if (!bucket) {
+    return NextResponse.json({ error: "DATA_BUCKET is not configured" }, { status: 500 });
+  }
+
   try {
-    const primary = await streamS3Object(MAS_CACHE_BUCKET, safeKey(path, "data"));
+    const primary = await streamS3Object(bucket, safeKey(path, "mas/data"));
     if (primary.status !== 404) return primary;
-
-    const fallback = await streamS3Object(MAS_CACHE_BUCKET, safeKey(path, ""));
-    if (fallback.status !== 404) return fallback;
-
     return primary;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

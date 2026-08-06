@@ -1,8 +1,9 @@
 /// <reference path="./.sst/platform/config.d.ts" />
 
 /**
- * AMU Reporting — Next.js + SST (form-remake secrets pattern).
- * Legacy report folders are not modified; UIs are copied into apps/web-next.
+ * AMU Reporting — Next.js + SST.
+ * All app reads go to ReportData (DATA_BUCKET). Legacy source buckets are
+ * copy-synced in (never modified) so external reports keep working.
  */
 export default $config({
   app(input) {
@@ -26,6 +27,10 @@ export default $config({
     const allowedEmails = new sst.Secret("AllowedEmails");
 
     const data = new sst.aws.Bucket("ReportData");
+
+    const enrollmentSource =
+      "amu-enrollment-pipeline-slate-dashboard-cache-us-east-2";
+    const masSource = "mas-report-cache-905418447941-us-east-2";
 
     const site = new sst.aws.Nextjs("Web", {
       path: "apps/web-next",
@@ -52,30 +57,13 @@ export default $config({
         ALUMNI_ALLOWED_EMAILS:
           "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
         DATA_BUCKET: data.name,
-        ENROLLMENT_CACHE_BUCKET:
-          "amu-enrollment-pipeline-slate-dashboard-cache-us-east-2",
-        CACHE_BUCKET: "amu-enrollment-pipeline-slate-dashboard-cache-us-east-2",
-        CACHE_KEY: "dashboard/slate-report-cache.json",
+        ENROLLMENT_MANIFEST_KEY: "enrollment/slate-report-cache.json",
         EMAIL_FROM:
           "AMU Project Manager <noreply@notifications.avemaria.edu>",
-        MAS_REPORT_BUCKET: "mas-report-report-905418447941-us-east-2",
-        MAS_CACHE_BUCKET: "mas-report-cache-905418447941-us-east-2",
       },
-      permissions: [
-        {
-          actions: ["s3:GetObject", "s3:ListBucket"],
-          resources: [
-            "arn:aws:s3:::amu-enrollment-pipeline-slate-dashboard-cache-us-east-2",
-            "arn:aws:s3:::amu-enrollment-pipeline-slate-dashboard-cache-us-east-2/*",
-            "arn:aws:s3:::mas-report-report-905418447941-us-east-2",
-            "arn:aws:s3:::mas-report-report-905418447941-us-east-2/*",
-            "arn:aws:s3:::mas-report-cache-905418447941-us-east-2",
-            "arn:aws:s3:::mas-report-cache-905418447941-us-east-2/*",
-          ],
-        },
-      ],
     });
 
+    // Legacy enrollment publisher — still fills the old cache bucket for other consumers.
     new sst.aws.Cron("EnrollmentRefresh", {
       schedule: "rate(15 minutes)",
       function: {
@@ -91,15 +79,50 @@ export default $config({
           },
         ],
         environment: {
-          CACHE_BUCKET:
-            "amu-enrollment-pipeline-slate-dashboard-cache-us-east-2",
+          CACHE_BUCKET: enrollmentSource,
         },
         permissions: [
           {
             actions: ["s3:GetObject", "s3:PutObject", "s3:ListBucket"],
             resources: [
-              "arn:aws:s3:::amu-enrollment-pipeline-slate-dashboard-cache-us-east-2",
-              "arn:aws:s3:::amu-enrollment-pipeline-slate-dashboard-cache-us-east-2/*",
+              `arn:aws:s3:::${enrollmentSource}`,
+              `arn:aws:s3:::${enrollmentSource}/*`,
+            ],
+          },
+        ],
+      },
+    });
+
+    // Copy legacy caches → ReportData (read-only on sources).
+    new sst.aws.Cron("ReportDataSync", {
+      schedule: "rate(15 minutes)",
+      function: {
+        handler: "services/refresh/report_data_sync/handler.handler",
+        runtime: "python3.12",
+        timeout: "10 minutes",
+        memory: "1024 MB",
+        link: [data],
+        python: { uv: true },
+        environment: {
+          DATA_BUCKET: data.name,
+          ENROLLMENT_SOURCE_BUCKET: enrollmentSource,
+          MAS_SOURCE_BUCKET: masSource,
+        },
+        permissions: [
+          {
+            actions: ["s3:GetObject", "s3:ListBucket"],
+            resources: [
+              `arn:aws:s3:::${enrollmentSource}`,
+              `arn:aws:s3:::${enrollmentSource}/*`,
+              `arn:aws:s3:::${masSource}`,
+              `arn:aws:s3:::${masSource}/*`,
+            ],
+          },
+          {
+            actions: ["s3:GetObject", "s3:PutObject", "s3:ListBucket"],
+            resources: [
+              $interpolate`arn:aws:s3:::${data.name}`,
+              $interpolate`arn:aws:s3:::${data.name}/*`,
             ],
           },
         ],
@@ -114,9 +137,7 @@ export default $config({
         timeout: "10 minutes",
         memory: "1024 MB",
         link: [data],
-        python: {
-          uv: true,
-        },
+        python: { uv: true },
         copyFiles: [
           {
             from: "services/api/reporting_api",

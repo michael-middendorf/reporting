@@ -1,14 +1,10 @@
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
-import { requireReportAccess } from "@/lib/s3-proxy";
+import { dataBucket, requireReportAccess } from "@/lib/s3-proxy";
 
 /**
- * Same-origin proxy for enrollment report JSON.
- * Avoids browser→S3 CORS on presigned GETs (root cause of "Failed to fetch").
- *
- * Returns gzip bytes WITHOUT Content-Encoding so CloudFront/Lambda don't
- * double-decode, and so large reports stay under the Lambda payload limit.
- * The client decompresses via DecompressionStream when it sees gzip magic.
+ * Same-origin proxy for enrollment report JSON from DATA_BUCKET/enrollment/.
+ * Returns gzip bytes WITHOUT Content-Encoding; client decompresses via magic bytes.
  */
 const REPORT_KEYS: Record<string, string> = {
   admissions: "admissions",
@@ -23,8 +19,8 @@ const REPORT_KEYS: Record<string, string> = {
 
 type Ctx = { params: Promise<{ report: string }> };
 
-export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireReportAccess(req, "enrollment");
+export async function GET(_req: Request, ctx: Ctx) {
+  const denied = requireReportAccess(_req, "enrollment");
   if (denied) return denied;
 
   const { report } = await ctx.params;
@@ -33,15 +29,15 @@ export async function GET(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: `Unknown report: ${report}` }, { status: 404 });
   }
 
-  const bucket =
-    process.env.ENROLLMENT_CACHE_BUCKET ||
-    process.env.CACHE_BUCKET ||
-    "amu-enrollment-pipeline-slate-dashboard-cache-us-east-2";
+  const bucket = dataBucket();
+  if (!bucket) {
+    return NextResponse.json({ error: "DATA_BUCKET is not configured" }, { status: 500 });
+  }
+
   const region = process.env.AWS_REGION || "us-east-2";
   const s3 = new S3Client({ region });
-
-  const gzipKey = `dashboard/reports/${s3Name}.json.gz`;
-  const jsonKey = `dashboard/reports/${s3Name}.json`;
+  const gzipKey = `enrollment/reports/${s3Name}.json.gz`;
+  const jsonKey = `enrollment/reports/${s3Name}.json`;
 
   try {
     let bytes: Uint8Array;
@@ -59,7 +55,6 @@ export async function GET(req: Request, ctx: Ctx) {
       status: 200,
       headers: {
         "Content-Type": "application/json; charset=utf-8",
-        // Do NOT set Content-Encoding — keep compressed payload intact for the client.
         "X-AMU-Compressed": fromGzip ? "gzip" : "identity",
         "Cache-Control": "private, max-age=60",
       },

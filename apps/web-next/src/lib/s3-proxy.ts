@@ -5,6 +5,11 @@ import { currentUserEmail } from "@/lib/auth";
 
 const region = process.env.AWS_REGION || "us-east-2";
 
+/** Unified SST ReportData bucket — sole read path for this app. */
+export function dataBucket() {
+  return (process.env.DATA_BUCKET || "").trim();
+}
+
 export function s3() {
   return new S3Client({ region });
 }
@@ -66,14 +71,6 @@ export async function streamS3Object(bucket: string, key: string) {
     throw e;
   }
 }
-
-export const MAS_REPORT_BUCKET =
-  process.env.MAS_REPORT_BUCKET ||
-  "mas-report-report-905418447941-us-east-2";
-
-export const MAS_CACHE_BUCKET =
-  process.env.MAS_CACHE_BUCKET ||
-  "mas-report-cache-905418447941-us-east-2";
 
 /** Normalize path segments and block traversal. */
 export function safeKey(parts: string[], prefix: string) {

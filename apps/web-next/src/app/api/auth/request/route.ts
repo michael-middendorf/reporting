@@ -21,11 +21,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
   }
   const secret = (process.env.AUTH_SECRET || "").trim();
-  const headerHost = req.headers.get("x-forwarded-host") || req.headers.get("host");
-  const proto = req.headers.get("x-forwarded-proto") || "https";
+  // Prefer the request origin so localhost / preview / CloudFront each get matching links.
+  // APP_BASE_URL is only a fallback (e.g. cron jobs with no Host header).
+  const headerHost = (
+    req.headers.get("x-forwarded-host") ||
+    req.headers.get("host") ||
+    ""
+  )
+    .split(",")[0]
+    ?.trim();
+  const forwardedProto = req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const proto =
+    forwardedProto ||
+    (headerHost.startsWith("localhost") || headerHost.startsWith("127.0.0.1")
+      ? "http"
+      : "https");
   const base =
-    (process.env.APP_BASE_URL || "").replace(/\/$/, "") ||
-    (headerHost ? `${proto}://${headerHost}` : "");
+    (headerHost ? `${proto}://${headerHost}` : "") ||
+    (process.env.APP_BASE_URL || "").replace(/\/$/, "");
   if (!secret) return NextResponse.json({ error: "Authentication is not configured." }, { status: 500 });
   if (!base) return NextResponse.json({ error: "APP_BASE_URL is not configured." }, { status: 500 });
 

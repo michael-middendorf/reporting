@@ -35,7 +35,13 @@ export async function POST(req: Request) {
 
   const ttlDays = Math.max(parseInt(process.env.AUTH_SESSION_TTL_DAYS || "14", 10), 1);
   const session = createSessionToken(email, secret, ttlDays);
-  const secure = (process.env.APP_BASE_URL || "").startsWith("https://");
+  const host = (req.headers.get("x-forwarded-host") || req.headers.get("host") || "")
+    .split(",")[0]
+    ?.trim();
+  const proto =
+    req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
+    (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
+  const secure = proto === "https";
   const res = NextResponse.json({ ok: true, email, redirect: "/", session });
   res.headers.append("Set-Cookie", sessionCookie(session, ttlDays * 86400, secure));
   return res;
