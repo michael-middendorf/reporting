@@ -9,7 +9,9 @@ members = [
   "services/api",
   "services/refresh/enrollment_pipeline",
   "services/refresh/housing_refresh",
-  "services/refresh/report_data_sync",
+  "services/refresh/mas_giving",
+  "services/refresh/mas_points",
+  "services/refresh/alumni",
 ]
 
 [tool.uv]

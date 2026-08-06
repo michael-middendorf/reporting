@@ -43,7 +43,12 @@ class AppConfig:
 
 
 def load_config(root_dir: str | Path | None = None) -> AppConfig:
-    root = Path(root_dir or Path.cwd()).resolve()
+    # In Lambda the deployment package is read-only; keep working state under /tmp.
+    if root_dir is None and os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+        root = Path(os.environ.get("ALUMNI_WORK_DIR") or "/tmp/alumni_work")
+        root.mkdir(parents=True, exist_ok=True)
+    else:
+        root = Path(root_dir or Path.cwd()).resolve()
     dotenv = _load_dotenv(root / ".env")
     api_key = _env("API_KEY", dotenv) or _env("VIRTUOUS_API_KEY", dotenv)
     if not api_key:
@@ -54,7 +59,9 @@ def load_config(root_dir: str | Path | None = None) -> AppConfig:
     derived_dir = data_dir / "derived"
     state_dir = data_dir / "state"
     exports_dir = data_dir / "exports"
-    publish_dir = root / (_env("PUBLISH_DIR", dotenv, "site/data") or "site/data")
+    publish_raw = _env("PUBLISH_DIR", dotenv, "site/data") or "site/data"
+    publish_path = Path(publish_raw)
+    publish_dir = publish_path if publish_path.is_absolute() else (root / publish_path)
 
     return AppConfig(
         root_dir=root,

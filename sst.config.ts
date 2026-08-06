@@ -2,8 +2,7 @@
 
 /**
  * AMU Reporting — Next.js + SST.
- * All app reads go to ReportData (DATA_BUCKET). Legacy source buckets are
- * copy-synced in (never modified) so external reports keep working.
+ * Publishers write directly into ReportData (DATA_BUCKET). App reads only that bucket.
  */
 export default $config({
   app(input) {
@@ -28,9 +27,15 @@ export default $config({
 
     const data = new sst.aws.Bucket("ReportData");
 
-    const enrollmentSource =
-      "amu-enrollment-pipeline-slate-dashboard-cache-us-east-2";
-    const masSource = "mas-report-cache-905418447941-us-east-2";
+    const reportDataPerms = [
+      {
+        actions: ["s3:GetObject", "s3:PutObject", "s3:ListBucket", "s3:DeleteObject"],
+        resources: [
+          $interpolate`arn:aws:s3:::${data.name}`,
+          $interpolate`arn:aws:s3:::${data.name}/*`,
+        ],
+      },
+    ];
 
     const site = new sst.aws.Nextjs("Web", {
       path: "apps/web-next",
@@ -63,7 +68,7 @@ export default $config({
       },
     });
 
-    // Legacy enrollment publisher — still fills the old cache bucket for other consumers.
+    // Slate enrollment → ReportData/enrollment/
     new sst.aws.Cron("EnrollmentRefresh", {
       schedule: "rate(15 minutes)",
       function: {
@@ -72,6 +77,8 @@ export default $config({
         runtime: "python3.12",
         timeout: "15 minutes",
         memory: "1024 MB",
+        link: [data],
+        python: { uv: true },
         copyFiles: [
           {
             from: "services/refresh/enrollment_pipeline/real-query-links.json",
@@ -79,53 +86,97 @@ export default $config({
           },
         ],
         environment: {
-          CACHE_BUCKET: enrollmentSource,
+          CACHE_BUCKET: data.name,
+          CACHE_KEY: "enrollment/slate-report-cache.json",
         },
-        permissions: [
-          {
-            actions: ["s3:GetObject", "s3:PutObject", "s3:ListBucket"],
-            resources: [
-              `arn:aws:s3:::${enrollmentSource}`,
-              `arn:aws:s3:::${enrollmentSource}/*`,
-            ],
-          },
-        ],
+        permissions: reportDataPerms,
       },
     });
 
-    // Copy legacy caches → ReportData (read-only on sources).
-    new sst.aws.Cron("ReportDataSync", {
+    // Virtuous MAS giving artifacts → ReportData/mas/data/
+    new sst.aws.Cron("MasGivingRefresh", {
       schedule: "rate(15 minutes)",
       function: {
-        handler: "services/refresh/report_data_sync/handler.handler",
+        handler: "services/refresh/mas_giving/handler.handler",
         runtime: "python3.12",
-        timeout: "10 minutes",
+        timeout: "15 minutes",
+        memory: "2048 MB",
+        link: [data],
+        python: { uv: true },
+        copyFiles: [
+          {
+            from: "services/refresh/mas_giving/backend/src/mas_report_backend",
+            to: "mas_report_backend",
+          },
+          {
+            from: "services/refresh/mas_giving/mas_follow_up_report",
+            to: "mas_follow_up_report",
+          },
+        ],
+        environment: {
+          MAS_REPORT_REPORT_BUCKET: data.name,
+          MAS_REPORT_REPORT_PREFIX: "mas/data",
+          API_KEY: virtuousApiKey.value,
+          VIRTUOUS_API_KEY: virtuousApiKey.value,
+        },
+        permissions: reportDataPerms,
+      },
+    });
+
+    // Virtuous MA points raw JSON → ReportData/points/data/
+    new sst.aws.Cron("PointsRefresh", {
+      schedule: "rate(15 minutes)",
+      function: {
+        handler: "services/refresh/mas_points/handler.handler",
+        runtime: "python3.12",
+        timeout: "15 minutes",
         memory: "1024 MB",
         link: [data],
         python: { uv: true },
-        environment: {
-          DATA_BUCKET: data.name,
-          ENROLLMENT_SOURCE_BUCKET: enrollmentSource,
-          MAS_SOURCE_BUCKET: masSource,
-        },
-        permissions: [
+        copyFiles: [
           {
-            actions: ["s3:GetObject", "s3:ListBucket"],
-            resources: [
-              `arn:aws:s3:::${enrollmentSource}`,
-              `arn:aws:s3:::${enrollmentSource}/*`,
-              `arn:aws:s3:::${masSource}`,
-              `arn:aws:s3:::${masSource}/*`,
-            ],
-          },
-          {
-            actions: ["s3:GetObject", "s3:PutObject", "s3:ListBucket"],
-            resources: [
-              $interpolate`arn:aws:s3:::${data.name}`,
-              $interpolate`arn:aws:s3:::${data.name}/*`,
-            ],
+            from: "services/refresh/mas_points/backend/src/mas_cache",
+            to: "mas_cache",
           },
         ],
+        environment: {
+          MAS_CACHE_BUCKET: data.name,
+          MAS_CACHE_PREFIX: "points/data",
+          API_KEY: virtuousApiKey.value,
+          VIRTUOUS_API_KEY: virtuousApiKey.value,
+        },
+        permissions: reportDataPerms,
+      },
+    });
+
+    // Alumni coverage → ReportData/alumni/
+    new sst.aws.Cron("AlumniRefresh", {
+      schedule: "rate(6 hours)",
+      function: {
+        handler: "services/refresh/alumni/handler.handler",
+        runtime: "python3.12",
+        timeout: "15 minutes",
+        memory: "2048 MB",
+        link: [data],
+        python: { uv: true },
+        copyFiles: [
+          {
+            from: "services/refresh/alumni/lambda_handler.py",
+            to: "lambda_handler.py",
+          },
+          {
+            from: "services/refresh/alumni/virt_reporting",
+            to: "virt_reporting",
+          },
+        ],
+        environment: {
+          DATA_BUCKET: data.name,
+          ALUMNI_DATA_PREFIX: "alumni",
+          PUBLISH_DIR: "/tmp/alumni_publish",
+          API_KEY: virtuousApiKey.value,
+          VIRTUOUS_API_KEY: virtuousApiKey.value,
+        },
+        permissions: reportDataPerms,
       },
     });
 
@@ -152,15 +203,7 @@ export default $config({
           SLATE_QUERY_URL: slateQueryUrl.value,
           SLATE_DEPOSITS_URL: slateDepositsUrl.value,
         },
-        permissions: [
-          {
-            actions: ["s3:GetObject", "s3:PutObject", "s3:ListBucket"],
-            resources: [
-              $interpolate`arn:aws:s3:::${data.name}`,
-              $interpolate`arn:aws:s3:::${data.name}/*`,
-            ],
-          },
-        ],
+        permissions: reportDataPerms,
       },
     });
 

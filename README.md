@@ -20,19 +20,18 @@ Auth is a shared magic-link gate (Resend + email allowlist).
 
 ## Data layout
 
-All **app reads** go through the SST `ReportData` bucket (`DATA_BUCKET`):
+All **app reads and writes** go through the SST `ReportData` bucket (`DATA_BUCKET`):
 
 ```
-enrollment/          # synced from legacy Slate dashboard cache
-mas/data/            # synced from mas-report-cache …/data/
-points/data/         # synced from mas-report-cache …/points/data/
-alumni/              # published / seeded alumni artifacts
+enrollment/          # EnrollmentRefresh (Slate)
+mas/data/            # MasGivingRefresh (Virtuous)
+points/data/         # PointsRefresh (Virtuous)
+alumni/              # AlumniRefresh (Virtuous)
 housing/latest.json  # HousingRefresh (Qlik)
 ```
 
-Legacy source buckets are **not modified**. `ReportDataSync` (every 15 min) copies
-enrollment + MAS + points into `ReportData`. `EnrollmentRefresh` still writes the
-legacy enrollment cache for other consumers. Housing writes directly to `ReportData`.
+Each report has its own SST cron that publishes straight into `ReportData`.
+Legacy source buckets are not part of this app’s refresh path.
 
 Next APIs are same-origin proxies (`/api/enrollment/*`, `/api/reports/mas/*`, etc.).
 
@@ -41,7 +40,7 @@ Next APIs are same-origin proxies (`/api/enrollment/*`, `/api/reports/mas/*`, et
 ```
 apps/web-next/            Next.js App Router (hub, auth, report pages)
 services/api/             Python helpers (housing Qlik fetch)
-services/refresh/         Scheduled refresh + ReportData sync
+services/refresh/         Scheduled publishers → ReportData
 sst.config.ts             SST Nextjs + secrets + crons
 .github/workflows/deploy.yml   sst deploy --stage production on main
 ```
