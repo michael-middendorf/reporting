@@ -100,9 +100,28 @@ export default $config({
       permissions: readDataPerms,
     });
 
+    // The Institute dashboard fetches its six Slate "run as service" queries
+    // live on each page load (q1/q2 ~15s) via this function; the
+    // /api/institute-data route invokes it synchronously and returns the built
+    // payload. Data is always current with no cron / S3 cache. 60s timeout
+    // leaves headroom over the ~15-25s fetch; no S3 access needed since it
+    // returns the payload inline.
+    const instituteData = new sst.aws.Function("InstituteData", {
+      handler: "services/publishers/institute/handler.invoke_handler",
+      runtime: "python3.12",
+      timeout: "60 seconds",
+      memory: "2048 MB",
+      python: { uv: true },
+      environment: {
+        INSTITUTE_SLATE_QUERIES: instituteSlateQueries.value,
+      },
+    });
+
     const site = new sst.aws.Nextjs("Web", {
       path: "apps/web-next",
-      link: [data, masProcess, alumniProcess],
+      link: [data, masProcess, alumniProcess, instituteData],
+      // The /api/institute-data route waits on the ~15-25s live Slate fetch.
+      server: { timeout: "60 seconds" },
       environment: {
         AUTH_SECRET: authSecret.value,
         RESEND_API_KEY: resendApiKey.value,
@@ -129,13 +148,14 @@ export default $config({
         DATA_BUCKET: data.name,
         MAS_PROCESS_FUNCTION: masProcess.name,
         ALUMNI_PROCESS_FUNCTION: alumniProcess.name,
+        INSTITUTE_FN_NAME: instituteData.name,
         EMAIL_FROM:
           "AMU Project Manager <noreply@notifications.avemaria.edu>",
       },
       permissions: [
         {
           actions: ["lambda:InvokeFunction"],
-          resources: [masProcess.arn, alumniProcess.arn],
+          resources: [masProcess.arn, alumniProcess.arn, instituteData.arn],
         },
       ],
     });
@@ -211,26 +231,9 @@ export default $config({
       },
     });
 
-    new sst.aws.Cron("InstituteRefresh", {
-      // q1 (all AMU apps) and q2 (prospect pool) can each take ~600s; the
-      // handler fetches all six Slate queries concurrently so the run fits the
-      // 15-minute ceiling. Admissions-pipeline data changes slowly, so a 6-hour
-      // cadence keeps the slow queries from hammering Slate every cycle.
-      schedule: "rate(6 hours)",
-      function: {
-        handler: "services/publishers/institute/handler.handler",
-        runtime: "python3.12",
-        timeout: "15 minutes",
-        memory: "2048 MB",
-        link: [data],
-        python: { uv: true },
-        environment: {
-          DATA_BUCKET: data.name,
-          INSTITUTE_SLATE_QUERIES: instituteSlateQueries.value,
-        },
-        permissions: reportDataPerms,
-      },
-    });
+    // Institute data is now fetched live per page load by the InstituteData
+    // function (defined above), not published on a cron — so no InstituteRefresh
+    // cron here.
 
     new sst.aws.Cron("DailyMagicLinks", {
       schedule: "cron(0 12 * * ? *)",

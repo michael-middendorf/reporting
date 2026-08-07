@@ -161,3 +161,72 @@ def handler(event, context):  # noqa: ANN001, ARG001
         "fetched": fetched,
         "errors": errors,
     }
+
+
+def _fetch_all(queries: dict) -> tuple[dict, dict]:
+    """Fetch every configured query concurrently. Returns (raws, errors).
+
+    Each query gets its own thread + read timeout; q1/q2 (~600s ceiling, ~15s
+    in practice) run alongside the faster ones so wall-clock is the slowest
+    single query, not the sum. A failed query degrades to None (logged in
+    errors) rather than aborting the whole run.
+    """
+    raws: dict = {}
+    errors: dict = {}
+    lock = threading.Lock()
+
+    def worker(name: str) -> None:
+        qid, token, timeout = queries[name]
+        try:
+            raw = _fetch(qid, token, timeout)
+            with lock:
+                raws[name] = raw
+        except Exception as exc:  # noqa: BLE001 - degrade gracefully per query
+            with lock:
+                raws[name] = None
+                errors[name] = str(exc)
+                _log(event="fetch_error", query=name, error=str(exc))
+
+    threads = [
+        threading.Thread(target=worker, args=(name,), name=f"load-{name}", daemon=True)
+        for name in queries
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    return raws, errors
+
+
+def invoke_handler(event, context):  # noqa: ANN001, ARG001
+    """On-demand entrypoint for the web app (synchronous Lambda invoke).
+
+    Runs the six Slate queries live and RETURNS the built dashboard payload
+    instead of writing it to S3. The /api/institute-data route invokes this
+    per page load, so the dashboard always reflects current Slate data with no
+    cron or S3 cache. No DATA_BUCKET / S3 permissions needed.
+    """
+    queries = _load_query_config()
+    _log(event="ondemand_start", queries=sorted(queries))
+
+    raws, errors = _fetch_all(queries)
+
+    # q4 (Institute applicants) is the core dataset - without it there is no
+    # payload to render, so surface a clear failure to the caller.
+    if raws.get("q4") is None:
+        raise RefreshError(
+            "q4 (Institute applicants) is required and unavailable - cannot "
+            f"build payload. error: {errors.get('q4', 'not configured')}"
+        )
+
+    data = build.payload(raws)
+    data["source"] = "slate-live"
+    data["errors"] = errors
+
+    _log(
+        event="ondemand_done",
+        counts=data["counts"],
+        fetched=sorted(k for k, v in raws.items() if v is not None),
+        errors=errors,
+    )
+    return data

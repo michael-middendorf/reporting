@@ -1,59 +1,71 @@
-import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { NextResponse } from "next/server";
 import { requireReportAccess } from "@/lib/s3-proxy";
 
 /**
- * Same-origin proxy for the Institute dashboard payload from
- * DATA_BUCKET/institute/latest.json (published by the InstituteRefresh cron,
- * which runs the six Slate queries + build.payload). Small (~0.5 MB) so it is
- * returned inline as JSON — no presigning/gzip like the enrollment reports.
+ * Same-origin proxy for the Institute dashboard payload.
+ *
+ * Instead of reading a pre-built S3 cache, this synchronously invokes the
+ * InstituteData Lambda, which runs the six Slate "run as service" queries live
+ * (~15s) and returns the built payload. That keeps the dashboard always-current
+ * with no cron / stale cache. The invoke is IAM-signed by the SDK, so the FERPA
+ * payload is never reachable over a public URL.
  */
+export const dynamic = "force-dynamic";
+export const maxDuration = 60; // live Slate fetch can take ~15-25s
+
 const region = process.env.AWS_REGION || "us-east-2";
-const DATA_KEY = process.env.INSTITUTE_DATA_KEY || "institute/latest.json";
 
 export async function GET(req: Request) {
   const denied = requireReportAccess(req, "institute");
   if (denied) return denied;
 
-  const bucket = (process.env.DATA_BUCKET || "").trim();
-  if (!bucket) {
-    return NextResponse.json({ error: "DATA_BUCKET is not configured" }, { status: 500 });
+  const fn = (process.env.INSTITUTE_FN_NAME || "").trim();
+  if (!fn) {
+    return NextResponse.json(
+      { error: "INSTITUTE_FN_NAME is not configured" },
+      { status: 500 },
+    );
   }
 
   try {
-    const out = await new S3Client({ region }).send(
-      new GetObjectCommand({ Bucket: bucket, Key: DATA_KEY }),
+    const out = await new LambdaClient({ region }).send(
+      new InvokeCommand({
+        FunctionName: fn,
+        InvocationType: "RequestResponse",
+        Payload: new TextEncoder().encode(JSON.stringify({})),
+      }),
     );
-    const text = await out.Body?.transformToString();
+
+    const text = out.Payload ? new TextDecoder().decode(out.Payload) : "";
     if (!text) {
       return NextResponse.json(
-        { error: "Institute data is empty", buildings: [] },
-        { status: 503 },
+        { error: "Institute function returned no data" },
+        { status: 502 },
       );
     }
     const data = JSON.parse(text);
-    if (data && typeof data === "object" && !Array.isArray(data)) {
-      data.source = data.source || "s3-cache";
+
+    // A Python handler that raises returns a 200 invoke with FunctionError set
+    // and an { errorMessage, errorType } body — surface it as an upstream error.
+    if (out.FunctionError) {
+      const msg =
+        (data && (data.errorMessage || data.error)) || out.FunctionError;
+      return NextResponse.json(
+        { error: `Institute data unavailable — ${msg}` },
+        { status: 502 },
+      );
     }
+
     return new NextResponse(JSON.stringify(data), {
       status: 200,
       headers: {
         "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "private, max-age=60",
+        // Live data; a short cache smooths rapid reloads without going stale.
+        "Cache-Control": "private, max-age=30",
       },
     });
   } catch (e) {
-    const err = e as { name?: string; $metadata?: { httpStatusCode?: number } };
-    const http = err.$metadata?.httpStatusCode;
-    if (err.name === "NoSuchKey" || err.name === "NotFound" || http === 404) {
-      return NextResponse.json(
-        {
-          error:
-            "Institute cache not published yet (DATA_BUCKET/institute/latest.json). Wait for the InstituteRefresh cron.",
-        },
-        { status: 503 },
-      );
-    }
     return NextResponse.json(
       { error: e instanceof Error ? e.message : String(e) },
       { status: 502 },
