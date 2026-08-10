@@ -11,6 +11,7 @@ members = [
   "services/publishers/housing",
   "services/publishers/mas",
   "services/publishers/alumni",
+  "services/publishers/institute",
 ]
 
 [tool.uv]
