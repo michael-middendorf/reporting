@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { gzipSync } from "zlib";
 import { requireReportAccess } from "@/lib/s3-proxy";
 import { loadLatestPointer, loadSourceRows } from "@/lib/sources";
 
@@ -35,17 +36,18 @@ export async function GET(_req: Request, ctx: Ctx) {
 
   try {
     const { rows, latest } = await loadSourceRows("slate", dataset);
-    return NextResponse.json(
-      { row: rows },
-      {
-        status: 200,
-        headers: {
-          "Cache-Control": "private, max-age=60",
-          "X-AMU-Source": `slate/${dataset}`,
-          "X-AMU-Dt": latest.dt,
-        },
+    const json = JSON.stringify({ row: rows });
+    const gz = gzipSync(Buffer.from(json, "utf-8"));
+    return new NextResponse(gz, {
+      status: 200,
+      headers: {
+        "Cache-Control": "private, max-age=60",
+        "X-AMU-Source": `slate/${dataset}`,
+        "X-AMU-Dt": latest.dt,
+        "Content-Encoding": "gzip",
+        "Content-Type": "application/json; charset=utf-8",
       },
-    );
+    });
   } catch (e) {
     const err = e as { name?: string; $metadata?: { httpStatusCode?: number } };
     const http = err.$metadata?.httpStatusCode;
