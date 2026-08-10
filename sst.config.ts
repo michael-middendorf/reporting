@@ -119,6 +119,8 @@ export default $config({
 
     const site = new sst.aws.Nextjs("Web", {
       path: "apps/web-next",
+      // 4.1 supports the patched Next 15.5 line; 4.0's major bump was non-breaking.
+      openNextVersion: "4.1.0",
       link: [data, masProcess, alumniProcess, instituteData],
       // The /api/institute-data route waits on the ~15-25s live Slate fetch.
       server: { timeout: "60 seconds" },

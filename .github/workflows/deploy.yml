@@ -1,8 +1,8 @@
 name: Deploy
 
 on:
-  push:
-    branches: [main]
+  # Full-stack previews currently propose destructive Web resource removals.
+  # Keep deployments explicitly operator-triggered until SST state is repaired.
   workflow_dispatch:
 
 concurrency:
@@ -16,6 +16,9 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      # OpenNext otherwise defaults its separate image-optimizer bundle to sharp 0.32.6.
+      SHARP_VERSION: "0.35.3"
     steps:
       - uses: actions/checkout@v4
 

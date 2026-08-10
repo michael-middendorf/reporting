@@ -9,6 +9,7 @@ members = [
   "services/publishers/enrollment",
   "services/publishers/virtuous",
   "services/publishers/housing",
+  "services/publishers/institute",
   "services/publishers/mas",
   "services/publishers/alumni",
 ]
