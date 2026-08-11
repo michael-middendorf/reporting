@@ -128,10 +128,15 @@ export default $config({
 
     const site = new sst.aws.Nextjs("Web", {
       path: "apps/web-next",
+      // SST 4.17.1 defaults to OpenNext 3.9.14, whose Node 24 image
+      // optimizer fails before Sharp runs. Pin the canary-verified wrapper
+      // and the patched native dependency used by the production bundle.
+      openNextVersion: "4.1.0",
       link: [data, masProcess, alumniProcess, instituteData],
       // The /api/institute-data route waits on the ~15-25s live Slate fetch.
       server: { timeout: "60 seconds" },
       environment: {
+        SHARP_VERSION: "0.35.3",
         AUTH_SECRET: authSecret.value,
         RESEND_API_KEY: resendApiKey.value,
         VIRTUOUS_API_KEY: virtuousApiKey.value,
