@@ -171,20 +171,18 @@ export function EnrollmentChrome({ children }: { children: ReactNode }) {
           );
         })}
         <span style={{ flex: 1 }} />
-        <button
-          type="button"
-          className={`tab-btn${cycle === "fa26" ? " active" : ""}`}
-          onClick={() => setCycle("fa26")}
-        >
-          FA26 YOY vs FA25
-        </button>
-        <button
-          type="button"
-          className={`tab-btn${cycle === "fa27" ? " active" : ""}`}
-          onClick={() => setCycle("fa27")}
-        >
-          FA27 YOY vs FA26
-        </button>
+        <label className="term-filter">
+          <span className="term-filter-lbl">Compare</span>
+          <select
+            className="term-select"
+            value={cycle}
+            onChange={(e) => setCycle(e.target.value as "fa26" | "fa27")}
+            aria-label="Select enrollment term to compare"
+          >
+            <option value="fa26">Fall 2026</option>
+            <option value="fa27">Fall 2027</option>
+          </select>
+        </label>
       </nav>
       {children}
     </>
