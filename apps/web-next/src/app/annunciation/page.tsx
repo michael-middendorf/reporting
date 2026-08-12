@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { AccessGate, ReportTopBar } from "@/components/AccessGate";
 import { apiFetch } from "@/lib/api";
 import {
+  formatRecurring,
+  memberSince,
   recentlyJoined,
   type AnnunciationMember,
   type AnnunciationSnapshot,
@@ -17,8 +19,9 @@ type SortKey =
   | "email"
   | "location"
   | "lifeToDateGivingNum"
+  | "recurringAmount"
   | "lastGiftDate"
-  | "firstSeen";
+  | "startDate";
 
 const money = (v: string | null) => v || "—";
 const dash = (v: string | null) => v || "—";
@@ -81,7 +84,13 @@ function AnnunciationInner() {
       if (sortKey === "lifeToDateGivingNum") {
         av = a.lifeToDateGivingNum || 0;
         bv = b.lifeToDateGivingNum || 0;
-      } else if (sortKey === "lastGiftDate" || sortKey === "firstSeen") {
+      } else if (sortKey === "recurringAmount") {
+        av = a.recurringAmount || 0;
+        bv = b.recurringAmount || 0;
+      } else if (sortKey === "startDate") {
+        av = parseUsDate(memberSince(a));
+        bv = parseUsDate(memberSince(b));
+      } else if (sortKey === "lastGiftDate") {
         av = parseUsDate(a[sortKey]);
         bv = parseUsDate(b[sortKey]);
       } else {
@@ -100,7 +109,11 @@ function AnnunciationInner() {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
       setSortKey(key);
-      setSortDir(key === "lifeToDateGivingNum" || key === "firstSeen" ? "desc" : "asc");
+      const numericOrDate =
+        key === "lifeToDateGivingNum" ||
+        key === "recurringAmount" ||
+        key === "startDate";
+      setSortDir(numericOrDate ? "desc" : "asc");
     }
   }
 
@@ -153,9 +166,8 @@ function AnnunciationInner() {
 
           {data?.baseline && (
             <p className="ac-note">
-              This is the initial member snapshot — “joined” dates begin tracking from the
-              next refresh onward, so new-member alerts and recent-join counts will populate
-              going forward.
+              Initial snapshot — automatic email alerts for new members begin from the next
+              refresh onward. “Member since” dates below are real recurring-gift start dates.
             </p>
           )}
 
@@ -165,7 +177,7 @@ function AnnunciationInner() {
               <ul>
                 {recent90.map((m) => (
                   <li key={m.id}>
-                    <span className="ac-recent-when">{m.firstSeen}</span>
+                    <span className="ac-recent-when">{memberSince(m)}</span>
                     <a href={m.contactUrl} target="_blank" rel="noreferrer">
                       {m.name || `Contact ${m.id}`}
                     </a>
@@ -199,14 +211,17 @@ function AnnunciationInner() {
                   <th onClick={() => toggleSort("location")}>
                     Location{sortArrow("location")}
                   </th>
+                  <th onClick={() => toggleSort("startDate")}>
+                    Member since{sortArrow("startDate")}
+                  </th>
+                  <th className="ac-num" onClick={() => toggleSort("recurringAmount")}>
+                    Recurring gift{sortArrow("recurringAmount")}
+                  </th>
                   <th className="ac-num" onClick={() => toggleSort("lifeToDateGivingNum")}>
                     Lifetime giving{sortArrow("lifeToDateGivingNum")}
                   </th>
                   <th onClick={() => toggleSort("lastGiftDate")}>
                     Last gift{sortArrow("lastGiftDate")}
-                  </th>
-                  <th onClick={() => toggleSort("firstSeen")}>
-                    Joined{sortArrow("firstSeen")}
                   </th>
                 </tr>
               </thead>
@@ -221,17 +236,18 @@ function AnnunciationInner() {
                     <td>{dash(m.email)}</td>
                     <td>{dash(m.phone)}</td>
                     <td>{dash(m.location)}</td>
+                    <td>{memberSince(m) || "—"}</td>
+                    <td className="ac-num">{formatRecurring(m)}</td>
                     <td className="ac-num">{money(m.lifeToDateGiving)}</td>
                     <td>
                       {m.lastGiftAmount ? `${m.lastGiftAmount}` : "—"}
                       {m.lastGiftDate ? ` (${m.lastGiftDate})` : ""}
                     </td>
-                    <td>{m.firstSeen || "—"}</td>
                   </tr>
                 ))}
                 {!loading && filtered.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="ac-empty">
+                    <td colSpan={8} className="ac-empty">
                       No members match your search.
                     </td>
                   </tr>
