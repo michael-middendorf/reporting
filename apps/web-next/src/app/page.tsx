@@ -48,6 +48,12 @@ const REPORTS: {
     title: "Alumni Coverage",
     desc: "Alumni donor coverage, touch activity, and assignment opportunity.",
   },
+  {
+    id: "annunciation",
+    href: "/annunciation",
+    title: "Annunciation Circle",
+    desc: "Current Annunciation Circle members and new-member activity from Virtuous.",
+  },
 ];
 
 export default function HomePage() {

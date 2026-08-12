@@ -159,6 +159,8 @@ export default $config({
           "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
         ALUMNI_ALLOWED_EMAILS:
           "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
+        ANNUNCIATION_ALLOWED_EMAILS:
+          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
         DATA_BUCKET: data.name,
         MAS_PROCESS_FUNCTION: masProcess.name,
         ALUMNI_PROCESS_FUNCTION: alumniProcess.name,
@@ -249,6 +251,37 @@ export default $config({
     // function (defined above), not published on a cron — so no InstituteRefresh
     // cron here.
 
+    // Annunciation Circle member snapshot + new-member notifier.
+    // Writes annunciation/latest.json (feeds the /annunciation dashboard) and
+    // emails ANNUNCIATION_NOTIFY_EMAILS when new members are detected. Leave the
+    // notify list empty until go-live — the publisher logs instead of sending.
+    new sst.aws.Cron("AnnunciationRefresh", {
+      schedule: "rate(15 minutes)",
+      function: {
+        handler: "services/publishers/annunciation/handler.handler",
+        runtime: "python3.12",
+        timeout: "5 minutes",
+        memory: "1024 MB",
+        link: [data],
+        python: { uv: true },
+        copyFiles: commonFiles,
+        environment: {
+          DATA_BUCKET: data.name,
+          API_KEY: virtuousApiKey.value,
+          VIRTUOUS_API_KEY: virtuousApiKey.value,
+          RESEND_API_KEY: resendApiKey.value,
+          ANNUNCIATION_CACHE_KEY: "annunciation/latest.json",
+          // Comma-separated recipients for new-member alerts. EMPTY = logged, not
+          // sent. Fill in at go-live.
+          ANNUNCIATION_NOTIFY_EMAILS: "",
+          APP_BASE_URL: site.url,
+          EMAIL_FROM:
+            "AMU Project Manager <noreply@notifications.avemaria.edu>",
+        },
+        permissions: reportDataPerms,
+      },
+    });
+
     new sst.aws.Cron("DailyMagicLinks", {
       schedule: "cron(0 12 * * ? *)",
       function: {
@@ -269,6 +302,8 @@ export default $config({
           POINTS_ALLOWED_EMAILS:
             "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
           ALUMNI_ALLOWED_EMAILS:
+            "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
+          ANNUNCIATION_ALLOWED_EMAILS:
             "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
           APP_BASE_URL: site.url,
           EMAIL_FROM:

@@ -1,0 +1,185 @@
+:root {
+  --ac-bg:      #EEF2F8;
+  --ac-card:    #FFFFFF;
+  --ac-gold:    #B8892A;
+  --ac-gold-lt: #D4A843;
+  --ac-text:    #0D2B5E;
+  --ac-dim:     #4A6490;
+  --ac-border:  #D8E2F0;
+  --ac-raised:  #F0F5FF;
+  --ac-shadow:  0 1px 3px rgba(13, 43, 94, .07), 0 1px 2px rgba(13, 43, 94, .05);
+}
+
+.ac-page {
+  background: var(--ac-bg);
+  color: var(--ac-text);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  min-height: 100vh;
+  padding: 24px clamp(16px, 4vw, 40px) 64px;
+}
+
+.ac-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  align-items: flex-end;
+  justify-content: space-between;
+  border-bottom: 3px solid var(--ac-gold);
+  padding-bottom: 14px;
+  margin-bottom: 20px;
+}
+.ac-head h1 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 26px;
+  font-weight: normal;
+}
+.ac-sub { color: var(--ac-dim); font-size: 13px; margin-top: 4px; }
+
+.ac-refresh {
+  background: var(--ac-card);
+  border: 1px solid var(--ac-border);
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+  color: var(--ac-text);
+  font-size: 13px;
+}
+.ac-refresh:disabled { opacity: .6; cursor: default; }
+
+.ac-error {
+  background: #FDF0EF;
+  border: 1px solid #E7B7B1;
+  color: #8A2C20;
+  border-radius: 10px;
+  padding: 16px 20px;
+}
+
+.ac-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.ac-card {
+  background: var(--ac-card);
+  border: 1px solid var(--ac-border);
+  border-radius: 12px;
+  box-shadow: var(--ac-shadow);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ac-card-num {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--ac-gold);
+  line-height: 1;
+}
+.ac-card-label {
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ac-dim);
+}
+
+.ac-note {
+  background: var(--ac-raised);
+  border: 1px solid var(--ac-border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--ac-dim);
+  margin-bottom: 20px;
+}
+
+.ac-recent {
+  background: var(--ac-card);
+  border: 1px solid var(--ac-border);
+  border-radius: 12px;
+  box-shadow: var(--ac-shadow);
+  padding: 16px 20px;
+  margin-bottom: 24px;
+}
+.ac-recent h2 {
+  font-size: 15px;
+  margin-bottom: 10px;
+  color: var(--ac-text);
+}
+.ac-recent ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.ac-recent li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--ac-border);
+  padding-bottom: 8px;
+}
+.ac-recent li:last-child { border-bottom: none; padding-bottom: 0; }
+.ac-recent-when {
+  font-variant-numeric: tabular-nums;
+  color: var(--ac-gold);
+  font-weight: 600;
+  min-width: 96px;
+}
+.ac-recent-email { color: var(--ac-dim); }
+
+.ac-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.ac-search {
+  flex: 1 1 260px;
+  max-width: 420px;
+  padding: 9px 12px;
+  border: 1px solid var(--ac-border);
+  border-radius: 8px;
+  font-size: 13px;
+  background: var(--ac-card);
+  color: var(--ac-text);
+}
+.ac-count { font-size: 12px; color: var(--ac-dim); }
+
+.ac-table-wrap {
+  background: var(--ac-card);
+  border: 1px solid var(--ac-border);
+  border-radius: 12px;
+  box-shadow: var(--ac-shadow);
+  overflow-x: auto;
+}
+.ac-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 760px;
+}
+.ac-table thead th {
+  text-align: left;
+  padding: 12px 14px;
+  background: var(--ac-raised);
+  color: var(--ac-dim);
+  font-size: 11px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--ac-border);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+.ac-table thead th:nth-child(3) { cursor: default; }
+.ac-table tbody td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--ac-border);
+  vertical-align: top;
+}
+.ac-table tbody tr:last-child td { border-bottom: none; }
+.ac-table tbody tr:hover { background: var(--ac-raised); }
+.ac-table a { color: var(--ac-text); font-weight: 600; text-decoration: none; }
+.ac-table a:hover { text-decoration: underline; color: var(--ac-gold); }
+.ac-num { text-align: right; font-variant-numeric: tabular-nums; }
+.ac-empty { text-align: center; color: var(--ac-dim); padding: 28px 14px; }
