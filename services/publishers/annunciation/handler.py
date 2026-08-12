@@ -25,6 +25,14 @@ from typing import Any
 from common.s3util import data_bucket, put_json, s3
 
 FULL_QUERY_PATH = "/api/Contact/Query/FullContact"
+RECURRING_QUERY_PATH = "/api/RecurringGift/Query"
+# The Annunciation Circle giving society is a recurring-gift project. A member's
+# true "member since" date is the start date of their earliest recurring gift to
+# this project (the tag itself was mass-applied on one day, so it is useless as a
+# join date).
+AC_PROJECT_NAME = "Annunciation Circle"
+# Recurring-gift statuses that mean the commitment is no longer live.
+INACTIVE_RECURRING = {"cancelled", "fulfilled"}
 RETRYABLE = {429, 500, 502, 503, 504}
 
 
@@ -151,6 +159,67 @@ def project_member(c: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# ── recurring-gift "member since" enrichment ─────────────────────────────────
+
+def _recurring_query_body(project_name: str) -> dict[str, Any]:
+    return {
+        "groups": [
+            {"conditions": [{"parameter": "Project Name", "operator": "Is", "value": project_name}]}
+        ]
+    }
+
+
+def _is_active_recurring(status: Any) -> bool:
+    return (str(status or "")).strip().lower() not in INACTIVE_RECURRING
+
+
+def recurring_by_contact(
+    client: VirtuousClient, project_name: str, page_size: int
+) -> dict[str, dict[str, Any]]:
+    """Map contactId(str) -> {startDate (earliest), recurring amount/frequency/status
+    of the member's most relevant gift (active preferred, else latest)}."""
+    rows = client.paged_query(RECURRING_QUERY_PATH, _recurring_query_body(project_name), page_size)
+    agg: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        cid = r.get("contactId")
+        if cid is None:
+            continue
+        key = str(cid)
+        start = ((r.get("startDate") or r.get("recurringGiftDate") or "")[:10]) or None
+        cand = {
+            "amount": r.get("amount"),
+            "frequency": r.get("frequency"),
+            "status": r.get("status"),
+            "start": start,
+        }
+        entry = agg.get(key)
+        if entry is None:
+            agg[key] = {"startDate": start, "current": cand}
+            continue
+        # earliest start = member-since
+        if start and (entry["startDate"] is None or start < entry["startDate"]):
+            entry["startDate"] = start
+        # current gift = active beats inactive, then later start wins
+        cur = entry["current"]
+        cand_active, cur_active = _is_active_recurring(cand["status"]), _is_active_recurring(cur["status"])
+        if cand_active != cur_active:
+            better = cand_active
+        else:
+            better = (cand["start"] or "") > (cur["start"] or "")
+        if better:
+            entry["current"] = cand
+    out: dict[str, dict[str, Any]] = {}
+    for key, e in agg.items():
+        c = e["current"] or {}
+        out[key] = {
+            "startDate": e["startDate"],
+            "recurringAmount": c.get("amount"),
+            "recurringFrequency": c.get("frequency"),
+            "recurringStatus": c.get("status"),
+        }
+    return out
+
+
 # ── snapshot diff ────────────────────────────────────────────────────────────
 
 def _read_prior(bucket: str, key: str) -> dict[str, Any] | None:
@@ -197,6 +266,8 @@ def _fmt_member(m: dict[str, Any]) -> str:
         parts.append(m["email"])
     if m.get("location"):
         parts.append(m["location"])
+    if m.get("startDate"):
+        parts.append(f"member since {m['startDate']}")
     return " — ".join(parts)
 
 
@@ -282,6 +353,21 @@ def handler(event, context):  # noqa: ANN001, ARG001 - AWS signature
     rows = client.paged_query(FULL_QUERY_PATH, _query_body(tag), page_size)
     members = [project_member(r) for r in rows if r.get("id") is not None]
     print(f"  members fetched: {len(members)}", flush=True)
+
+    # Enrich with the real "member since" date = earliest Annunciation Circle
+    # recurring-gift start date (plus current recurring amount/frequency/status).
+    print("Fetching Annunciation Circle recurring gifts...", flush=True)
+    recurring = recurring_by_contact(client, AC_PROJECT_NAME, page_size)
+    matched = 0
+    for m in members:
+        info = recurring.get(str(m["id"]))
+        m["startDate"] = info["startDate"] if info else None
+        m["recurringAmount"] = info["recurringAmount"] if info else None
+        m["recurringFrequency"] = info["recurringFrequency"] if info else None
+        m["recurringStatus"] = info["recurringStatus"] if info else None
+        if info:
+            matched += 1
+    print(f"  recurring gifts matched to {matched}/{len(members)} members", flush=True)
 
     prior = _read_prior(bucket, key)
     today = dt.date.today().isoformat()
