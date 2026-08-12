@@ -12,6 +12,7 @@ members = [
   "services/publishers/mas",
   "services/publishers/alumni",
   "services/publishers/institute",
+  "services/publishers/annunciation",
 ]
 
 [tool.uv]
