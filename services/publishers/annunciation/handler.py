@@ -155,7 +155,7 @@ def project_member(c: dict[str, Any]) -> dict[str, Any]:
         "lastGiftDate": c.get("lastGiftDate"),
         "giftAskAmount": c.get("giftAskAmount"),
         "createDateUtc": c.get("createDateTimeUtc"),
-        "contactUrl": f"https://app.virtuoussoftware.com/Generation/Contacts/View/?ContactId={cid}",
+        "contactUrl": f"https://app.virtuoussoftware.com/Generosity/Contact/View/{cid}",
     }
 
 
