@@ -36,9 +36,6 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: us-east-2
 
-      - name: Build web application
-        run: timeout 12m npm run build --prefix apps/web-next
-
       - name: Type-check infrastructure
         run: npm run build --prefix infra
 
@@ -47,4 +44,6 @@ jobs:
 
       - name: Deploy ECS
         working-directory: infra
+        # Dockerfile.web performs the production Next.js build as part of the
+        # CDK image asset; do not build it a second time in the runner.
         run: npx cdk deploy AmuReportingEcs --require-approval never
