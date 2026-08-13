@@ -31,6 +31,10 @@ RECURRING_QUERY_PATH = "/api/RecurringGift/Query"
 # this project (the tag itself was mass-applied on one day, so it is useless as a
 # join date).
 AC_PROJECT_NAME = "Annunciation Circle"
+# Virtuous Project id for the Annunciation Circle designation (code 6950Fiat).
+# Its ledger aggregates give the authoritative "AC gifts received" totals,
+# counting only AC-designated amounts (not donors' unrelated giving).
+AC_PROJECT_ID = 276
 # Recurring-gift statuses that mean the commitment is no longer live.
 INACTIVE_RECURRING = {"cancelled", "fulfilled"}
 RETRYABLE = {429, 500, 502, 503, 504}
@@ -41,6 +45,15 @@ class VirtuousClient:
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+
+    def get(self, path: str) -> Any:
+        req = urllib.request.Request(
+            f"{self.base_url}{path}",
+            headers={"Authorization": f"Bearer {self.api_key}", "Accept": "application/json"},
+            method="GET",
+        )
+        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            return json.loads(resp.read().decode("utf-8"))
 
     def paged_query(self, path: str, body: dict[str, Any], page_size: int = 1000) -> list[dict]:
         rows: list[dict] = []
@@ -220,6 +233,25 @@ def recurring_by_contact(
     return out
 
 
+# ── Annunciation Circle project totals ───────────────────────────────────────
+
+def _fetch_project_totals(client: VirtuousClient) -> dict[str, Any]:
+    """Life-to-date + calendar-YTD AC gift totals from the project ledger."""
+    try:
+        p = client.get(f"/api/Project/{AC_PROJECT_ID}")
+    except Exception as exc:  # noqa: BLE001 - non-fatal; card falls back gracefully
+        print(f"  project totals fetch failed: {exc}", flush=True)
+        return {}
+    return {
+        "id": p.get("id"),
+        "name": p.get("name"),
+        "lifeToDateGiving": p.get("lifeToDateGiving"),
+        "lifeToDateGiftCount": p.get("lifeToDateGiftCount"),
+        "lifeToDateGiversCount": p.get("lifeToDateGiversCount"),
+        "calendarYearToDateGiving": p.get("calendarYearToDateGiving"),
+    }
+
+
 # ── snapshot diff ────────────────────────────────────────────────────────────
 
 def _read_prior(bucket: str, key: str) -> dict[str, Any] | None:
@@ -373,11 +405,16 @@ def handler(event, context):  # noqa: ANN001, ARG001 - AWS signature
     today = dt.date.today().isoformat()
     members, new_members, baseline = reconcile(members, prior, today)
 
+    # Authoritative Annunciation Circle giving totals from the project ledger
+    # (only AC-designated gifts — excludes members' unrelated giving).
+    ac_project = _fetch_project_totals(client)
+
     snapshot = {
         "generated_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "tag": tag,
         "total": len(members),
         "baseline": baseline,
+        "acProject": ac_project,
         "members": members,
     }
     uri = put_json(key, snapshot, bucket=bucket)

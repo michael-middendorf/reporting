@@ -28,11 +28,23 @@ export type AnnunciationMember = {
   firstSeen: string | null;
 };
 
+export type AnnunciationProjectTotals = {
+  id?: number;
+  name?: string;
+  /** Life-to-date gifts received, counting only Annunciation Circle designations. */
+  lifeToDateGiving?: number | null;
+  lifeToDateGiftCount?: number | null;
+  lifeToDateGiversCount?: number | null;
+  calendarYearToDateGiving?: number | null;
+};
+
 export type AnnunciationSnapshot = {
   generated_at: string;
   tag: string;
   total: number;
   baseline: boolean;
+  /** Authoritative AC giving totals from the project ledger (AC-only). */
+  acProject?: AnnunciationProjectTotals;
   members: AnnunciationMember[];
 };
 
