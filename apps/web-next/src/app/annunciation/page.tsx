@@ -152,9 +152,6 @@ function AnnunciationInner() {
 
   const recent30 = useMemo(() => recentlyJoined(members, 30), [members]);
   const recent90 = useMemo(() => recentlyJoined(members, 90), [members]);
-  // Total AC donations received = sum of every gift designated to the AC
-  // project (from the gift-designation analytics; excludes non-AC giving).
-  const acReceived = data?.acStats?.totalReceived ?? null;
 
   const stats = data?.acStats;
   // Most recent 13 months (FY-style window), oldest→newest for the table/chart.
@@ -254,9 +251,9 @@ function AnnunciationInner() {
         <>
           <div className="ac-cards">
             <div className="ac-card">
-              <span className="ac-card-num">{members.length}</span>
+              <span className="ac-card-num">{stats?.activeLast30 ?? "—"}</span>
               <span className="ac-card-label">
-                Active members <InfoDot text={DEFS.members} />
+                Gave in last 30 days <InfoDot text={DEFS.active30} />
               </span>
             </div>
             <div className="ac-card">
@@ -269,16 +266,6 @@ function AnnunciationInner() {
               <span className="ac-card-num">{recent90.length}</span>
               <span className="ac-card-label">
                 Joined in last 90 days <InfoDot text={DEFS.joined90} />
-              </span>
-            </div>
-            <div className="ac-card">
-              <span className="ac-card-num">
-                {acReceived == null
-                  ? "—"
-                  : `$${acReceived.toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
-              </span>
-              <span className="ac-card-label">
-                Total AC donations received <InfoDot text={DEFS.received} />
               </span>
             </div>
           </div>
