@@ -1,7 +1,6 @@
 import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { NextResponse } from "next/server";
 import { requireReportAccess } from "@/lib/s3-proxy";
-import { fetchProcessedArtifact } from "@/lib/process-invoke";
 
 /**
  * Same-origin proxy for the Institute dashboard payload.
@@ -70,7 +69,7 @@ export async function GET(req: Request) {
     return NextResponse.json(
       {
         error: "Failed to load Institute data",
-        detail: error instanceof Error ? error.message : String(error),
+        detail: e instanceof Error ? e.message : String(e),
       },
       { status: 502 },
     );
