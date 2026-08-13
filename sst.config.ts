@@ -75,7 +75,13 @@ export default $config({
         API_KEY: virtuousApiKey.value,
         VIRTUOUS_API_KEY: virtuousApiKey.value,
       },
-      permissions: readDataPerms,
+      permissions: [
+        ...readDataPerms,
+        {
+          actions: ["s3:PutObject", "s3:DeleteObject"],
+          resources: [$interpolate`arn:aws:s3:::${data.name}/cache/mas/*`],
+        },
+      ],
     });
 
     const alumniProcess = new sst.aws.Function("AlumniProcess", {
@@ -218,8 +224,15 @@ export default $config({
           DATA_BUCKET: data.name,
           API_KEY: virtuousApiKey.value,
           VIRTUOUS_API_KEY: virtuousApiKey.value,
+          MAS_PROCESS_FUNCTION: masProcess.name,
         },
-        permissions: reportDataPerms,
+        permissions: [
+          ...reportDataPerms,
+          {
+            actions: ["lambda:InvokeFunction"],
+            resources: [masProcess.arn],
+          },
+        ],
       },
     });
 
@@ -321,6 +334,7 @@ export default $config({
       dataBucket: data.name,
       masProcess: masProcess.name,
       alumniProcess: alumniProcess.name,
+      instituteProcess: instituteProcess.name,
     };
   },
 });

@@ -1,4 +1,8 @@
-"""MAS on-read processor: derive UI artifacts from sources/virtuous raw (no S3 derived writes)."""
+"""MAS on-read processor: derive UI artifacts from sources/virtuous raw.
+
+Writes ephemeral cache/mas/* so the Next API can serve under CloudFront's
+60s origin limit (pipeline itself takes ~2 minutes).
+"""
 
 from __future__ import annotations
 
@@ -9,22 +13,49 @@ from pathlib import Path
 from typing import Any
 
 from common.raw_load import load_jsonl_dataset
+from common.s3util import put_bytes, put_json
 from mas_follow_up_report.config import AppConfig
 from mas_follow_up_report.pipeline import MAFollowUpPipeline
 from mas_follow_up_report.virtuous import VirtuousClient
 
 # In-memory warm cache keyed by raw pulled_at stamps.
 _CACHE: dict[str, Any] = {"key": None, "files": None}
+CACHE_PREFIX = "cache/mas"
 
 
 def _cache_key(metas: list[dict]) -> str:
     return "|".join(f"{m.get('source')}/{m.get('dataset')}@{m.get('pulled_at')}" for m in metas)
 
 
+def _write_s3_cache(files: dict[str, Any], source_key: str) -> None:
+    """Ephemeral processed artifacts for the portal (not the raw sources contract)."""
+    put_json(
+        f"{CACHE_PREFIX}/_meta.json",
+        {"schema_version": 1, "source_key": source_key, "artifacts": sorted(files.keys())},
+    )
+    for name, body in files.items():
+        key = f"{CACHE_PREFIX}/{name}"
+        if isinstance(body, (dict, list)):
+            put_json(key, body)
+        else:
+            put_bytes(
+                key,
+                str(body).encode("utf-8"),
+                content_type="text/csv; charset=utf-8"
+                if name.endswith(".csv")
+                else "text/plain; charset=utf-8",
+            )
+    print(f"Wrote {len(files)} artifacts → s3://…/{CACHE_PREFIX}/", flush=True)
+
+
 def _build_files() -> dict[str, Any]:
     notes, notes_meta = load_jsonl_dataset("virtuous", "contact_notes")
     gifts, gifts_meta = load_jsonl_dataset("virtuous", "gifts")
-    contacts, contacts_meta = load_jsonl_dataset("virtuous", "contacts")
+    try:
+        contacts, contacts_meta = load_jsonl_dataset("virtuous", "contacts")
+    except Exception as exc:  # noqa: BLE001
+        print(f"contacts raw missing ({exc}); seeding from notes/gifts only", flush=True)
+        contacts, contacts_meta = [], {"source": "virtuous", "dataset": "contacts", "pulled_at": "missing"}
     key = _cache_key([notes_meta, gifts_meta, contacts_meta])
     if _CACHE["key"] == key and isinstance(_CACHE["files"], dict):
         return _CACHE["files"]
@@ -85,6 +116,10 @@ def _build_files() -> dict[str, Any]:
                 files[rel] = path.read_text(encoding="utf-8-sig")
         _CACHE["key"] = key
         _CACHE["files"] = files
+        try:
+            _write_s3_cache(files, key)
+        except Exception as exc:  # noqa: BLE001
+            print(f"cache write failed (non-fatal): {exc}", flush=True)
         return files
 
 
@@ -93,11 +128,12 @@ def handler(event, context):  # noqa: ANN001, ARG001
 
     event.artifact: e.g. "scorecards.json" or "exports/engagement_ledger.csv"
     If omitted, returns {"artifacts": [names...]} listing only (not bodies).
+    event.warm_only: if true, build+cache and return artifact list (for cron warm).
     """
     artifact = (event or {}).get("artifact")
     files = _build_files()
-    if not artifact:
-        return {"ok": True, "artifacts": sorted(files.keys())}
+    if not artifact or (event or {}).get("warm_only"):
+        return {"ok": True, "artifacts": sorted(files.keys()), "cached": True}
     if artifact not in files:
         return {"ok": False, "error": f"unknown artifact: {artifact}", "artifacts": sorted(files.keys())}
     return {"ok": True, "artifact": artifact, "body": files[artifact]}

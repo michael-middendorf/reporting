@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
 import { gzipSync } from "zlib";
+import { NextResponse } from "next/server";
 import { requireReportAccess } from "@/lib/s3-proxy";
-import { loadLatestPointer, loadSourceRows } from "@/lib/sources";
+import { loadSourceRows } from "@/lib/sources";
 
 /**
  * Enrollment report rows from sources/slate/{dataset}/_latest.
- * Returns JSON `{ row: [...] }` for existing enrollment processors.
+ * Returns gzipped JSON `{ row: [...] }` (Lambda 6MB payload limit).
  */
 const REPORT_KEYS: Record<string, string> = {
   admissions: "admissions",

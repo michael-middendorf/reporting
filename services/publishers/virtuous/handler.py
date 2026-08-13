@@ -17,6 +17,7 @@ NOTE_TYPE_PREFIXES = ["Mission Advancement"]
 NOTE_TYPE_EXACT = ["Letter", "In Person", "Text Message"]
 EVENT_MATCH_KEYWORDS = ["Near You", "Market"]
 RETRYABLE = {429, 500, 502, 503, 504}
+REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-east-2"
 
 
 class VirtuousClient:
@@ -213,33 +214,47 @@ def handler(event, context):  # noqa: ANN001, ARG001
 
     ids = _contact_ids(notes, gifts)[:max_contacts]
     print(f"Fetching {len(ids)} contacts", flush=True)
+    # Contact Id is Int and only supports Is/Between/… — not IsAnyOf. Use OR-groups
+    # of `Is` (same pattern as mas_follow_up_report), with binary-split fallback.
     contacts: list[dict] = []
-    # Prefer bulk query when possible; fall back to per-id get.
-    chunk = 100
-    for i in range(0, len(ids), chunk):
-        batch_ids = ids[i : i + chunk]
-        try:
+    contact_chunk = int(os.environ.get("CONTACT_CHUNK_SIZE", "100"))
+
+    def fetch_contact_chunk(batch_ids: list[int]) -> list[dict]:
+        pending: list[list[int]] = [batch_ids]
+        rows: list[dict] = []
+        while pending:
+            current = pending.pop(0)
             body = {
                 "groups": [
                     {
                         "conditions": [
-                            {
-                                "parameter": "Contact Id",
-                                "operator": "IsAnyOf",
-                                "values": [str(x) for x in batch_ids],
-                            }
+                            {"parameter": "Contact Id", "operator": "Is", "value": cid}
                         ]
                     }
+                    for cid in current
                 ]
             }
-            contacts.extend(client.paged_query("/api/Contact/Query/FullContact", body, page_size))
-        except Exception as exc:  # noqa: BLE001
-            print(f"bulk contact query failed ({exc}); falling back", flush=True)
-            for cid in batch_ids:
-                try:
-                    contacts.append(client.get(f"/api/Contact/{cid}"))
-                except Exception as get_exc:  # noqa: BLE001
-                    print(f"contact {cid}: {get_exc}", flush=True)
+            try:
+                payload = client._post(
+                    "/api/Contact/Query/FullContact",
+                    body,
+                    params={"skip": 0, "take": max(len(current), 1)},
+                )
+                rows.extend(payload.get("list") or [])
+            except Exception as exc:  # noqa: BLE001
+                if len(current) <= 1:
+                    print(f"contact query failed for {current}: {exc}", flush=True)
+                    continue
+                mid = len(current) // 2
+                pending.insert(0, current[mid:])
+                pending.insert(0, current[:mid])
+        return rows
+
+    for i in range(0, len(ids), contact_chunk):
+        batch = ids[i : i + contact_chunk]
+        contacts.extend(fetch_contact_chunk(batch))
+        if (i // contact_chunk) % 5 == 0 or i + contact_chunk >= len(ids):
+            print(f"  ...{min(i + contact_chunk, len(ids))}/{len(ids)} contact ids requested", flush=True)
 
     contacts = _dedupe(contacts)
     published.append(
@@ -255,6 +270,8 @@ def handler(event, context):  # noqa: ANN001, ARG001
         )
     )
 
+    _warm_mas()
+
     return {
         "ok": True,
         "source": "virtuous",
@@ -266,3 +283,20 @@ def handler(event, context):  # noqa: ANN001, ARG001
             "contacts": len(contacts),
         },
     }
+
+
+def _warm_mas() -> None:
+    fn = (os.environ.get("MAS_PROCESS_FUNCTION") or "").strip()
+    if not fn:
+        return
+    try:
+        import boto3
+
+        boto3.client("lambda", region_name=REGION).invoke(
+            FunctionName=fn,
+            InvocationType="Event",
+            Payload=json.dumps({"warm_only": True}).encode("utf-8"),
+        )
+        print(f"Warmed MasProcess ({fn})", flush=True)
+    except Exception as exc:  # noqa: BLE001
+        print(f"MasProcess warm failed (non-fatal): {exc}", flush=True)

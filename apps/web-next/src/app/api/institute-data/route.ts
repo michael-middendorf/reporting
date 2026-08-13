@@ -67,7 +67,10 @@ export async function GET(req: Request) {
     });
   } catch (e) {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : String(e) },
+      {
+        error: "Failed to load Institute data",
+        detail: e instanceof Error ? e.message : String(e),
+      },
       { status: 502 },
     );
   }

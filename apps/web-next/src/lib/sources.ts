@@ -1,4 +1,4 @@
-import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { gunzipSync } from "zlib";
 import { dataBucket, s3 } from "@/lib/s3-proxy";
 

@@ -4,7 +4,9 @@
   "scripts": {
     "dev": "npm run dev --prefix apps/web-next",
     "build": "npm run build --prefix apps/web-next",
-    "deploy": "sst deploy --stage production",
+    "deploy": "npm run deploy:ecs",
+    "deploy:ecs": "npm ci --prefix infra && npx --prefix infra cdk deploy AmuReportingEcs --require-approval never",
+    "synth:ecs": "npm ci --prefix infra && npm run synth --prefix infra",
     "secret:list": "sst secret list --stage production"
   },
   "devDependencies": {
