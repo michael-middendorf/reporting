@@ -43,4 +43,5 @@ jobs:
           npm run synth --prefix infra -- --strict
 
       - name: Deploy ECS
-        run: npx --prefix infra cdk deploy AmuReportingEcs --require-approval never
+        working-directory: infra
+        run: npx cdk deploy AmuReportingEcs --require-approval never
