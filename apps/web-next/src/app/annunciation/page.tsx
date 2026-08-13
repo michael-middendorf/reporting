@@ -62,10 +62,8 @@ function AnnunciationInner() {
 
   const recent30 = useMemo(() => recentlyJoined(members, 30), [members]);
   const recent90 = useMemo(() => recentlyJoined(members, 90), [members]);
-  const totalLtd = useMemo(
-    () => members.reduce((s, m) => s + (m.lifeToDateGivingNum || 0), 0),
-    [members],
-  );
+  // AC-only gifts received, from the project ledger (excludes non-AC giving).
+  const acReceived = data?.acProject?.lifeToDateGiving ?? null;
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -158,9 +156,11 @@ function AnnunciationInner() {
             </div>
             <div className="ac-card">
               <span className="ac-card-num">
-                ${totalLtd.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                {acReceived == null
+                  ? "—"
+                  : `$${acReceived.toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
               </span>
-              <span className="ac-card-label">Combined lifetime giving</span>
+              <span className="ac-card-label">AC gifts received (life-to-date)</span>
             </div>
           </div>
 
