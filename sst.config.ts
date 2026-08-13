@@ -170,7 +170,7 @@ export default $config({
         // Intentionally NOT in the DailyMagicLinks allowlist below, so they get
         // no unsolicited sign-in email — they request a magic link themselves.
         ANNUNCIATION_ALLOWED_EMAILS:
-          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu",
+          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu,regina.m.pirolli+test@avemaria.edu",
         DATA_BUCKET: data.name,
         MAS_PROCESS_FUNCTION: masProcess.name,
         ALUMNI_PROCESS_FUNCTION: alumniProcess.name,
