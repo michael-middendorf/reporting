@@ -58,11 +58,15 @@ function BarChart<T>({
   return (
     <div className="ac-bars">
       {items.map((it, i) => (
-        <div className="ac-bar-col" key={i} title={titleOf(it)}>
+        <div className="ac-bar-col" key={i}>
           <div
             className={accent ? "ac-bar ac-bar-accent" : "ac-bar"}
             style={{ height: `${(valueOf(it) / max) * 100}%` }}
-          />
+          >
+            <span className="ac-tip" role="tooltip">
+              {titleOf(it)}
+            </span>
+          </div>
           <span className="ac-bar-x">{labelOf(it)}</span>
         </div>
       ))}
