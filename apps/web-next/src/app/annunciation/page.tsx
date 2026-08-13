@@ -40,6 +40,57 @@ function parseUsDate(v: string | null): number {
 const usd0 = (n: number) =>
   `$${Math.round(n).toLocaleString("en-US")}`;
 
+/** Clickable/hoverable ⓘ that reveals a metric definition. */
+function InfoDot({ text }: { text: string }) {
+  return (
+    <span className="ac-info-wrap">
+      <button
+        type="button"
+        className="ac-info"
+        aria-label={`Definition: ${text}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        i
+      </button>
+      <span className="ac-info-tip" role="tooltip">
+        {text}
+      </span>
+    </span>
+  );
+}
+
+const DEFS = {
+  members:
+    'Contacts tagged "Annunciation Circle Member" in Virtuous — the curated member roster.',
+  joined30:
+    "Members whose start date (their earliest Annunciation Circle recurring-gift start) falls within the last 30 days.",
+  joined90:
+    "Members whose start date (their earliest Annunciation Circle recurring-gift start) falls within the last 90 days.",
+  received:
+    "Total of every gift ever designated to the Annunciation Circle project (project ledger, life-to-date). Excludes members' gifts to other funds.",
+  active30:
+    "Distinct donors with a gift designated to Annunciation Circle in the last 30 days.",
+  allTime: "Distinct donors who have ever given to the Annunciation Circle project.",
+  revenue:
+    "Sum of gift amounts designated to Annunciation Circle with a gift date in that month.",
+  avgGift: "Revenue ÷ number of Annunciation Circle gifts that month.",
+  donors: "Distinct donors who gave to Annunciation Circle that month.",
+  newCol: "Donors whose first-ever Annunciation Circle gift is that month.",
+  lost: "Donors who gave the previous month but not this month.",
+  returning:
+    "Donors who gave this month and earlier, but not the immediately preceding month (reactivated).",
+  carryover: "Donors who gave both the previous month and this month (retained).",
+  memberSince:
+    "Start date of the member's earliest Annunciation Circle recurring gift (falls back to when first seen if none on file).",
+  recurring:
+    "The member's current Annunciation Circle recurring gift — amount, frequency, and status (active preferred).",
+  lifetime: "The contact's total giving to ALL funds in Virtuous (not AC-only).",
+  lastGift: "The contact's most recent gift to any fund — amount and date.",
+  retention:
+    "Cohort retention: of the donors who first gave in a given month, the % still giving N months later, averaged across all cohorts.",
+  revChart: "Gifts designated to Annunciation Circle, summed by gift-date month.",
+} as const;
+
 /** Simple responsive CSS bar chart. */
 function BarChart<T>({
   items,
@@ -203,15 +254,21 @@ function AnnunciationInner() {
           <div className="ac-cards">
             <div className="ac-card">
               <span className="ac-card-num">{members.length}</span>
-              <span className="ac-card-label">Current members</span>
+              <span className="ac-card-label">
+                Current members <InfoDot text={DEFS.members} />
+              </span>
             </div>
             <div className="ac-card">
               <span className="ac-card-num">{recent30.length}</span>
-              <span className="ac-card-label">Joined in last 30 days</span>
+              <span className="ac-card-label">
+                Joined in last 30 days <InfoDot text={DEFS.joined30} />
+              </span>
             </div>
             <div className="ac-card">
               <span className="ac-card-num">{recent90.length}</span>
-              <span className="ac-card-label">Joined in last 90 days</span>
+              <span className="ac-card-label">
+                Joined in last 90 days <InfoDot text={DEFS.joined90} />
+              </span>
             </div>
             <div className="ac-card">
               <span className="ac-card-num">
@@ -219,7 +276,9 @@ function AnnunciationInner() {
                   ? "—"
                   : `$${acReceived.toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
               </span>
-              <span className="ac-card-label">AC gifts received (life-to-date)</span>
+              <span className="ac-card-label">
+                AC gifts received (life-to-date) <InfoDot text={DEFS.received} />
+              </span>
             </div>
           </div>
 
@@ -253,17 +312,21 @@ function AnnunciationInner() {
               <div className="ac-cards">
                 <div className="ac-card">
                   <span className="ac-card-num">{stats.activeLast30}</span>
-                  <span className="ac-card-label">Active AC donors (last 30 days)</span>
+                  <span className="ac-card-label">
+                    Active AC donors (last 30 days) <InfoDot text={DEFS.active30} />
+                  </span>
                 </div>
                 <div className="ac-card">
                   <span className="ac-card-num">{stats.allTimeDonors}</span>
-                  <span className="ac-card-label">All-time AC donors</span>
+                  <span className="ac-card-label">
+                    All-time AC donors <InfoDot text={DEFS.allTime} />
+                  </span>
                 </div>
               </div>
 
               <div className="ac-charts">
                 <div className="ac-chart-box">
-                  <h3>Revenue by month</h3>
+                  <h3>Revenue by month <InfoDot text={DEFS.revChart} /></h3>
                   <BarChart<AnnunciationMonthly>
                     items={recentMonthly}
                     valueOf={(m) => m.revenue}
@@ -273,7 +336,7 @@ function AnnunciationInner() {
                   />
                 </div>
                 <div className="ac-chart-box">
-                  <h3>Donor retention by month</h3>
+                  <h3>Donor retention by month <InfoDot text={DEFS.retention} /></h3>
                   <BarChart<AnnunciationRetentionPoint>
                     items={stats.retention}
                     valueOf={(r) => r.pct}
@@ -288,13 +351,13 @@ function AnnunciationInner() {
                   <thead>
                     <tr>
                       <th>Month</th>
-                      <th className="ac-num">Revenue</th>
-                      <th className="ac-num">Avg gift</th>
-                      <th className="ac-num">Donors</th>
-                      <th className="ac-num">New</th>
-                      <th className="ac-num">Lost</th>
-                      <th className="ac-num">Returning</th>
-                      <th className="ac-num">Carryover</th>
+                      <th className="ac-num">Revenue <InfoDot text={DEFS.revenue} /></th>
+                      <th className="ac-num">Avg gift <InfoDot text={DEFS.avgGift} /></th>
+                      <th className="ac-num">Donors <InfoDot text={DEFS.donors} /></th>
+                      <th className="ac-num">New <InfoDot text={DEFS.newCol} /></th>
+                      <th className="ac-num">Lost <InfoDot text={DEFS.lost} /></th>
+                      <th className="ac-num">Returning <InfoDot text={DEFS.returning} /></th>
+                      <th className="ac-num">Carryover <InfoDot text={DEFS.carryover} /></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -354,16 +417,20 @@ function AnnunciationInner() {
                     Location{sortArrow("location")}
                   </th>
                   <th onClick={() => toggleSort("startDate")}>
-                    Member since{sortArrow("startDate")}
+                    Member since <InfoDot text={DEFS.memberSince} />
+                    {sortArrow("startDate")}
                   </th>
                   <th className="ac-num" onClick={() => toggleSort("recurringAmount")}>
-                    Recurring gift{sortArrow("recurringAmount")}
+                    Recurring gift <InfoDot text={DEFS.recurring} />
+                    {sortArrow("recurringAmount")}
                   </th>
                   <th className="ac-num" onClick={() => toggleSort("lifeToDateGivingNum")}>
-                    Lifetime giving{sortArrow("lifeToDateGivingNum")}
+                    Lifetime giving <InfoDot text={DEFS.lifetime} />
+                    {sortArrow("lifeToDateGivingNum")}
                   </th>
                   <th onClick={() => toggleSort("lastGiftDate")}>
-                    Last gift{sortArrow("lastGiftDate")}
+                    Last gift <InfoDot text={DEFS.lastGift} />
+                    {sortArrow("lastGiftDate")}
                   </th>
                 </tr>
               </thead>

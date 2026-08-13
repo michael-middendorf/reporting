@@ -290,3 +290,61 @@
   background: var(--ac-raised);
   border-bottom: 2px solid var(--ac-border) !important;
 }
+
+/* ── info (ⓘ) definition icons ── */
+.ac-info-wrap {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+}
+.ac-info {
+  width: 15px;
+  height: 15px;
+  line-height: 13px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: italic 700 10px/13px Georgia, "Times New Roman", serif;
+  text-align: center;
+  cursor: pointer;
+  opacity: .5;
+  padding: 0;
+}
+.ac-info:hover,
+.ac-info:focus-visible { opacity: 1; }
+.ac-info-tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 240px;
+  background: var(--ac-text);
+  color: #fff;
+  text-transform: none;
+  font-weight: 400;
+  letter-spacing: normal;
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(13, 43, 94, .3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .12s;
+  z-index: 50;
+  white-space: normal;
+}
+.ac-info-tip::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-bottom-color: var(--ac-text);
+}
+.ac-info-wrap:hover .ac-info-tip,
+.ac-info:focus + .ac-info-tip { opacity: 1; }
