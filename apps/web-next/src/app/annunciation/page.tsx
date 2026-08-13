@@ -299,12 +299,6 @@ function AnnunciationInner() {
               <h2>Annunciation Circle giving</h2>
               <div className="ac-cards">
                 <div className="ac-card">
-                  <span className="ac-card-num">{stats.activeLast30}</span>
-                  <span className="ac-card-label">
-                    Active AC donors (last 30 days) <InfoDot text={DEFS.active30} />
-                  </span>
-                </div>
-                <div className="ac-card">
                   <span className="ac-card-num">{stats.allTimeDonors}</span>
                   <span className="ac-card-label">
                     All-time AC donors <InfoDot text={DEFS.allTime} />
