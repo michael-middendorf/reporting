@@ -30,11 +30,11 @@ export class ReportingEcsStack extends cdk.Stack {
     const workerImage = new ecrAssets.DockerImageAsset(this, "WorkerImage", { directory: path.join(__dirname, "../.."), file: "Dockerfile.worker" });
     const webSg = new ec2.SecurityGroup(this, "WebSg", { vpc, description: "AMU reporting web tasks", allowAllOutbound: true });
     const task = new ecs.FargateTaskDefinition(this, "WebTask", { cpu: 512, memoryLimitMiB: 1024 });
-    secret.grantRead(task.executionRole!);
+    secret.grantRead(task.obtainExecutionRole());
     task.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:GetObject", "s3:ListBucket"], resources: [dataBucketArn, `${dataBucketArn}/*`] }));
     task.addContainer("web", { image: ecs.ContainerImage.fromDockerImageAsset(webImage), portMappings: [{ containerPort: 3000 }], logging: ecs.LogDrivers.awsLogs({ logGroup: webLogs, streamPrefix: "web" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke", APP_BASE_URL: "https://reporting.avemaria.edu" }, secrets: runtimeSecrets(secret) });
     const service = new ecs.FargateService(this, "WebService", { cluster, taskDefinition: task, desiredCount: 1, assignPublicIp: true, securityGroups: [webSg], vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC }, circuitBreaker: { rollback: true } });
-    const alb = elbv2.ApplicationLoadBalancer.fromApplicationLoadBalancerAttributes(this, "SharedAlb", { loadBalancerArn: `arn:aws:elasticloadbalancing:${region}:${account}:loadbalancer/app/avemaria-alb/57b406e2fc6d6c5c`, securityGroupId: "sg-0c7c300cac7664317" });
+    const alb = elbv2.ApplicationLoadBalancer.fromApplicationLoadBalancerAttributes(this, "SharedAlb", { loadBalancerArn: `arn:aws:elasticloadbalancing:${region}:${account}:loadbalancer/app/avemaria-alb/57b406e2fc6d6c5c`, securityGroupId: "sg-0c7c300cac7664317", loadBalancerCanonicalHostedZoneId: "Z3AADJGX6KTTL2", loadBalancerDnsName: "avemaria-alb-1775577982.us-east-2.elb.amazonaws.com" });
     webSg.addIngressRule(ec2.Peer.securityGroupId("sg-0c7c300cac7664317"), ec2.Port.tcp(3000), "HTTPS traffic from shared ALB");
     const zone = route53.HostedZone.fromHostedZoneAttributes(this, "Zone", { hostedZoneId: "Z05753053I9MN1HSFFBDO", zoneName: "avemaria.edu" });
     const certificate = new acm.Certificate(this, "Certificate", { domainName: "reporting.avemaria.edu", validation: acm.CertificateValidation.fromDns(zone) });
@@ -44,7 +44,7 @@ export class ReportingEcsStack extends cdk.Stack {
     new elbv2.CfnListenerRule(this, "HttpsRule", { listenerArn: `arn:aws:elasticloadbalancing:${region}:${account}:listener/app/avemaria-alb/57b406e2fc6d6c5c/4c06c5d24c43202c`, priority: 25, conditions: [{ field: "host-header", hostHeaderConfig: { values: ["reporting.avemaria.edu"] } }], actions: [{ type: "forward", targetGroupArn: tg.targetGroupArn }] });
     new route53.ARecord(this, "Dns", { zone, recordName: "reporting", target: route53.RecordTarget.fromAlias(new route53Targets.LoadBalancerTarget(alb)) });
     const worker = new ecs.FargateTaskDefinition(this, "WorkerTask", { cpu: 1024, memoryLimitMiB: 3072 });
-    secret.grantRead(worker.executionRole!);
+    secret.grantRead(worker.obtainExecutionRole());
     worker.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"], resources: [dataBucketArn, `${dataBucketArn}/*`] }));
     worker.addContainer("worker", { image: ecs.ContainerImage.fromDockerImageAsset(workerImage), logging: ecs.LogDrivers.awsLogs({ logGroup: workerLogs, streamPrefix: "worker" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke" }, secrets: runtimeSecrets(secret) });
     for (const [name, schedule, action] of [["Enrollment", events.Schedule.rate(cdk.Duration.minutes(15)), "enrollment"], ["Virtuous", events.Schedule.rate(cdk.Duration.minutes(15)), "virtuous"], ["Housing", events.Schedule.rate(cdk.Duration.hours(6)), "housing"], ["Institute", events.Schedule.rate(cdk.Duration.hours(6)), "institute"]] as const) {
