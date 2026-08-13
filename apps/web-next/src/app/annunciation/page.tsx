@@ -8,6 +8,8 @@ import {
   memberSince,
   recentlyJoined,
   type AnnunciationMember,
+  type AnnunciationMonthly,
+  type AnnunciationRetentionPoint,
   type AnnunciationSnapshot,
 } from "@/lib/reports/annunciation/shape";
 import "@/styles/annunciation.css";
@@ -33,6 +35,39 @@ function parseUsDate(v: string | null): number {
   const d = iso ? new Date(`${v}T00:00:00Z`) : new Date(v);
   const t = d.getTime();
   return Number.isNaN(t) ? 0 : t;
+}
+
+const usd0 = (n: number) =>
+  `$${Math.round(n).toLocaleString("en-US")}`;
+
+/** Simple responsive CSS bar chart. */
+function BarChart<T>({
+  items,
+  valueOf,
+  labelOf,
+  titleOf,
+  accent,
+}: {
+  items: T[];
+  valueOf: (it: T) => number;
+  labelOf: (it: T) => string;
+  titleOf: (it: T) => string;
+  accent?: boolean;
+}) {
+  const max = Math.max(1, ...items.map(valueOf));
+  return (
+    <div className="ac-bars">
+      {items.map((it, i) => (
+        <div className="ac-bar-col" key={i} title={titleOf(it)}>
+          <div
+            className={accent ? "ac-bar ac-bar-accent" : "ac-bar"}
+            style={{ height: `${(valueOf(it) / max) * 100}%` }}
+          />
+          <span className="ac-bar-x">{labelOf(it)}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function AnnunciationInner() {
@@ -64,6 +99,26 @@ function AnnunciationInner() {
   const recent90 = useMemo(() => recentlyJoined(members, 90), [members]);
   // AC-only gifts received, from the project ledger (excludes non-AC giving).
   const acReceived = data?.acProject?.lifeToDateGiving ?? null;
+
+  const stats = data?.acStats;
+  // Most recent 13 months (FY-style window), oldest→newest for the table/chart.
+  const recentMonthly = useMemo<AnnunciationMonthly[]>(
+    () => (stats?.monthly ?? []).slice(-13),
+    [stats],
+  );
+  const totals = useMemo(() => {
+    const t = { revenue: 0, gifts: 0, donors: 0, new: 0, lost: 0, returning: 0, carryover: 0 };
+    for (const m of recentMonthly) {
+      t.revenue += m.revenue;
+      t.gifts += m.gifts;
+      t.donors += m.donors;
+      t.new += m.new;
+      t.lost += m.lost;
+      t.returning += m.returning;
+      t.carryover += m.carryover;
+    }
+    return t;
+  }, [recentMonthly]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -188,6 +243,89 @@ function AnnunciationInner() {
             </section>
           )}
 
+          {stats && recentMonthly.length > 0 && (
+            <section className="ac-analytics">
+              <h2>Annunciation Circle giving</h2>
+              <div className="ac-cards">
+                <div className="ac-card">
+                  <span className="ac-card-num">{stats.activeLast30}</span>
+                  <span className="ac-card-label">Active AC donors (last 30 days)</span>
+                </div>
+                <div className="ac-card">
+                  <span className="ac-card-num">{stats.allTimeDonors}</span>
+                  <span className="ac-card-label">All-time AC donors</span>
+                </div>
+              </div>
+
+              <div className="ac-charts">
+                <div className="ac-chart-box">
+                  <h3>Revenue by month</h3>
+                  <BarChart<AnnunciationMonthly>
+                    items={recentMonthly}
+                    valueOf={(m) => m.revenue}
+                    labelOf={(m) => m.label.split(" ")[1]}
+                    titleOf={(m) => `${m.label}: ${usd0(m.revenue)} · ${m.donors} donors`}
+                    accent
+                  />
+                </div>
+                <div className="ac-chart-box">
+                  <h3>Donor retention by month</h3>
+                  <BarChart<AnnunciationRetentionPoint>
+                    items={stats.retention}
+                    valueOf={(r) => r.pct}
+                    labelOf={(r) => String(r.monthIndex)}
+                    titleOf={(r) => `Month ${r.monthIndex}: ${r.pct}% still giving`}
+                  />
+                </div>
+              </div>
+
+              <div className="ac-table-wrap">
+                <table className="ac-table ac-monthly">
+                  <thead>
+                    <tr>
+                      <th>Month</th>
+                      <th className="ac-num">Revenue</th>
+                      <th className="ac-num">Avg gift</th>
+                      <th className="ac-num">Donors</th>
+                      <th className="ac-num">New</th>
+                      <th className="ac-num">Lost</th>
+                      <th className="ac-num">Returning</th>
+                      <th className="ac-num">Carryover</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="ac-total-row">
+                      <td>Totals</td>
+                      <td className="ac-num">{usd0(totals.revenue)}</td>
+                      <td className="ac-num">{usd0(totals.gifts ? totals.revenue / totals.gifts : 0)}</td>
+                      <td className="ac-num">{totals.donors}</td>
+                      <td className="ac-num">{totals.new}</td>
+                      <td className="ac-num">{totals.lost}</td>
+                      <td className="ac-num">{totals.returning}</td>
+                      <td className="ac-num">{totals.carryover}</td>
+                    </tr>
+                    {recentMonthly
+                      .slice()
+                      .reverse()
+                      .map((m) => (
+                        <tr key={m.month}>
+                          <td>{m.label}</td>
+                          <td className="ac-num">{usd0(m.revenue)}</td>
+                          <td className="ac-num">{usd0(m.avgGift)}</td>
+                          <td className="ac-num">{m.donors}</td>
+                          <td className="ac-num">{m.new}</td>
+                          <td className="ac-num">{m.lost}</td>
+                          <td className="ac-num">{m.returning}</td>
+                          <td className="ac-num">{m.carryover}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          <h2 className="ac-members-h">Members</h2>
           <div className="ac-toolbar">
             <input
               type="search"
