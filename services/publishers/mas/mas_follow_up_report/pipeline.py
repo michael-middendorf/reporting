@@ -1546,11 +1546,18 @@ class MAFollowUpPipeline:
 
         recurring_gifts_by_contact: dict[int, list[dict[str, Any]]] = {}
         for contact_id in sorted(contact_ids_for_recurring):
-            payload = self.client.get(
-                f"/api/RecurringGift/ByContact/{contact_id}",
-                params={"skip": 0, "take": 100},
-            )
-            recurring_gifts_by_contact[contact_id] = payload.get("list", [])
+            try:
+                payload = self.client.get(
+                    f"/api/RecurringGift/ByContact/{contact_id}",
+                    params={"skip": 0, "take": 100},
+                )
+                recurring_gifts_by_contact[contact_id] = payload.get("list", [])
+            except VirtuousError as exc:
+                # Rate limits during concurrent VirtuousRaw pulls — skip screen rather than fail the report.
+                if "429" in str(exc):
+                    print(f"  recurring gifts rate-limited; skipping screen ({exc})", flush=True)
+                    return RecurringScreenResult(rows, set(), 0, set())
+                raise
 
         return filter_existing_recurring_follow_on_gifts(
             rows,

@@ -1,13 +1,8 @@
-"""Refresh "The Institute" dashboard data into DATA_BUCKET/INSTITUTE_DATA_KEY.
+"""Institute publisher → sources/institute/{query}/ raw only.
 
-Fetches the six Slate "run as service" queries concurrently (two of them - q1
-and q2 - can each take up to ~600s, so sequential fetching would blow past the
-Lambda 15-minute ceiling; concurrent fetching fits), builds the dashboard JSON
-payload via build.payload(), and writes it to the shared SST ReportData bucket.
-
-The Slate query definitions (id + auth token + read timeout per query) are read
-from the INSTITUTE_SLATE_QUERIES environment variable - a JSON string with the
-same shape as the standalone project's slate_queries.json.
+Fetches Slate queries concurrently, writes each as canonical JSONL under
+sources/institute/{name}/. Derived dashboard payload is built on-read by
+InstituteProcess (no derived S3 object).
 """
 
 from __future__ import annotations
@@ -18,42 +13,28 @@ import ssl
 import threading
 from urllib.request import Request, urlopen
 
-import boto3
-
 import build
+from common.sources import publish_dataset, rows_from_slate_payload
 
-REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-east-2"
-DEFAULT_DATA_KEY = "institute/latest.json"
 USER_AGENT = "amu-institute-dashboard"
 
 
 class ConfigError(Exception):
-    """Raised when required configuration (env vars) is missing or invalid."""
+    pass
 
 
 class RefreshError(Exception):
-    """Raised when the refresh cannot produce a usable payload."""
+    pass
 
 
 def _log(**fields) -> None:
-    """Structured log line, matching the other refresh lambdas."""
-    print(json.dumps(fields))
+    print(json.dumps(fields), flush=True)
 
 
 def _load_query_config() -> dict:
-    """Parse INSTITUTE_SLATE_QUERIES into name -> (query_id, token, timeout).
-
-    Expects a JSON object of the shape:
-      {"queries": [{"name","query_id","token","timeout"}, ...], "base_url": ...}
-    base_url is optional (build.BASE is used regardless). Raises ConfigError if
-    the env var is missing/blank or contains no usable queries.
-    """
     raw = (os.environ.get("INSTITUTE_SLATE_QUERIES") or "").strip()
     if not raw:
-        raise ConfigError(
-            "INSTITUTE_SLATE_QUERIES is missing or blank - set it to the "
-            "slate_queries.json JSON (a {\"queries\":[...]} object)."
-        )
+        raise ConfigError("INSTITUTE_SLATE_QUERIES is missing or blank")
     try:
         data = json.loads(raw)
     except ValueError as exc:
@@ -65,35 +46,21 @@ def _load_query_config() -> dict:
         if name and qid and token:
             out[name] = (qid, token, int(q.get("timeout", 180)))
     if not out:
-        raise ConfigError(
-            "INSTITUTE_SLATE_QUERIES contained no usable queries "
-            "(each needs name, query_id, and token)."
-        )
+        raise ConfigError("INSTITUTE_SLATE_QUERIES contained no usable queries")
     return out
 
 
-def _fetch(qid: str, token: str, timeout: int) -> str:
-    """Fetch one Slate query, using its own read timeout. Returns raw JSON text.
-
-    URL and headers mirror build.fetch_one / datastore._fetch.
-    """
+def _fetch(qid: str, token: str, timeout: int) -> object:
     url = f"{build.BASE}?id={qid}&cmd=service&output=json&h={token}"
     ctx = ssl.create_default_context()
     req = Request(url, headers={"User-Agent": USER_AGENT})
     with urlopen(req, context=ctx, timeout=timeout) as r:
-        raw = r.read().decode("utf-8")
-    build.rows_of(raw)  # validate JSON / expected shape
-    return raw
+        return json.loads(r.read().decode("utf-8"))
 
 
 def handler(event, context):  # noqa: ANN001, ARG001
-    bucket = os.environ.get("DATA_BUCKET")
-    if not bucket:
-        raise ConfigError("DATA_BUCKET env var is required.")
-    key = os.getenv("INSTITUTE_DATA_KEY", DEFAULT_DATA_KEY)
-
     queries = _load_query_config()
-    _log(event="config_loaded", queries=sorted(queries), bucket=bucket, key=key)
+    _log(event="config_loaded", queries=sorted(queries))
 
     raws: dict = {}
     errors: dict = {}
@@ -104,12 +71,25 @@ def handler(event, context):  # noqa: ANN001, ARG001
         with lock:
             _log(event="fetch_start", query=name, timeout=timeout)
         try:
-            raw = _fetch(qid, token, timeout)
-            rows = len(build.rows_of(raw))
+            payload = _fetch(qid, token, timeout)
+            rows = rows_from_slate_payload(payload)
+            # Also keep original row extraction from build for compatibility
+            if not rows:
+                rows = build.rows_of(json.dumps(payload))
+            publish_dataset(
+                source="institute",
+                dataset=name,
+                rows=rows if isinstance(rows, list) else [],
+                provenance={
+                    "system": "slate",
+                    "query_id": qid,
+                    "query_name": name,
+                },
+            )
             with lock:
-                raws[name] = raw
-                _log(event="fetch_done", query=name, rows=rows)
-        except Exception as exc:  # noqa: BLE001 - degrade gracefully per query
+                raws[name] = payload
+                _log(event="fetch_done", query=name, rows=len(rows) if isinstance(rows, list) else 0)
+        except Exception as exc:  # noqa: BLE001
             with lock:
                 raws[name] = None
                 errors[name] = str(exc)
@@ -124,44 +104,14 @@ def handler(event, context):  # noqa: ANN001, ARG001
     for t in threads:
         t.join()
 
-    # q4 (Institute applicants) is required - mirror refresh_data.py, which
-    # sys.exits when q4 is unavailable.
-    if raws.get("q4") is None:
+    if raws.get("q4") is None and "q4" in queries:
         raise RefreshError(
-            "q4 (Institute applicants) is required and unavailable - cannot "
-            f"build payload. error: {errors.get('q4', 'not configured')}"
+            "q4 (Institute applicants) is required and unavailable - "
+            f"error: {errors.get('q4', 'not configured')}"
         )
 
-    data = build.payload(raws)
-
-    body = json.dumps(data).encode("utf-8")
-    boto3.client("s3", region_name=REGION).put_object(
-        Bucket=bucket,
-        Key=key,
-        Body=body,
-        ContentType="application/json",
-        CacheControl="no-store",
-    )
-
     fetched = sorted(k for k, v in raws.items() if v is not None)
-    _log(
-        event="published",
-        bucket=bucket,
-        key=key,
-        bytes=len(body),
-        counts=data["counts"],
-        fetched=fetched,
-        errors=errors,
-    )
-    return {
-        "ok": True,
-        "bucket": bucket,
-        "key": key,
-        "counts": data["counts"],
-        "fetched": fetched,
-        "errors": errors,
-    }
-
+    return {"ok": True, "source": "institute", "fetched": fetched, "errors": errors}
 
 def _fetch_all(queries: dict) -> tuple[dict, dict]:
     """Fetch every configured query concurrently. Returns (raws, errors).

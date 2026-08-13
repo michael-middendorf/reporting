@@ -60,11 +60,12 @@ def publish_dataset(
     pulled_at = datetime.now(timezone.utc).isoformat()
 
     body = _jsonl_gz(rows)
+    # Do not set ContentEncoding=gzip: the body is already compressed, and
+    # clients (esp. AWS SDK JS) would auto-decompress and break gunzip.
     put_bytes(
         f"{prefix}/data.jsonl.gz",
         body,
         content_type="application/gzip",
-        content_encoding="gzip",
         bucket=dest,
     )
 

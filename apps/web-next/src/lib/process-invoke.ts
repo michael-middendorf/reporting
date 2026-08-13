@@ -25,7 +25,10 @@ export async function invokeProcessor(
 }
 
 export async function fetchProcessedArtifact(
-  functionEnvKey: "MAS_PROCESS_FUNCTION" | "ALUMNI_PROCESS_FUNCTION",
+  functionEnvKey:
+    | "MAS_PROCESS_FUNCTION"
+    | "ALUMNI_PROCESS_FUNCTION"
+    | "INSTITUTE_PROCESS_FUNCTION",
   artifact: string,
   extra: Record<string, unknown> = {},
 ): Promise<unknown> {

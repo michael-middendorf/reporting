@@ -11,6 +11,7 @@ Remote: https://github.com/colecantu904/reporting
 | `/` | Hub |
 | `/enrollment` | Admissions enrollment dashboard |
 | `/housing` | Housing occupancy |
+| `/institute` | The Institute admissions pipeline |
 | `/mas` | MA follow-on giving |
 | `/points` | MA points / productivity |
 | `/alumni` | Alumni coverage & opportunity |
@@ -36,8 +37,17 @@ sources/_catalog.json
 | `slate` | admissions, psw, messages, campus_visits, … | EnrollmentRefresh |
 | `virtuous` | contact_notes, gifts, events, contacts | VirtuousRawRefresh |
 | `qlik` | housing_occupancy | HousingRefresh |
+| `institute` | q1–q6 (Slate query dumps) | InstituteRefresh |
 
-Each dataset keeps ~3 dated days. Report pages read `_latest` (or invoke on-read processors for MAS/alumni derived views). **No derived report packages are stored in S3.**
+Each dataset keeps ~3 dated days. Report pages read `_latest` (or invoke on-read processors for MAS/alumni/institute derived views). Raw sources stay the contract; MAS also writes a short-lived `cache/mas/` snapshot so the portal stays under CloudFront’s 60s origin limit.
+
+Institute publisher needs Slate query tokens once:
+
+```bash
+npx sst secret set InstituteSlateQueries "$(cat slate_queries.json)" --stage production
+```
+
+(`slate_queries.json` shape: `{"queries":[{"name":"q1","query_id":"...","token":"...","timeout":600}, ...]}` for q1–q6.)
 
 ## Layout
 
