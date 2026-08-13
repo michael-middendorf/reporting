@@ -61,13 +61,13 @@ function InfoDot({ text }: { text: string }) {
 
 const DEFS = {
   members:
-    'Contacts tagged "Annunciation Circle Member" in Virtuous — the curated member roster.',
+    'Active members: contacts tagged "Annunciation Circle Member" who have a live recurring gift to the Annunciation Circle project (status not Cancelled or Fulfilled). Tagged contacts with no active recurring gift are excluded.',
   joined30:
     "Members whose start date (their earliest Annunciation Circle recurring-gift start) falls within the last 30 days.",
   joined90:
     "Members whose start date (their earliest Annunciation Circle recurring-gift start) falls within the last 90 days.",
   received:
-    "Total of every gift ever designated to the Annunciation Circle project (project ledger, life-to-date). Excludes members' gifts to other funds.",
+    "Total AC donations received: the sum of every gift designated to the Annunciation Circle project, by gift date. Excludes members' gifts to other funds.",
   active30:
     "Distinct donors with a gift designated to Annunciation Circle in the last 30 days.",
   allTime: "Distinct donors who have ever given to the Annunciation Circle project.",
@@ -152,8 +152,9 @@ function AnnunciationInner() {
 
   const recent30 = useMemo(() => recentlyJoined(members, 30), [members]);
   const recent90 = useMemo(() => recentlyJoined(members, 90), [members]);
-  // AC-only gifts received, from the project ledger (excludes non-AC giving).
-  const acReceived = data?.acProject?.lifeToDateGiving ?? null;
+  // Total AC donations received = sum of every gift designated to the AC
+  // project (from the gift-designation analytics; excludes non-AC giving).
+  const acReceived = data?.acStats?.totalReceived ?? null;
 
   const stats = data?.acStats;
   // Most recent 13 months (FY-style window), oldest→newest for the table/chart.
@@ -255,7 +256,7 @@ function AnnunciationInner() {
             <div className="ac-card">
               <span className="ac-card-num">{members.length}</span>
               <span className="ac-card-label">
-                Current members <InfoDot text={DEFS.members} />
+                Active members <InfoDot text={DEFS.members} />
               </span>
             </div>
             <div className="ac-card">
@@ -277,7 +278,7 @@ function AnnunciationInner() {
                   : `$${acReceived.toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
               </span>
               <span className="ac-card-label">
-                AC gifts received (life-to-date) <InfoDot text={DEFS.received} />
+                Total AC donations received <InfoDot text={DEFS.received} />
               </span>
             </div>
           </div>

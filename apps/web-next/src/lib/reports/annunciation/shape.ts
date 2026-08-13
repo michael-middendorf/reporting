@@ -57,6 +57,8 @@ export type AnnunciationStats = {
   activeLast30: number;
   allTimeDonors: number;
   giftCount: number;
+  /** Total AC donations received: sum of every gift designated to the AC project. */
+  totalReceived: number;
   monthly: AnnunciationMonthly[];
   retention: AnnunciationRetentionPoint[];
 };

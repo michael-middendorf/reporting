@@ -270,8 +270,8 @@ export default $config({
 
     // Annunciation Circle member snapshot + new-member notifier.
     // Writes annunciation/latest.json (feeds the /annunciation dashboard) and
-    // emails ANNUNCIATION_NOTIFY_EMAILS when new members are detected. Leave the
-    // notify list empty until go-live — the publisher logs instead of sending.
+    // emails ANNUNCIATION_NOTIFY_EMAILS when new members are detected (live:
+    // Regina, Zena, and Cassandra receive new-member alerts).
     new sst.aws.Cron("AnnunciationRefresh", {
       schedule: "rate(15 minutes)",
       function: {
@@ -290,7 +290,8 @@ export default $config({
           ANNUNCIATION_CACHE_KEY: "annunciation/latest.json",
           // Comma-separated recipients for new-member alerts. EMPTY = logged, not
           // sent. Fill in at go-live.
-          ANNUNCIATION_NOTIFY_EMAILS: "",
+          ANNUNCIATION_NOTIFY_EMAILS:
+            "regina.m.pirolli@avemaria.edu,zena.weist@avemaria.edu,cassandra.l.bournos@avemaria.edu",
           APP_BASE_URL: site.url,
           EMAIL_FROM:
             "AMU Project Manager <noreply@notifications.avemaria.edu>",
