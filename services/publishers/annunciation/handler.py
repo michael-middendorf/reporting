@@ -186,6 +186,17 @@ def _is_active_recurring(status: Any) -> bool:
     return (str(status or "")).strip().lower() not in INACTIVE_RECURRING
 
 
+def _is_active_member(m: dict[str, Any]) -> bool:
+    """An active Annunciation Circle member has a live recurring gift to the AC
+    project: a recurring status that is present and not Cancelled/Fulfilled
+    (Active and PastDue both count). Tagged contacts with no recurring gift on
+    file are NOT counted."""
+    status = m.get("recurringStatus")
+    if status is None or str(status).strip() == "":
+        return False
+    return _is_active_recurring(status)
+
+
 def recurring_by_contact(
     client: VirtuousClient, project_name: str, page_size: int
 ) -> dict[str, dict[str, Any]]:
@@ -362,6 +373,9 @@ def build_ac_stats(client: VirtuousClient, page_size: int, today: dt.date) -> di
         "activeLast30": len(active30),
         "allTimeDonors": len(all_donors),
         "giftCount": len(rows),
+        # Total AC donations received = sum of every gift ever designated to the
+        # Annunciation Circle project (by gift date). This is the actual money in.
+        "totalReceived": round(sum(rev.values()), 2),
         "monthly": monthly,
         "retention": retention,
     }
@@ -515,6 +529,18 @@ def handler(event, context):  # noqa: ANN001, ARG001 - AWS signature
         if info:
             matched += 1
     print(f"  recurring gifts matched to {matched}/{len(members)} members", flush=True)
+
+    # Membership = an ACTIVE recurring commitment, not merely the tag. The
+    # "Annunciation Circle Member" tag was mass-applied and includes lapsed and
+    # never-recurring contacts, so we drop anyone without a live recurring gift
+    # (status present and not Cancelled/Fulfilled). Count, directory, new-member
+    # detection, and alerts all operate on this active roster.
+    tagged_count = len(members)
+    members = [m for m in members if _is_active_member(m)]
+    print(
+        f"  active members (live recurring gift): {len(members)}/{tagged_count} tagged",
+        flush=True,
+    )
 
     prior = _read_prior(bucket, key)
     today = dt.date.today().isoformat()
