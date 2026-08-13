@@ -252,6 +252,121 @@ def _fetch_project_totals(client: VirtuousClient) -> dict[str, Any]:
     }
 
 
+# ── monthly received / donor-flow / retention analytics ─────────────────────
+
+_MONTH_ABBR = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+GIFT_DESIGNATION_QUERY_PATH = "/api/GiftDesignation/Query"
+RETENTION_MAX_MONTHS = 12
+
+
+def _parse_md(s: Any) -> dt.date | None:
+    """Parse Virtuous 'M/D/YYYY' gift dates."""
+    s = (str(s or "")).strip()
+    if not s:
+        return None
+    parts = s.split("/")
+    if len(parts) != 3:
+        return None
+    try:
+        return dt.date(int(parts[2]), int(parts[0]), int(parts[1]))
+    except ValueError:
+        return None
+
+
+def _month_label(key: str) -> str:
+    y, m = key.split("-")
+    return f"{y} {_MONTH_ABBR[int(m)]}"
+
+
+def build_ac_stats(client: VirtuousClient, page_size: int, today: dt.date) -> dict[str, Any]:
+    """Aggregate AC gift designations into monthly received / donor-flow /
+    retention analytics (mirrors the legacy Qlik page)."""
+    from collections import defaultdict
+
+    rows = client.paged_query(
+        GIFT_DESIGNATION_QUERY_PATH,
+        {"groups": [{"conditions": [{"parameter": "Project Name", "operator": "Is", "value": AC_PROJECT_NAME}]}]},
+        page_size,
+    )
+    print(f"  AC gift designations fetched: {len(rows)}", flush=True)
+
+    rev: dict[str, float] = defaultdict(float)
+    gift_count: dict[str, int] = defaultdict(int)
+    donors_by_month: dict[str, set] = defaultdict(set)
+    donor_months: dict[Any, set] = defaultdict(set)
+    all_donors: set = set()
+    active30: set = set()
+    cutoff30 = today - dt.timedelta(days=30)
+
+    for r in rows:
+        cid = r.get("contactId")
+        gd = _parse_md(r.get("giftDate"))
+        if cid is None or gd is None:
+            continue
+        mk = f"{gd.year:04d}-{gd.month:02d}"
+        try:
+            amt = float(r.get("amountDesignated") or 0)
+        except (TypeError, ValueError):
+            amt = 0.0
+        rev[mk] += amt
+        gift_count[mk] += 1
+        donors_by_month[mk].add(cid)
+        donor_months[cid].add(mk)
+        all_donors.add(cid)
+        if gd >= cutoff30:
+            active30.add(cid)
+
+    months = sorted(rev.keys())
+    first_month = {cid: min(ms) for cid, ms in donor_months.items()}
+
+    monthly: list[dict[str, Any]] = []
+    for i, mk in enumerate(months):
+        cur = donors_by_month[mk]
+        prev = donors_by_month[months[i - 1]] if i > 0 else set()
+        g = gift_count[mk]
+        monthly.append({
+            "month": mk,
+            "label": _month_label(mk),
+            "revenue": round(rev[mk], 2),
+            "gifts": g,
+            "avgGift": round(rev[mk] / g, 2) if g else 0,
+            "donors": len(cur),
+            "new": sum(1 for c in cur if first_month[c] == mk),
+            "carryover": sum(1 for c in cur if c in prev),
+            "returning": sum(1 for c in cur if first_month[c] != mk and c not in prev),
+            "lost": sum(1 for c in prev if c not in cur),
+        })
+
+    # Cohort retention: of a month's brand-new donors, % still giving k months later.
+    idx = {mk: i for i, mk in enumerate(months)}
+    cohorts: dict[str, set] = defaultdict(set)
+    for cid, fm in first_month.items():
+        cohorts[fm].add(cid)
+    num = [0] * RETENTION_MAX_MONTHS
+    den = [0] * RETENTION_MAX_MONTHS
+    for fm, cohort in cohorts.items():
+        base = idx[fm]
+        for k in range(RETENTION_MAX_MONTHS):
+            if base + k >= len(months):
+                break
+            active = donors_by_month[months[base + k]]
+            den[k] += len(cohort)
+            num[k] += sum(1 for c in cohort if c in active)
+    retention: list[dict[str, Any]] = []
+    for k in range(RETENTION_MAX_MONTHS):
+        if den[k] == 0:
+            break
+        retention.append({"monthIndex": k + 1, "pct": round(100.0 * num[k] / den[k], 1)})
+
+    return {
+        "activeLast30": len(active30),
+        "allTimeDonors": len(all_donors),
+        "giftCount": len(rows),
+        "monthly": monthly,
+        "retention": retention,
+    }
+
+
 # ── snapshot diff ────────────────────────────────────────────────────────────
 
 def _read_prior(bucket: str, key: str) -> dict[str, Any] | None:
@@ -409,12 +524,17 @@ def handler(event, context):  # noqa: ANN001, ARG001 - AWS signature
     # (only AC-designated gifts — excludes members' unrelated giving).
     ac_project = _fetch_project_totals(client)
 
+    # Monthly received / donor-flow / retention analytics from AC gift
+    # designations (amountDesignated to the AC project, by gift date).
+    ac_stats = build_ac_stats(client, page_size, dt.date.today())
+
     snapshot = {
         "generated_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "tag": tag,
         "total": len(members),
         "baseline": baseline,
         "acProject": ac_project,
+        "acStats": ac_stats,
         "members": members,
     }
     uri = put_json(key, snapshot, bucket=bucket)

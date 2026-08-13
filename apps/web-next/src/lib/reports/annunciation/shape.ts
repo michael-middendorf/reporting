@@ -38,6 +38,29 @@ export type AnnunciationProjectTotals = {
   calendarYearToDateGiving?: number | null;
 };
 
+export type AnnunciationMonthly = {
+  month: string;
+  label: string;
+  revenue: number;
+  gifts: number;
+  avgGift: number;
+  donors: number;
+  new: number;
+  carryover: number;
+  returning: number;
+  lost: number;
+};
+
+export type AnnunciationRetentionPoint = { monthIndex: number; pct: number };
+
+export type AnnunciationStats = {
+  activeLast30: number;
+  allTimeDonors: number;
+  giftCount: number;
+  monthly: AnnunciationMonthly[];
+  retention: AnnunciationRetentionPoint[];
+};
+
 export type AnnunciationSnapshot = {
   generated_at: string;
   tag: string;
@@ -45,6 +68,8 @@ export type AnnunciationSnapshot = {
   baseline: boolean;
   /** Authoritative AC giving totals from the project ledger (AC-only). */
   acProject?: AnnunciationProjectTotals;
+  /** Monthly received / donor-flow / retention analytics (AC gift designations). */
+  acStats?: AnnunciationStats;
   members: AnnunciationMember[];
 };
 
