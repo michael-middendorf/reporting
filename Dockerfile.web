@@ -22,7 +22,7 @@ RUN apk add --no-cache libc6-compat \
     /usr/local/bin/pnpm /usr/local/bin/pnpx /usr/local/bin/yarn /usr/local/bin/yarnpkg
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
-RUN mkdir -p /app/.next/cache && chown -R node:node /app/.next/cache
+RUN mkdir -p /app/.next/cache && chown -R node:node /app/.next/cache && chmod 1777 /tmp
 USER node
 EXPOSE 3000
 CMD ["node", "server.js"]
