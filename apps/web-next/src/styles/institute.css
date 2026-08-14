@@ -301,6 +301,58 @@
   margin-top: 1px;
   min-height: 14px;
 }
+.institute-root .gauges.g3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+@media (max-width: 640px) {
+  .institute-root .gauges.g3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.institute-root .gauge.static {
+  cursor: default;
+}
+.institute-root .gauge.static:hover {
+  background: transparent;
+}
+.institute-root .gauge .g-info {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #e2e8ee;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  font-style: normal;
+  line-height: 15px;
+  cursor: help;
+  z-index: 2;
+}
+.institute-root .gauge .g-info .g-tip {
+  display: none;
+  position: absolute;
+  top: 19px;
+  right: 0;
+  width: 200px;
+  background: var(--navy);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: left;
+  letter-spacing: normal;
+  text-transform: none;
+  padding: 7px 9px;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(12, 34, 49, 0.22);
+}
+.institute-root .gauge .g-info:hover .g-tip,
+.institute-root .gauge .g-info:focus .g-tip {
+  display: block;
+}
 .institute-root .up {
   color: var(--green);
 }

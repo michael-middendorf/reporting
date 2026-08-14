@@ -121,6 +121,7 @@ function InstituteDashboard() {
   const COUNTS = payload?.counts ?? {};
   const GOALS = payload?.config?.goals ?? {};
   const PACE = payload?.config?.pace ?? {};
+  const RECR = payload?.config?.recruiting ?? {};
 
   const TERMS = useMemo(
     () => termsFrom(DATA, payload?.q1_summary ?? {}, payload?.q6_summary ?? {}),
@@ -315,6 +316,25 @@ function InstituteDashboard() {
     .map(([k, v]) => ({ k, v }))
     .sort((a, b) => b.v - a.v)
     .slice(0, 12);
+
+  /* ---------- recruiting calls workflow — FA27 KPI dials (q7) ---------- */
+  const RECR_COLORS = [COLORS.teal, COLORS.blue, COLORS.gold];
+  const recruitingGauges: GaugeVM[] = (RECR.kpis ?? []).map((k, i) => {
+    const scale = Math.max(k.value, k.goal) * 1.15;
+    const hasTarget = k.target > 0;
+    return {
+      key: k.key,
+      name: k.name,
+      col: RECR_COLORS[i % RECR_COLORS.length],
+      value: k.value,
+      fillFrac: scale ? k.value / scale : 0,
+      markerFrac: hasTarget ? k.target / scale : null,
+      yoy: hasTarget ? { up: k.value >= k.target, pct: Math.round((k.value / k.target) * 100) } : null,
+      sub: `goal ${k.goal} · target ${Math.round(k.target)} by today`,
+      on: false,
+      info: k.info,
+    };
+  });
 
   /* ---------- prospects (q2) ---------- */
   const proItems = Object.entries(Q2S.byState || {})
@@ -667,6 +687,26 @@ function InstituteDashboard() {
 
         {/* ---------- recruiting & prospects ---------- */}
         <div className="section-title">Recruiting &amp; Prospects</div>
+        {recruitingGauges.length ? (
+          <div className="card">
+            <h3>
+              Recruiting Calls Workflow — FA27 KPIs{" "}
+              <span className="muted" style={{ fontWeight: 400 }}>
+                — {(RECR.count ?? 0).toLocaleString()} in workflow
+              </span>
+            </h3>
+            <div className="chint">
+              Season goals for the recruiting calls campaigns · marker = target-to-date on the FA27
+              schedule{RECR.asOf ? ` (as of ${RECR.asOf})` : ""} · hover the “i” on each dial for
+              exactly what it counts.
+            </div>
+            <div className="gauges g3">
+              {recruitingGauges.map((g) => (
+                <Gauge key={g.key} g={g} />
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div className="grid">
           <div className="card span4">
             <h3>

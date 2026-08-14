@@ -9,7 +9,7 @@ import build
 from common.raw_load import load_jsonl_dataset
 
 # Query names expected by build.payload (raw JSON text or None).
-QUERY_NAMES = ("q1", "q2", "q3", "q4", "q5", "q6")
+QUERY_NAMES = ("q1", "q2", "q3", "q4", "q5", "q6", "q7")
 
 
 def handler(event, context):  # noqa: ANN001, ARG001

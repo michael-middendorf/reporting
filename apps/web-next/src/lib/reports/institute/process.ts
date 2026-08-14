@@ -68,6 +68,16 @@ export type PaceTerm = {
   asOf?: string;
   measures: Record<string, PaceMeasure>;
 };
+export type RecruitingKpi = {
+  key: string;
+  name: string;
+  goal: number;
+  value: number;
+  target: number;
+  pace: number;
+  info: string;
+};
+export type RecruitingBlock = { asOf?: string; count?: number; kpis?: RecruitingKpi[] };
 export type InstitutePayload = {
   generated_at?: string;
   source?: string;
@@ -81,6 +91,7 @@ export type InstitutePayload = {
   config?: {
     goals?: Record<string, number | boolean>;
     pace?: Record<string, PaceTerm | string | null>;
+    recruiting?: RecruitingBlock;
   };
   loading?: {
     complete?: boolean;
