@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import {
   createSessionToken,
-  parseAllowed,
   sessionCookie,
   verifyMagicToken,
 } from "@/lib/auth";
+import { canLogin } from "@/lib/access";
 
 export async function POST(req: Request) {
   let body: { token?: string };
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       { status: 401 },
     );
   }
-  if (!parseAllowed().has(email)) {
+  if (!canLogin(email)) {
     return NextResponse.json({ error: "Email is not permitted." }, { status: 403 });
   }
 
