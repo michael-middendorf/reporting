@@ -30,7 +30,8 @@ const DEFAULT_REPORT_ALLOWED: Record<ReportId, string> = {
   mas: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
   points: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
   alumni: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
-  annunciation: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
+  annunciation:
+    "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu",
 };
 
 const ENV_KEYS: Record<ReportId, string> = {
