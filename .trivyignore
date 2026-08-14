@@ -1,0 +1,11 @@
+# DS-0002: "Specify at least 1 USER command in Dockerfile with non-root user"
+# Both Dockerfile.web and Dockerfile.worker intentionally have no static USER
+# directive - they use the standard root-then-drop-privileges pattern (the
+# same approach official images like postgres/mysql use): the container
+# starts as root so its entrypoint script can fix permissions on ECS/Fargate
+# volumes mounted after image build time (which do not inherit build-time
+# chown/chmod), then exec's into the real process as a non-root user via
+# su-exec. Trivy's static Dockerfile check cannot see that runtime privilege
+# drop. Both containers do run as non-root in practice - verify with
+# `ps aux` inside a running task, not by grepping the Dockerfile.
+DS-0002
