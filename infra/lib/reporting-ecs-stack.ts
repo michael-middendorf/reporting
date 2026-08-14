@@ -31,8 +31,8 @@ export class ReportingEcsStack extends cdk.Stack {
     // and can trip the deployment circuit breaker / a full stack rollback.
     const albSubnets = {
       subnets: [
-        ec2.Subnet.fromSubnetId(this, "AlbSubnetA", "subnet-0faac786118924240"),
-        ec2.Subnet.fromSubnetId(this, "AlbSubnetB", "subnet-037e01d5bdd3c6fcd"),
+        ec2.Subnet.fromSubnetAttributes(this, "AlbSubnetA", { subnetId: "subnet-0faac786118924240", availabilityZone: "us-east-2a", routeTableId: "rtb-0ae97e2a9ebb643dd" }),
+        ec2.Subnet.fromSubnetAttributes(this, "AlbSubnetB", { subnetId: "subnet-037e01d5bdd3c6fcd", availabilityZone: "us-east-2b", routeTableId: "rtb-0ae97e2a9ebb643dd" }),
       ],
     };
     const secret = secrets.Secret.fromSecretNameV2(this, "RuntimeSecret", "amu-reporting/production/runtime");
