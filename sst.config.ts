@@ -118,10 +118,12 @@ export default $config({
       timeout: "60 seconds",
       memory: "2048 MB",
       python: { uv: true },
-      // handler.py does `import build`; SST only ships the handler file + deps,
-      // so the sibling build.py must be copied in explicitly (same pattern as
-      // MasProcess/AlumniProcess bringing in their extra source modules).
+      // handler.py does `import build` and `from common.sources import ...`;
+      // SST only ships the handler file + deps, so the sibling build.py AND the
+      // shared common/ package must be copied in explicitly (same pattern as
+      // MasProcess/AlumniProcess bringing in commonFiles + their extra source).
       copyFiles: [
+        ...commonFiles,
         {
           from: "services/publishers/institute/build.py",
           to: "build.py",
