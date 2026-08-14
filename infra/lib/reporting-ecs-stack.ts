@@ -43,6 +43,10 @@ export class ReportingEcsStack extends cdk.Stack {
     const task = new ecs.FargateTaskDefinition(this, "WebTask", { cpu: 512, memoryLimitMiB: 1024 });
     secret.grantRead(task.obtainExecutionRole());
     task.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:GetObject", "s3:ListBucket"], resources: [dataBucketArn, `${dataBucketArn}/*`] }));
+    // Points review flags: the web app persists the shared flag queue to a single
+    // object. Scope the write narrowly to just that key (least privilege) — reads
+    // are already covered by the GetObject grant above.
+    task.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:PutObject"], resources: [`${dataBucketArn}/points/review-flags.json`] }));
     // On-demand report Lambdas (Institute/MAS/Alumni) live in the SST runtime; the
     // web app invokes them by name (see /api/institute-data, /api/reports/mas, alumni).
     // The web container needs both the function names AND permission to invoke them.
