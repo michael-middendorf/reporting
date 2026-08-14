@@ -84,13 +84,10 @@ export const CONFLICTS = {
     resolved: "Mapped to MGO task/note types (see below), else unmatched",
     note: "Best-effort mapped to the ‘FY27 MGO Goal Activity’ note type / ‘FY27 MGO Goal Task’. Confirm this is how MAs log MGO appointments.",
   },
-  contact_update: {
-    title: "Updated contact info / credit card (5 pts)",
-    pdf: "5 points for updated contact info or credit card (grouped with handwritten note / TSM book).",
-    spreadsheet: "Not a discrete line item.",
-    resolved: "Mapped to address/CC update note types",
-    note: "Mapped to ‘Mission Advancement | Invalid Mailing Address’ and address-change note types. Confirm.",
-  },
+  // NOTE: the former `contact_update` conflict was RESOLVED (2026-08-14, per
+  // Regina) — contact-info / credit-card changes count for 5 pts per the PDF
+  // rubric. The two note-type mappings below now carry source "pdf" (no
+  // conflict flag); the rule is documented in DEFINITIONS instead.
 };
 
 /* ---- Points map: Virtuous note `type` (lowercased) -> rule ---------------
@@ -125,9 +122,9 @@ export const POINTS_MAP = {
   "in person":  { points: 25, bucket: "facetoface", label: "Face-to-face (coffee/lunch)", source: "pdf+spreadsheet" },
 
   "mission advancement | invalid mailing address":
-    { points: 5, bucket: "note", label: "Updated contact info", source: "assumed", conflict: "contact_update" },
+    { points: 5, bucket: "note", label: "Updated contact info", source: "pdf" },
   "as - address change/update":
-    { points: 5, bucket: "note", label: "Address change/update", source: "assumed", conflict: "contact_update" },
+    { points: 5, bucket: "note", label: "Address change/update", source: "pdf" },
 
   "fy27 mgo goal activity":
     { points: 10, bucket: "mgo", label: "MGO appointment set", source: "assumed", conflict: "mgo_appointment" },
@@ -178,3 +175,25 @@ export const SETTINGS = {
  * annunciation publisher); the conversation log lives on that contact's Notes
  * tab. Org: Ave Maria University (org 6339). */
 export const VIRTUOUS_APP_BASE = "https://app.virtuoussoftware.com";
+
+/* ---- Activity definitions -----------------------------------------------
+ * Plain-language rules the Methodology page shows so reviewers know exactly
+ * what makes an activity count (beyond the raw point value). */
+export const DEFINITIONS = [
+  {
+    term: "Secured gift (100 pts)",
+    text:
+      "A new or increased gift earns 100 points only when the Mission Advancement rep LOGS it as a ContactNote in Virtuous " +
+      "(‘New Donation or New AC’, ‘Annunciation Circle updated’, or ‘Update recurring gift’). " +
+      "The logged note is what is counted and is REQUIRED for the gift to score — the dashboard reads MA-authored notes, " +
+      "not the underlying gift/transaction records. A gift with no corresponding MA note does not earn points, and the " +
+      "points are attributed to whoever authored the note (Virtuous `createdByUser`).",
+  },
+  {
+    term: "Updated contact info / credit card (5 pts)",
+    text:
+      "Contact-information and credit-card updates COUNT for 5 points, per the PDF rubric (grouped with handwritten note / " +
+      "TSM book). Logged via the ‘Mission Advancement | Invalid Mailing Address’ and address change/update note types. " +
+      "(Previously flagged for review; confirmed counting 2026-08-14.)",
+  },
+];

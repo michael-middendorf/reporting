@@ -31,6 +31,7 @@ const config = require("./config.js") as {
   CONFLICTS: Record<string, unknown>;
   DAY_TARGETS: Record<string, { points: number; blurb: string }>;
   BUCKETS: Array<{ id: string; label: string; points: number; color: string }>;
+  DEFINITIONS: Array<{ term: string; text: string }>;
 };
 
 export const scoreAll = points.scoreAll;
@@ -46,3 +47,4 @@ export const POINTS_MAP = config.POINTS_MAP;
 export const CONFLICTS = config.CONFLICTS;
 export const DAY_TARGETS = config.DAY_TARGETS;
 export const BUCKETS = config.BUCKETS;
+export const DEFINITIONS = config.DEFINITIONS;
