@@ -30,6 +30,14 @@ jobs:
           npm ci --prefix apps/web-next
           npm ci --prefix infra
 
+      # SST builds the Python publisher/report Lambdas with uv (python: { uv: true }).
+      # uv is not on the runner by default, so the sst deploy step below fails every
+      # Python package build ("uv build failed") without this.
+      - name: Install uv (for SST Python function builds)
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
