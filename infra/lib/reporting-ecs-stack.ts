@@ -33,6 +33,18 @@ export class ReportingEcsStack extends cdk.Stack {
     const task = new ecs.FargateTaskDefinition(this, "WebTask", { cpu: 512, memoryLimitMiB: 1024 });
     secret.grantRead(task.obtainExecutionRole());
     task.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:GetObject", "s3:ListBucket"], resources: [dataBucketArn, `${dataBucketArn}/*`] }));
+    // On-demand report Lambdas (Institute/MAS/Alumni) live in the SST runtime; the
+    // web app invokes them by name (see /api/institute-data, /api/reports/mas, alumni).
+    // The web container needs both the function names AND permission to invoke them.
+    const onDemandFns = {
+      INSTITUTE_FN_NAME: "amu-reporting-production-InstituteDataFunction-trtxkdvv",
+      MAS_PROCESS_FUNCTION: "amu-reporting-production-MasProcessFunction-xzhzvdkw",
+      ALUMNI_PROCESS_FUNCTION: "amu-reporting-production-AlumniProcessFunction-vuhfevxd",
+    };
+    task.addToTaskRolePolicy(new iam.PolicyStatement({
+      actions: ["lambda:InvokeFunction"],
+      resources: Object.values(onDemandFns).map((n) => `arn:aws:lambda:${region}:${account}:function:${n}`),
+    }));
     const temporaryDistribution = new cloudfront.CfnDistribution(this, "TemporaryCloudFront", {
       distributionConfig: {
         enabled: true,
@@ -59,7 +71,7 @@ export class ReportingEcsStack extends cdk.Stack {
     new cdk.CfnOutput(this, "TemporaryCloudFrontUrl", { value: `https://${temporaryDistribution.attrDomainName}` });
     task.addVolume({ name: "tmp" });
     task.addVolume({ name: "next-cache" });
-    task.addContainer("web", { image: ecs.ContainerImage.fromDockerImageAsset(webImage), portMappings: [{ containerPort: 3000 }], logging: ecs.LogDrivers.awsLogs({ logGroup: webLogs, streamPrefix: "web" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke", APP_BASE_URL: `https://${temporaryDistribution.attrDomainName}` }, secrets: runtimeSecrets(secret), readonlyRootFilesystem: true }).addMountPoints(
+    task.addContainer("web", { image: ecs.ContainerImage.fromDockerImageAsset(webImage), portMappings: [{ containerPort: 3000 }], logging: ecs.LogDrivers.awsLogs({ logGroup: webLogs, streamPrefix: "web" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke", APP_BASE_URL: `https://${temporaryDistribution.attrDomainName}`, ...onDemandFns }, secrets: runtimeSecrets(secret), readonlyRootFilesystem: true }).addMountPoints(
       { sourceVolume: "tmp", containerPath: "/tmp", readOnly: false },
       { sourceVolume: "next-cache", containerPath: "/app/.next/cache", readOnly: false },
     );
