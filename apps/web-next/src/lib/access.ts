@@ -16,6 +16,7 @@ export type ReportId = (typeof REPORT_IDS)[number];
 /** Always have access to every report. */
 export const ADMIN_EMAILS = [
   "cole.j.cantu@avemaria.edu",
+  "michael.t.middendorf@avemaria.edu",
   "regina.m.pirolli@avemaria.edu",
 ] as const;
 
