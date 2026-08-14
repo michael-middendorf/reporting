@@ -35,6 +35,13 @@ AC_PROJECT_NAME = "Annunciation Circle"
 # Its ledger aggregates give the authoritative "AC gifts received" totals,
 # counting only AC-designated amounts (not donors' unrelated giving).
 AC_PROJECT_ID = 276
+# Giving totals are counted by acquisition SEGMENT (not by project designation),
+# per Advancement: every gift designation whose segment is the Annunciation Circle
+# online (FundraiseUp) segment or the standard AC segment. NOTE: because this drops
+# the project filter, (a) amounts these segments routed to other funds are included
+# and (b) AC-fund gifts tagged with other segments (e.g. major-gift solicitations)
+# are excluded. Members/"member since" still come from AC recurring gifts (project).
+AC_GIVING_SEGMENTS = ["FundraiseUp - Annunciation Circle", "Annunciation Circle"]
 # Recurring-gift statuses that mean the commitment is no longer live.
 INACTIVE_RECURRING = {"cancelled", "fulfilled"}
 RETRYABLE = {429, 500, 502, 503, 504}
@@ -294,12 +301,16 @@ def build_ac_stats(client: VirtuousClient, page_size: int, today: dt.date) -> di
     retention analytics (mirrors the legacy Qlik page)."""
     from collections import defaultdict
 
+    # Groups are OR-ed: match designations in EITHER AC giving segment.
     rows = client.paged_query(
         GIFT_DESIGNATION_QUERY_PATH,
-        {"groups": [{"conditions": [{"parameter": "Project Name", "operator": "Is", "value": AC_PROJECT_NAME}]}]},
+        {"groups": [
+            {"conditions": [{"parameter": "Segment Name", "operator": "Is", "value": seg}]}
+            for seg in AC_GIVING_SEGMENTS
+        ]},
         page_size,
     )
-    print(f"  AC gift designations fetched: {len(rows)}", flush=True)
+    print(f"  AC gift designations fetched (by segment): {len(rows)}", flush=True)
 
     rev: dict[str, float] = defaultdict(float)
     gift_count: dict[str, int] = defaultdict(int)

@@ -16,13 +16,13 @@ RUN npm run build
 FROM node:${NODE_VERSION}-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
-RUN apk add --no-cache libc6-compat \
+RUN apk add --no-cache libc6-compat su-exec \
   && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
   && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
     /usr/local/bin/pnpm /usr/local/bin/pnpx /usr/local/bin/yarn /usr/local/bin/yarnpkg
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
-RUN mkdir -p /app/.next/cache && chown -R node:node /app/.next/cache && chmod 1777 /tmp
-USER node
+COPY docker/web-docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 EXPOSE 3000
-CMD ["node", "server.js"]
+ENTRYPOINT ["/docker-entrypoint.sh"]

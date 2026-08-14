@@ -47,3 +47,13 @@ jobs:
         # Dockerfile.web performs the production Next.js build as part of the
         # CDK image asset; do not build it a second time in the runner.
         run: npx cdk deploy AmuReportingEcs --require-approval never
+
+      - name: Deploy SST runtime (publishers)
+        # The publisher crons (Annunciation, Enrollment, Housing, Virtuous,
+        # DailyMagicLinks) and the on-demand report Lambdas (Institute/MAS/
+        # Alumni) live in the SST stack, separate from the ECS web app above.
+        # Deploy them here so publisher/handler changes actually ship on merge
+        # to main. This runs as the CI deploy role (secrets.AWS_DEPLOY_ROLE_ARN),
+        # which -- unlike a personal PlatformEngineer user -- is not blocked by
+        # the IAM guardrails (iam:*RolePolicy) that an sst deploy performs.
+        run: npx sst deploy --stage production

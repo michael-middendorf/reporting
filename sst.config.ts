@@ -335,7 +335,7 @@ export default $config({
       dataBucket: data.name,
       masProcess: masProcess.name,
       alumniProcess: alumniProcess.name,
-      instituteProcess: instituteProcess.name,
+      instituteData: instituteData.name,
     };
   },
 });
