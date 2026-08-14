@@ -1,7 +1,7 @@
 "use client";
 
 import { AccessGate, ReportTopBar } from "@/components/AccessGate";
-import { CONFLICTS, DAY_TARGETS, POINTS_MAP, TIERS } from "@/lib/reports/points/scoring";
+import { CONFLICTS, DAY_TARGETS, DEFINITIONS, POINTS_MAP, TIERS } from "@/lib/reports/points/scoring";
 import "@/styles/points.css";
 
 export default function PointsMethodologyPage() {
@@ -61,6 +61,16 @@ export default function PointsMethodologyPage() {
                 </li>
               ))}
             </ul>
+          </section>
+
+          <section style={{ marginTop: 28 }} id="definitions">
+            <h2>Definitions</h2>
+            {DEFINITIONS.map((d) => (
+              <article key={d.term} style={{ background: "#fff", borderRadius: 12, padding: 14, marginBottom: 12 }}>
+                <h3 style={{ marginTop: 0 }}>{d.term}</h3>
+                <p style={{ margin: 0, maxWidth: "72ch" }}>{d.text}</p>
+              </article>
+            ))}
           </section>
 
           <section style={{ marginTop: 28 }} id="events">
