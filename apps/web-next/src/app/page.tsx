@@ -31,22 +31,10 @@ const REPORTS: {
     desc: "Admissions pipeline: applicant funnel, pace vs goals, and recruiting.",
   },
   {
-    id: "mas",
-    href: "/mas",
-    title: "MA Follow-on Giving",
-    desc: "Mission Advancement outreach correlated with follow-on gifts.",
-  },
-  {
     id: "points",
     href: "/points",
     title: "MA Points",
     desc: "Activity points, tiers, and leaderboard for scoped MAs.",
-  },
-  {
-    id: "alumni",
-    href: "/alumni",
-    title: "Alumni Coverage",
-    desc: "Alumni donor coverage, touch activity, and assignment opportunity.",
   },
   {
     id: "annunciation",
