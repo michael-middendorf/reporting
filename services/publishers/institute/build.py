@@ -41,6 +41,30 @@ INSTITUTE_GOALS = {
     "Signed": 110,
 }
 
+# ---------------------------------------------------------------------------
+# RECRUITING CALLS WORKFLOW (q7)  --  FA27 KPIs
+# ---------------------------------------------------------------------------
+# A second set of dials (separate from the applicant funnel above) for the
+# "recruiting calls workflow" — one row per person in that Slate workflow.
+# Each KPI: (key, display name, FA27 goal, window-1 share, "i" definition).
+# The "you-should-be-here" marker is a fixed CALENDAR schedule (not last-year
+# pace): spread linearly across two windows —
+#   W1: 2026-07-01 -> 2027-01-01   (this share of the goal)
+#   W2: 2027-01-01 -> 2027-05-01   (the remaining share)
+RECRUITING_KPIS = [
+    ("leads", "Leads", 1000, 0.70,
+     "Everyone in the recruiting calls workflow."),
+    ("amu", "Institute-Driven AMU Apps", 200, 1.00,
+     "Entered through the recruiting calls (has a workflow-entry date) AND has "
+     "submitted an AMU application."),
+    ("institute", "Non-organic Institute Apps", 400, 0.75,
+     "Anyone in the workflow who has submitted an Institute application "
+     "(result = 'institute application')."),
+]
+_RC_A = datetime.date(2026, 7, 1)
+_RC_B = datetime.date(2027, 1, 1)
+_RC_C = datetime.date(2027, 5, 1)
+
 # key -> (query id, auth token, read-timeout seconds).  The auth TOKENS are
 # secret and live in slate_queries.json (git-ignored) — this fallback keeps only
 # the non-secret query ids so the real tokens never land in committed code.
@@ -52,6 +76,7 @@ QUERIES = {
     "q4": ("54bde0b8-a89b-4cc2-ba83-540a17f593be", "", 120),  # applicants (core)
     "q5": ("c4b92e4f-bc5b-41c5-b150-22576e13a10a", "", 120),  # engagement
     "q6": ("7e9251b4-05a0-489a-b2e3-2dbd488ee7d8", "", 180),  # bin history
+    "q7": ("3550aa37-39b9-41dd-bab5-dd5acfef479d", "", 120),  # recruiting calls workflow (FA27 KPIs)
 }
 
 
@@ -253,6 +278,60 @@ def compute_pace(q1_raw, q4_raw, today=None):
     return out
 
 
+def _rc_target(goal, share, today):
+    """Cumulative piecewise-linear target-to-date for a recruiting KPI.
+
+    `share` of the goal is spread evenly across window 1 (Jul 1 -> Jan 1); the
+    remaining (1 - share) across window 2 (Jan 1 -> May 1). Returns the number
+    you "should" be at as of `today`.
+    """
+    w1, w2 = share * goal, (1 - share) * goal
+    if today <= _RC_A:
+        return 0.0
+    if today <= _RC_B:
+        return w1 * (today - _RC_A).days / (_RC_B - _RC_A).days
+    if today <= _RC_C:
+        return w1 + w2 * (today - _RC_B).days / (_RC_C - _RC_B).days
+    return float(goal)
+
+
+def compute_recruiting(q7_raw, today=None):
+    """Recruiting-calls-workflow (q7) FA27 KPI dials.
+
+    q7 is one row per person in the workflow. Entry mode is encoded by
+    WorkflowEntry: present = entered through the recruiting calls; blank =
+    entered via their AMU application (already an applicant).
+      Leads      = everyone in the workflow
+      AMU Apps   = entered via calls (WorkflowEntry present) AND AMUAppSubmitted=Y
+      Inst. Apps = anyone in the workflow with InstituteAppSubmitted=Y
+    Each dial also carries a calendar target-to-date marker (see _rc_target).
+    """
+    rows = rows_of(q7_raw) if q7_raw else []
+
+    def yes(r, field):
+        return nz(r.get(field)).upper() == "Y"
+
+    def via_calls(r):
+        return bool(nz(r.get("WorkflowEntry")))
+
+    values = {
+        "leads": len(rows),
+        "amu": sum(1 for r in rows if via_calls(r) and yes(r, "AMUAppSubmitted")),
+        "institute": sum(1 for r in rows if yes(r, "InstituteAppSubmitted")),
+    }
+    today = today or datetime.datetime.now().date()
+    kpis = []
+    for key, name, goal, share, info in RECRUITING_KPIS:
+        target = _rc_target(goal, share, today)
+        kpis.append({
+            "key": key, "name": name, "goal": goal, "info": info,
+            "value": values[key],
+            "target": round(target, 1),
+            "pace": round(target / goal, 4) if goal else 0.0,
+        })
+    return {"asOf": today.strftime("%b %-d, %Y"), "count": len(rows), "kpis": kpis}
+
+
 def agg_q6(raw):
     """Institute workflow bin history -> current occupancy + all-time touches per bin, per term."""
     if not raw:
@@ -325,7 +404,11 @@ def payload(raw, ts=None):
         "q1_summary": agg_q1(raw.get("q1")),
         "q2_summary": agg_q2(raw.get("q2")),
         "q6_summary": agg_q6(raw.get("q6")),
-        "config": {"goals": INSTITUTE_GOALS, "pace": compute_pace(raw.get("q1"), raw.get("q4"))},
+        "config": {
+            "goals": INSTITUTE_GOALS,
+            "pace": compute_pace(raw.get("q1"), raw.get("q4")),
+            "recruiting": compute_recruiting(raw.get("q7")),
+        },
     }
 
 

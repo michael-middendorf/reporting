@@ -229,11 +229,23 @@ export type GaugeVM = {
   yoy: { up: boolean; pct: number } | null;
   sub: string;
   on: boolean;
+  info?: string;
 };
 
-export function Gauge({ g, onSelect }: { g: GaugeVM; onSelect: (key: string) => void }) {
+/** Gauge dial. Pass `onSelect` to make it click-to-filter; omit it for a
+ * static display dial (e.g. the recruiting KPIs). `g.info` renders an "i"
+ * badge whose hover/focus tooltip explains exactly what the number pulls. */
+export function Gauge({ g, onSelect }: { g: GaugeVM; onSelect?: (key: string) => void }) {
   return (
-    <div className={`gauge ${g.on ? "on" : ""}`} onClick={() => onSelect(g.key)}>
+    <div
+      className={`gauge ${g.on ? "on" : ""} ${onSelect ? "" : "static"}`}
+      onClick={onSelect ? () => onSelect(g.key) : undefined}
+    >
+      {g.info ? (
+        <span className="g-info" tabIndex={0} aria-label={g.info}>
+          i<span className="g-tip">{g.info}</span>
+        </span>
+      ) : null}
       <GaugeArc fillFrac={g.fillFrac} markerFrac={g.markerFrac} color={g.col} />
       <div className="g-name">{g.name}</div>
       <div className="g-val" style={{ color: g.col }}>
