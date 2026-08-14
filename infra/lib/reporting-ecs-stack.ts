@@ -1,5 +1,4 @@
 import * as cdk from "aws-cdk-lib";
-import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as ecrAssets from "aws-cdk-lib/aws-ecr-assets";
@@ -15,7 +14,7 @@ import * as path from "node:path";
 const account = "905418447941";
 const region = "us-east-2";
 const dataBucketArn = `arn:aws:s3:::amu-reporting-production-reportdatabucket-rncvucke`;
-const sharedAlbDnsName = "avemaria-alb-1775577982.us-east-2.elb.amazonaws.com";
+const reportingUrl = "https://dc4s8z03sfopy.cloudfront.net";
 const reportingOriginHeaderName = "X-Reporting-Origin";
 const reportingOriginHeaderValue = "9796ae3e6c84e98ba520f802cf5cf5db";
 
@@ -33,33 +32,9 @@ export class ReportingEcsStack extends cdk.Stack {
     const task = new ecs.FargateTaskDefinition(this, "WebTask", { cpu: 512, memoryLimitMiB: 1024 });
     secret.grantRead(task.obtainExecutionRole());
     task.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:GetObject", "s3:ListBucket"], resources: [dataBucketArn, `${dataBucketArn}/*`] }));
-    const temporaryDistribution = new cloudfront.CfnDistribution(this, "TemporaryCloudFront", {
-      distributionConfig: {
-        enabled: true,
-        comment: "Temporary public URL for AMU reporting until reporting.avemaria.edu DNS is configured",
-        priceClass: "PriceClass_100",
-        defaultCacheBehavior: {
-          targetOriginId: "ReportingAlbHttp",
-          viewerProtocolPolicy: "redirect-to-https",
-          allowedMethods: ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"],
-          cachedMethods: ["GET", "HEAD"],
-          forwardedValues: { queryString: true, cookies: { forward: "all" }, headers: ["*"] },
-          minTtl: 0,
-          defaultTtl: 0,
-          maxTtl: 0,
-        },
-        origins: [{
-          id: "ReportingAlbHttp",
-          domainName: sharedAlbDnsName,
-          customOriginConfig: { originProtocolPolicy: "http-only", httpPort: 80, httpsPort: 443, originSslProtocols: ["TLSv1.2"] },
-          originCustomHeaders: [{ headerName: reportingOriginHeaderName, headerValue: reportingOriginHeaderValue }],
-        }],
-      },
-    });
-    new cdk.CfnOutput(this, "TemporaryCloudFrontUrl", { value: `https://${temporaryDistribution.attrDomainName}` });
     task.addVolume({ name: "tmp" });
     task.addVolume({ name: "next-cache" });
-    task.addContainer("web", { image: ecs.ContainerImage.fromDockerImageAsset(webImage), portMappings: [{ containerPort: 3000 }], logging: ecs.LogDrivers.awsLogs({ logGroup: webLogs, streamPrefix: "web" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke", APP_BASE_URL: `https://${temporaryDistribution.attrDomainName}` }, secrets: runtimeSecrets(secret), readonlyRootFilesystem: true }).addMountPoints(
+    task.addContainer("web", { image: ecs.ContainerImage.fromDockerImageAsset(webImage), portMappings: [{ containerPort: 3000 }], logging: ecs.LogDrivers.awsLogs({ logGroup: webLogs, streamPrefix: "web" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke", APP_BASE_URL: reportingUrl }, secrets: runtimeSecrets(secret), readonlyRootFilesystem: true }).addMountPoints(
       { sourceVolume: "tmp", containerPath: "/tmp", readOnly: false },
       { sourceVolume: "next-cache", containerPath: "/app/.next/cache", readOnly: false },
     );
