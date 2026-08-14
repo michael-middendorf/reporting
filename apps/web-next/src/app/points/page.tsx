@@ -6,12 +6,17 @@ import { apiFetch } from "@/lib/api";
 import {
   aggregate,
   BUCKETS,
+  buildCalculationCSV,
+  CONFLICTS,
   dailyTotals,
+  downloadText,
   scoreAll,
   scoreEventsForDisplay,
   tierFor,
   TIERS,
+  virtuousContactUrl,
 } from "@/lib/reports/points/scoring";
+import type { FlagInput, ReviewFlag } from "@/lib/reports/points/flags";
 import "@/styles/points.css";
 
 type RangeKey = "today" | "7" | "14" | "week" | "all" | "custom";
@@ -37,6 +42,23 @@ type Owner = {
   bucketPoints?: Record<string, number>;
   weekList?: { key: string; points: number; conversations: number; dials: number }[];
   tier?: { id: string; label: string; color?: string; min: number };
+};
+
+/** One scored activity row (from points.js scoreNote / aggregate model.rows). */
+type Row = {
+  owner: string;
+  type: string;
+  label: string;
+  bucket: string;
+  points: number;
+  day: string;
+  weekday?: boolean;
+  contactId?: string | number | null;
+  contactName?: string | null;
+  noteId?: string | number | null;
+  source?: string | null;
+  conflict?: string | null;
+  unmatched?: boolean;
 };
 
 function bounds(key: RangeKey, customStart: string | null, customEnd: string | null) {
@@ -105,6 +127,10 @@ export default function PointsPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("Loading…");
+  const [flags, setFlags] = useState<Record<string, ReviewFlag>>({});
+  const [flagBusy, setFlagBusy] = useState<string | null>(null);
+  const [flagError, setFlagError] = useState<string | null>(null);
+  const [showQueue, setShowQueue] = useState(true);
 
   useEffect(() => {
     loadRaw()
@@ -117,6 +143,14 @@ export default function PointsPage() {
         setStatus(`${raw.notes.length.toLocaleString()} raw notes`);
       })
       .catch((e) => setError(String(e)));
+  }, []);
+
+  // Shared review-flag queue (persisted in S3; see /api/reports/points/flags).
+  useEffect(() => {
+    apiFetch("/api/reports/points/flags")
+      .then((r) => (r.ok ? r.json() : { flags: {} }))
+      .then((d) => setFlags((d?.flags as Record<string, ReviewFlag>) || {}))
+      .catch(() => {});
   }, []);
 
   const model = useMemo(() => {
@@ -151,6 +185,101 @@ export default function PointsPage() {
     return map;
   }, [model.owners]);
   const mixPeak = Math.max(1, ...Object.values(teamMix));
+
+  const rangeLabel =
+    range === "custom"
+      ? `${customStart || "…"} to ${customEnd || "…"}`
+      : RANGES[range]?.label || "All";
+
+  const flagList = useMemo(
+    () =>
+      Object.values(flags).sort((a, b) =>
+        a.status === b.status
+          ? (b.flaggedAt || "").localeCompare(a.flaggedAt || "")
+          : a.status === "open"
+            ? -1
+            : 1,
+      ),
+    [flags],
+  );
+  const openFlagCount = flagList.filter((f) => f.status === "open").length;
+
+  const ownerRows = useMemo(() => {
+    if (!selectedOwner) return [] as Row[];
+    return (model.rows as Row[])
+      .filter((r) => r.owner === selectedOwner.name)
+      .sort((a, b) => b.day.localeCompare(a.day) || b.points - a.points);
+  }, [model.rows, selectedOwner]);
+
+  async function saveFlag(input: FlagInput) {
+    setFlagBusy(String(input.noteId));
+    setFlagError(null);
+    try {
+      const res = await apiFetch("/api/reports/points/flags", {
+        method: "POST",
+        body: JSON.stringify(input),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || res.statusText);
+      const flag = data.flag as ReviewFlag;
+      setFlags((f) => ({ ...f, [String(flag.noteId)]: flag }));
+    } catch (e) {
+      setFlagError(`Could not save flag: ${String(e)}`);
+    } finally {
+      setFlagBusy(null);
+    }
+  }
+
+  async function deleteFlag(noteId: string) {
+    setFlagBusy(noteId);
+    setFlagError(null);
+    try {
+      const res = await apiFetch(
+        `/api/reports/points/flags?noteId=${encodeURIComponent(noteId)}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || res.statusText);
+      }
+      setFlags((f) => {
+        const n = { ...f };
+        delete n[noteId];
+        return n;
+      });
+    } catch (e) {
+      setFlagError(`Could not remove flag: ${String(e)}`);
+    } finally {
+      setFlagBusy(null);
+    }
+  }
+
+  function onFlag(r: Row) {
+    const reason = window.prompt(
+      `Flag this task for review?\n\n${r.owner} · ${r.day} · ${r.label} (${r.points} pts)\n\nReason / what to verify:`,
+      "",
+    );
+    if (reason == null) return; // cancelled
+    saveFlag({
+      noteId: String(r.noteId),
+      contactId: r.contactId != null ? String(r.contactId) : null,
+      contactName: r.contactName || null,
+      owner: r.owner,
+      day: r.day,
+      type: r.type,
+      label: r.label,
+      points: r.points,
+      reason: reason.trim(),
+    });
+  }
+
+  function exportCalculation() {
+    const now = new Date();
+    const generatedOn = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const csv = buildCalculationCSV(model, { meta, rangeLabel, generatedOn, flags });
+    const safeRange = rangeLabel.replace(/[^\w.-]+/g, "-");
+    downloadText(`ma-points-calculation_${safeRange}_${generatedOn}.csv`, csv);
+  }
 
   return (
     <AccessGate report="points">
@@ -208,6 +337,16 @@ export default function PointsPage() {
                 }}
               />
             </label>
+            <button
+              type="button"
+              onClick={exportCalculation}
+              disabled={!rows}
+              title="Download a spreadsheet of every task and how its points were calculated, with a link to each record in Virtuous"
+              className="mini-btn solid"
+              style={{ marginLeft: "auto" }}
+            >
+              Export calculation report
+            </button>
             <span style={{ opacity: 0.7 }}>{error || status}</span>
           </div>
 
@@ -245,6 +384,101 @@ export default function PointsPage() {
               </div>
             ))}
           </section>
+
+          {flagList.length > 0 && (
+            <section
+              className="panel"
+              style={{ marginBottom: 24, borderLeft: "3px solid var(--warn)" }}
+            >
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10, justifyContent: "space-between" }}>
+                <h2 style={{ margin: 0 }}>
+                  Review queue{" "}
+                  <span style={{ fontFamily: "var(--sans)", fontWeight: 400, fontSize: ".9rem", color: "var(--slate-400)" }}>
+                    {openFlagCount} open · {flagList.length - openFlagCount} resolved
+                  </span>
+                </h2>
+                <button type="button" className="mini-btn" onClick={() => setShowQueue((s) => !s)}>
+                  {showQueue ? "Hide" : "Show"}
+                </button>
+              </div>
+              {flagError && <p style={{ color: "var(--warn)", fontSize: ".85rem", margin: "8px 0 0" }}>{flagError}</p>}
+              {showQueue && (
+                <div style={{ overflowX: "auto", marginTop: 12 }}>
+                  <table className="grid audit">
+                    <thead>
+                      <tr>
+                        <th>Status</th>
+                        <th>MA</th>
+                        <th>Date</th>
+                        <th>Activity</th>
+                        <th style={{ textAlign: "right" }}>Pts</th>
+                        <th>Reason</th>
+                        <th>Flagged by</th>
+                        <th>Virtuous</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {flagList.map((f) => (
+                        <tr key={f.noteId}>
+                          <td>
+                            {f.status === "open" ? (
+                              <span className="pill warn">Open</span>
+                            ) : (
+                              <span className="pill">Resolved</span>
+                            )}
+                          </td>
+                          <td>{f.owner || "—"}</td>
+                          <td style={{ whiteSpace: "nowrap" }}>{f.day || "—"}</td>
+                          <td>{f.label || f.type || "—"}</td>
+                          <td className="pts">{f.points ?? "—"}</td>
+                          <td style={{ maxWidth: 260, whiteSpace: "normal" }}>{f.reason || "—"}</td>
+                          <td style={{ fontSize: ".78rem", color: "var(--slate-400)" }}>{f.flaggedBy}</td>
+                          <td>
+                            {f.contactId ? (
+                              <a href={virtuousContactUrl(f.contactId)} target="_blank" rel="noopener noreferrer">
+                                Open ↗
+                              </a>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td style={{ whiteSpace: "nowrap" }}>
+                            {f.status === "open" ? (
+                              <button
+                                className="mini-btn"
+                                disabled={flagBusy === f.noteId}
+                                onClick={() => saveFlag({ noteId: f.noteId, status: "resolved" })}
+                              >
+                                Resolve
+                              </button>
+                            ) : (
+                              <button
+                                className="mini-btn"
+                                disabled={flagBusy === f.noteId}
+                                onClick={() => saveFlag({ noteId: f.noteId, status: "open" })}
+                              >
+                                Reopen
+                              </button>
+                            )}{" "}
+                            <button
+                              className="mini-btn danger"
+                              disabled={flagBusy === f.noteId}
+                              onClick={() => {
+                                if (window.confirm("Remove this flag?")) deleteFlag(f.noteId);
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
 
           <section style={{ marginBottom: 28 }}>
             <h2>Leaderboard</h2>
@@ -310,6 +544,106 @@ export default function PointsPage() {
                   ))}
                 </tbody>
               </table>
+
+              <h3 style={{ marginTop: 22 }}>
+                Tasks — {ownerRows.length} activities{" "}
+                <span style={{ fontFamily: "var(--sans)", fontWeight: 400, fontSize: ".85rem", color: "var(--slate-400)" }}>
+                  “Open ↗” verifies the record in Virtuous · ⚑ flags a task for review
+                </span>
+              </h3>
+              <div style={{ overflow: "auto", maxHeight: 520, border: "1px solid var(--line)", borderRadius: 10 }}>
+                <table className="grid audit">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Activity</th>
+                      <th>Type</th>
+                      <th style={{ textAlign: "right" }}>Pts</th>
+                      <th>Status</th>
+                      <th>Virtuous</th>
+                      <th>Review</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ownerRows.map((r, i) => {
+                      const noteKey = r.noteId != null ? String(r.noteId) : null;
+                      const flag = noteKey ? flags[noteKey] : undefined;
+                      const conflict = r.conflict
+                        ? (CONFLICTS as Record<string, { title: string; resolved: string }>)[r.conflict]
+                        : null;
+                      return (
+                        <tr key={noteKey || `row-${i}`} style={r.unmatched ? { background: "#fdf4ef" } : undefined}>
+                          <td style={{ whiteSpace: "nowrap" }}>
+                            {r.day}
+                            {!r.weekday && <span style={{ color: "var(--slate-400)" }}> (wknd)</span>}
+                          </td>
+                          <td>
+                            {r.label}
+                            {r.contactName ? <span style={{ color: "var(--slate-400)" }}> · {r.contactName}</span> : null}
+                          </td>
+                          <td style={{ fontSize: ".78rem", color: "var(--slate-400)" }}>{r.type}</td>
+                          <td className="pts">{r.points}</td>
+                          <td>
+                            {r.unmatched ? (
+                              <span className="pill warn">NOT COUNTED</span>
+                            ) : conflict ? (
+                              <span className="pill assumed" title={`${conflict.title} → scored as ${conflict.resolved}`}>
+                                conflict
+                              </span>
+                            ) : (
+                              <span className="pill">counted</span>
+                            )}
+                          </td>
+                          <td>
+                            {r.contactId ? (
+                              <a href={virtuousContactUrl(r.contactId)} target="_blank" rel="noopener noreferrer">
+                                Open ↗
+                              </a>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td style={{ whiteSpace: "nowrap" }}>
+                            {!noteKey ? (
+                              <span style={{ color: "var(--slate-400)" }}>—</span>
+                            ) : !flag ? (
+                              <button className="mini-btn" disabled={flagBusy === noteKey} onClick={() => onFlag(r)}>
+                                ⚑ Flag
+                              </button>
+                            ) : flag.status === "open" ? (
+                              <>
+                                <span className="pill warn" title={flag.reason}>
+                                  ⚑ Flagged
+                                </span>{" "}
+                                <button
+                                  className="mini-btn"
+                                  disabled={flagBusy === noteKey}
+                                  onClick={() => saveFlag({ noteId: noteKey, status: "resolved" })}
+                                >
+                                  Resolve
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <span className="pill" title={flag.reason}>
+                                  ✓ Resolved
+                                </span>{" "}
+                                <button
+                                  className="mini-btn danger"
+                                  disabled={flagBusy === noteKey}
+                                  onClick={() => deleteFlag(noteKey)}
+                                >
+                                  Remove
+                                </button>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </section>
           )}
 

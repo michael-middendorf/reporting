@@ -10,6 +10,20 @@ const aggregateMod = require("./aggregate.js") as {
   dailyTotals: (rows: unknown[]) => unknown[];
 };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
+const reportMod = require("./report.js") as {
+  buildCalculationCSV: (
+    model: unknown,
+    opts?: {
+      meta?: Record<string, unknown>;
+      rangeLabel?: string;
+      generatedOn?: string;
+      flags?: Record<string, unknown>;
+    },
+  ) => string;
+  downloadText: (filename: string, text: string, mime?: string) => void;
+  virtuousContactUrl: (contactId: unknown) => string;
+};
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const config = require("./config.js") as {
   TIERS: Array<{ id: string; label: string; min: number; payout?: number; color?: string }>;
   tierFor: (avg: number) => { id: string; label: string; min: number; color?: string };
@@ -21,6 +35,9 @@ const config = require("./config.js") as {
 
 export const scoreAll = points.scoreAll;
 export const scoreEventsForDisplay = points.scoreEventsForDisplay;
+export const buildCalculationCSV = reportMod.buildCalculationCSV;
+export const downloadText = reportMod.downloadText;
+export const virtuousContactUrl = reportMod.virtuousContactUrl;
 export const aggregate = aggregateMod.aggregate;
 export const dailyTotals = aggregateMod.dailyTotals;
 export const TIERS = config.TIERS;
