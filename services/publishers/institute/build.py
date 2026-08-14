@@ -108,7 +108,10 @@ def cache_path(key):
 
 
 def rows_of(raw):
-    d = json.loads(raw)
+    # Accept either raw JSON text (the process_handler / offline paths) or an
+    # already-parsed dict/list (the live invoke_handler passes _fetch's parsed
+    # payload straight through). Guarding here fixes every caller at once.
+    d = raw if isinstance(raw, (dict, list)) else json.loads(raw)
     return d.get("row", []) if isinstance(d, dict) else (d or [])
 
 
