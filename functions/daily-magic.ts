@@ -17,7 +17,8 @@ function allLoginEmails(): string[] {
       "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
     HOUSING_ALLOWED_EMAILS: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
     MAS_ALLOWED_EMAILS: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
-    POINTS_ALLOWED_EMAILS: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
+    POINTS_ALLOWED_EMAILS:
+      "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,annie.esposito@avemaria.edu",
     ALUMNI_ALLOWED_EMAILS: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
   };
   const set = new Set(admins);
