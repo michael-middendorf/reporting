@@ -24,6 +24,17 @@ export class ReportingEcsStack extends cdk.Stack {
     super(scope, id, props);
     const vpc = ec2.Vpc.fromLookup(this, "DefaultVpc", { isDefault: true });
     const cluster = new ecs.Cluster(this, "Cluster", { vpc, clusterName: "amu-reporting" });
+    // avemaria-alb only has AZ mappings for us-east-2a and us-east-2b (no us-east-2c).
+    // The web service must stay pinned to these two subnets - the default PUBLIC
+    // subnet selection includes a third, us-east-2c, subnet whose tasks can never
+    // register healthy in the ALB target group (AZ not enabled for the load balancer),
+    // and can trip the deployment circuit breaker / a full stack rollback.
+    const albSubnets = {
+      subnets: [
+        ec2.Subnet.fromSubnetId(this, "AlbSubnetA", "subnet-0faac786118924240"),
+        ec2.Subnet.fromSubnetId(this, "AlbSubnetB", "subnet-037e01d5bdd3c6fcd"),
+      ],
+    };
     const secret = secrets.Secret.fromSecretNameV2(this, "RuntimeSecret", "amu-reporting/production/runtime");
     const webLogs = new logs.LogGroup(this, "WebLogs", { logGroupName: "/ecs/amu-reporting/web-v3", retention: logs.RetentionDays.ONE_MONTH, removalPolicy: cdk.RemovalPolicy.RETAIN });
     const workerLogs = new logs.LogGroup(this, "WorkerLogs", { logGroupName: "/ecs/amu-reporting/worker-v3", retention: logs.RetentionDays.ONE_MONTH, removalPolicy: cdk.RemovalPolicy.RETAIN });
@@ -63,7 +74,7 @@ export class ReportingEcsStack extends cdk.Stack {
       { sourceVolume: "tmp", containerPath: "/tmp", readOnly: false },
       { sourceVolume: "next-cache", containerPath: "/app/.next/cache", readOnly: false },
     );
-    const service = new ecs.FargateService(this, "WebService", { cluster, taskDefinition: task, desiredCount: 1, assignPublicIp: true, securityGroups: [webSg], vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC }, circuitBreaker: { rollback: true }, minHealthyPercent: 100, maxHealthyPercent: 200 });
+    const service = new ecs.FargateService(this, "WebService", { cluster, taskDefinition: task, desiredCount: 1, assignPublicIp: true, securityGroups: [webSg], vpcSubnets: albSubnets, circuitBreaker: { rollback: true }, minHealthyPercent: 100, maxHealthyPercent: 200 });
     webSg.addIngressRule(ec2.Peer.securityGroupId("sg-0c7c300cac7664317"), ec2.Port.tcp(3000), "HTTPS traffic from shared ALB");
     const tg = new elbv2.ApplicationTargetGroup(this, "WebTargets", { vpc, port: 3000, protocol: elbv2.ApplicationProtocol.HTTP, targetType: elbv2.TargetType.IP, healthCheck: { path: "/api/health" } });
     service.attachToApplicationTargetGroup(tg);
