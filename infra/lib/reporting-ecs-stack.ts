@@ -4,6 +4,7 @@ import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as ecrAssets from "aws-cdk-lib/aws-ecr-assets";
 import * as events from "aws-cdk-lib/aws-events";
 import * as targets from "aws-cdk-lib/aws-events-targets";
+import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
@@ -17,6 +18,11 @@ const dataBucketArn = `arn:aws:s3:::amu-reporting-production-reportdatabucket-rn
 const reportingUrl = "https://dc4s8z03sfopy.cloudfront.net";
 const reportingOriginHeaderName = "X-Reporting-Origin";
 const reportingOriginHeaderValue = "9796ae3e6c84e98ba520f802cf5cf5db";
+// Fixed name so the separately-deployed SST stack (sst.config.ts, the public
+// Function URL "Web" component) can reference the same table by a known
+// ARN, the same way this stack already references SST-created resources
+// (dataBucketArn, onDemandFns) by hardcoded name rather than a lookup.
+const magicNonceTableName = "amu-reporting-magic-link-nonces";
 
 export class ReportingEcsStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -35,6 +41,17 @@ export class ReportingEcsStack extends cdk.Stack {
       ],
     };
     const secret = secrets.Secret.fromSecretNameV2(this, "RuntimeSecret", "amu-reporting/production/runtime");
+    // Single-use tracking for magic-link sign-in tokens (replay prevention).
+    // TTL'd on `expiresAt` (the token's own exp) so used/expired nonces don't
+    // accumulate; PutItem is conditional (attribute_not_exists) at the call
+    // site, not here — this table only needs to exist and be writable.
+    const magicNonceTable = new dynamodb.Table(this, "MagicLinkNonces", {
+      tableName: magicNonceTableName,
+      partitionKey: { name: "nonce", type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: "expiresAt",
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
     const webLogs = new logs.LogGroup(this, "WebLogs", { logGroupName: "/ecs/amu-reporting/web-v3", retention: logs.RetentionDays.ONE_MONTH, removalPolicy: cdk.RemovalPolicy.RETAIN });
     const workerLogs = new logs.LogGroup(this, "WorkerLogs", { logGroupName: "/ecs/amu-reporting/worker-v3", retention: logs.RetentionDays.ONE_MONTH, removalPolicy: cdk.RemovalPolicy.RETAIN });
     const webImage = new ecrAssets.DockerImageAsset(this, "WebImage", { directory: path.join(__dirname, "../.."), file: "Dockerfile.web" });
@@ -59,9 +76,10 @@ export class ReportingEcsStack extends cdk.Stack {
       actions: ["lambda:InvokeFunction"],
       resources: Object.values(onDemandFns).map((n) => `arn:aws:lambda:${region}:${account}:function:${n}`),
     }));
+    magicNonceTable.grantWriteData(task.taskRole);
     task.addVolume({ name: "tmp" });
     task.addVolume({ name: "next-cache" });
-    task.addContainer("web", { image: ecs.ContainerImage.fromDockerImageAsset(webImage), portMappings: [{ containerPort: 3000 }], logging: ecs.LogDrivers.awsLogs({ logGroup: webLogs, streamPrefix: "web" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke", APP_BASE_URL: reportingUrl, ...onDemandFns }, secrets: runtimeSecrets(secret), readonlyRootFilesystem: true }).addMountPoints(
+    task.addContainer("web", { image: ecs.ContainerImage.fromDockerImageAsset(webImage), portMappings: [{ containerPort: 3000 }], logging: ecs.LogDrivers.awsLogs({ logGroup: webLogs, streamPrefix: "web" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke", APP_BASE_URL: reportingUrl, MAGIC_NONCE_TABLE: magicNonceTableName, ...onDemandFns }, secrets: runtimeSecrets(secret), readonlyRootFilesystem: true }).addMountPoints(
       { sourceVolume: "tmp", containerPath: "/tmp", readOnly: false },
       { sourceVolume: "next-cache", containerPath: "/app/.next/cache", readOnly: false },
     );
