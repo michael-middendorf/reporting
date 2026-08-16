@@ -29,6 +29,14 @@ export default $config({
 
     const data = new sst.aws.Bucket("ReportData");
 
+    // Single-use tracking for magic-link sign-in tokens (replay prevention).
+    // Fixed name — the table itself is created in infra/lib/reporting-ecs-stack.ts
+    // (that stack deploys first in CI, before "Deploy SST runtime") and both
+    // deployments of this app (this Lambda "Web" component and the ECS
+    // container) reference it by this same known name/ARN.
+    const magicNonceTableName = "amu-reporting-magic-link-nonces";
+    const magicNonceTableArn = `arn:aws:dynamodb:us-east-2:905418447941:table/${magicNonceTableName}`;
+
     const reportDataPerms = [
       {
         actions: ["s3:GetObject", "s3:PutObject", "s3:ListBucket", "s3:DeleteObject"],
@@ -177,6 +185,7 @@ export default $config({
         MAS_PROCESS_FUNCTION: masProcess.name,
         ALUMNI_PROCESS_FUNCTION: alumniProcess.name,
         INSTITUTE_FN_NAME: instituteData.name,
+        MAGIC_NONCE_TABLE: magicNonceTableName,
         EMAIL_FROM:
           "AMU Project Manager <noreply@notifications.avemaria.edu>",
       },
@@ -184,6 +193,10 @@ export default $config({
         {
           actions: ["lambda:InvokeFunction"],
           resources: [masProcess.arn, alumniProcess.arn, instituteData.arn],
+        },
+        {
+          actions: ["dynamodb:PutItem"],
+          resources: [magicNonceTableArn],
         },
       ],
     });
