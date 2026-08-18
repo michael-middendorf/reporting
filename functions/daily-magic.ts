@@ -21,7 +21,10 @@ function allLoginEmails(): string[] {
   };
   const set = new Set(admins);
   for (const [key, fallback] of Object.entries(defaults)) {
-    for (const e of parseCsv(process.env[key] || fallback)) set.add(e);
+    // Additive, not override, matching apps/web-next/src/lib/access.ts — a grant
+    // in the list above must still take effect when the env var is set (DST-1360).
+    for (const e of parseCsv(fallback)) set.add(e);
+    for (const e of parseCsv(process.env[key] || "")) set.add(e);
   }
   // Legacy global list still honored if set
   for (const e of parseCsv(process.env.ALLOWED_EMAILS || "")) set.add(e);

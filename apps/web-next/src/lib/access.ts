@@ -20,8 +20,23 @@ export const ADMIN_EMAILS = [
 
 const ADMIN_SET = new Set(ADMIN_EMAILS.map(normalizeEmail));
 
-/** Hardcoded defaults mirrored from each legacy project's ALLOWED_EMAILS. */
-const DEFAULT_REPORT_ALLOWED: Record<ReportId, string> = {
+/**
+ * Per-report access lists. THIS FILE IS THE SOURCE OF TRUTH for grants — add or
+ * remove people here.
+ *
+ * The matching *_ALLOWED_EMAILS env vars (injected on ECS from the Secrets
+ * Manager secret `amu-reporting/production/runtime`, and hardcoded in
+ * sst.config.ts for the SST runtime) are merged in ADDITIVELY by
+ * allowedEmailsForReport() rather than overriding this map.
+ *
+ * They used to override it, which made any grant added here dead code whenever
+ * the env var happened to be set. That silently broke DST-1360: annie.esposito@
+ * was granted Points access in 6869e092, but the deployed POINTS_ALLOWED_EMAILS
+ * did not list her, so she stayed locked out and the sign-in page — correctly
+ * enumeration-safe — told her to check her email anyway. Additive means a grant
+ * here always takes effect, and nobody an env var currently allows loses access.
+ */
+const REPORT_ALLOWED: Record<ReportId, string> = {
   enrollment:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
   housing: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
@@ -53,9 +68,12 @@ export function isAdmin(email: string): boolean {
 }
 
 export function allowedEmailsForReport(report: ReportId): Set<string> {
-  const envKey = ENV_KEYS[report];
-  const raw = (process.env[envKey] || "").trim() || DEFAULT_REPORT_ALLOWED[report];
-  return parseEmailCsv(raw);
+  // Union, not override — see the note on REPORT_ALLOWED above.
+  const allowed = parseEmailCsv(REPORT_ALLOWED[report]);
+  for (const email of parseEmailCsv(process.env[ENV_KEYS[report]] || "")) {
+    allowed.add(email);
+  }
+  return allowed;
 }
 
 export function canAccessReport(email: string, report: ReportId): boolean {
