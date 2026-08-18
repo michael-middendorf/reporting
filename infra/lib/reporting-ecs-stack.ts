@@ -28,7 +28,7 @@ export class ReportingEcsStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
     const vpc = ec2.Vpc.fromLookup(this, "DefaultVpc", { isDefault: true });
-    const cluster = new ecs.Cluster(this, "Cluster", { vpc, clusterName: "amu-reporting" });
+    const cluster = new ecs.Cluster(this, "Cluster", { vpc, clusterName: "amu-reporting", containerInsightsV2: ecs.ContainerInsights.ENABLED });
     // avemaria-alb only has AZ mappings for us-east-2a and us-east-2b (no us-east-2c).
     // The web service must stay pinned to these two subnets - the default PUBLIC
     // subnet selection includes a third, us-east-2c, subnet whose tasks can never
@@ -58,6 +58,8 @@ export class ReportingEcsStack extends cdk.Stack {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       timeToLiveAttribute: "expiresAt",
       removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      deletionProtection: true,
     });
     const webLogs = new logs.LogGroup(this, "WebLogs", { logGroupName: "/ecs/amu-reporting/web-v3", retention: logs.RetentionDays.ONE_MONTH, removalPolicy: cdk.RemovalPolicy.RETAIN });
     const workerLogs = new logs.LogGroup(this, "WorkerLogs", { logGroupName: "/ecs/amu-reporting/worker-v3", retention: logs.RetentionDays.ONE_MONTH, removalPolicy: cdk.RemovalPolicy.RETAIN });
