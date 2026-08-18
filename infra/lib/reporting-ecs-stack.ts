@@ -41,6 +41,13 @@ export class ReportingEcsStack extends cdk.Stack {
       ],
     };
     const secret = secrets.Secret.fromSecretNameV2(this, "RuntimeSecret", "amu-reporting/production/runtime");
+    // The Resend key lives in its OWN single-string secret rather than as one field of the
+    // 18-key runtime document above. Secrets Manager cannot patch a single JSON field, so a
+    // rotation of the blob means reading and rewriting every other value in it (AUTH_SECRET
+    // included) just to change one string. Splitting it out makes rotation a single
+    // put-secret-value, and matches how housing-dashboard, enrollment-dashboard,
+    // avemaria-api and scholarship-app already store theirs.
+    const resendSecret = secrets.Secret.fromSecretNameV2(this, "ResendApiKeySecret", "amu-reporting/production/resend-api-key");
     // Single-use tracking for magic-link sign-in tokens (replay prevention).
     // TTL'd on `expiresAt` (the token's own exp) so used/expired nonces don't
     // accumulate; PutItem is conditional (attribute_not_exists) at the call
@@ -79,7 +86,7 @@ export class ReportingEcsStack extends cdk.Stack {
     magicNonceTable.grantWriteData(task.taskRole);
     task.addVolume({ name: "tmp" });
     task.addVolume({ name: "next-cache" });
-    task.addContainer("web", { image: ecs.ContainerImage.fromDockerImageAsset(webImage), portMappings: [{ containerPort: 3000 }], logging: ecs.LogDrivers.awsLogs({ logGroup: webLogs, streamPrefix: "web" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke", APP_BASE_URL: reportingUrl, MAGIC_NONCE_TABLE: magicNonceTableName, ...onDemandFns }, secrets: runtimeSecrets(secret), readonlyRootFilesystem: true }).addMountPoints(
+    task.addContainer("web", { image: ecs.ContainerImage.fromDockerImageAsset(webImage), portMappings: [{ containerPort: 3000 }], logging: ecs.LogDrivers.awsLogs({ logGroup: webLogs, streamPrefix: "web" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke", APP_BASE_URL: reportingUrl, MAGIC_NONCE_TABLE: magicNonceTableName, ...onDemandFns }, secrets: runtimeSecrets(secret, resendSecret), readonlyRootFilesystem: true }).addMountPoints(
       { sourceVolume: "tmp", containerPath: "/tmp", readOnly: false },
       { sourceVolume: "next-cache", containerPath: "/app/.next/cache", readOnly: false },
     );
@@ -92,7 +99,7 @@ export class ReportingEcsStack extends cdk.Stack {
     secret.grantRead(worker.obtainExecutionRole());
     worker.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"], resources: [dataBucketArn, `${dataBucketArn}/*`] }));
     worker.addVolume({ name: "tmp" });
-    worker.addContainer("worker", { image: ecs.ContainerImage.fromDockerImageAsset(workerImage), logging: ecs.LogDrivers.awsLogs({ logGroup: workerLogs, streamPrefix: "worker" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke" }, secrets: runtimeSecrets(secret), readonlyRootFilesystem: true }).addMountPoints(
+    worker.addContainer("worker", { image: ecs.ContainerImage.fromDockerImageAsset(workerImage), logging: ecs.LogDrivers.awsLogs({ logGroup: workerLogs, streamPrefix: "worker" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke" }, secrets: runtimeSecrets(secret, resendSecret), readonlyRootFilesystem: true }).addMountPoints(
       { sourceVolume: "tmp", containerPath: "/tmp", readOnly: false },
     );
     for (const [name, schedule, action] of [["Enrollment", events.Schedule.rate(cdk.Duration.minutes(15)), "enrollment"], ["Virtuous", events.Schedule.rate(cdk.Duration.minutes(15)), "virtuous"], ["Housing", events.Schedule.rate(cdk.Duration.hours(6)), "housing"], ["Institute", events.Schedule.rate(cdk.Duration.hours(6)), "institute"]] as const) {
@@ -102,7 +109,11 @@ export class ReportingEcsStack extends cdk.Stack {
   }
 }
 
-function runtimeSecrets(secret: secrets.ISecret) {
-  const keys = ["AUTH_SECRET", "RESEND_API_KEY", "VIRTUOUS_API_KEY", "QLIK_API_KEY", "QLIK_TENANT", "EREZLIFE_API_KEY", "SLATE_QUERY_URL", "SLATE_DEPOSITS_URL", "INSTITUTE_SLATE_QUERIES", "ALLOWED_EMAILS", "ENROLLMENT_ALLOWED_EMAILS", "HOUSING_ALLOWED_EMAILS", "INSTITUTE_ALLOWED_EMAILS", "MAS_ALLOWED_EMAILS", "POINTS_ALLOWED_EMAILS", "ALUMNI_ALLOWED_EMAILS", "ANNUNCIATION_ALLOWED_EMAILS", "EMAIL_FROM"];
-  return Object.fromEntries(keys.map((key) => [key, ecs.Secret.fromSecretsManager(secret, key)]));
+function runtimeSecrets(secret: secrets.ISecret, resendSecret: secrets.ISecret) {
+  const keys = ["AUTH_SECRET", "VIRTUOUS_API_KEY", "QLIK_API_KEY", "QLIK_TENANT", "EREZLIFE_API_KEY", "SLATE_QUERY_URL", "SLATE_DEPOSITS_URL", "INSTITUTE_SLATE_QUERIES", "ALLOWED_EMAILS", "ENROLLMENT_ALLOWED_EMAILS", "HOUSING_ALLOWED_EMAILS", "INSTITUTE_ALLOWED_EMAILS", "MAS_ALLOWED_EMAILS", "POINTS_ALLOWED_EMAILS", "ALUMNI_ALLOWED_EMAILS", "ANNUNCIATION_ALLOWED_EMAILS", "EMAIL_FROM"];
+  return {
+    ...Object.fromEntries(keys.map((key) => [key, ecs.Secret.fromSecretsManager(secret, key)])),
+    // Whole-secret reference, no JSON field selector.
+    RESEND_API_KEY: ecs.Secret.fromSecretsManager(resendSecret),
+  };
 }
