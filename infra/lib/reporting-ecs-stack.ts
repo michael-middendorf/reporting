@@ -27,6 +27,10 @@ const reportingOriginHeaderValue = "9796ae3e6c84e98ba520f802cf5cf5db";
 const magicNonceTableName = "amu-reporting-magic-link-nonces";
 const aspireduSessionTableName = "amu-reporting-aspiredu-sessions";
 const aspireduCallbackUrl = `${reportingUrl}/aspiredu/api/auth/callback`;
+// Custom domain, registered alongside the CloudFront hostname so both work
+// through cutover. Cognito rejects any redirect_uri not on the callback list.
+const reportingDomainUrl = "https://reporting.avemaria.edu";
+const aspireduDomainCallbackUrl = `${reportingDomainUrl}/aspiredu/api/auth/callback`;
 const aspireduAllowedEmails = "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu";
 
 export class ReportingEcsStack extends cdk.Stack {
@@ -117,8 +121,8 @@ export class ReportingEcsStack extends cdk.Stack {
       oAuth: {
         flows: { authorizationCodeGrant: true },
         scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
-        callbackUrls: [aspireduCallbackUrl],
-        logoutUrls: [`${reportingUrl}/aspiredu`],
+        callbackUrls: [aspireduCallbackUrl, aspireduDomainCallbackUrl],
+        logoutUrls: [`${reportingUrl}/aspiredu`, `${reportingDomainUrl}/aspiredu`],
       },
       accessTokenValidity: cdk.Duration.minutes(15),
       idTokenValidity: cdk.Duration.minutes(15),
@@ -162,7 +166,7 @@ export class ReportingEcsStack extends cdk.Stack {
     aspireduSessionTable.grantReadWriteData(task.taskRole);
     task.addVolume({ name: "tmp" });
     task.addVolume({ name: "next-cache" });
-    task.addContainer("web", { image: ecs.ContainerImage.fromDockerImageAsset(webImage), portMappings: [{ containerPort: 3000 }], logging: ecs.LogDrivers.awsLogs({ logGroup: webLogs, streamPrefix: "web" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke", APP_BASE_URL: reportingUrl, MAGIC_NONCE_TABLE: magicNonceTableName, ASPIREDU_SESSION_TABLE: aspireduSessionTableName, ASPIREDU_USER_POOL_ID: aspireduUserPool.userPoolId, ASPIREDU_USER_POOL_CLIENT_ID: aspireduClient.userPoolClientId, ASPIREDU_COGNITO_DOMAIN: aspireduDomain.baseUrl(), ASPIREDU_CALLBACK_URL: aspireduCallbackUrl, ASPIREDU_ALLOWED_EMAILS: aspireduAllowedEmails, ...onDemandFns, ...aspireduFns }, secrets: runtimeSecrets(secret, resendSecret), readonlyRootFilesystem: true }).addMountPoints(
+    task.addContainer("web", { image: ecs.ContainerImage.fromDockerImageAsset(webImage), portMappings: [{ containerPort: 3000 }], logging: ecs.LogDrivers.awsLogs({ logGroup: webLogs, streamPrefix: "web" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke", APP_BASE_URL: reportingUrl, MAGIC_NONCE_TABLE: magicNonceTableName, ASPIREDU_SESSION_TABLE: aspireduSessionTableName, ASPIREDU_USER_POOL_ID: aspireduUserPool.userPoolId, ASPIREDU_USER_POOL_CLIENT_ID: aspireduClient.userPoolClientId, ASPIREDU_COGNITO_DOMAIN: aspireduDomain.baseUrl(), ASPIREDU_CALLBACK_URL: aspireduCallbackUrl, ASPIREDU_CALLBACK_URLS: [aspireduCallbackUrl, aspireduDomainCallbackUrl].join(","), ASPIREDU_ALLOWED_EMAILS: aspireduAllowedEmails, ...onDemandFns, ...aspireduFns }, secrets: runtimeSecrets(secret, resendSecret), readonlyRootFilesystem: true }).addMountPoints(
       { sourceVolume: "tmp", containerPath: "/tmp", readOnly: false },
       { sourceVolume: "next-cache", containerPath: "/app/.next/cache", readOnly: false },
     );

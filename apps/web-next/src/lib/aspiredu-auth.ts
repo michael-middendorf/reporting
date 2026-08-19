@@ -28,6 +28,29 @@ function required(name: string) {
   return value;
 }
 
+// The AspirEDU OAuth callback must match the host the user is actually on, so
+// reporting.avemaria.edu and the CloudFront hostname both work during cutover.
+// Same header idiom as api/auth/request. Unlike a magic link, a redirect_uri is
+// attacker-influencable via Host, so we only honour hosts that infra has put on
+// ASPIREDU_CALLBACK_URLS; anything else falls back to the configured default.
+function allowedCallbackUrls() {
+  const raw = process.env.ASPIREDU_CALLBACK_URLS || process.env.ASPIREDU_CALLBACK_URL || "";
+  return raw.split(",").map((v) => v.trim().replace(/\/$/, "")).filter(Boolean);
+}
+
+export function aspireduCallbackUrlFor(req: Request) {
+  const fallback = required("ASPIREDU_CALLBACK_URL");
+  const host = (req.headers.get("x-forwarded-host") || req.headers.get("host") || "")
+    .split(",")[0]
+    ?.trim();
+  if (!host) return fallback;
+  const proto =
+    req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
+    (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
+  const candidate = `${proto}://${host}/aspiredu/api/auth/callback`;
+  return allowedCallbackUrls().includes(candidate) ? candidate : fallback;
+}
+
 function cookie(req: Request, name: string) {
   const raw = req.headers.get("cookie") || "";
   const match = raw.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
@@ -58,7 +81,7 @@ export function isAspireduStudentViewer(email: string) {
   return AUTHORIZED.has(normalizeEmail(email));
 }
 
-export async function beginAspireduMfa(email: string) {
+export async function beginAspireduMfa(email: string, redirectUri: string) {
   const normalized = normalizeEmail(email);
   if (!isAspireduStudentViewer(normalized)) throw new Error("not authorized for student-level AspireDU data");
   const state = base64url(randomBytes(32));
@@ -71,6 +94,7 @@ export async function beginAspireduMfa(email: string) {
       type: "PKCE",
       email: normalized,
       codeVerifier,
+      redirectUri,
       expiresAt: now + 10 * 60,
     },
     ConditionExpression: "attribute_not_exists(sessionId)",
@@ -79,7 +103,7 @@ export async function beginAspireduMfa(email: string) {
   url.searchParams.set("client_id", required("ASPIREDU_USER_POOL_CLIENT_ID"));
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", "openid email profile");
-  url.searchParams.set("redirect_uri", required("ASPIREDU_CALLBACK_URL"));
+  url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("state", state);
   url.searchParams.set("code_challenge", challenge(codeVerifier));
   url.searchParams.set("code_challenge_method", "S256");
@@ -121,7 +145,9 @@ export async function completeAspireduMfa(code: string, state: string) {
     grant_type: "authorization_code",
     client_id: required("ASPIREDU_USER_POOL_CLIENT_ID"),
     code,
-    redirect_uri: required("ASPIREDU_CALLBACK_URL"),
+    // OAuth requires the token exchange to echo the authorize redirect_uri
+    // verbatim. Fall back for PKCE rows written before this field existed.
+    redirect_uri: String(item.redirectUri || required("ASPIREDU_CALLBACK_URL")),
     code_verifier: item.codeVerifier,
   }));
   const claims = await verifierForIdToken().verify(tokens.id_token);
