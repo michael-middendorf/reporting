@@ -42,6 +42,12 @@ const REPORTS: {
     title: "Annunciation Circle",
     desc: "Current Annunciation Circle members and new-member activity from Virtuous.",
   },
+  {
+    id: "aspiredu",
+    href: "/aspiredu",
+    title: "AspireDU Student Risk",
+    desc: "Daily risk trends and MFA-protected student-level follow-up.",
+  },
 ];
 
 export default function HomePage() {

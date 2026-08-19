@@ -1,4 +1,5 @@
 import * as cdk from "aws-cdk-lib";
+import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as ecrAssets from "aws-cdk-lib/aws-ecr-assets";
@@ -6,6 +7,7 @@ import * as events from "aws-cdk-lib/aws-events";
 import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as kms from "aws-cdk-lib/aws-kms";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
 import * as secrets from "aws-cdk-lib/aws-secretsmanager";
@@ -23,6 +25,9 @@ const reportingOriginHeaderValue = "9796ae3e6c84e98ba520f802cf5cf5db";
 // ARN, the same way this stack already references SST-created resources
 // (dataBucketArn, onDemandFns) by hardcoded name rather than a lookup.
 const magicNonceTableName = "amu-reporting-magic-link-nonces";
+const aspireduSessionTableName = "amu-reporting-aspiredu-sessions";
+const aspireduCallbackUrl = `${reportingUrl}/aspiredu/api/auth/callback`;
+const aspireduAllowedEmails = "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu";
 
 export class ReportingEcsStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -61,6 +66,66 @@ export class ReportingEcsStack extends cdk.Stack {
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
       deletionProtection: true,
     });
+    const aspireduKey = new kms.Key(this, "AspireduReportingKey", {
+      alias: "alias/amu-reporting-aspiredu",
+      description: "Encrypts AspireDU reporting MFA sessions",
+      enableKeyRotation: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pendingWindow: cdk.Duration.days(30),
+    });
+    const aspireduSessionTable = new dynamodb.Table(this, "AspireduSessions", {
+      tableName: aspireduSessionTableName,
+      partitionKey: { name: "sessionId", type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
+      encryptionKey: aspireduKey,
+      timeToLiveAttribute: "expiresAt",
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      deletionProtection: true,
+    });
+    const aspireduUserPool = new cognito.UserPool(this, "AspireduUserPool", {
+      userPoolName: "amu-reporting-aspiredu",
+      selfSignUpEnabled: false,
+      signInAliases: { email: true },
+      autoVerify: { email: true },
+      accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+      mfa: cognito.Mfa.REQUIRED,
+      mfaSecondFactor: { sms: false, otp: true },
+      featurePlan: cognito.FeaturePlan.ESSENTIALS,
+      passwordPolicy: {
+        minLength: 14,
+        requireLowercase: true,
+        requireUppercase: true,
+        requireDigits: true,
+        requireSymbols: true,
+        tempPasswordValidity: cdk.Duration.days(7),
+        passwordHistorySize: 10,
+      },
+      deletionProtection: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+    const aspireduDomain = aspireduUserPool.addDomain("AspireduDomain", {
+      cognitoDomain: { domainPrefix: `amu-reporting-aspiredu-${account}` },
+      managedLoginVersion: cognito.ManagedLoginVersion.NEWER_MANAGED_LOGIN,
+    });
+    const aspireduClient = aspireduUserPool.addClient("AspireduWebClient", {
+      userPoolClientName: "amu-reporting-aspiredu-web",
+      generateSecret: false,
+      preventUserExistenceErrors: true,
+      authFlows: { userSrp: true },
+      oAuth: {
+        flows: { authorizationCodeGrant: true },
+        scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
+        callbackUrls: [aspireduCallbackUrl],
+        logoutUrls: [`${reportingUrl}/aspiredu`],
+      },
+      accessTokenValidity: cdk.Duration.minutes(15),
+      idTokenValidity: cdk.Duration.minutes(15),
+      refreshTokenValidity: cdk.Duration.hours(8),
+      refreshTokenRotationGracePeriod: cdk.Duration.seconds(0),
+      enableTokenRevocation: true,
+    });
     const webLogs = new logs.LogGroup(this, "WebLogs", { logGroupName: "/ecs/amu-reporting/web-v3", retention: logs.RetentionDays.ONE_MONTH, removalPolicy: cdk.RemovalPolicy.RETAIN });
     const workerLogs = new logs.LogGroup(this, "WorkerLogs", { logGroupName: "/ecs/amu-reporting/worker-v3", retention: logs.RetentionDays.ONE_MONTH, removalPolicy: cdk.RemovalPolicy.RETAIN });
     const webImage = new ecrAssets.DockerImageAsset(this, "WebImage", { directory: path.join(__dirname, "../.."), file: "Dockerfile.web" });
@@ -85,10 +150,19 @@ export class ReportingEcsStack extends cdk.Stack {
       actions: ["lambda:InvokeFunction"],
       resources: Object.values(onDemandFns).map((n) => `arn:aws:lambda:${region}:${account}:function:${n}`),
     }));
+    const aspireduFns = {
+      ASPIREDU_SUMMARY_FUNCTION: "amu-aspiredu-summary",
+      ASPIREDU_STUDENTS_FUNCTION: "amu-aspiredu-students",
+    };
+    task.addToTaskRolePolicy(new iam.PolicyStatement({
+      actions: ["lambda:InvokeFunction"],
+      resources: Object.values(aspireduFns).map((n) => `arn:aws:lambda:${region}:${account}:function:${n}`),
+    }));
     magicNonceTable.grantWriteData(task.taskRole);
+    aspireduSessionTable.grantReadWriteData(task.taskRole);
     task.addVolume({ name: "tmp" });
     task.addVolume({ name: "next-cache" });
-    task.addContainer("web", { image: ecs.ContainerImage.fromDockerImageAsset(webImage), portMappings: [{ containerPort: 3000 }], logging: ecs.LogDrivers.awsLogs({ logGroup: webLogs, streamPrefix: "web" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke", APP_BASE_URL: reportingUrl, MAGIC_NONCE_TABLE: magicNonceTableName, ...onDemandFns }, secrets: runtimeSecrets(secret, resendSecret), readonlyRootFilesystem: true }).addMountPoints(
+    task.addContainer("web", { image: ecs.ContainerImage.fromDockerImageAsset(webImage), portMappings: [{ containerPort: 3000 }], logging: ecs.LogDrivers.awsLogs({ logGroup: webLogs, streamPrefix: "web" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke", APP_BASE_URL: reportingUrl, MAGIC_NONCE_TABLE: magicNonceTableName, ASPIREDU_SESSION_TABLE: aspireduSessionTableName, ASPIREDU_USER_POOL_ID: aspireduUserPool.userPoolId, ASPIREDU_USER_POOL_CLIENT_ID: aspireduClient.userPoolClientId, ASPIREDU_COGNITO_DOMAIN: aspireduDomain.baseUrl(), ASPIREDU_CALLBACK_URL: aspireduCallbackUrl, ASPIREDU_ALLOWED_EMAILS: aspireduAllowedEmails, ...onDemandFns, ...aspireduFns }, secrets: runtimeSecrets(secret, resendSecret), readonlyRootFilesystem: true }).addMountPoints(
       { sourceVolume: "tmp", containerPath: "/tmp", readOnly: false },
       { sourceVolume: "next-cache", containerPath: "/app/.next/cache", readOnly: false },
     );
@@ -108,6 +182,9 @@ export class ReportingEcsStack extends cdk.Stack {
       new events.Rule(this, `${name}Schedule`, { enabled: false, schedule, targets: [new targets.EcsTask({ cluster, taskDefinition: worker, taskCount: 1, subnetSelection: { subnetType: ec2.SubnetType.PUBLIC }, assignPublicIp: true, containerOverrides: [{ containerName: "worker", command: [action] }] })] });
     }
     new events.Rule(this, "DailyMagicLinksSchedule", { enabled: false, schedule: events.Schedule.expression("cron(0 12 * * ? *)"), targets: [new targets.EcsTask({ cluster, taskDefinition: worker, taskCount: 1, subnetSelection: { subnetType: ec2.SubnetType.PUBLIC }, assignPublicIp: true, containerOverrides: [{ containerName: "worker", command: ["daily-magic"] }] })] });
+    new cdk.CfnOutput(this, "AspireduUserPoolId", { value: aspireduUserPool.userPoolId });
+    new cdk.CfnOutput(this, "AspireduUserPoolClientId", { value: aspireduClient.userPoolClientId });
+    new cdk.CfnOutput(this, "AspireduLoginDomain", { value: aspireduDomain.baseUrl() });
   }
 }
 

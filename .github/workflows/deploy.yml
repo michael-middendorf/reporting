@@ -57,6 +57,7 @@ jobs:
         run: npx cdk deploy AmuReportingEcs --require-approval never
 
       - name: Deploy SST runtime (publishers)
+        if: github.event_name == 'push'
         # The publisher crons (Annunciation, Enrollment, Housing, Virtuous,
         # DailyMagicLinks) and the on-demand report Lambdas (Institute/MAS/
         # Alumni) live in the SST stack, separate from the ECS web app above.

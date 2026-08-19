@@ -7,6 +7,7 @@ export const REPORT_IDS = [
   "institute",
   "points",
   "annunciation",
+  "aspiredu",
 ] as const;
 
 export type ReportId = (typeof REPORT_IDS)[number];
@@ -44,6 +45,8 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
   points: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,annie.esposito@avemaria.edu",
   annunciation:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu",
+  aspiredu:
+    "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
 };
 
 const ENV_KEYS: Record<ReportId, string> = {
@@ -52,6 +55,7 @@ const ENV_KEYS: Record<ReportId, string> = {
   institute: "INSTITUTE_ALLOWED_EMAILS",
   points: "POINTS_ALLOWED_EMAILS",
   annunciation: "ANNUNCIATION_ALLOWED_EMAILS",
+  aspiredu: "ASPIREDU_ALLOWED_EMAILS",
 };
 
 export function parseEmailCsv(csv: string): Set<string> {
