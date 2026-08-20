@@ -48,7 +48,8 @@ export default function LoginClient() {
       <div className={styles.eyebrow}>Ave Maria University</div>
       <h1>AMU Reporting</h1>
       <p className={styles.copy}>
-        Sign-in links are emailed to approved addresses. Request one below.
+        Sign-in links are emailed to approved addresses. After you sign in,
+        you&apos;ll see the reports you have access to.
       </p>
       <form onSubmit={onSubmit}>
         <label htmlFor="email">Work email</label>

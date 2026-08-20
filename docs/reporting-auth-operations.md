@@ -2,6 +2,8 @@
 
 The reporting site uses passwordless magic-link authentication. It does not use Cognito or a user database.
 
+The only URL to send people is **https://reporting.avemaria.edu**. After they sign in, the hub shows the reports their email is allowed to open. Do not send `/enrollment`, `/annunciation`, or CloudFront links.
+
 ## Authorization model
 
 - The runtime configuration is the AWS Secrets Manager secret `amu-reporting/production/runtime` in `us-east-2`.

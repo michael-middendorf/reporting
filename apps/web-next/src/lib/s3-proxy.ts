@@ -17,7 +17,7 @@ export function s3() {
 export function requireUser(req: Request) {
   if (!currentUserEmail(req)) {
     return NextResponse.json(
-      { error: "Authentication required", redirect: "/login" },
+      { error: "Authentication required", redirect: "/" },
       { status: 401 },
     );
   }
@@ -29,7 +29,7 @@ export function requireReportAccess(req: Request, report: ReportId) {
   const email = currentUserEmail(req);
   if (!email) {
     return NextResponse.json(
-      { error: "Authentication required", redirect: "/login" },
+      { error: "Authentication required", redirect: "/" },
       { status: 401 },
     );
   }

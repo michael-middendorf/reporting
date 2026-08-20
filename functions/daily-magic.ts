@@ -81,8 +81,8 @@ export async function handler() {
         from,
         to: [email],
         subject: "Your AMU Reporting sign-in link",
-        text: `Sign in: ${link}\nExpires in ${ttl} minutes.`,
-        html: `<p><a href="${link}">Open sign-in link</a></p><p>Expires in ${ttl} minutes.</p>`,
+        text: `Sign in to AMU Reporting. After you continue, you'll see the reports you have access to.\n\n${link}\n\nExpires in ${ttl} minutes.`,
+        html: `<p>Sign in to AMU Reporting. After you continue, you'll see the reports you have access to.</p><p><a href="${link}">Open AMU Reporting</a></p><p>Expires in ${ttl} minutes.</p>`,
       }),
     });
     results.push({ email, ok: res.ok, status: res.status });

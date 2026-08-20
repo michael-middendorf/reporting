@@ -39,11 +39,11 @@ function MagicInner() {
         This extra click prevents email scanners from consuming the sign-in link before you do.
       </p>
       <button type="button" disabled={!token || busy} onClick={confirm}>
-        {busy ? "Signing in…" : "Continue to reports"}
+        {busy ? "Signing in…" : "Continue to AMU Reporting"}
       </button>
       {!token && (
         <div className={`${styles.status} err`}>
-          This sign-in link is missing its token. Request a new email from the login page.
+          This sign-in link is missing its token. Request a new email from reporting.avemaria.edu.
         </div>
       )}
       <div className={`${styles.status} ${status.kind}`} aria-live="polite">
