@@ -157,8 +157,8 @@ export async function sendMagicEmail(email: string, link: string, ttlMinutes: nu
     process.env.EMAIL_FROM ||
     "AMU Project Manager <noreply@notifications.avemaria.edu>";
   const subject = "Your AMU Reporting sign-in link";
-  const text = `Use the link below to sign in to AMU Reporting.\n\n${link}\n\nThis link expires in ${ttlMinutes} minutes.`;
-  const html = `<p>Use the link below to sign in to AMU Reporting.</p><p><a href="${link}">Open sign-in link</a></p><p>This link expires in ${ttlMinutes} minutes.</p>`;
+  const text = `Use the link below to sign in to AMU Reporting. After you continue, you'll see the reports you have access to.\n\n${link}\n\nThis link expires in ${ttlMinutes} minutes.`;
+  const html = `<p>Use the link below to sign in to AMU Reporting. After you continue, you'll see the reports you have access to.</p><p><a href="${link}">Open AMU Reporting</a></p><p>This link expires in ${ttlMinutes} minutes.</p>`;
 
   if (!apiKey) {
     console.log("\nEMAIL (dev)\nTo:", email, "\n", text, "\n");

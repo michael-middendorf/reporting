@@ -4,7 +4,7 @@ import { aspireduCallbackUrlFor, aspireduPrivateHeaders, beginAspireduMfa } from
 
 export async function GET(req: Request) {
   const email = currentUserEmail(req);
-  if (!email) return NextResponse.redirect(new URL("/login", req.url));
+  if (!email) return NextResponse.redirect(new URL("/", req.url));
   try {
     return NextResponse.redirect(await beginAspireduMfa(email, aspireduCallbackUrlFor(req)), { headers: aspireduPrivateHeaders });
   } catch {

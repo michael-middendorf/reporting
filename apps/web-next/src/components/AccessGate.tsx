@@ -16,7 +16,7 @@ export function AccessGate({
   useEffect(() => {
     fetchMe().then((me) => {
       if (!me.authenticated) {
-        window.location.href = "/login";
+        window.location.href = "/";
         return;
       }
       setState(me.reports?.includes(report) ? "ok" : "denied");
@@ -43,7 +43,7 @@ export function ReportTopBar({
   async function logout() {
     await apiFetch("/api/auth/logout", { method: "POST" });
     setBearer(null);
-    window.location.href = "/login";
+    window.location.href = "/";
   }
   return (
     <header

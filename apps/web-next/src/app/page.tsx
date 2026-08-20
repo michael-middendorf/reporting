@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import type { ReportId } from "@/lib/access";
 import { apiFetch, fetchMe, setBearer } from "@/lib/api";
+import LoginClient from "./login/LoginClient";
 import styles from "./home.module.css";
 
 const REPORTS: {
@@ -57,12 +58,10 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchMe().then((me) => {
-      if (!me.authenticated) {
-        window.location.href = "/login";
-        return;
+      if (me.authenticated) {
+        setEmail(me.email || "");
+        setAllowed(me.reports || []);
       }
-      setEmail(me.email || "");
-      setAllowed(me.reports || []);
       setReady(true);
     });
   }, []);
@@ -70,7 +69,7 @@ export default function HomePage() {
   async function logout() {
     await apiFetch("/api/auth/logout", { method: "POST" });
     setBearer(null);
-    window.location.href = "/login";
+    window.location.href = "/";
   }
 
   if (!ready) {
@@ -78,6 +77,20 @@ export default function HomePage() {
       <div className={styles.loading}>
         <p>Loading…</p>
       </div>
+    );
+  }
+
+  if (!email) {
+    return (
+      <Suspense
+        fallback={
+          <div className={styles.loading}>
+            <p>Loading…</p>
+          </div>
+        }
+      >
+        <LoginClient />
+      </Suspense>
     );
   }
 

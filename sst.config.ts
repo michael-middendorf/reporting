@@ -18,11 +18,10 @@ export default $config({
   async run() {
     const authSecret = new sst.Secret("AuthSecret");
     const resendApiKey = new sst.Secret("ResendApiKey");
-    // The hostname users actually reach: CloudFront -> ALB -> ECS. Must stay in
-    // step with `reportingUrl` in infra/lib/reporting-ecs-stack.ts, which sets
-    // APP_BASE_URL for the ECS web container. Do NOT use the SST `Web`
-    // component's own url here - see the note on the crons below.
-    const reportingUrl = "https://dc4s8z03sfopy.cloudfront.net";
+    // The hostname we send people. Must stay in step with APP_BASE_URL in
+    // infra/lib/reporting-ecs-stack.ts. Do NOT use the SST `Web` component's
+    // own Function URL, and do not email the CloudFront hostname.
+    const reportingUrl = "https://reporting.avemaria.edu";
     const virtuousApiKey = new sst.Secret("VirtuousApiKey");
     const qlikApiKey = new sst.Secret("QlikApiKey");
     const qlikTenant = new sst.Secret("QlikTenant");
@@ -312,9 +311,8 @@ export default $config({
           // sent. Fill in at go-live.
           ANNUNCIATION_NOTIFY_EMAILS:
             "regina.m.pirolli@avemaria.edu,zena.weist@avemaria.edu,cassandra.l.bournos@avemaria.edu",
-          // Sign-in links must land on the ECS deployment behind CloudFront,
-          // not on the SST Web component's public Lambda Function URL. Pointing
-          // them at site.url sent every recipient to the vestigial deployment.
+          // Hub URL — new-member mail should send people to reporting.avemaria.edu,
+          // not a report-specific path and not the SST Function URL.
           APP_BASE_URL: reportingUrl,
           EMAIL_FROM:
             "AMU Project Manager <noreply@notifications.avemaria.edu>",
@@ -346,9 +344,8 @@ export default $config({
             "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
           ANNUNCIATION_ALLOWED_EMAILS:
             "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
-          // Sign-in links must land on the ECS deployment behind CloudFront,
-          // not on the SST Web component's public Lambda Function URL. Pointing
-          // them at site.url sent every recipient to the vestigial deployment.
+          // Daily sign-in mail lands on reporting.avemaria.edu (the hub),
+          // not the SST Function URL and not a per-report path.
           APP_BASE_URL: reportingUrl,
           EMAIL_FROM:
             "AMU Project Manager <noreply@notifications.avemaria.edu>",

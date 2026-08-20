@@ -464,7 +464,7 @@ def notify_new_members(new_members: list[dict[str, Any]]) -> dict[str, Any]:
     text = (
         f"{n} new Annunciation Circle {noun} just joined:\n\n"
         + "\n".join(f"- {ln}" for ln in lines)
-        + (f"\n\nView the member dashboard: {base}/annunciation\n" if base else "\n")
+        + (f"\n\nOpen AMU Reporting: {base}\n" if base else "\n")
     )
 
     if not api_key or not recipients:
@@ -475,7 +475,7 @@ def notify_new_members(new_members: list[dict[str, Any]]) -> dict[str, Any]:
         return {"sent": False, "reason": "not-configured", "count": n}
 
     items = "".join(f"<li>{_fmt_member(m)}</li>" for m in new_members)
-    link = f'<p><a href="{base}/annunciation">Open the member dashboard</a></p>' if base else ""
+    link = f'<p><a href="{base}">Open AMU Reporting</a></p>' if base else ""
     html = f"<p><strong>{n} new Annunciation Circle {noun}</strong> just joined:</p><ul>{items}</ul>{link}"
 
     body = json.dumps(
