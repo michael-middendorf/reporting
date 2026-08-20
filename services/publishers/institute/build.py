@@ -295,6 +295,19 @@ def _rc_target(goal, share, today):
     return float(goal)
 
 
+_FA27_TERM = "Fall 2027"
+
+
+def _is_fa27(r):
+    """True if the row belongs to the FA27 cycle.
+
+    Checks Application1ApplicationTerm first; falls back to
+    PersonEntryTerminquiry for rows that entered via inquiry before applying.
+    """
+    return (nz(r.get("Application1ApplicationTerm")) == _FA27_TERM
+            or nz(r.get("PersonEntryTerminquiry")) == _FA27_TERM)
+
+
 def compute_recruiting(q7_raw, today=None):
     """Recruiting-calls-workflow (q7) FA27 KPI dials.
 
@@ -305,8 +318,10 @@ def compute_recruiting(q7_raw, today=None):
       AMU Apps   = entered via calls (WorkflowEntry present) AND AMUAppSubmitted=Y
       Inst. Apps = anyone in the workflow with InstituteAppSubmitted=Y
     Each dial also carries a calendar target-to-date marker (see _rc_target).
+    Rows are pre-filtered to FA27 via Application1ApplicationTerm /
+    PersonEntryTerminquiry so multi-term workflow data doesn't bleed in.
     """
-    rows = rows_of(q7_raw) if q7_raw else []
+    rows = [r for r in (rows_of(q7_raw) if q7_raw else []) if _is_fa27(r)]
 
     def yes(r, field):
         return nz(r.get(field)).upper() == "Y"
