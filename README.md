@@ -10,7 +10,7 @@ Remote: https://github.com/colecantu904/reporting
 |-------|--------|
 | `/` | Hub |
 | `/enrollment` | Admissions enrollment dashboard |
-| `/housing` | Housing occupancy |
+| `/housing` | Housing occupancy, floor maps, move-ins, verification |
 | `/mas` | MA follow-on giving |
 | `/points` | MA points / productivity |
 | `/alumni` | Alumni coverage & opportunity |
@@ -35,9 +35,12 @@ sources/_catalog.json
 |--------|----------|----------------|
 | `slate` | admissions, psw, messages, campus_visits, … | EnrollmentRefresh |
 | `virtuous` | contact_notes, gifts, events, contacts | VirtuousRawRefresh |
-| `qlik` | housing_occupancy | HousingRefresh |
+| `erez` | housing_occupancy | HousingRefresh (eRezLife assignments) |
+| `qlik` | housing_occupancy | HousingRefresh (mirror of eRez occupancy during cutover) |
 
-Each dataset keeps ~3 dated days. Report pages read `_latest` (or invoke on-read processors for MAS/alumni derived views). **No derived report packages are stored in S3.**
+Each dataset keeps ~3 dated days. Report pages read `_latest` (or invoke on-read processors for MAS/alumni derived views). Housing also writes a short-lived `cache/housing/residents.json` snapshot so the dashboard stays under the origin timeout.
+
+The `/housing` page is the App Runner residence-life dashboard (eRez assignments, floor maps, move-ins, verification), gated by the shared reporting login.
 
 ## Layout
 

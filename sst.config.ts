@@ -117,9 +117,42 @@ export default $config({
       },
     });
 
+    const housingEnv = {
+      DATA_BUCKET: data.name,
+      QLIK_API_KEY: qlikApiKey.value,
+      QLIK_TENANT: qlikTenant.value,
+      EREZLIFE_API_KEY: erezlifeApiKey.value,
+      API_KEY: erezlifeApiKey.value,
+      SLATE_QUERY_URL: slateQueryUrl.value,
+      SLATE_DEPOSITS_URL: slateDepositsUrl.value,
+      SITE_URL: "https://avemaria.erezlife.com/",
+      TARGET_SESSION: "2026FALL01",
+      EREZ_EXTRA_SESSIONS: "2026FALL03Ireland",
+      // Optional. When unset, resident names fall back to the email local-part.
+      SLATE_ROSTER_URL: process.env.SLATE_ROSTER_URL || "",
+    };
+
+    const housingProcess = new sst.aws.Function("HousingProcess", {
+      handler: "services/publishers/housing/handler.handler",
+      runtime: "python3.12",
+      timeout: "15 minutes",
+      memory: "2048 MB",
+      link: [data],
+      python: { uv: true },
+      copyFiles: [
+        ...commonFiles,
+        {
+          from: "services/publishers/housing/housing_data.py",
+          to: "housing_data.py",
+        },
+      ],
+      environment: housingEnv,
+      permissions: reportDataPerms,
+    });
+
     const site = new sst.aws.Nextjs("Web", {
       path: "apps/web-next",
-      link: [data, masProcess, alumniProcess, instituteData],
+      link: [data, masProcess, alumniProcess, instituteData, housingProcess],
       // The /api/institute-data route waits on the ~15-25s live Slate fetch.
       server: { timeout: "60 seconds" },
       environment: {
@@ -149,13 +182,14 @@ export default $config({
         MAS_PROCESS_FUNCTION: masProcess.name,
         ALUMNI_PROCESS_FUNCTION: alumniProcess.name,
         INSTITUTE_FN_NAME: instituteData.name,
+        HOUSING_PROCESS_FUNCTION: housingProcess.name,
         EMAIL_FROM:
           "AMU Project Manager <noreply@notifications.avemaria.edu>",
       },
       permissions: [
         {
           actions: ["lambda:InvokeFunction"],
-          resources: [masProcess.arn, alumniProcess.arn, instituteData.arn],
+          resources: [masProcess.arn, alumniProcess.arn, instituteData.arn, housingProcess.arn],
         },
       ],
     });
@@ -205,30 +239,7 @@ export default $config({
 
     new sst.aws.Cron("HousingRefresh", {
       schedule: "rate(6 hours)",
-      function: {
-        handler: "services/publishers/housing/handler.handler",
-        runtime: "python3.12",
-        timeout: "10 minutes",
-        memory: "1024 MB",
-        link: [data],
-        python: { uv: true },
-        copyFiles: [
-          ...commonFiles,
-          {
-            from: "services/publishers/housing/housing_data.py",
-            to: "housing_data.py",
-          },
-        ],
-        environment: {
-          DATA_BUCKET: data.name,
-          QLIK_API_KEY: qlikApiKey.value,
-          QLIK_TENANT: qlikTenant.value,
-          EREZLIFE_API_KEY: erezlifeApiKey.value,
-          SLATE_QUERY_URL: slateQueryUrl.value,
-          SLATE_DEPOSITS_URL: slateDepositsUrl.value,
-        },
-        permissions: reportDataPerms,
-      },
+      function: housingProcess,
     });
 
     // Institute data is now fetched live per page load by the InstituteData
@@ -268,6 +279,7 @@ export default $config({
       dataBucket: data.name,
       masProcess: masProcess.name,
       alumniProcess: alumniProcess.name,
+      housingProcess: housingProcess.name,
     };
   },
 });
