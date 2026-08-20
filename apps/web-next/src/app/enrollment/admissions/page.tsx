@@ -1,6 +1,8 @@
 "use client";
 
+import { useMemo } from "react";
 import { useEnrollment } from "../EnrollmentProvider";
+import { FallAdmissionsReport } from "@/components/enrollment/fall-report";
 import {
   AcceptCodesTable,
   AidTable,
@@ -8,10 +10,21 @@ import {
   Kpi,
   Section,
 } from "@/components/enrollment/ui";
+import { buildFallReport } from "@/lib/reports/enrollment/fall-report";
 import { fmt } from "@/lib/reports/enrollment/load";
 
 export default function AdmissionsPage() {
   const { data, loading, error, cycle } = useEnrollment();
+  const reportYear = cycle === "fa26" ? 2026 : 2027;
+  const fallReport = useMemo(() => {
+    if (!data) return null;
+    return buildFallReport(
+      (data.admissions.allRows || []) as Record<string, unknown>[],
+      reportYear,
+      data.generatedAt,
+    );
+  }, [data, reportYear]);
+
   if (loading)
     return (
       <div className="view active">
@@ -154,6 +167,8 @@ export default function AdmissionsPage() {
           </p>
         </>
       )}
+
+      {fallReport && <FallAdmissionsReport report={fallReport} />}
     </div>
   );
 }

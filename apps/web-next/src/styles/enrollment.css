@@ -187,3 +187,28 @@ tr:hover td{background:#F5F8FD}
 .delta-flat{color:var(--t3);font-weight:600}
 .gh-wordmark{text-decoration:none}
 .tab-btn{text-decoration:none}
+
+/* ── Fall Admissions Report ───────── */
+.fall-rpt{margin-top:28px}
+.fall-notes{margin:0 0 16px 18px;padding:0;font-size:12px;color:var(--t2);line-height:1.55}
+.fall-notes li{margin-bottom:4px}
+.fall-scroll{overflow-x:auto;margin-bottom:16px}
+.fall-tbl{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:12px;background:#fff;border:1px solid var(--bdr)}
+.fall-tbl th,.fall-tbl td{padding:6px 7px;border:1px solid var(--bdr);white-space:nowrap}
+.fall-tbl th{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--t2);background:var(--pale);text-align:center}
+.fall-tbl td.r,.fall-tbl th.r{text-align:right}
+.fall-stub{background:var(--blue)!important;color:#fff!important;text-align:left!important;text-transform:none!important;letter-spacing:0!important;font-size:12px!important;font-weight:700!important;line-height:1.25}
+.fall-navy{background:var(--blue)!important}
+.fall-purple{background:#6B2D6B!important}
+.fall-blue{background:#2A5899!important}
+.fall-composite td{background:#F7E9A8;font-weight:700}
+.fall-final td{background:#E8F6EE}
+.fall-final td:last-child,.fall-matrix tr.fall-final td.r:nth-last-child(-n+7){font-weight:700}
+.fall-three{display:grid;grid-template-columns:1.1fr 1fr 1.3fr;gap:12px;margin-bottom:16px;align-items:start}
+.fall-two{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;align-items:start}
+.fall-stack{display:flex;flex-direction:column;gap:12px}
+.fall-mini{overflow-x:auto}
+.fall-missing{font-size:11px;color:var(--t3);margin:6px 0 0;line-height:1.4}
+@media (max-width:1100px){
+  .fall-three,.fall-two{grid-template-columns:1fr}
+}

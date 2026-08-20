@@ -118,31 +118,31 @@ function _dateOnly(d) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 /** Fall YYYY → calendar cutoff = as-of month/day in YYYY (capped at asOf). */
-function _withdrawalCutoff(termYear, asOf) {
+export function _withdrawalCutoff(termYear, asOf) {
   const asOfDay = _dateOnly(asOf || new Date());
   if (!termYear) return asOfDay;
   const cut = new Date(termYear, asOfDay.getMonth(), asOfDay.getDate());
   return cut > asOfDay ? asOfDay : cut;
 }
 /** Point-in-time net deposit: deposited on/before cutoff, not withdrawn on/before cutoff. */
-function _isDepositAsOf(r, cutoff) {
+export function _isDepositAsOf(r, cutoff) {
   if (!r.DepositCode || !cutoff) return false;
   const dd = _parseDate(r.DepositDate);
   return !!(dd && _dateOnly(dd) <= _dateOnly(cutoff));
 }
-function _isWithdrawnAsOf(r, cutoff) {
+export function _isWithdrawnAsOf(r, cutoff) {
   if (!r.WithdrawnCode || !cutoff) return false;
   const wd = _parseDate(r.WithdrawnDate);
   return !!(wd && _dateOnly(wd) <= _dateOnly(cutoff));
 }
-function _isNetDeposit(r, cutoff) {
+export function _isNetDeposit(r, cutoff) {
   return _isDepositAsOf(r, cutoff) && !_isWithdrawnAsOf(r, cutoff);
 }
-function _termYear(term) {
+export function _termYear(term) {
   const m = String(term || '').match(/(\d{4})/);
   return m ? +m[1] : null;
 }
-function _avg(vals) {
+export function _avg(vals) {
   return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
 }
 function _median(vals) {
