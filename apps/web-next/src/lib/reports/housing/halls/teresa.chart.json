@@ -1,0 +1,1009 @@
+{
+ "hall": {
+  "code": "TERESA",
+  "name": "Mother Teresa"
+ },
+ "floors": [
+  {
+   "level": 1,
+   "name": "Floor 1",
+   "cols": 22,
+   "rows": 12,
+   "colW": [
+    56,
+    70,
+    34,
+    70,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    64
+   ],
+   "rooms": [
+    {
+     "number": "102",
+     "type": "4-person",
+     "cap": 4,
+     "col": 3,
+     "row": 7,
+     "w": 3,
+     "h": 1
+    },
+    {
+     "number": "104",
+     "type": "4-person",
+     "cap": 4,
+     "col": 6,
+     "row": 7,
+     "w": 1,
+     "h": 1
+    },
+    {
+     "number": "106",
+     "type": "4-person",
+     "cap": 4,
+     "col": 7,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "108",
+     "type": "4-person",
+     "cap": 4,
+     "col": 9,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "110",
+     "type": "4-person",
+     "cap": 4,
+     "col": 11,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "112",
+     "type": "4-person",
+     "cap": 4,
+     "col": 13,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "114",
+     "type": "4-person",
+     "cap": 4,
+     "col": 15,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "116",
+     "type": "4-person",
+     "cap": 4,
+     "col": 17,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "118",
+     "type": "4-person",
+     "cap": 4,
+     "col": 19,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "101",
+     "type": "Campus Clinic",
+     "cap": 0,
+     "col": 3,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "103",
+     "type": "4-person",
+     "cap": 4,
+     "col": 5,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "105",
+     "type": "4-person",
+     "cap": 4,
+     "col": 7,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "107",
+     "type": "4-person",
+     "cap": 4,
+     "col": 9,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "109",
+     "type": "4-person",
+     "cap": 4,
+     "col": 11,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "111",
+     "type": "4-person",
+     "cap": 4,
+     "col": 13,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "113",
+     "type": "4-person",
+     "cap": 4,
+     "col": 15,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "115",
+     "type": "4-person",
+     "cap": 4,
+     "col": 17,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "117",
+     "type": "4-person",
+     "cap": 4,
+     "col": 19,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    }
+   ],
+   "spaces": [
+    {
+     "name": "?",
+     "col": 2,
+     "row": 0,
+     "w": 1,
+     "h": 3
+    },
+    {
+     "name": "Boiler room",
+     "col": 1,
+     "row": 3,
+     "w": 2,
+     "h": 5
+    },
+    {
+     "name": "Closet",
+     "col": 21,
+     "row": 7,
+     "w": 1,
+     "h": 1
+    },
+    {
+     "name": "mop closet",
+     "col": 2,
+     "row": 10,
+     "w": 1,
+     "h": 1
+    },
+    {
+     "name": "Elevator",
+     "col": 0,
+     "row": 4,
+     "w": 1,
+     "h": 4
+    },
+    {
+     "name": "Outdoor Storage Carts",
+     "col": 21,
+     "row": 5,
+     "w": 1,
+     "h": 2
+    },
+    {
+     "name": "Electrical rm",
+     "col": 0,
+     "row": 10,
+     "w": 2,
+     "h": 2
+    },
+    {
+     "name": "Stairwell",
+     "col": 21,
+     "row": 11,
+     "w": 1,
+     "h": 1
+    }
+   ]
+  },
+  {
+   "level": 2,
+   "name": "Floor 2",
+   "cols": 22,
+   "rows": 12,
+   "colW": [
+    56,
+    70,
+    34,
+    70,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    64
+   ],
+   "rooms": [
+    {
+     "number": "202",
+     "type": "4-person",
+     "cap": 4,
+     "col": 3,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "204",
+     "type": "4-person",
+     "cap": 4,
+     "col": 5,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "206",
+     "type": "4-person",
+     "cap": 4,
+     "col": 7,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "208",
+     "type": "4-person",
+     "cap": 4,
+     "col": 9,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "210",
+     "type": "4-person",
+     "cap": 4,
+     "col": 11,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "212",
+     "type": "4-person",
+     "cap": 4,
+     "col": 13,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "214",
+     "type": "4-person",
+     "cap": 4,
+     "col": 15,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "216",
+     "type": "4-person",
+     "cap": 4,
+     "col": 17,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "218",
+     "type": "4-person",
+     "cap": 4,
+     "col": 19,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "201",
+     "type": "4-person",
+     "cap": 4,
+     "col": 3,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "203",
+     "type": "4-person",
+     "cap": 4,
+     "col": 5,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "205",
+     "type": "4-person",
+     "cap": 4,
+     "col": 7,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "207",
+     "type": "4-person",
+     "cap": 4,
+     "col": 9,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "209",
+     "type": "4-person",
+     "cap": 4,
+     "col": 11,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "211",
+     "type": "4-person",
+     "cap": 4,
+     "col": 13,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "213",
+     "type": "4-person",
+     "cap": 4,
+     "col": 15,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "215",
+     "type": "4-person",
+     "cap": 4,
+     "col": 17,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "217",
+     "type": "4-person",
+     "cap": 4,
+     "col": 19,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    }
+   ],
+   "spaces": [
+    {
+     "name": "outdoor closet",
+     "col": 0,
+     "row": 3,
+     "w": 1,
+     "h": 1
+    },
+    {
+     "name": "common room",
+     "col": 1,
+     "row": 3,
+     "w": 2,
+     "h": 2
+    },
+    {
+     "name": "kitchen",
+     "col": 1,
+     "row": 5,
+     "w": 2,
+     "h": 3
+    },
+    {
+     "name": "Closet",
+     "col": 21,
+     "row": 5,
+     "w": 1,
+     "h": 3
+    },
+    {
+     "name": "Mother Teresa Laundry Room ROOF",
+     "col": 0,
+     "row": 0,
+     "w": 3,
+     "h": 3
+    },
+    {
+     "name": "Elevator",
+     "col": 0,
+     "row": 4,
+     "w": 1,
+     "h": 4
+    },
+    {
+     "name": "Electrical rm",
+     "col": 0,
+     "row": 10,
+     "w": 1,
+     "h": 2
+    },
+    {
+     "name": "Stairwell",
+     "col": 21,
+     "row": 11,
+     "w": 1,
+     "h": 1
+    }
+   ]
+  },
+  {
+   "level": 3,
+   "name": "Floor 3",
+   "cols": 22,
+   "rows": 12,
+   "colW": [
+    56,
+    70,
+    34,
+    70,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    64
+   ],
+   "rooms": [
+    {
+     "number": "302",
+     "type": "4-person",
+     "cap": 4,
+     "col": 3,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "304",
+     "type": "4-person",
+     "cap": 4,
+     "col": 5,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "306",
+     "type": "4-person",
+     "cap": 4,
+     "col": 7,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "308",
+     "type": "4-person",
+     "cap": 4,
+     "col": 9,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "310",
+     "type": "4-person",
+     "cap": 4,
+     "col": 11,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "312",
+     "type": "4-person",
+     "cap": 4,
+     "col": 13,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "314",
+     "type": "4-person",
+     "cap": 4,
+     "col": 15,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "316",
+     "type": "4-person",
+     "cap": 4,
+     "col": 17,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "318",
+     "type": "4-person",
+     "cap": 4,
+     "col": 19,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "301",
+     "type": "4-person",
+     "cap": 4,
+     "col": 3,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "303",
+     "type": "4-person",
+     "cap": 4,
+     "col": 5,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "305",
+     "type": "4-person",
+     "cap": 4,
+     "col": 7,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "307",
+     "type": "4-person",
+     "cap": 4,
+     "col": 9,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "309",
+     "type": "4-person",
+     "cap": 4,
+     "col": 11,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "311",
+     "type": "4-person",
+     "cap": 4,
+     "col": 13,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "313",
+     "type": "4-person",
+     "cap": 4,
+     "col": 15,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "315",
+     "type": "4-person",
+     "cap": 4,
+     "col": 17,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "317",
+     "type": "4-person",
+     "cap": 4,
+     "col": 19,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    }
+   ],
+   "spaces": [
+    {
+     "name": "outdoor closet",
+     "col": 0,
+     "row": 3,
+     "w": 1,
+     "h": 1
+    },
+    {
+     "name": "common room",
+     "col": 1,
+     "row": 3,
+     "w": 2,
+     "h": 5
+    },
+    {
+     "name": "Closet",
+     "col": 21,
+     "row": 5,
+     "w": 1,
+     "h": 3
+    },
+    {
+     "name": "Mother Teresa Laundry Room ROOF",
+     "col": 0,
+     "row": 0,
+     "w": 3,
+     "h": 3
+    },
+    {
+     "name": "Elevator",
+     "col": 0,
+     "row": 4,
+     "w": 1,
+     "h": 4
+    },
+    {
+     "name": "Electrical rm",
+     "col": 0,
+     "row": 10,
+     "w": 1,
+     "h": 2
+    },
+    {
+     "name": "Stairwell",
+     "col": 21,
+     "row": 11,
+     "w": 1,
+     "h": 1
+    }
+   ]
+  },
+  {
+   "level": 4,
+   "name": "Floor 4",
+   "cols": 22,
+   "rows": 12,
+   "colW": [
+    56,
+    70,
+    34,
+    70,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    65,
+    64
+   ],
+   "rooms": [
+    {
+     "number": "402",
+     "type": "4-person",
+     "cap": 4,
+     "col": 3,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "404",
+     "type": "4-person",
+     "cap": 4,
+     "col": 5,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "406",
+     "type": "4-person",
+     "cap": 4,
+     "col": 7,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "408",
+     "type": "4-person",
+     "cap": 4,
+     "col": 9,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "410",
+     "type": "4-person",
+     "cap": 4,
+     "col": 11,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "412",
+     "type": "4-person",
+     "cap": 4,
+     "col": 13,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "414",
+     "type": "4-person",
+     "cap": 4,
+     "col": 15,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "416",
+     "type": "4-person",
+     "cap": 4,
+     "col": 17,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "418",
+     "type": "4-person",
+     "cap": 4,
+     "col": 19,
+     "row": 7,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "401",
+     "type": "4-person",
+     "cap": 4,
+     "col": 3,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "403",
+     "type": "4-person",
+     "cap": 4,
+     "col": 5,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "405",
+     "type": "4-person",
+     "cap": 4,
+     "col": 7,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "407",
+     "type": "4-person",
+     "cap": 4,
+     "col": 9,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "409",
+     "type": "4-person",
+     "cap": 4,
+     "col": 11,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "411",
+     "type": "4-person",
+     "cap": 4,
+     "col": 13,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "413",
+     "type": "4-person",
+     "cap": 4,
+     "col": 15,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "415",
+     "type": "4-person",
+     "cap": 4,
+     "col": 17,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    },
+    {
+     "number": "417",
+     "type": "4-person",
+     "cap": 4,
+     "col": 19,
+     "row": 10,
+     "w": 2,
+     "h": 1
+    }
+   ],
+   "spaces": [
+    {
+     "name": "outdoor closet",
+     "col": 0,
+     "row": 3,
+     "w": 1,
+     "h": 1
+    },
+    {
+     "name": "common room",
+     "col": 1,
+     "row": 3,
+     "w": 2,
+     "h": 2
+    },
+    {
+     "name": "Computer lab",
+     "col": 1,
+     "row": 5,
+     "w": 2,
+     "h": 3
+    },
+    {
+     "name": "Closet",
+     "col": 21,
+     "row": 5,
+     "w": 1,
+     "h": 3
+    },
+    {
+     "name": "Mother Teresa Laundry Room ROOF",
+     "col": 0,
+     "row": 0,
+     "w": 3,
+     "h": 3
+    },
+    {
+     "name": "Elevator",
+     "col": 0,
+     "row": 4,
+     "w": 1,
+     "h": 4
+    },
+    {
+     "name": "Electrical rm",
+     "col": 0,
+     "row": 10,
+     "w": 1,
+     "h": 2
+    },
+    {
+     "name": "Stairwell",
+     "col": 21,
+     "row": 11,
+     "w": 1,
+     "h": 1
+    }
+   ]
+  }
+ ]
+}

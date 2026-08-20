@@ -10,7 +10,7 @@ Remote: https://github.com/colecantu904/reporting
 |-------|--------|
 | `/` | Hub |
 | `/enrollment` | Admissions enrollment dashboard |
-| `/housing` | Housing occupancy |
+| `/housing` | Housing occupancy, floor maps, move-ins, verification |
 | `/institute` | The Institute admissions pipeline |
 | `/mas` | MA follow-on giving |
 | `/points` | MA points / productivity |
@@ -36,10 +36,13 @@ sources/_catalog.json
 |--------|----------|----------------|
 | `slate` | admissions, psw, messages, campus_visits, … | EnrollmentRefresh |
 | `virtuous` | contact_notes, gifts, events, contacts | VirtuousRawRefresh |
-| `qlik` | housing_occupancy | HousingRefresh |
+| `erez` | housing_occupancy | HousingRefresh (eRezLife assignments) |
+| `qlik` | housing_occupancy | HousingRefresh (mirror of eRez occupancy during cutover) |
 | `institute` | q1–q6 (Slate query dumps) | InstituteRefresh |
 
-Each dataset keeps ~3 dated days. Report pages read `_latest` (or invoke on-read processors for MAS/alumni/institute derived views). Raw sources stay the contract; MAS also writes a short-lived `cache/mas/` snapshot so the portal stays under CloudFront’s 60s origin limit.
+Each dataset keeps ~3 dated days. Report pages read `_latest` (or invoke on-read processors for MAS/alumni/institute derived views). Raw sources stay the contract; MAS also writes a short-lived `cache/mas/` snapshot so the portal stays under CloudFront’s 60s origin limit. Housing writes `cache/housing/residents.json` for the same reason.
+
+The `/housing` page is the App Runner residence-life dashboard (eRez assignments, floor maps, move-ins, verification), gated by the shared reporting login.
 
 Institute publisher needs Slate query tokens once:
 

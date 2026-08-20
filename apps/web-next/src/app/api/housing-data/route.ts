@@ -3,13 +3,25 @@ import { requireReportAccess } from "@/lib/s3-proxy";
 import { buildingsFromRecords, type HousingRecord } from "@/lib/reports/housing/shape";
 import { loadSourceRows, readJson } from "@/lib/sources";
 
-/** Housing occupancy from sources/qlik/housing_occupancy. */
+/** Housing occupancy from eRez (mirrored to qlik/housing_occupancy during cutover). */
 export async function GET(req: Request) {
   const denied = requireReportAccess(req, "housing");
   if (denied) return denied;
 
   try {
-    const { rows, latest } = await loadSourceRows<HousingRecord>("qlik", "housing_occupancy");
+    let rows: HousingRecord[];
+    let latest: Awaited<ReturnType<typeof loadSourceRows<HousingRecord>>>["latest"];
+    let source = "sources/erez/housing_occupancy";
+    try {
+      const loaded = await loadSourceRows<HousingRecord>("erez", "housing_occupancy");
+      rows = loaded.rows;
+      latest = loaded.latest;
+    } catch {
+      const loaded = await loadSourceRows<HousingRecord>("qlik", "housing_occupancy");
+      rows = loaded.rows;
+      latest = loaded.latest;
+      source = "sources/qlik/housing_occupancy";
+    }
     let session = "—";
     try {
       const meta = await readJson<{ provenance?: { session?: string } }>(
@@ -27,7 +39,7 @@ export async function GET(req: Request) {
         total: latest.record_count ?? buildings.reduce((s, b) => s + (b.occupied || 0), 0),
         cached_at: latest.pulled_at || "—",
       },
-      source: "sources/qlik/housing_occupancy",
+      source,
     });
   } catch (e) {
     const qlik = process.env.QLIK_API_KEY || "";
@@ -41,7 +53,7 @@ export async function GET(req: Request) {
     return NextResponse.json(
       {
         error: configured
-          ? "Housing raw source not published yet (sources/qlik/housing_occupancy). Wait for HousingRefresh."
+          ? "Housing raw source not published yet (sources/erez/housing_occupancy). Wait for HousingRefresh."
           : `Housing source missing: ${e instanceof Error ? e.message : String(e)}`,
         buildings: [],
       },

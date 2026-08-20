@@ -1,0 +1,839 @@
+{
+  "hall": {
+    "code": "SEBAST",
+    "name": "Sebastian"
+  },
+  "floors": [
+    {
+      "level": 1,
+      "name": "Floor 1",
+      "cols": 19,
+      "rows": 23,
+      "colW": [
+        65,
+        65,
+        61,
+        65,
+        41,
+        51,
+        65,
+        34,
+        65,
+        65,
+        65,
+        65,
+        65,
+        65,
+        65,
+        65,
+        41,
+        65,
+        65
+      ],
+      "rooms": [
+        {
+          "number": "192",
+          "type": "2-bedroom Suite",
+          "cap": 8,
+          "col": 17,
+          "row": 3,
+          "w": 2,
+          "h": 1
+        },
+        {
+          "number": "151",
+          "type": "Triple",
+          "cap": 3,
+          "col": 8,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "153",
+          "type": "Double",
+          "cap": 3,
+          "col": 9,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "155",
+          "type": "Triple",
+          "cap": 3,
+          "col": 10,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "157",
+          "type": "Triple",
+          "cap": 3,
+          "col": 11,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "159",
+          "type": "Triple",
+          "cap": 3,
+          "col": 12,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "161",
+          "type": "Triple",
+          "cap": 3,
+          "col": 13,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "163",
+          "type": "Triple",
+          "cap": 3,
+          "col": 14,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "165",
+          "type": "Triple",
+          "cap": 3,
+          "col": 9,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "167",
+          "type": "Double",
+          "cap": 3,
+          "col": 10,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "169",
+          "type": "Triple",
+          "cap": 3,
+          "col": 11,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "171",
+          "type": "Triple",
+          "cap": 3,
+          "col": 12,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "173",
+          "type": "Triple",
+          "cap": 3,
+          "col": 13,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "175",
+          "type": "Triple",
+          "cap": 3,
+          "col": 14,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "183",
+          "type": "4-bedroom Suite",
+          "cap": 8,
+          "col": 17,
+          "row": 15,
+          "w": 2,
+          "h": 1
+        },
+        {
+          "number": "137",
+          "type": "4-bedroom Suite",
+          "cap": 8,
+          "col": 0,
+          "row": 22,
+          "w": 2,
+          "h": 1
+        }
+      ],
+      "spaces": [
+        {
+          "name": "RA Office",
+          "col": 3,
+          "row": 5,
+          "w": 1,
+          "h": 2
+        },
+        {
+          "name": "Common Room",
+          "col": 3,
+          "row": 7,
+          "w": 1,
+          "h": 3
+        },
+        {
+          "name": "Mechanical Rm",
+          "col": 5,
+          "row": 8,
+          "w": 3,
+          "h": 2
+        },
+        {
+          "name": "RD Apt",
+          "col": 0,
+          "row": 11,
+          "w": 2,
+          "h": 5
+        },
+        {
+          "name": "FACP",
+          "col": 5,
+          "row": 12,
+          "w": 1,
+          "h": 2
+        },
+        {
+          "name": "Boiler Room",
+          "col": 6,
+          "row": 12,
+          "w": 3,
+          "h": 3
+        },
+        {
+          "name": "Hurricane Water",
+          "col": 15,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "name": "Housekeeping",
+          "col": 5,
+          "row": 15,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "name": "Common Room",
+          "col": 2,
+          "row": 18,
+          "w": 2,
+          "h": 4
+        },
+        {
+          "name": "Chapel",
+          "col": 4,
+          "row": 18,
+          "w": 2,
+          "h": 4
+        },
+        {
+          "name": "Laundry Room",
+          "col": 6,
+          "row": 18,
+          "w": 2,
+          "h": 4
+        },
+        {
+          "name": "LOBBY",
+          "col": 3,
+          "row": 0,
+          "w": 5,
+          "h": 4
+        },
+        {
+          "name": "Elevator",
+          "col": 3,
+          "row": 10,
+          "w": 1,
+          "h": 3
+        },
+        {
+          "name": "Stairwell",
+          "col": 3,
+          "row": 13,
+          "w": 1,
+          "h": 3
+        },
+        {
+          "name": "Ultimate Friabee Closet",
+          "col": 5,
+          "row": 14,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "name": "Stairwell",
+          "col": 15,
+          "row": 15,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "level": 2,
+      "name": "Floor 2",
+      "cols": 19,
+      "rows": 23,
+      "colW": [
+        65,
+        65,
+        61,
+        65,
+        41,
+        51,
+        65,
+        34,
+        65,
+        65,
+        65,
+        65,
+        65,
+        65,
+        65,
+        65,
+        41,
+        65,
+        65
+      ],
+      "rooms": [
+        {
+          "number": "293",
+          "type": "2-bedroom Suite",
+          "cap": 8,
+          "col": 17,
+          "row": 3,
+          "w": 2,
+          "h": 1
+        },
+        {
+          "number": "251",
+          "type": "Double-ADA",
+          "cap": 2,
+          "col": 6,
+          "row": 8,
+          "w": 2,
+          "h": 1
+        },
+        {
+          "number": "253",
+          "type": "Triple",
+          "cap": 3,
+          "col": 8,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "255",
+          "type": "Triple",
+          "cap": 3,
+          "col": 9,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "257",
+          "type": "Triple",
+          "cap": 3,
+          "col": 10,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "259",
+          "type": "Triple",
+          "cap": 3,
+          "col": 11,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "261",
+          "type": "Triple",
+          "cap": 3,
+          "col": 12,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "263",
+          "type": "Triple",
+          "cap": 3,
+          "col": 13,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "265",
+          "type": "Triple",
+          "cap": 3,
+          "col": 14,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "221",
+          "type": "2-bedroom, 8 person",
+          "cap": 8,
+          "col": 0,
+          "row": 10,
+          "w": 2,
+          "h": 1
+        },
+        {
+          "number": "267",
+          "type": "Triple",
+          "cap": 3,
+          "col": 9,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "269",
+          "type": "Triple",
+          "cap": 3,
+          "col": 10,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "271",
+          "type": "Triple",
+          "cap": 3,
+          "col": 11,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "273",
+          "type": "Triple",
+          "cap": 3,
+          "col": 12,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "275",
+          "type": "Triple",
+          "cap": 3,
+          "col": 13,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "277",
+          "type": "Triple",
+          "cap": 3,
+          "col": 14,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "292",
+          "type": "4-bedroom Suite",
+          "cap": 8,
+          "col": 17,
+          "row": 15,
+          "w": 2,
+          "h": 1
+        },
+        {
+          "number": "237",
+          "type": "4-bedroom Suite",
+          "cap": 8,
+          "col": 0,
+          "row": 22,
+          "w": 2,
+          "h": 1
+        },
+        {
+          "number": "238",
+          "type": "4-bedroom Suite",
+          "cap": 8,
+          "col": 2,
+          "row": 22,
+          "w": 2,
+          "h": 1
+        }
+      ],
+      "spaces": [
+        {
+          "name": "Common Room",
+          "col": 3,
+          "row": 5,
+          "w": 1,
+          "h": 5
+        },
+        {
+          "name": "Computer Lab",
+          "col": 4,
+          "row": 5,
+          "w": 2,
+          "h": 4
+        },
+        {
+          "name": "Cart/ Laundry Storage",
+          "col": 2,
+          "row": 12,
+          "w": 1,
+          "h": 4
+        },
+        {
+          "name": "FACP",
+          "col": 5,
+          "row": 12,
+          "w": 1,
+          "h": 3
+        },
+        {
+          "name": "No # Desk Chairs Closet'",
+          "col": 6,
+          "row": 12,
+          "w": 1,
+          "h": 3
+        },
+        {
+          "name": "Emgcy Cl.",
+          "col": 7,
+          "row": 12,
+          "w": 1,
+          "h": 3
+        },
+        {
+          "name": "FACP Closet",
+          "col": 8,
+          "row": 12,
+          "w": 1,
+          "h": 5
+        },
+        {
+          "name": "Dorm Funriture Closet",
+          "col": 15,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "name": "Desk Storage",
+          "col": 5,
+          "row": 15,
+          "w": 3,
+          "h": 3
+        },
+        {
+          "name": "ROOF OF SEBASTIAN LOBBY",
+          "col": 3,
+          "row": 0,
+          "w": 5,
+          "h": 5
+        },
+        {
+          "name": "Elevator",
+          "col": 3,
+          "row": 10,
+          "w": 1,
+          "h": 3
+        },
+        {
+          "name": "Stairwell",
+          "col": 3,
+          "row": 13,
+          "w": 1,
+          "h": 3
+        },
+        {
+          "name": "Stairwell",
+          "col": 15,
+          "row": 15,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "name": "ROOF OF THE LAUNDRY ROOM & CHAPEL",
+          "col": 4,
+          "row": 18,
+          "w": 4,
+          "h": 4
+        }
+      ]
+    },
+    {
+      "level": 3,
+      "name": "Floor 3",
+      "cols": 13,
+      "rows": 22,
+      "colW": [
+        65,
+        41,
+        51,
+        65,
+        34,
+        65,
+        65,
+        65,
+        65,
+        65,
+        65,
+        65,
+        65
+      ],
+      "rooms": [
+        {
+          "number": "351",
+          "type": "Double-ADA",
+          "cap": 2,
+          "col": 3,
+          "row": 8,
+          "w": 2,
+          "h": 1
+        },
+        {
+          "number": "353",
+          "type": "Triple",
+          "cap": 3,
+          "col": 5,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "355",
+          "type": "Triple",
+          "cap": 3,
+          "col": 6,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "357",
+          "type": "Triple",
+          "cap": 3,
+          "col": 7,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "359",
+          "type": "Triple",
+          "cap": 3,
+          "col": 8,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "361",
+          "type": "Triple",
+          "cap": 3,
+          "col": 9,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "363",
+          "type": "Triple",
+          "cap": 3,
+          "col": 10,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "365",
+          "type": "Triple",
+          "cap": 3,
+          "col": 11,
+          "row": 8,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "367",
+          "type": "Triple",
+          "cap": 3,
+          "col": 5,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "369",
+          "type": "Triple",
+          "cap": 3,
+          "col": 6,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "371",
+          "type": "Triple",
+          "cap": 3,
+          "col": 7,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "373",
+          "type": "Triple",
+          "cap": 3,
+          "col": 8,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "375",
+          "type": "Triple",
+          "cap": 3,
+          "col": 9,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "377",
+          "type": "Triple",
+          "cap": 3,
+          "col": 10,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "number": "379",
+          "type": "Triple",
+          "cap": 3,
+          "col": 11,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        }
+      ],
+      "spaces": [
+        {
+          "name": "Air Handler Rm",
+          "col": 0,
+          "row": 5,
+          "w": 1,
+          "h": 5
+        },
+        {
+          "name": "Common Room",
+          "col": 1,
+          "row": 5,
+          "w": 2,
+          "h": 4
+        },
+        {
+          "name": "Electrical",
+          "col": 2,
+          "row": 12,
+          "w": 1,
+          "h": 3
+        },
+        {
+          "name": "No # Bed Frame Closet",
+          "col": 3,
+          "row": 12,
+          "w": 1,
+          "h": 3
+        },
+        {
+          "name": "FACP",
+          "col": 4,
+          "row": 12,
+          "w": 1,
+          "h": 3
+        },
+        {
+          "name": "Bed Frames Closet",
+          "col": 12,
+          "row": 12,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "name": "Common Room",
+          "col": 2,
+          "row": 15,
+          "w": 3,
+          "h": 3
+        },
+        {
+          "name": "ROOF OF SEBASTIAN LOBBY",
+          "col": 0,
+          "row": 0,
+          "w": 5,
+          "h": 5
+        },
+        {
+          "name": "Elevator",
+          "col": 0,
+          "row": 10,
+          "w": 1,
+          "h": 3
+        },
+        {
+          "name": "Stairwell",
+          "col": 0,
+          "row": 13,
+          "w": 1,
+          "h": 3
+        },
+        {
+          "name": "Stairwell",
+          "col": 12,
+          "row": 15,
+          "w": 1,
+          "h": 1
+        },
+        {
+          "name": "ROOF OF THE LAUNDRY ROOM & CHAPEL",
+          "col": 1,
+          "row": 18,
+          "w": 4,
+          "h": 4
+        }
+      ]
+    }
+  ]
+}
