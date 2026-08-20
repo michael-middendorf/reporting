@@ -14,7 +14,7 @@ function allLoginEmails(): string[] {
   const admins = ["cole.j.cantu@avemaria.edu", "regina.m.pirolli@avemaria.edu"];
   const defaults: Record<string, string> = {
     ENROLLMENT_ALLOWED_EMAILS:
-      "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
+      "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu,dan.donaldson@avemaria.edu,andres.a.jimenez@avemaria.edu",
     HOUSING_ALLOWED_EMAILS: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
     POINTS_ALLOWED_EMAILS:
       "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,annie.esposito@avemaria.edu",
