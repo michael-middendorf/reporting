@@ -889,7 +889,7 @@ function renderDetail(){
 }
 function setFloor(l){ FLOOR=l; SELROOM=null; renderDetail(); }
 function setAsof(d){
-  ASOF=d||null;
+  ASOF=(d && /^\d{4}-\d{2}-\d{2}$/.test(d)) ? d : null;
   document.getElementById('dbAll').classList.toggle('on',!ASOF);
   document.getElementById('dbToday').classList.toggle('on',ASOF===TODAY);
   document.getElementById('asofInput').value=ASOF||'';
@@ -897,12 +897,21 @@ function setAsof(d){
 }
 function updateAsofSum(){
   const el=document.getElementById('asofSum'); if(!el) return;
-  if(!ASOF){ el.textContent=''; return; }
+  el.replaceChildren();
+  if(!ASOF) return;
   let inn=0, arr=0;
   for(const code in META) for(const rm in (OCC[code]||{})) for(const p of OCC[code][rm]){
     if(visibleOn(p,ASOF)){ inn++; if(p.move_in===ASOF) arr++; }
   }
-  el.innerHTML=`<b>${inn.toLocaleString()}</b> in dorms as of ${fmtDate(ASOF)}${arr?` · <b style="color:#1B5EA8">${arr}</b> moving in that day`:''}`;
+  const b1=document.createElement('b');
+  b1.textContent=inn.toLocaleString();
+  el.append(b1, ' in dorms as of '+fmtDate(ASOF));
+  if(arr){
+    const b2=document.createElement('b');
+    b2.style.color='#1B5EA8';
+    b2.textContent=String(arr);
+    el.append(' · ', b2, ' moving in that day');
+  }
 }
 
 function fillColor(occ,cap,col){ if(occ===0) return '#F4F8FE';
