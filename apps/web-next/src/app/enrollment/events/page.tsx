@@ -107,8 +107,8 @@ export default function EventsPage() {
 
   // PSW
   const pswPack = data.psw as unknown as {
-    byTerm?: Record<string, { att: number; total: number }>;
-  } & Record<string, { att: number; total: number }>;
+    byTerm?: Record<string, { att: number; total: number; noShow?: number; cancelled?: number }>;
+  } & Record<string, { att: number; total: number; noShow?: number; cancelled?: number }>;
   const pswMap = pswPack.byTerm || pswPack;
   const pswTerms = Object.entries(pswMap)
     .filter(([k]) => k !== "byTerm" && k !== "byCycle" && k !== "byCycleYoy")
@@ -181,18 +181,24 @@ export default function EventsPage() {
             <tr>
               <th>Term</th>
               <th>Attended</th>
+              <th>No Show</th>
+              <th>Cancelled</th>
               <th>Total Registrations</th>
               <th>Attend Rate</th>
             </tr>
           </thead>
           <tbody>
             {pswTerms.map(([term, v]) => {
-              const rate = v.total ? (v.att / v.total) * 100 : 0;
+              const att = v.att || 0;
+              const total = v.total || 0;
+              const rate = total ? (att / total) * 100 : 0;
               return (
                 <tr key={term}>
                   <td>{term || "—"}</td>
-                  <td>{fmt(v.att)}</td>
-                  <td>{fmt(v.total)}</td>
+                  <td>{fmt(att)}</td>
+                  <td>{fmt(v.noShow || 0)}</td>
+                  <td>{fmt(v.cancelled || 0)}</td>
+                  <td>{fmt(total)}</td>
                   <td>{rate.toFixed(1)}%</td>
                 </tr>
               );

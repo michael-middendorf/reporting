@@ -416,10 +416,19 @@ function _pswCycleKey(r) {
   return `Fall ${d.getFullYear()}`;
 }
 
+function _emptyPsw() {
+  return { att: 0, noShow: 0, cancelled: 0, registered: 0, total: 0, registrants: 0 };
+}
+
 function _bumpPsw(map, key, r) {
-  if (!map[key]) map[key] = { att: 0, total: 0 };
+  if (!map[key]) map[key] = _emptyPsw();
+  const s = r.RegistrationStatus || '';
   map[key].total++;
-  if (r.RegistrationStatus === 'Attended') map[key].att++;
+  if (s === 'Attended') map[key].att++;
+  else if (s === 'No Show') map[key].noShow++;
+  else if (s === 'Cancelled') map[key].cancelled++;
+  else if (s === 'Registered') map[key].registered++;
+  if (s !== 'Cancelled') map[key].registrants++;
 }
 
 export function _procPSW(rows, asOf) {
@@ -429,11 +438,11 @@ export function _procPSW(rows, asOf) {
   const byCycle = {};
   const byCycleYoy = {};
   rows.forEach(r => {
-    if (!_isEventRegistrant(r.RegistrationStatus)) return;
-    const date = r.FormSubmissionDate || r.FormStartDateTime;
+    // FormSubmissionDate is the student signup. FormCreatedDate is the form
+    // template date (same for every row). FormStartDateTime is the event.
     _bumpPsw(byTerm, r.Term || '', r);
     _bumpPsw(byCycle, _pswCycleKey(r), r);
-    if (_leDate(date, lastYear)) _bumpPsw(byCycleYoy, _pswCycleKey(r), r);
+    if (_leDate(r.FormSubmissionDate, lastYear)) _bumpPsw(byCycleYoy, _pswCycleKey(r), r);
   });
   return { byTerm, byCycle, byCycleYoy };
 }

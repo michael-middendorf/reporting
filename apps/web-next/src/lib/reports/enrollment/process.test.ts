@@ -5,7 +5,7 @@ import {
   emptyAcFunnel,
   isActivityCounselorKey,
 } from "./counselors";
-import { _procAdm, _procAME, _termStats } from "./process.js";
+import { _procAdm, _procAME, _procPSW, _termStats } from "./process.js";
 
 function row(partial: Record<string, unknown> = {}) {
   return {
@@ -71,6 +71,29 @@ test("allRows stays unfiltered so the Fall report can apply its own type filter"
   const adm = _procAdm(rows, "2026-08-20");
   assert.equal(adm.allRows.length, 2);
   assert.equal(adm.fa27.created, 1);
+});
+
+test("PSW YoY uses FormSubmissionDate and is 0 when nobody had signed up yet", () => {
+  const rows = [
+    {
+      Term: "Fall 2026",
+      RegistrationStatus: "Attended",
+      FormCreatedDate: "2025-11-10",
+      FormStartDateTime: "2026-01-16",
+      FormSubmissionDate: "2025-12-01",
+    },
+    {
+      Term: "Fall 2025",
+      RegistrationStatus: "Attended",
+      FormCreatedDate: "2024-11-01",
+      FormStartDateTime: "2025-01-17",
+      FormSubmissionDate: "2024-12-01",
+    },
+  ];
+  const psw = _procPSW(rows, "2026-08-21");
+  assert.equal(psw.byCycle["Fall 2026"].total, 1);
+  assert.equal(psw.byCycleYoy["Fall 2026"], undefined);
+  assert.equal(psw.byCycleYoy["Fall 2025"].total, 1);
 });
 
 test("AME overview counts registrants and YoY-gates the prior cycle", () => {

@@ -23,8 +23,9 @@ function ameVal(cyc: AmeCyc, mo: string): number {
 function ameLabel(mo: string): string {
   return `${mo} AME Registrants`;
 }
-function pswVal(entry: { att: number; total: number } | null | undefined): number {
+function pswVal(entry: { att?: number; total?: number; registrants?: number } | null | undefined): number {
   if (!entry) return 0;
+  if (entry.registrants != null) return entry.registrants;
   return entry.total || 0;
 }
 
@@ -70,7 +71,8 @@ export default function EnrollmentOverviewPage() {
   const pswByCycle = pswData.byCycle || {};
   const pswByCycleYoy = pswData.byCycleYoy || {};
   const pswCurEntry = pswByCycle[curKey] ?? pswData.byTerm?.[curKey] ?? null;
-  const pswPrvEntry = pswByCycleYoy[prvKey] ?? pswByCycle[prvKey] ?? pswData.byTerm?.[prvKey] ?? null;
+  // Do not fall back to full last-cycle totals when nobody had signed up yet.
+  const pswPrvEntry = pswByCycleYoy[prvKey] ?? null;
 
   const slc = data.slc as unknown as {
     registered?: number | null;
