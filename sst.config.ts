@@ -242,7 +242,12 @@ export default $config({
       // optimizer fails before Sharp runs. Pin the canary-verified wrapper
       // and the patched native dependency used by the production bundle.
       openNextVersion: "4.1.0",
-      link: [data, masProcess, alumniProcess, instituteData, housingProcess, chapelNaming, advancementOverview, mgoTopProspects],
+      // Do not `link` MgoTopProspectsData onto Web. SST serializes each linked
+      // resource into Lambda environment metadata, and this function's env is
+      // already at the 4KB Lambda limit (SST deploy of #104 failed at 4204 bytes).
+      // The ECS web app reads mgo-top-prospects/latest.json from S3; the cron
+      // below writes that object. Cache-miss invoke is optional.
+      link: [data, masProcess, alumniProcess, instituteData, housingProcess, chapelNaming, advancementOverview],
       // The /api/institute-data route waits on the ~15-25s live Slate fetch.
       server: { timeout: "60 seconds" },
       environment: {
@@ -286,8 +291,6 @@ export default $config({
         CHAPEL_NAMING_CACHE_KEY: "chapel-naming/latest.json",
         ADVANCEMENT_OVERVIEW_FN_NAME: advancementOverview.name,
         ADVANCEMENT_OVERVIEW_CACHE_KEY: "advancement-overview/latest.json",
-        MGO_TOP_PROSPECTS_FN_NAME: mgoTopProspects.name,
-        MGO_TOP_PROSPECTS_CACHE_KEY: "mgo-top-prospects/latest.json",
         MAGIC_NONCE_TABLE: magicNonceTableName,
         EMAIL_FROM:
           "AMU Project Manager <noreply@notifications.avemaria.edu>",
@@ -295,7 +298,7 @@ export default $config({
       permissions: [
         {
           actions: ["lambda:InvokeFunction"],
-          resources: [masProcess.arn, alumniProcess.arn, instituteData.arn, housingProcess.arn, chapelNaming.arn, advancementOverview.arn, mgoTopProspects.arn],
+          resources: [masProcess.arn, alumniProcess.arn, instituteData.arn, housingProcess.arn, chapelNaming.arn, advancementOverview.arn],
         },
         {
           actions: ["dynamodb:PutItem"],
