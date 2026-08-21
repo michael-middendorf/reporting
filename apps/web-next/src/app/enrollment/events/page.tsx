@@ -95,6 +95,8 @@ export default function EventsPage() {
 
   const ame = data.ame as unknown as Record<string, unknown>;
   const campus = data.campus as unknown as Record<string, unknown>;
+  type AmeFy = { total: number; attended: number; registered: number; cancelled: number; noShow: number };
+  const byFy = (ame.byFy || {}) as Record<string, AmeFy>;
   const byCycle = (ame.byCycle || campus.byCycle || {}) as Record<string, AmeCycle>;
   const byCycleYoy = (ame.byCycleYoy || {}) as Record<string, AmeCycle>;
   const FALL_MONTHS = ["Sep", "Oct", "Nov"];
@@ -103,6 +105,7 @@ export default function EventsPage() {
   const prvKey = cycle === "fa26" ? "Fall 2025" : "Fall 2026";
   const curLabel = cycle === "fa26" ? "FA26" : "FA27";
   const prvLabel = cycle === "fa26" ? "FA25" : "FA26";
+  const fy = byFy[curKey] || { total: 0, attended: 0, registered: 0, cancelled: 0, noShow: 0 };
   const curCyc = byCycle[curKey] || {};
   const prvCyc = byCycleYoy[prvKey] || {};
 
@@ -142,14 +145,14 @@ export default function EventsPage() {
       {/* ── AME ── */}
       <Section label="Ave Maria Experience (AME)" info={DEFS.ameYoy} />
       <p className="rpt-sub" style={{ margin: "0 0 12px" }}>
-        Registrants vs the same calendar date last year, using AME form submission date.
+        KPI counts are the selected term&rsquo;s fiscal year (July 1–June 30). Month tables are year-over-year by event month.
       </p>
       <div className="kpi-strip">
-        <Kpi label="Total" cur={(ame.total as number) ?? (campus.total as number)} info={DEFS.ameTotal} />
-        <Kpi label="Attended" cur={campus.attended as number} info={DEFS.campusAttended} />
-        <Kpi label="Registered" cur={campus.registered as number} info={DEFS.campusRegistered} />
-        <Kpi label="Cancelled" cur={campus.cancelled as number} info={DEFS.campusCancelled} />
-        <Kpi label="No Show" cur={campus.noShow as number} info={DEFS.campusNoShow} />
+        <Kpi label="Total" cur={fy.total} info={DEFS.ameTotal} />
+        <Kpi label="Registered" cur={fy.attended + fy.registered} info={DEFS.ameFyRegistered} />
+        <Kpi label="Attended" cur={fy.attended} info={DEFS.ameFyAttended} />
+        <Kpi label="Cancelled" cur={fy.cancelled} info={DEFS.ameFyCancelled} />
+        <Kpi label="No Show" cur={fy.noShow} info={DEFS.ameFyNoShow} />
       </div>
 
       <div className="g2" style={{ gap: 16, marginTop: 16 }}>

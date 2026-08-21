@@ -148,6 +148,25 @@ test("AME overview counts registrants and YoY-gates the prior cycle", () => {
   assert.equal(ame.byCycle["Fall 2027"].Sep.registrants, 1);
   assert.equal(ame.byCycle["Fall 2026"].Sep.registrants, 2);
   assert.equal(ame.byCycleYoy["Fall 2026"].Sep.registrants, 1);
+  assert.equal(ame.byFy["Fall 2027"].total, 1);
+  assert.equal(ame.byFy["Fall 2027"].registered, 1);
+  assert.equal(ame.byFy["Fall 2026"].total, 3);
+  assert.equal(ame.byFy["Fall 2026"].attended, 1);
+  assert.equal(ame.byFy["Fall 2026"].cancelled, 1);
+});
+
+test("AME fiscal year is July 1 through June 30 of the selected Fall term", () => {
+  const rows = [
+    { FormStartDateTime: "2026-07-01", RegistrationStatus: "Registered" },
+    { FormStartDateTime: "2026-06-30", RegistrationStatus: "Attended" },
+    { FormStartDateTime: "2027-06-30", RegistrationStatus: "Cancelled" },
+  ];
+  const ame = _procAME(rows, "2026-08-21");
+  assert.equal(ame.byFy["Fall 2027"].total, 2);
+  assert.equal(ame.byFy["Fall 2027"].registered, 1);
+  assert.equal(ame.byFy["Fall 2027"].cancelled, 1);
+  assert.equal(ame.byFy["Fall 2026"].total, 1);
+  assert.equal(ame.byFy["Fall 2026"].attended, 1);
 });
 
 test("activityByAC drops Danielle, Georgiana, Anna, and Annie; keeps Unassigned when present", () => {

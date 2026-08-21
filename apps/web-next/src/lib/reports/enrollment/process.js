@@ -592,6 +592,18 @@ export function _procCampus(rows) {
   };
 }
 
+function _emptyAmeFy() {
+  return { total: 0, attended: 0, registered: 0, cancelled: 0, noShow: 0 };
+}
+
+/** Event date in the July 1–June 30 fiscal year → Fall YYYY of the FY end. */
+function _ameFyKey(dateStr) {
+  const d = _parseDate(dateStr);
+  if (!d) return '';
+  const endYear = d.getMonth() >= 6 ? d.getFullYear() + 1 : d.getFullYear();
+  return `Fall ${endYear}`;
+}
+
 export function _procAME(rows, asOf) {
   const MONTH_LABELS = { 2:'Feb', 3:'Mar', 4:'Apr', 9:'Sep', 10:'Oct', 11:'Nov' };
   const asOfDay = _asOfDay(asOf);
@@ -625,9 +637,20 @@ export function _procAME(rows, asOf) {
   // YoY column uses submission date <= same calendar date last year.
   const byCycle = {};
   const byCycleYoy = {};
+  const byFy = {};
   rows.forEach(r => {
     addRow(byCycle, r, true);
     if (_leDate(r.SubmissionDate, lastYear)) addRow(byCycleYoy, r, false);
+    const fyKey = _ameFyKey(r.FormStartDateTime);
+    if (!fyKey) return;
+    if (!byFy[fyKey]) byFy[fyKey] = _emptyAmeFy();
+    const fy = byFy[fyKey];
+    fy.total++;
+    const status = r.RegistrationStatus || '';
+    if (status === 'Attended') fy.attended++;
+    else if (status === 'Registered') fy.registered++;
+    else if (status === 'Cancelled') fy.cancelled++;
+    else if (status === 'No Show') fy.noShow++;
   });
 
   return {
@@ -635,5 +658,6 @@ export function _procAME(rows, asOf) {
     byCycle,
     byCycleYoy,
     byCycle7d: byCycle,
+    byFy,
   };
 }

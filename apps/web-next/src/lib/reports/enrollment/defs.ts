@@ -53,10 +53,17 @@ export const DEFS = {
     "AME form rows with Registration Status Registered or Attended, grouped by event month (Form Start Date). Cancelled and No Show are excluded.",
   ameYoy:
     "Prior AME counts only include people whose AME form Submission Date was on or before this date last year.",
-  ameTotal: "All AME form rows in the extract, every registration status.",
+  ameTotal:
+    "AME form rows whose event date falls in the selected term's fiscal year (July 1–June 30). Fall 2027 is 7/1/2026–6/30/2027.",
+  ameFyRegistered:
+    "AME Registration Status Registered plus Attended in the selected term's fiscal year (July 1–June 30).",
+  ameFyAttended: "AME Registration Status = Attended in the selected term's fiscal year.",
+  ameFyCancelled: "AME Registration Status = Cancelled in the selected term's fiscal year.",
+  ameFyNoShow: "AME Registration Status = No Show in the selected term's fiscal year.",
   campusTotal: "All campus-visit form rows in the extract.",
   campusAttended: "Campus visits with Registration Status = Attended.",
-  campusRegistered: "Campus visits with Registration Status = Registered (not yet attended).",
+  campusRegistered:
+    "Campus visits with Registration Status Registered or Attended (people still on the books, including those who already attended).",
   campusCancelled: "Campus visits with Registration Status = Cancelled.",
   campusNoShow: "Campus visits with Registration Status = No Show.",
   pswRegistrants:
