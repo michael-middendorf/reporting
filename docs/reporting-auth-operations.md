@@ -2,7 +2,7 @@
 
 The reporting site uses passwordless magic-link authentication. It does not use Cognito or a user database.
 
-The only URL to send people is **https://reporting.avemaria.edu**. After they sign in, the hub shows the reports their email is allowed to open. Do not send `/enrollment`, `/advancement`, `/annunciation`, or CloudFront links.
+The only URL to send people is **https://reporting.avemaria.edu**. After they sign in, the hub shows the reports their email is allowed to open. Do not send `/enrollment`, `/advancement`, `/annunciation`, `/advancement/chapel-naming`, or CloudFront links.
 
 ## Authorization model
 

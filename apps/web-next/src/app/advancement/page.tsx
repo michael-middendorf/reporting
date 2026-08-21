@@ -7,6 +7,11 @@ const REPORTS = [
     title: "Annunciation Circle",
     desc: "Current Annunciation Circle members and new-member activity from Virtuous.",
   },
+  {
+    href: "/advancement/chapel-naming",
+    title: "Chapel Naming Opportunities",
+    desc: "Student chapel naming catalog and gifts received, from Virtuous.",
+  },
 ];
 
 export default function AdvancementHubPage() {

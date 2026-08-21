@@ -11,7 +11,10 @@ export default function AdvancementLayout({
     <AccessGate report="advancement">
       <ReportTopBar
         title="Advancement"
-        nav={[{ href: "/annunciation", label: "Annunciation Circle" }]}
+        nav={[
+          { href: "/annunciation", label: "Annunciation Circle" },
+          { href: "/advancement/chapel-naming", label: "Chapel Naming" },
+        ]}
       />
       {children}
     </AccessGate>
