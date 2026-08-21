@@ -12,6 +12,7 @@ import {
   Funnel,
   Gauge,
   Histogram,
+  InfoTip,
   type FeedRow,
   type GaugeVM,
 } from "@/components/institute/charts";
@@ -716,6 +717,10 @@ function InstituteDashboard() {
           <div className="card span4">
             <h3>
               AMU Undergraduate Pipeline <span className="muted">— {Q3.length}</span>
+              <InfoTip
+                wide
+                text="People in the broader AMU undergraduate admissions pipeline, grouped by current bin (Awaiting Interview, Award, Deposited, …). Not the recruiting-calls workflow."
+              />
             </h3>
             <div className="chint">
               Broader AMU admissions bins (Awaiting Interview, Award, Deposited, …) — not the
@@ -726,12 +731,23 @@ function InstituteDashboard() {
           <div className="card span4">
             <h3>
               Prospect Pool <span className="muted">— {(Q2S.total || 0).toLocaleString()}</span>
+              <InfoTip
+                wide
+                text="Top-of-funnel Institute prospects grouped by home state. These people have not yet entered the Institute applicant workflow."
+              />
             </h3>
             <div className="chint">Top-of-funnel Institute prospects by home state</div>
             <Bars items={proItems} />
           </div>
           <div className="card span4">
-            <h3>Institute Applicant Bins</h3>
+            <h3>
+              Institute Applicant Bins
+              <InfoTip
+                wide
+                flip
+                text="Current occupancy of the Institute applicant workflow, grouped by bin (Needed, Scheduled, Completed, Denied, …). Not the recruiting-calls workflow."
+              />
+            </h3>
             <div className="chint">
               Current occupancy of the Institute applicant workflow (Needed, Scheduled, Completed,
               Denied, …) — not the recruiting-calls workflow.

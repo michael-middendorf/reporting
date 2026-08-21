@@ -232,6 +232,27 @@ export type GaugeVM = {
   info?: string;
 };
 
+/** Hover/focus “i” badge. Reused on gauges and on the pipeline/prospect cards. */
+export function InfoTip({
+  text,
+  wide,
+  flip,
+}: {
+  text: string;
+  wide?: boolean;
+  flip?: boolean;
+}) {
+  return (
+    <span
+      className={`g-info${wide ? " wide" : ""}${flip ? " flip" : ""}`}
+      tabIndex={0}
+      aria-label={text}
+    >
+      i<span className="g-tip">{text}</span>
+    </span>
+  );
+}
+
 /** Gauge dial. Pass `onSelect` to make it click-to-filter; omit it for a
  * static display dial (e.g. the recruiting KPIs). `g.info` renders an "i"
  * badge whose hover/focus tooltip explains exactly what the number pulls. */
@@ -241,11 +262,7 @@ export function Gauge({ g, onSelect }: { g: GaugeVM; onSelect?: (key: string) =>
       className={`gauge ${g.on ? "on" : ""} ${onSelect ? "" : "static"}`}
       onClick={onSelect ? () => onSelect(g.key) : undefined}
     >
-      {g.info ? (
-        <span className="g-info" tabIndex={0} aria-label={g.info}>
-          i<span className="g-tip">{g.info}</span>
-        </span>
-      ) : null}
+      {g.info ? <InfoTip text={g.info} /> : null}
       <GaugeArc fillFrac={g.fillFrac} markerFrac={g.markerFrac} color={g.col} />
       <div className="g-name">{g.name}</div>
       <div className="g-val" style={{ color: g.col }}>

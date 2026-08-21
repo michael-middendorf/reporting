@@ -315,7 +315,7 @@
 .institute-root .gauge.static:hover {
   background: transparent;
 }
-.institute-root .gauge .g-info {
+.institute-root .g-info {
   position: absolute;
   top: 2px;
   right: 4px;
@@ -328,10 +328,19 @@
   font-weight: 800;
   font-style: normal;
   line-height: 15px;
+  text-align: center;
   cursor: help;
   z-index: 2;
 }
-.institute-root .gauge .g-info .g-tip {
+.institute-root .card h3 .g-info {
+  position: relative;
+  top: -1px;
+  right: auto;
+  display: inline-block;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.institute-root .g-info .g-tip {
   display: none;
   position: absolute;
   top: 19px;
@@ -349,8 +358,19 @@
   border-radius: 8px;
   box-shadow: 0 6px 20px rgba(12, 34, 49, 0.22);
 }
-.institute-root .gauge .g-info:hover .g-tip,
-.institute-root .gauge .g-info:focus .g-tip {
+.institute-root .g-info.wide .g-tip {
+  width: 240px;
+}
+.institute-root .card h3 .g-info .g-tip {
+  right: auto;
+  left: 0;
+}
+.institute-root .card h3 .g-info.flip .g-tip {
+  left: auto;
+  right: 0;
+}
+.institute-root .g-info:hover .g-tip,
+.institute-root .g-info:focus .g-tip {
   display: block;
 }
 .institute-root .up {
