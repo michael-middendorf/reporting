@@ -313,9 +313,10 @@ export default $config({
         INSTITUTE_FN_NAME: instituteData.name,
         HOUSING_PROCESS_FUNCTION: housingProcess.name,
         CHAPEL_NAMING_FN_NAME: chapelNaming.name,
-        CHAPEL_NAMING_CACHE_KEY: "chapel-naming/latest.json",
         ADVANCEMENT_OVERVIEW_FN_NAME: advancementOverview.name,
-        ADVANCEMENT_OVERVIEW_CACHE_KEY: "advancement-overview/latest.json",
+        // Cache keys stay as route defaults. Putting them on Web as well
+        // pushed Lambda env over the 4KB limit (SST deploy of #112 measured
+        // 4166 bytes). ECS reads the same S3 keys without these vars.
         MAGIC_NONCE_TABLE: magicNonceTableName,
         EMAIL_FROM:
           "AMU Project Manager <noreply@notifications.avemaria.edu>",

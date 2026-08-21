@@ -16,6 +16,7 @@ members = [
   "services/publishers/chapel-naming",
   "services/publishers/advancement-overview",
   "services/publishers/mgo-top-prospects",
+  "services/publishers/stained-glass-windows",
 ]
 
 [tool.uv]
