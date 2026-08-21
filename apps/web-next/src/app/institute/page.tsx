@@ -197,11 +197,31 @@ function InstituteDashboard() {
       <>Click a stage to filter · no prior-cycle enrollment data for {F.term || "this selection"} — marker = full goal.</>
     );
 
-  const gaugeDefs: { key: string; name: string; col: string }[] = [
-    { key: "applicants", name: "Applicants", col: COLORS.teal },
-    { key: "interviews", name: "Interviews", col: COLORS.blue },
-    { key: "accepted", name: "Accepted", col: COLORS.gold },
-    { key: "signed", name: "Signed", col: COLORS.green },
+  const gaugeDefs: { key: string; name: string; col: string; info: string }[] = [
+    {
+      key: "applicants",
+      name: "Applicants",
+      col: COLORS.teal,
+      info: "Institute applicants in the current filter. Click to clear a stage filter. Marker is the season goal times last year’s AMU enrollment pace by this date.",
+    },
+    {
+      key: "interviews",
+      name: "Interviews",
+      col: COLORS.blue,
+      info: "Institute applicants who have completed an Institute interview. Click to filter the dashboard to this stage.",
+    },
+    {
+      key: "accepted",
+      name: "Accepted",
+      col: COLORS.gold,
+      info: "Institute applicants who have been accepted to The Institute. Click to filter the dashboard to this stage.",
+    },
+    {
+      key: "signed",
+      name: "Signed",
+      col: COLORS.green,
+      info: "Institute applicants who have signed (committed). Click to filter the dashboard to this stage.",
+    },
   ];
   const gauges: GaugeVM[] = gaugeDefs.map((g) => {
     const c = cur[g.key as keyof typeof cur];
@@ -224,7 +244,7 @@ function InstituteDashboard() {
       sub =
         mp != null ? `goal ${goal} · ${Math.round(mp * 100)}% pace → ${Math.round(bench)}` : `goal ${goal}`;
     }
-    return { ...g, value: c, fillFrac, markerFrac, yoy, sub, on: F.stage === g.key };
+    return { ...g, value: c, fillFrac, markerFrac, yoy, sub, on: F.stage === g.key, info: g.info };
   });
   const onGauge = (key: string) =>
     setF({ ...F, stage: F.stage === key || key === "applicants" ? "" : key });
@@ -253,12 +273,44 @@ function InstituteDashboard() {
   /* ---------- applicant stats ---------- */
   const nScores = (k: keyof Applicant) => rows.filter((d) => d[k] != null).length;
   const statCells = [
-    { l: "GPA", v: avg(rows, "gpa", 2), n: "AMU recalc" },
-    { l: "SAT", v: avg(rows, "sat", 0), n: `${nScores("sat")} scores` },
-    { l: "ACT", v: avg(rows, "act", 0), n: `${nScores("act")} scores` },
-    { l: "CLT", v: avg(rows, "clt", 0), n: `${nScores("clt")} scores` },
-    { l: "Adm. Interview", v: avg(rows, "rating", 1), n: "avg rating" },
-    { l: "Institute Score", v: avg(rows, "score", 1), n: "avg total" },
+    {
+      l: "GPA",
+      v: avg(rows, "gpa", 2),
+      n: "AMU recalc",
+      info: "Average AMU-recalculated GPA among Institute applicants in the current filter who have a GPA.",
+    },
+    {
+      l: "SAT",
+      v: avg(rows, "sat", 0),
+      n: `${nScores("sat")} scores`,
+      info: "Average SAT among Institute applicants in the current filter who have an SAT score.",
+    },
+    {
+      l: "ACT",
+      v: avg(rows, "act", 0),
+      n: `${nScores("act")} scores`,
+      info: "Average ACT among Institute applicants in the current filter who have an ACT score.",
+      flip: true,
+    },
+    {
+      l: "CLT",
+      v: avg(rows, "clt", 0),
+      n: `${nScores("clt")} scores`,
+      info: "Average CLT among Institute applicants in the current filter who have a CLT score.",
+    },
+    {
+      l: "Adm. Interview",
+      v: avg(rows, "rating", 1),
+      n: "avg rating",
+      info: "Average Institute interview rating among applicants in the current filter who have a rating.",
+    },
+    {
+      l: "Institute Score",
+      v: avg(rows, "score", 1),
+      n: "avg total",
+      info: "Average Institute total score among applicants in the current filter who have a score.",
+      flip: true,
+    },
   ];
 
   /* ---------- bottleneck ---------- */
@@ -568,6 +620,10 @@ function InstituteDashboard() {
                   goals = placeholder
                 </span>
               ) : null}
+              <InfoTip
+                wide
+                text="Institute applicant funnel for the current filter. Dials are Applicants → Interviews → Accepted → Signed. Bars below also include Deposited. Click a dial to filter. Marker = season goal × last year’s AMU enrollment pace by this date."
+              />
             </h3>
             <div className="chint">{funnelIntro}</div>
             <div className="gauges">
@@ -583,6 +639,11 @@ function InstituteDashboard() {
               <span className="muted" style={{ fontWeight: 400 }}>
                 {F.term ? `· ${F.term}` : "· all terms"}
               </span>
+              <InfoTip
+                wide
+                flip
+                text="All Ave Maria University undergraduate applications, not just Institute. The donut is application type. Counts below are AMU apps, Institute applicants, the Institute prospect pool, and the broader AMU recruiting pipeline."
+              />
             </h3>
             <div className="chint">
               {ctxPrior
@@ -622,11 +683,18 @@ function InstituteDashboard() {
         <div className="section-title">The Institute — Applicants</div>
         <div className="grid">
           <div className="card span4">
-            <h3>Applicant Stats</h3>
+            <h3>
+              Applicant Stats
+              <InfoTip
+                wide
+                text="Averages across Institute applicants in the current filter. Hover the i on each tile for what that average includes."
+              />
+            </h3>
             <div className="chint">Averages across the current selection</div>
             <div className="statgrid">
               {statCells.map((c) => (
                 <div className="stat" key={c.l}>
+                  <InfoTip text={c.info} flip={c.flip} />
                   <div className="s-lbl">{c.l}</div>
                   <div className="s-val">{c.v == null ? "—" : c.v}</div>
                   <div className="s-n">{c.n}</div>
@@ -635,7 +703,13 @@ function InstituteDashboard() {
             </div>
           </div>
           <div className="card span4">
-            <h3>Pipeline Bottleneck</h3>
+            <h3>
+              Pipeline Bottleneck
+              <InfoTip
+                wide
+                text="Institute applicants in the current filter, grouped by Institute workflow stage (Needed, Scheduled, Completed, Denied, …). Click a stage to filter the rest of the dashboard."
+              />
+            </h3>
             <div className="chint">Applicants by stage · click a stage to filter</div>
             <Bottleneck
               items={bnItems}
@@ -647,7 +721,10 @@ function InstituteDashboard() {
           <div className="card span4">
             <div style={{ display: "flex", gap: 18 }}>
               <div style={{ flex: 1 }}>
-                <h3>Gender</h3>
+                <h3>
+                  Gender
+                  <InfoTip text="Institute applicants in the current filter, split by gender." />
+                </h3>
                 <div className="chint">Applicant split</div>
                 <Donut
                   items={genderItems}
@@ -655,14 +732,26 @@ function InstituteDashboard() {
                 />
               </div>
               <div style={{ flex: 1 }}>
-                <h3>Athletic</h3>
+                <h3>
+                  Athletic
+                  <InfoTip
+                    flip
+                    text="Institute applicants in the current filter, split by athlete vs non-athlete."
+                  />
+                </h3>
                 <div className="chint">Athlete vs not</div>
                 <Donut items={athItems} />
               </div>
             </div>
           </div>
           <div className="card span4">
-            <h3>Applicants by Sport</h3>
+            <h3>
+              Applicants by Sport
+              <InfoTip
+                wide
+                text="Institute athlete applicants in the current filter, grouped by sport. Click a sport to filter. Non-athletes are excluded from this chart."
+              />
+            </h3>
             <div className="chint">Athlete applicants · click to filter</div>
             <Bars
               items={sportItems}
@@ -671,7 +760,13 @@ function InstituteDashboard() {
             />
           </div>
           <div className="card span5">
-            <h3>Top States</h3>
+            <h3>
+              Top States
+              <InfoTip
+                wide
+                text="Institute applicants in the current filter, grouped by home state (top 12). Click a state to filter."
+              />
+            </h3>
             <div className="chint">Applicant home state · click to filter</div>
             <Bars
               items={stateItems}
@@ -680,7 +775,14 @@ function InstituteDashboard() {
             />
           </div>
           <div className="card span3">
-            <h3>Institute Score</h3>
+            <h3>
+              Institute Score
+              <InfoTip
+                wide
+                flip
+                text="Distribution of Institute total score (or interview rating, if few scores are present) for applicants in the current filter. Scale is 0–30."
+              />
+            </h3>
             <div className="chint">{scoreLabel}</div>
             <Histogram vals={scoreVals} lo={0} hi={30} bins={30} />
           </div>
@@ -696,6 +798,10 @@ function InstituteDashboard() {
                 <span className="muted" style={{ fontWeight: 400 }}>
                   — {(RECR.count ?? 0).toLocaleString()} in workflow
                 </span>
+                <InfoTip
+                  wide
+                  text="Fall 2027 recruiting-calls workflow. Three season goals with a calendar target-to-date marker. Hover each dial’s i for the exact count. This is not the Institute applicant funnel above."
+                />
               </h3>
               <div className="chint">
                 Season goals for the recruiting calls campaigns · marker = target-to-date on the FA27
@@ -762,17 +868,34 @@ function InstituteDashboard() {
           <div className="card span5">
             <h3>
               Communications by Month <span className="muted">— {Q5.length}</span>
+              <InfoTip
+                wide
+                text="Logged recruiting interactions (calls, emails, visits, …) from the engagement query, counted by month of the interaction date."
+              />
             </h3>
             <div className="chint">Recruiting interactions logged over time</div>
             <ColChart items={monthChart} />
           </div>
           <div className="card span3">
-            <h3>By Type</h3>
+            <h3>
+              By Type
+              <InfoTip
+                flip
+                text="Same recruiting interactions as the month chart, grouped by interaction category (code)."
+              />
+            </h3>
             <div className="chint">Interaction category</div>
             {typeItems.length ? <Donut items={typeItems} /> : <div className="empty">No data</div>}
           </div>
           <div className="card span4">
-            <h3>Recent Activity</h3>
+            <h3>
+              Recent Activity
+              <InfoTip
+                wide
+                flip
+                text="Most recent logged recruiting interactions, newest first. Each row is a summary, date, user, and person ID."
+              />
+            </h3>
             <div className="chint">Latest logged interactions</div>
             <Feed rows={feedRows} />
           </div>
@@ -783,6 +906,10 @@ function InstituteDashboard() {
           <div className="thead-row">
             <h3 style={{ margin: 0 }}>
               Applicants <span className="muted">— {rows.length} shown</span>
+              <InfoTip
+                wide
+                text="Institute applicant roster for the current filter. Click a column header to sort. FERPA-protected — authorized staff only."
+              />
             </h3>
             <span className="ferpa">🔒 FERPA — authorized staff only · do not share externally</span>
           </div>

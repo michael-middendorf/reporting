@@ -369,6 +369,10 @@
   left: auto;
   right: 0;
 }
+.institute-root .g-info:hover,
+.institute-root .g-info:focus {
+  z-index: 6;
+}
 .institute-root .g-info:hover .g-tip,
 .institute-root .g-info:focus .g-tip {
   display: block;
@@ -614,11 +618,20 @@
   margin-top: 4px;
 }
 .institute-root .stat {
+  position: relative;
   background: #f7fafb;
   border: 1px solid var(--line);
   border-radius: 11px;
   padding: 11px 12px;
   text-align: center;
+}
+.institute-root .stat .g-info {
+  top: 4px;
+  right: 4px;
+}
+.institute-root .stat .g-info.flip .g-tip {
+  left: auto;
+  right: 0;
 }
 .institute-root .stat .s-lbl {
   font-size: 10px;

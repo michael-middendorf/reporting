@@ -247,6 +247,7 @@ export function InfoTip({
       className={`g-info${wide ? " wide" : ""}${flip ? " flip" : ""}`}
       tabIndex={0}
       aria-label={text}
+      onClick={(e) => e.stopPropagation()}
     >
       i<span className="g-tip">{text}</span>
     </span>
