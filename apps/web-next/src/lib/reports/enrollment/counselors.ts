@@ -1,7 +1,6 @@
 /** Current undergraduate admissions counselors (Slate AC usernames). */
 export const UG_COUNSELOR_SHORT: Record<string, string> = {
   "abel.cordero": "Abel C",
-  "annie.esposito": "Annie E",
   "caroline.g.savoie": "Caroline S",
   "christine.m.gulas": "Christine G",
   "lillian.doyle": "Lillian D",
