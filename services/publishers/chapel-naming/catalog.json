@@ -6,8 +6,7 @@
     "itemAmount": 3000000,
     "fundingRequest": 3000000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Good"
+    "setNote": null
   },
   {
     "item": "Chapel & Chapel Grounds Maintenance",
@@ -16,8 +15,7 @@
     "itemAmount": 720000,
     "fundingRequest": 720000,
     "type": "Endowment",
-    "setNote": null,
-    "constructionNotes": "This would be nice."
+    "setNote": null
   },
   {
     "item": "Stations of the Cross 14",
@@ -26,8 +24,7 @@
     "itemAmount": 630000,
     "fundingRequest": 630000,
     "type": null,
-    "setNote": 14,
-    "constructionNotes": "Good"
+    "setNote": 14
   },
   {
     "item": "Flooring",
@@ -36,8 +33,7 @@
     "itemAmount": 500000,
     "fundingRequest": 500000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Good"
+    "setNote": null
   },
   {
     "item": "Organ",
@@ -46,8 +42,7 @@
     "itemAmount": 525000,
     "fundingRequest": 525000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Good"
+    "setNote": null
   },
   {
     "item": "Piazza",
@@ -56,8 +51,7 @@
     "itemAmount": 400000,
     "fundingRequest": 400000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "The collonade around the courtyard?"
+    "setNote": null
   },
   {
     "item": "Archway Leading to Chapel",
@@ -66,8 +60,7 @@
     "itemAmount": 250000,
     "fundingRequest": 250000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "There are two covered access points to the courtyard, north and south.  Could be these."
+    "setNote": null
   },
   {
     "item": "Garden of the Saints",
@@ -76,8 +69,7 @@
     "itemAmount": 250000,
     "fundingRequest": 250000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "This is going to be a $1M project."
+    "setNote": null
   },
   {
     "item": "Road Leading to Chapel",
@@ -86,8 +78,7 @@
     "itemAmount": 250000,
     "fundingRequest": 250000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Not sure what this is."
+    "setNote": null
   },
   {
     "item": "Choir Loft",
@@ -96,8 +87,7 @@
     "itemAmount": 200000,
     "fundingRequest": 200000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Good"
+    "setNote": null
   },
   {
     "item": "Blessed Mother Statue",
@@ -106,8 +96,7 @@
     "itemAmount": 200000,
     "fundingRequest": 200000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Mary, Mother of the Eucharist (Alles) statue?  If so, a little less than we are spending."
+    "setNote": null
   },
   {
     "item": "St. Peter Status & Fountain",
@@ -116,8 +105,7 @@
     "itemAmount": 200000,
     "fundingRequest": 200000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Good--it in is current design in courtyard."
+    "setNote": null
   },
   {
     "item": "Hymnals",
@@ -126,8 +114,7 @@
     "itemAmount": 150000,
     "fundingRequest": 150000,
     "type": "Endowment",
-    "setNote": null,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": null
   },
   {
     "item": "Prayer Books",
@@ -136,8 +123,7 @@
     "itemAmount": 150000,
     "fundingRequest": 150000,
     "type": "Endowment",
-    "setNote": null,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": null
   },
   {
     "item": "Altar",
@@ -146,8 +132,7 @@
     "itemAmount": 125000,
     "fundingRequest": 125000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Good"
+    "setNote": null
   },
   {
     "item": "Narthex",
@@ -156,8 +141,7 @@
     "itemAmount": 125000,
     "fundingRequest": 125000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Good"
+    "setNote": null
   },
   {
     "item": "Rose Window",
@@ -166,8 +150,7 @@
     "itemAmount": 125000,
     "fundingRequest": 125000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Good"
+    "setNote": null
   },
   {
     "item": "Annual Chapel Supplied",
@@ -176,8 +159,7 @@
     "itemAmount": 100000,
     "fundingRequest": 100000,
     "type": "Endowment",
-    "setNote": null,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": null
   },
   {
     "item": "Audio/Video and Sound Equipment",
@@ -186,8 +168,7 @@
     "itemAmount": 100000,
     "fundingRequest": 100000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "We are spending a bit more than this but good."
+    "setNote": null
   },
   {
     "item": "Communion Rail",
@@ -196,8 +177,7 @@
     "itemAmount": 95000,
     "fundingRequest": 95000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Good"
+    "setNote": null
   },
   {
     "item": "Cross on Roof",
@@ -206,8 +186,7 @@
     "itemAmount": 75000,
     "fundingRequest": 75000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Good"
+    "setNote": null
   },
   {
     "item": "Crucifix Behind Altar",
@@ -216,8 +195,7 @@
     "itemAmount": 75000,
     "fundingRequest": 75000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Good"
+    "setNote": null
   },
   {
     "item": "Sacristy",
@@ -226,8 +204,7 @@
     "itemAmount": 75000,
     "fundingRequest": 75000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Good"
+    "setNote": null
   },
   {
     "item": "Altar of Repose",
@@ -236,8 +213,7 @@
     "itemAmount": 50000,
     "fundingRequest": 50000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Good"
+    "setNote": null
   },
   {
     "item": "Bell in Tower",
@@ -246,8 +222,7 @@
     "itemAmount": 50000,
     "fundingRequest": 50000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Good"
+    "setNote": null
   },
   {
     "item": "Campus Ministry Office",
@@ -256,8 +231,7 @@
     "itemAmount": 50000,
     "fundingRequest": 50000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Could call one of the offices this."
+    "setNote": null
   },
   {
     "item": "Clergy Office",
@@ -266,8 +240,7 @@
     "itemAmount": 50000,
     "fundingRequest": 50000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Not sure if there will be dedicated clergy office among the two offices."
+    "setNote": null
   },
   {
     "item": "Mary's Garden",
@@ -276,8 +249,7 @@
     "itemAmount": 50000,
     "fundingRequest": 50000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "This will be in garden behind sanctuary."
+    "setNote": null
   },
   {
     "item": "Monstrance",
@@ -286,8 +258,7 @@
     "itemAmount": 50000,
     "fundingRequest": 50000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": null
   },
   {
     "item": "Tabernacle",
@@ -296,8 +267,7 @@
     "itemAmount": 50000,
     "fundingRequest": 50000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Good"
+    "setNote": null
   },
   {
     "item": "Entrance Door to Chapel",
@@ -306,8 +276,7 @@
     "itemAmount": 40000,
     "fundingRequest": 80000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Good"
+    "setNote": null
   },
   {
     "item": "Ambo",
@@ -316,8 +285,7 @@
     "itemAmount": 25000,
     "fundingRequest": 25000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Good"
+    "setNote": null
   },
   {
     "item": "Bench At Bell Tower",
@@ -326,8 +294,7 @@
     "itemAmount": 25000,
     "fundingRequest": 75000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Not sure if there will be a bench there."
+    "setNote": null
   },
   {
     "item": "Posts/Columns",
@@ -336,8 +303,7 @@
     "itemAmount": 25000,
     "fundingRequest": 500000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Where?  In collonade?"
+    "setNote": null
   },
   {
     "item": "Small Stained Glass Window",
@@ -346,8 +312,7 @@
     "itemAmount": 25000,
     "fundingRequest": 300000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Need details here."
+    "setNote": null
   },
   {
     "item": "Confessional",
@@ -356,8 +321,7 @@
     "itemAmount": 20000,
     "fundingRequest": 80000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "There are now 2 large confessionals as opposed to 4 small ones."
+    "setNote": null
   },
   {
     "item": "Bench Exterior",
@@ -366,8 +330,7 @@
     "itemAmount": 15000,
     "fundingRequest": 90000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Not sure if there will be benches anywhere."
+    "setNote": null
   },
   {
     "item": "Sanctuary Lamp",
@@ -376,8 +339,7 @@
     "itemAmount": 15000,
     "fundingRequest": 15000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Good"
+    "setNote": null
   },
   {
     "item": "Pew",
@@ -386,8 +348,7 @@
     "itemAmount": 10000,
     "fundingRequest": 340000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Good"
+    "setNote": null
   },
   {
     "item": "Tree",
@@ -396,8 +357,7 @@
     "itemAmount": 2500,
     "fundingRequest": 125000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Will have to coordinate with landscape design."
+    "setNote": null
   },
   {
     "item": "Chalices & Patens for Priests",
@@ -406,8 +366,7 @@
     "itemAmount": 10000,
     "fundingRequest": 100000,
     "type": null,
-    "setNote": 10,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": 10
   },
   {
     "item": "Processional Crucifix & Stand",
@@ -416,8 +375,7 @@
     "itemAmount": 10000,
     "fundingRequest": 10000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": null
   },
   {
     "item": "Altar Candle Sticks",
@@ -426,8 +384,7 @@
     "itemAmount": 9000,
     "fundingRequest": 9000,
     "type": null,
-    "setNote": 6,
-    "constructionNotes": "Don't we have new ones at OLG?"
+    "setNote": 6
   },
   {
     "item": "Ciboria for Hosts",
@@ -436,8 +393,7 @@
     "itemAmount": 8000,
     "fundingRequest": 8000,
     "type": null,
-    "setNote": 4,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": 4
   },
   {
     "item": "Holy Water Fonts",
@@ -446,8 +402,7 @@
     "itemAmount": 7500,
     "fundingRequest": 7500,
     "type": null,
-    "setNote": 2,
-    "constructionNotes": "Good"
+    "setNote": 2
   },
   {
     "item": "Thurible, Censer & Boat for Incense",
@@ -456,8 +411,7 @@
     "itemAmount": 7500,
     "fundingRequest": 7500,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": null
   },
   {
     "item": "Processional Torches",
@@ -466,8 +420,7 @@
     "itemAmount": 6000,
     "fundingRequest": 6000,
     "type": null,
-    "setNote": 6,
-    "constructionNotes": "Don\u2019t we have new ones at OLG?  Campus ministry."
+    "setNote": 6
   },
   {
     "item": "Altar Clothes & Linens (Seasonal)",
@@ -476,8 +429,7 @@
     "itemAmount": 5000,
     "fundingRequest": 5000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": null
   },
   {
     "item": "Chalices for Deacons",
@@ -486,8 +438,7 @@
     "itemAmount": 5000,
     "fundingRequest": 15000,
     "type": null,
-    "setNote": 3,
-    "constructionNotes": "Deacons?"
+    "setNote": 3
   },
   {
     "item": "Presider's Chair",
@@ -496,8 +447,7 @@
     "itemAmount": 5000,
     "fundingRequest": 5000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Good"
+    "setNote": null
   },
   {
     "item": "Processional Candlesticks",
@@ -506,8 +456,7 @@
     "itemAmount": 5000,
     "fundingRequest": 5000,
     "type": null,
-    "setNote": 2,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": 2
   },
   {
     "item": "Holy Water Pot & Sprinkler",
@@ -516,8 +465,7 @@
     "itemAmount": 3500,
     "fundingRequest": 3500,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": null
   },
   {
     "item": "Chasuble, Dalmic & Stole in Blue (10)",
@@ -526,8 +474,7 @@
     "itemAmount": 2500,
     "fundingRequest": 25000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": null
   },
   {
     "item": "Chasuble, Dalmic & Stole in Green (10)",
@@ -536,8 +483,7 @@
     "itemAmount": 2500,
     "fundingRequest": 25000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": null
   },
   {
     "item": "Chasuble, Dalmic & Stole in Gold (10)",
@@ -546,8 +492,7 @@
     "itemAmount": 2500,
     "fundingRequest": 25000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": null
   },
   {
     "item": "Chasuble, Dalmic & Stole in Purple (10)",
@@ -556,8 +501,7 @@
     "itemAmount": 2500,
     "fundingRequest": 25000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": null
   },
   {
     "item": "Chasuble, Dalmic & Stole in Red (10)",
@@ -566,8 +510,7 @@
     "itemAmount": 2500,
     "fundingRequest": 25000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": null
   },
   {
     "item": "Chasuble, Dalmic & Stole in Rose (10)",
@@ -576,8 +519,7 @@
     "itemAmount": 2500,
     "fundingRequest": 25000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": null
   },
   {
     "item": "Chasuble, Dalmic & Stole in White (10)",
@@ -586,8 +528,7 @@
     "itemAmount": 2500,
     "fundingRequest": 25000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": null
   },
   {
     "item": "Chasuble, Dalmic & Stole in Black (10)",
@@ -596,8 +537,7 @@
     "itemAmount": 2500,
     "fundingRequest": 25000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": null
   },
   {
     "item": "Cruets (Tray) & Lavabo Set",
@@ -606,8 +546,7 @@
     "itemAmount": 2500,
     "fundingRequest": 2500,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": null
   },
   {
     "item": "Pyx",
@@ -616,8 +555,7 @@
     "itemAmount": 2500,
     "fundingRequest": 2500,
     "type": null,
-    "setNote": 10,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": 10
   },
   {
     "item": "Deacon's Chair",
@@ -626,8 +564,7 @@
     "itemAmount": 2000,
     "fundingRequest": 6000,
     "type": null,
-    "setNote": 3,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": 3
   },
   {
     "item": "Altar Bells",
@@ -636,8 +573,7 @@
     "itemAmount": 1500,
     "fundingRequest": 1500,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": null
   },
   {
     "item": "Amice, Alb & Cincture",
@@ -646,8 +582,7 @@
     "itemAmount": 1250,
     "fundingRequest": 16250,
     "type": null,
-    "setNote": 13,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": 13
   },
   {
     "item": "Acolyte Chairs",
@@ -656,8 +591,7 @@
     "itemAmount": 1000,
     "fundingRequest": 4000,
     "type": null,
-    "setNote": 4,
-    "constructionNotes": "Sanctuary chairs?  For servers?  Might have benches"
+    "setNote": 4
   },
   {
     "item": "Dalmatic & Stole for Deacon",
@@ -666,8 +600,7 @@
     "itemAmount": 1000,
     "fundingRequest": 30000,
     "type": null,
-    "setNote": 30,
-    "constructionNotes": "Consult Campus Ministry"
+    "setNote": 30
   },
   {
     "item": "Mary's Garden Landscape",
@@ -676,8 +609,7 @@
     "itemAmount": 200000,
     "fundingRequest": 200000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Not sure what this is as opposed to Mary's Garden."
+    "setNote": null
   },
   {
     "item": "Our Lady of Champion Sculpture",
@@ -686,7 +618,6 @@
     "itemAmount": 100000,
     "fundingRequest": 100000,
     "type": null,
-    "setNote": null,
-    "constructionNotes": "Not sure where this is going--not on current plans.  Could be in Garden of the Saints. Mark has mentioned putting this on the pathway from parking lot to south paver entrance."
+    "setNote": null
   }
 ]

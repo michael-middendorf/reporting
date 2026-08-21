@@ -48,12 +48,6 @@
 .cn-pill.unfunded { background: var(--ac-raised); color: var(--ac-dim); }
 .cn-pill.extra { background: #eef2f8; color: #4a6490; margin-left: 8px; }
 
-.cn-notes {
-  max-width: 280px;
-  color: var(--ac-dim);
-  font-size: 12px;
-  line-height: 1.35;
-}
 .cn-expand {
   background: none;
   border: 0;
