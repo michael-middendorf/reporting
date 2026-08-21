@@ -685,46 +685,57 @@ function InstituteDashboard() {
           </div>
         </div>
 
-        {/* ---------- recruiting & prospects ---------- */}
-        <div className="section-title">Recruiting &amp; Prospects</div>
+        {/* ---------- recruiting calls workflow KPIs (q7) ---------- */}
         {recruitingGauges.length ? (
-          <div className="card">
-            <h3>
-              Recruiting Calls Workflow — FA27 KPIs{" "}
-              <span className="muted" style={{ fontWeight: 400 }}>
-                — {(RECR.count ?? 0).toLocaleString()} in workflow
-              </span>
-            </h3>
-            <div className="chint">
-              Season goals for the recruiting calls campaigns · marker = target-to-date on the FA27
-              schedule{RECR.asOf ? ` (as of ${RECR.asOf})` : ""} · hover the “i” on each dial for
-              exactly what it counts.
+          <>
+            <div className="section-title">Recruiting Calls Workflow</div>
+            <div className="card">
+              <h3>
+                FA27 KPIs{" "}
+                <span className="muted" style={{ fontWeight: 400 }}>
+                  — {(RECR.count ?? 0).toLocaleString()} in workflow
+                </span>
+              </h3>
+              <div className="chint">
+                Season goals for the recruiting calls campaigns · marker = target-to-date on the FA27
+                schedule{RECR.asOf ? ` (as of ${RECR.asOf})` : ""} · hover the “i” on each dial for
+                exactly what it counts.
+              </div>
+              <div className="gauges g3">
+                {recruitingGauges.map((g) => (
+                  <Gauge key={g.key} g={g} />
+                ))}
+              </div>
             </div>
-            <div className="gauges g3">
-              {recruitingGauges.map((g) => (
-                <Gauge key={g.key} g={g} />
-              ))}
-            </div>
-          </div>
+          </>
         ) : null}
+
+        {/* ---------- AMU pipeline & prospects (separate from the calls workflow) ---------- */}
+        <div className="section-title">AMU Pipeline &amp; Prospects</div>
         <div className="grid">
           <div className="card span4">
             <h3>
-              Recruiting Pipeline <span className="muted">— {Q3.length}</span>
+              AMU Undergraduate Pipeline <span className="muted">— {Q3.length}</span>
             </h3>
-            <div className="chint">Undergraduate bin (broader admit pipeline)</div>
+            <div className="chint">
+              Broader AMU admissions bins (Awaiting Interview, Award, Deposited, …) — not the
+              recruiting-calls workflow.
+            </div>
             <Bars items={recItems} colorMap={(k) => binColor(k)} />
           </div>
           <div className="card span4">
             <h3>
               Prospect Pool <span className="muted">— {(Q2S.total || 0).toLocaleString()}</span>
             </h3>
-            <div className="chint">Top-of-funnel Institute prospects — top states</div>
+            <div className="chint">Top-of-funnel Institute prospects by home state</div>
             <Bars items={proItems} />
           </div>
           <div className="card span4">
-            <h3>Pipeline History</h3>
-            <div className="chint">Current bin occupancy (Institute workflow)</div>
+            <h3>Institute Applicant Bins</h3>
+            <div className="chint">
+              Current occupancy of the Institute applicant workflow (Needed, Scheduled, Completed,
+              Denied, …) — not the recruiting-calls workflow.
+            </div>
             <Bars items={histItems} colorMap={(k) => binColor(k)} />
           </div>
         </div>
