@@ -12,7 +12,8 @@ Remote: https://github.com/colecantu904/reporting
 | `/enrollment` | Admissions enrollment dashboard |
 | `/housing` | Housing occupancy, floor maps, move-ins, verification |
 | `/institute` | The Institute admissions pipeline |
-| `/advancement` | Advancement folder (Annunciation Circle, Chapel Naming Opportunities) |
+| `/advancement` | Advancement folder (Overview, Annunciation Circle, Chapel Naming Opportunities) |
+| `/advancement/overview` | FY 2025-26 Advancement Overview (fundraising, MGO goals, pipeline) |
 | `/advancement/chapel-naming` | Chapel naming opportunities (Virtuous gifts + naming catalog) |
 | `/mas` | MA follow-on giving |
 | `/points` | MA points / productivity |

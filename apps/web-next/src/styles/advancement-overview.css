@@ -1,0 +1,68 @@
+.ao-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.ao-kpi {
+  background: var(--ac-card);
+  border: 1px solid var(--ac-border);
+  border-radius: 12px;
+  box-shadow: var(--ac-shadow);
+  padding: 16px 18px;
+}
+.ao-kpi-label {
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ac-dim);
+}
+.ao-kpi-value {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--ac-gold);
+  line-height: 1.15;
+  margin: 8px 0 10px;
+}
+.ao-meter {
+  height: 8px;
+  background: var(--ac-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.ao-meter > span {
+  display: block;
+  height: 100%;
+  background: var(--ac-gold);
+}
+.ao-kpi-sub {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ac-dim);
+}
+.ao-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+@media (min-width: 960px) {
+  .ao-grid { grid-template-columns: 1fr 1fr; }
+}
+.ao-panel {
+  background: var(--ac-card);
+  border: 1px solid var(--ac-border);
+  border-radius: 12px;
+  box-shadow: var(--ac-shadow);
+  padding: 16px 18px 8px;
+}
+.ao-panel h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  font-weight: normal;
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--ac-border);
+}
+.ao-wide { grid-column: 1 / -1; }
+.ao-neg { color: #8a2c20; }
+.ao-pos { color: #2f6b3a; }

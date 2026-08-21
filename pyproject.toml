@@ -14,6 +14,7 @@ members = [
   "services/publishers/institute",
   "services/publishers/annunciation",
   "services/publishers/chapel-naming",
+  "services/publishers/advancement-overview",
 ]
 
 [tool.uv]
