@@ -29,6 +29,7 @@ export default function EnrollmentHubPage() {
   const label = cycle === "fa26" ? "FA26" : "FA27";
   const vs = cycle === "fa26" ? "FA25" : "FA26";
   const pswTerms = Object.entries(data.psw);
+  const wd = cycle === "fa26" ? data.withdrawn.fa26 : data.withdrawn.fa27;
 
   return (
     <div className="view active">
@@ -194,19 +195,19 @@ export default function EnrollmentHubPage() {
         </Link>
         <Link href="/enrollment/withdrawals" className="card" style={{ ["--c" as string]: "var(--red)" }}>
           <div className="card-title">Withdrawals</div>
-          <div className="card-desc">Withdrawn applications by type and counselor.</div>
+          <div className="card-desc">Deposited and deferred students who withdrew.</div>
           <div className="krow k3">
             <div className="ks">
-              <div className="kn">{fmt(data.withdrawn.total)}</div>
-              <div className="kl">Total</div>
+              <div className="kn">{fmt(wd.deposits.total)}</div>
+              <div className="kl">Withdrawn deposits</div>
             </div>
             <div className="ks">
-              <div className="kn">{fmt(data.withdrawn.postAccept)}</div>
-              <div className="kl">Post-accept</div>
+              <div className="kn">{fmt(wd.deferred.total)}</div>
+              <div className="kl">Withdrawn deferred</div>
             </div>
             <div className="ks">
-              <div className="kn">{fmt(data.withdrawn.noDecision)}</div>
-              <div className="kl">No decision</div>
+              <div className="kn">{fmt(wd.deposits.total + wd.deferred.total)}</div>
+              <div className="kl">Deposits + deferred</div>
             </div>
           </div>
           <div className="card-foot">

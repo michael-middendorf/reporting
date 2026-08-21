@@ -5,15 +5,15 @@ import {
   _procCampus,
   _procPSW,
   _procSLC,
-  _procWD,
 } from "./process.js";
+import { processWithdrawals, type WithdrawnBundle } from "./withdrawals";
 
 export type EnrollmentBundle = {
   generatedAt?: string;
   admissions: ReturnType<typeof _procAdm>;
   psw: ReturnType<typeof _procPSW>;
   slc: ReturnType<typeof _procSLC>;
-  withdrawn: ReturnType<typeof _procWD>;
+  withdrawn: WithdrawnBundle;
   campus: ReturnType<typeof _procCampus>;
 };
 
@@ -51,7 +51,7 @@ export async function loadEnrollmentBundle(): Promise<EnrollmentBundle> {
     admissions: _procAdm(admRows, session.generated_at),
     psw: _procPSW(pswRows),
     slc: _procSLC(slcRows),
-    withdrawn: _procWD(wdRows),
+    withdrawn: processWithdrawals(wdRows, admRows),
     campus: _procCampus(campusRows),
   };
 }

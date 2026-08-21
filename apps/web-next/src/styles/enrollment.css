@@ -212,3 +212,18 @@ tr:hover td{background:#F5F8FD}
 @media (max-width:1100px){
   .fall-three,.fall-two{grid-template-columns:1fr}
 }
+
+/* ── Withdrawals ─────────────────── */
+.wd-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:4px 0 16px}
+.wd-seg{display:inline-flex;border:1px solid var(--bdr);border-radius:6px;overflow:hidden;background:#fff}
+.wd-seg-btn{background:none;border:none;border-right:1px solid var(--bdr);padding:6px 12px;font-size:12px;font-weight:700;color:var(--t2);cursor:pointer;font-family:inherit}
+.wd-seg-btn:last-child{border-right:none}
+.wd-seg-btn.on{background:var(--blue);color:#fff}
+.wd-seg-btn:hover:not(.on){background:var(--pale);color:var(--blue)}
+.wd-search{flex:1;min-width:180px;border:1px solid var(--bdr);border-radius:6px;padding:7px 11px;font-size:13px;font-family:inherit;color:var(--t1);outline:none}
+.wd-search:focus{border-color:var(--blue-lt)}
+.wd-th{background:none;border:none;padding:0;font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer;font-weight:800}
+.wd-th:hover{color:var(--blue)}
+@media (max-width:720px){
+  .cols2{grid-template-columns:1fr}
+}

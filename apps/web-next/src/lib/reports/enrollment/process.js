@@ -293,20 +293,6 @@ export function _procSLC(rows) {
   };
 }
 
-export function _procWD(rows) {
-  const byAC = {};
-  rows.forEach(r => {
-    const ac = r.ACAssignment || '';
-    byAC[ac] = (byAC[ac] || 0) + 1;
-  });
-  return {
-    total: rows.length,
-    noDecision: rows.filter(r => r.WithdrawnType === 'Withdrawn No Decision').length,
-    postAccept: rows.filter(r => r.WithdrawnType === 'Withdrawn Accepted').length,
-    byAC, rows,
-  };
-}
-
 export function _procCampus(rows) {
   return {
     total: rows.length,
