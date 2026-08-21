@@ -4,11 +4,14 @@ import {
   MEN_HALLS,
   MELT,
   RET,
-  ROME,
   WOMEN_HALLS,
   hallCap,
   hallResidents,
   isAbroad,
+  isCommuter,
+  isIreland,
+  isRome,
+  isUnassigned,
   pct,
   possibleCommuters,
   remainingMelt,
@@ -72,28 +75,36 @@ export function Overview({
   const pIncM = Math.max(0, incM - remM);
   const retW = ret.filter((r) => secOf(r.building) === "w").length;
   const retM = ret.filter((r) => secOf(r.building) === "m").length;
-  const abrW = ret.filter((r) => isAbroad(r.building) && r.gender === "F").length;
-  const abrM = ret.filter((r) => isAbroad(r.building) && r.gender === "M").length;
+  const abroad = ret.filter((r) => isAbroad(r.building) || isRome(r));
+  const abrW = abroad.filter((r) => r.gender === "F").length;
+  const abrM = abroad.filter((r) => r.gender === "M").length;
   const projW = Math.round((ELIG.w * RET.w) / 100);
   const projM = Math.round((ELIG.m * RET.m) / 100);
   const com = possibleCommuters(inc);
   const comW = com.filter((r) => r.gender === "F").length;
   const comM = com.filter((r) => r.gender === "M").length;
 
-  const ireland = studyAbroad?.total ?? residents.filter((r) => isAbroad(r.building)).length;
+  const ireland = studyAbroad?.total ?? residents.filter((r) => isIreland(r.building)).length;
   const cia = studyAbroad?.houses?.CIARA ?? residents.filter((r) => r.building === "CIARA").length;
   const mal = studyAbroad?.houses?.MALAC ?? residents.filter((r) => r.building === "MALAC").length;
+  const romeRows = residents.filter(isRome);
+  const rome = romeRows.length;
+  const irelandRows = residents.filter((r) => isIreland(r.building));
+  const commuterRows = residents.filter(isCommuter);
+  const mbkRows = residents.filter((r) => r.building === "MBK");
+  const unassignedRows = residents.filter(isUnassigned);
 
   const gsub = (rows: Resident[]) =>
     `${rows.filter((r) => r.gender === "F").length} W · ${rows.filter((r) => r.gender === "M").length} M`;
   const halls = residents.filter((r) => secOf(r.building));
   const segs = [
     { t: "In residence halls", n: halls.length, sub: gsub(halls), c: "#1B5EA8" },
-    { t: "Middle Brook", n: residents.filter((r) => r.building === "MBK").length, sub: gsub(residents.filter((r) => r.building === "MBK")), c: "#B8892A" },
-    { t: "Commuters", n: residents.filter((r) => r.building === "Commuter").length, sub: gsub(residents.filter((r) => r.building === "Commuter")), c: "#1F6B42" },
-    { t: "Study abroad · Ireland", n: residents.filter((r) => isAbroad(r.building)).length, sub: gsub(residents.filter((r) => isAbroad(r.building))), c: "#943060" },
-    { t: "Not yet assigned", n: residents.filter((r) => !r.building).length, sub: gsub(residents.filter((r) => !r.building)), c: "#9AAAC6" },
-  ];
+    { t: "Study abroad · Ireland", n: irelandRows.length, sub: gsub(irelandRows), c: "#943060" },
+    { t: "Study abroad · Rome", n: rome, sub: gsub(romeRows), c: "#6B3FA0" },
+    { t: "Middle Brook", n: mbkRows.length, sub: gsub(mbkRows), c: "#B8892A" },
+    { t: "Commuters", n: commuterRows.length, sub: gsub(commuterRows), c: "#1F6B42" },
+    { t: "Not yet assigned", n: unassignedRows.length, sub: gsub(unassignedRows), c: "#9AAAC6" },
+  ].filter((s) => s.n > 0);
   const totalSeg = segs.reduce((a, s) => a + s.n, 0) || 1;
 
   const hallRow = (label: string, codes: string[], cls: string, rem: number) => {
@@ -129,7 +140,7 @@ export function Overview({
             <div><div className={styles.k}>Women</div><div className={`${styles.v} ${styles.cw}`}>{capW}</div></div>
             <div><div className={styles.k}>Men</div><div className={`${styles.v} ${styles.cm}`}>{capM}</div></div>
           </div>
-          <div className={styles.cnote}><span>Overseas (not for placement)</span><span>Ireland {ireland} · Rome {ROME}</span></div>
+          <div className={styles.cnote}><span>Overseas (not for placement)</span><span>Ireland {ireland} · Rome {rome}</span></div>
         </div>
         <div className={styles.pcard}>
           <div className={styles.lab}>Current Fill</div>
@@ -174,15 +185,15 @@ export function Overview({
           </div>
         </div>
         <div className={styles.pcard}>
-          <div className={styles.lab}>Study Abroad · Ireland</div>
-          <div className={`${styles.big} ${styles.good}`}>{ireland}</div>
+          <div className={styles.lab}>Study Abroad · eRez</div>
+          <div className={`${styles.big} ${styles.good}`}>{(ireland + rome).toLocaleString()}</div>
           <div className={styles.split}>
-            <div><div className={styles.k}>CIARA</div><div className={styles.v}>{cia}</div></div>
-            <div><div className={styles.k}>MALAC</div><div className={styles.v}>{mal}</div></div>
+            <div><div className={styles.k}>Ireland</div><div className={styles.v}>{ireland}</div></div>
+            <div><div className={styles.k}>Rome</div><div className={styles.v}>{rome}</div></div>
           </div>
           <div className={styles.cnote}>
-            <span>{studyAbroad?.stale ? "eRez (cached)" : "eRezLife live"}</span>
-            <span>{studyAbroad?.cached_at || ""}</span>
+            <span>CIARA {cia} · MALAC {mal}</span>
+            <span>{studyAbroad?.cached_at || cachedAt || ""}</span>
           </div>
         </div>
       </div>
@@ -251,7 +262,7 @@ export function Overview({
         <div className={styles.panel} style={{ marginTop: 0 }}>
           <div className={styles.ph}>
             <span className={styles.pt}>Incoming Freshmen</span>
-            <span className={styles.pb}>In Halls · Goal · vs Goal · Predicted</span>
+            <span className={styles.pb}>eRez assignments in halls · Goal · vs Goal · Predicted</span>
           </div>
           <table className={styles.table}>
             <thead><tr><th /><th>In Halls</th><th>Goal</th><th>vs Goal</th><th>Predicted</th></tr></thead>
@@ -279,10 +290,12 @@ export function Overview({
       </div>
 
       <div className={styles.srcnote}>
-        <b>Live from eRezLife</b> — occupancy, fill %, beds open, incoming/returner splits and Ireland counts
-        (domestic 2026FALL01 + study-abroad 2026FALL03Ireland).{" "}
-        <b>Fixed census / planning figures</b> — eligible returners (W {ELIG.w} · M {ELIG.m}), S25→FA25 retention, and melt rate
-        are constants. Predicted fill applies only remaining expected melt.
+        <b>Occupancy is an eRezLife assignment pull</b> — sessions 2026FALL01 (domestic) and 2026FALL03Ireland.
+        Halls are the six residence buildings; Ireland is CIARA/MALAC; Rome is eRez price type RSTA
+        (resident study abroad, no hall code); commuters are NODM. Incoming/returner splits are those
+        same eRez rows, classified after the pull.{" "}
+        <b>Not eRez</b> — eligible returners (W {ELIG.w} · M {ELIG.m}), S25→FA25 retention, melt rate,
+        and incoming goals are planning constants. Predicted fill applies only remaining expected melt.
         {withdrawn?.excluded_from_feed ? ` ${withdrawn.excluded_from_feed} withdrawn deposits were removed from the feed.` : ""}
       </div>
     </div>
