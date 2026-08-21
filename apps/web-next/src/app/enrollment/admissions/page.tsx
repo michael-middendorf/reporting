@@ -40,6 +40,7 @@ export default function AdmissionsPage() {
   const label = cycle === "fa26" ? "FA26" : "FA27";
   const vs = cycle === "fa26" ? "FA25" : "FA26 (same date last yr)";
 
+  const fa26Yoy = (adm.fa26Yoy as typeof data.admissions.fa26) ?? fa26;
   const history =
     cycle === "fa26"
       ? [
@@ -49,7 +50,7 @@ export default function AdmissionsPage() {
         ]
       : [
           { label: "FA25", tone: "muted" as const, stats: fa25 },
-          { label: "FA26", tone: "secondary" as const, stats: fa26 },
+          { label: "FA26 last yr", tone: "secondary" as const, stats: fa26Yoy },
           { label: "FA27", tone: "gold" as const, stats: fa27 },
         ];
 

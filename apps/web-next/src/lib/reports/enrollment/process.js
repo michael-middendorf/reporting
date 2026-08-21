@@ -373,17 +373,32 @@ export function _termStats(rows, termYear, asOf) {
   }, rows, acc, depNetRows);
 }
 
+/** UG only: First-Year, Transfer, Re-Admission, Second Degree. Drops Grad / Dual Enrollment. */
+function _isUndergraduate(r) {
+  const s = String(r?.ApplicationStudentType || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+  if (!s) return false;
+  if (/transfer/.test(s)) return true;
+  if (/re ?admit/.test(s) || /readmission/.test(s) || /re admission/.test(s)) return true;
+  if (/second/.test(s) && (/degree/.test(s) || /bachelor/.test(s))) return true;
+  if (/fresh/.test(s) || (/first/.test(s) && (/year/.test(s) || /time/.test(s)))) return true;
+  return false;
+}
+
 export function _procAdm(rows, asOf) {
   const asOfDay = _asOfDay(asOf);
   const lastYear = new Date(asOfDay);
   lastYear.setFullYear(lastYear.getFullYear() - 1);
+  const ug = rows.filter(_isUndergraduate);
   const byTerm = {};
   ['Fall 2024', 'Fall 2025', 'Fall 2026', 'Fall 2027'].forEach(t => {
-    byTerm[t] = _termStats(rows.filter(r => r.ApplicationTerm === t), _termYear(t), asOfDay);
+    byTerm[t] = _termStats(ug.filter(r => r.ApplicationTerm === t), _termYear(t), asOfDay);
   });
-  const fa25Rows = rows.filter(r => r.ApplicationTerm === 'Fall 2025');
-  const fa26Rows = rows.filter(r => r.ApplicationTerm === 'Fall 2026');
-  const fa27Rows = rows.filter(r => r.ApplicationTerm === 'Fall 2027');
+  const fa25Rows = ug.filter(r => r.ApplicationTerm === 'Fall 2025');
+  const fa26Rows = ug.filter(r => r.ApplicationTerm === 'Fall 2026');
+  const fa27Rows = ug.filter(r => r.ApplicationTerm === 'Fall 2027');
   const d6 = new Date(asOfDay);
   d6.setDate(d6.getDate() - 6);
   return {

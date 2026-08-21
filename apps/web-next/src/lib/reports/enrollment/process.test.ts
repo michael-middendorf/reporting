@@ -73,6 +73,20 @@ test("allRows stays unfiltered so the Fall report can apply its own type filter"
   assert.equal(adm.fa27.created, 1);
 });
 
+test("enrollment funnel drops graduate and dual enrollment", () => {
+  const rows = [
+    row({ ApplicationTerm: "Fall 2027", ApplicationStudentType: "First-Year", CreatedDate: "2026-08-01" }),
+    row({ ApplicationTerm: "Fall 2027", ApplicationStudentType: "Graduate", CreatedDate: "2026-08-01" }),
+    row({ ApplicationTerm: "Fall 2027", ApplicationStudentType: "Dual Enrollment", CreatedDate: "2026-08-01" }),
+    row({ ApplicationTerm: "Fall 2026", ApplicationStudentType: "Transfer", CreatedDate: "2025-08-01" }),
+    row({ ApplicationTerm: "Fall 2026", ApplicationStudentType: "Graduate", CreatedDate: "2025-08-01" }),
+  ];
+  const adm = _procAdm(rows, "2026-08-21");
+  assert.equal(adm.fa27.created, 1);
+  assert.equal(adm.fa26.created, 1);
+  assert.equal(adm.fa26Yoy.created, 1);
+});
+
 test("PSW YoY uses FormSubmissionDate and is 0 when nobody had signed up yet", () => {
   const rows = [
     {
