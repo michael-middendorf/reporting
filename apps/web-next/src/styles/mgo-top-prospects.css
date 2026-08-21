@@ -1,0 +1,134 @@
+.mtp-page .ao-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mtp-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mtp-chip {
+  border: 1px solid var(--ac-border);
+  background: var(--ac-card);
+  color: var(--ac-dim);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.mtp-expand {
+  background: none;
+  border: 0;
+  color: var(--ao-gold);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+  font-weight: 600;
+}
+
+.mtp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.mtp-table th,
+.mtp-table td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--ao-line);
+  vertical-align: middle;
+}
+
+.mtp-table thead th {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ao-muted);
+  text-align: left;
+  background: #fff;
+}
+
+.mtp-table .ao-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mtp-port {
+  background: #f6f8fb;
+  font-weight: 700;
+  color: var(--ao-navy);
+}
+
+.mtp-port td {
+  border-bottom-color: #c9d4e3;
+}
+
+.mtp-toggle {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0 8px 0 0;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  color: var(--ao-navy);
+}
+
+.mtp-toggle:hover {
+  color: var(--ao-gold);
+}
+
+.mtp-donor td:first-child {
+  padding-left: 42px;
+}
+
+.mtp-donor a {
+  color: var(--ao-navy);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.mtp-donor a:hover {
+  color: var(--ao-gold);
+  text-decoration: underline;
+}
+
+.mtp-status {
+  font-size: 12px;
+  color: var(--ao-muted);
+}
+
+.mtp-ask-rows td {
+  padding: 6px 16px 6px 64px;
+  font-size: 12px;
+  color: var(--ao-muted);
+  background: #fafbfd;
+}
+
+.mtp-ask-rows td:first-child {
+  font-weight: 500;
+  color: var(--ao-navy);
+}
+
+.mtp-totals td {
+  font-weight: 700;
+  color: var(--ao-navy);
+  background: #eef3f8;
+}
+
+.mtp-empty-port td {
+  color: var(--ao-muted);
+  font-weight: 500;
+}
+
+@media (max-width: 720px) {
+  .mtp-donor td:first-child,
+  .mtp-ask-rows td {
+    padding-left: 16px;
+  }
+}

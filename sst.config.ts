@@ -219,13 +219,30 @@ export default $config({
       permissions: reportDataPerms,
     });
 
+    const mgoTopProspects = new sst.aws.Function("MgoTopProspectsData", {
+      handler: "services/publishers/mgo-top-prospects/handler.handler",
+      runtime: "python3.12",
+      timeout: "5 minutes",
+      memory: "2048 MB",
+      link: [data],
+      python: { uv: true },
+      copyFiles: commonFiles,
+      environment: {
+        DATA_BUCKET: data.name,
+        API_KEY: virtuousApiKey.value,
+        VIRTUOUS_API_KEY: virtuousApiKey.value,
+        MGO_TOP_PROSPECTS_CACHE_KEY: "mgo-top-prospects/latest.json",
+      },
+      permissions: reportDataPerms,
+    });
+
     const site = new sst.aws.Nextjs("Web", {
       path: "apps/web-next",
       // SST 4.17.1 defaults to OpenNext 3.9.14, whose Node 24 image
       // optimizer fails before Sharp runs. Pin the canary-verified wrapper
       // and the patched native dependency used by the production bundle.
       openNextVersion: "4.1.0",
-      link: [data, masProcess, alumniProcess, instituteData, housingProcess, chapelNaming, advancementOverview],
+      link: [data, masProcess, alumniProcess, instituteData, housingProcess, chapelNaming, advancementOverview, mgoTopProspects],
       // The /api/institute-data route waits on the ~15-25s live Slate fetch.
       server: { timeout: "60 seconds" },
       environment: {
@@ -269,6 +286,8 @@ export default $config({
         CHAPEL_NAMING_CACHE_KEY: "chapel-naming/latest.json",
         ADVANCEMENT_OVERVIEW_FN_NAME: advancementOverview.name,
         ADVANCEMENT_OVERVIEW_CACHE_KEY: "advancement-overview/latest.json",
+        MGO_TOP_PROSPECTS_FN_NAME: mgoTopProspects.name,
+        MGO_TOP_PROSPECTS_CACHE_KEY: "mgo-top-prospects/latest.json",
         MAGIC_NONCE_TABLE: magicNonceTableName,
         EMAIL_FROM:
           "AMU Project Manager <noreply@notifications.avemaria.edu>",
@@ -276,7 +295,7 @@ export default $config({
       permissions: [
         {
           actions: ["lambda:InvokeFunction"],
-          resources: [masProcess.arn, alumniProcess.arn, instituteData.arn, housingProcess.arn, chapelNaming.arn, advancementOverview.arn],
+          resources: [masProcess.arn, alumniProcess.arn, instituteData.arn, housingProcess.arn, chapelNaming.arn, advancementOverview.arn, mgoTopProspects.arn],
         },
         {
           actions: ["dynamodb:PutItem"],
@@ -388,6 +407,11 @@ export default $config({
       function: advancementOverview,
     });
 
+    new sst.aws.Cron("MgoTopProspectsRefresh", {
+      schedule: "rate(15 minutes)",
+      function: mgoTopProspects,
+    });
+
     new sst.aws.Cron("DailyMagicLinks", {
       schedule: "cron(0 12 * * ? *)",
       function: {
@@ -431,6 +455,7 @@ export default $config({
       housingProcess: housingProcess.name,
       chapelNaming: chapelNaming.name,
       advancementOverview: advancementOverview.name,
+      mgoTopProspects: mgoTopProspects.name,
     };
   },
 });

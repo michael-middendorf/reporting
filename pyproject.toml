@@ -15,6 +15,7 @@ members = [
   "services/publishers/annunciation",
   "services/publishers/chapel-naming",
   "services/publishers/advancement-overview",
+  "services/publishers/mgo-top-prospects",
 ]
 
 [tool.uv]
