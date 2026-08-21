@@ -11,7 +11,8 @@
     "test:census": "npx tsx --test src/lib/reports/census/build.test.ts",
     "test:housing": "npx tsx --test src/lib/reports/housing/model.test.ts",
     "test:mgo-top-prospects": "npx tsx --test src/lib/reports/mgo-top-prospects/shape.test.ts",
-    "test:stained-glass-windows": "npx tsx --test src/lib/reports/stained-glass-windows/shape.test.ts"
+    "test:stained-glass-windows": "npx tsx --test src/lib/reports/stained-glass-windows/shape.test.ts",
+    "test:access": "npx tsx --test src/lib/access.test.ts src/lib/report-nav.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1105.0",

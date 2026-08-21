@@ -50,7 +50,7 @@ async function invokeBuild(): Promise<StainedGlassSnapshot | null> {
 
 /** Named stained-glass windows from DATA_BUCKET/stained-glass-windows/latest.json. */
 export async function GET(req: Request) {
-  const denied = requireReportAccess(req, "advancement");
+  const denied = requireReportAccess(req, "chapel");
   if (denied) return denied;
 
   const cached = await readCache();

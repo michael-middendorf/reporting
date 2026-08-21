@@ -49,7 +49,7 @@ async function invokeBuild(): Promise<ChapelNamingSnapshot | null> {
 
 /** Chapel naming opportunities from DATA_BUCKET/chapel-naming/latest.json. */
 export async function GET(req: Request) {
-  const denied = requireReportAccess(req, "advancement");
+  const denied = requireReportAccess(req, "chapel");
   if (denied) return denied;
 
   const cached = await readCache();

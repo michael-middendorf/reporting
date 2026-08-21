@@ -25,6 +25,8 @@ describe("reportNavActive", () => {
     assert.equal(reportNavActive(mgo, ADVANCEMENT_NAV, "/advancement/mgo-top-prospects"), true);
     assert.equal(reportNavActive(ac, ADVANCEMENT_NAV, "/annunciation"), true);
     assert.equal(reportNavActive(glass, ADVANCEMENT_NAV, "/advancement/stained-glass-windows"), true);
+    assert.equal(overview.report, "advancement");
+    assert.equal(glass.report, "chapel");
     assert.equal(reportNavActive(overview, ADVANCEMENT_NAV, "/advancement"), false);
     assert.equal(reportNavActive(overview, ADVANCEMENT_NAV, "/annunciation"), false);
   });

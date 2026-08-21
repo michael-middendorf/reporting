@@ -11,19 +11,22 @@ export function AccessGate({
   report,
   children,
 }: {
-  report: ReportId;
+  report: ReportId | ReportId[];
   children: ReactNode;
 }) {
+  const neededKey = (Array.isArray(report) ? report : [report]).join(",");
   const [state, setState] = useState<"loading" | "ok" | "denied">("loading");
   useEffect(() => {
+    const needed = neededKey.split(",") as ReportId[];
     fetchMe().then((me) => {
       if (!me.authenticated) {
         window.location.href = "/";
         return;
       }
-      setState(me.reports?.includes(report) ? "ok" : "denied");
+      const allowed = me.reports || [];
+      setState(needed.some((r) => allowed.includes(r)) ? "ok" : "denied");
     });
-  }, [report]);
+  }, [neededKey]);
   if (state === "loading") return <p className="rc-loading">Loading…</p>;
   if (state === "denied")
     return (

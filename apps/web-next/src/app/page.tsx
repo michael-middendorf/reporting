@@ -100,7 +100,12 @@ export default function HomePage() {
     );
   }
 
-  const visible = REPORTS.filter((r) => allowed.includes(r.id));
+  const visible = REPORTS.filter((r) => {
+    if (allowed.includes(r.id)) return true;
+    // Chapel-only users still land on the Advancement folder (filtered inside).
+    if (r.id === "advancement" && allowed.includes("chapel")) return true;
+    return false;
+  });
 
   return (
     <main className={styles.hub}>

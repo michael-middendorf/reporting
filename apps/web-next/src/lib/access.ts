@@ -7,6 +7,7 @@ export const REPORT_IDS = [
   "housing",
   "institute",
   "advancement",
+  "chapel",
   "points",
   "annunciation",
   "aspiredu",
@@ -49,6 +50,9 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
   institute: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
   advancement:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu,susan.gallagher@avemaria.edu,mark.middendorf@avemaria.edu",
+  // Chapel Naming + Stained Glass only. Advancement grants also cover these
+  // pages (see canAccessReport). Do not add chapel-only people to advancement.
+  chapel: "robert.musselman@avemaria.edu",
   points: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,annie.esposito@avemaria.edu",
   annunciation:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu,susan.gallagher@avemaria.edu,mark.middendorf@avemaria.edu",
@@ -62,6 +66,7 @@ const ENV_KEYS: Record<ReportId, string> = {
   housing: "HOUSING_ALLOWED_EMAILS",
   institute: "INSTITUTE_ALLOWED_EMAILS",
   advancement: "ADVANCEMENT_ALLOWED_EMAILS",
+  chapel: "CHAPEL_ALLOWED_EMAILS",
   points: "POINTS_ALLOWED_EMAILS",
   annunciation: "ANNUNCIATION_ALLOWED_EMAILS",
   aspiredu: "ASPIREDU_ALLOWED_EMAILS",
@@ -93,7 +98,10 @@ export function canAccessReport(email: string, report: ReportId): boolean {
   const e = normalizeEmail(email);
   if (!e) return false;
   if (isAdmin(e)) return true;
-  return allowedEmailsForReport(report).has(e);
+  if (allowedEmailsForReport(report).has(e)) return true;
+  // Advancement includes the chapel subset (naming + stained glass).
+  if (report === "chapel" && allowedEmailsForReport("advancement").has(e)) return true;
+  return false;
 }
 
 /** Union of all report lists + admins — who may request a magic link. */
