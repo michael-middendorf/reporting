@@ -44,7 +44,31 @@ export default function EnrollmentHubPage() {
         <span className="sec-rule" />
       </div>
       <div className="g2">
-        <Link href="/enrollment/admissions" className="card enroll-26" style={{ ["--c" as string]: "var(--gold)" }}>
+        <Link href="/enrollment/admissions" className="card enroll-27" style={{ ["--c" as string]: "var(--gold)" }}>
+          <div className="card-head">
+            <div className="card-title">FA27 Enrollment YOY</div>
+            <span className="pill">FA27</span>
+          </div>
+          <div className="card-desc">Early FA27 funnel vs FA26 at same point.</div>
+          <div className="krow k3">
+            <div className="ks">
+              <div className="kn">{fmt(fa27.deposits)}</div>
+              <div className="kl">Net deposits</div>
+            </div>
+            <div className="ks">
+              <div className="kn">{fmt(fa27.accepted)}</div>
+              <div className="kl">Accepted</div>
+            </div>
+            <div className="ks">
+              <div className="kn">{fmt(fa27.created)}</div>
+              <div className="kl">Created</div>
+            </div>
+          </div>
+          <div className="card-foot">
+            <span className="open">Open →</span>
+          </div>
+        </Link>
+        <Link href="/enrollment/admissions" className="card enroll-26" style={{ ["--c" as string]: "var(--blue-mid)" }}>
           <div className="card-head">
             <div className="card-title">FA26 Enrollment YOY</div>
             <span className="pill" style={{ ["--pb" as string]: "#DDEAF7", ["--pf" as string]: "var(--blue)" }}>
@@ -71,30 +95,6 @@ export default function EnrollmentHubPage() {
               Accept rate {fa26.acceptRate != null ? `${fa26.acceptRate.toFixed(1)}%` : "—"} ·{" "}
               <Delta cur={fa26.deposits} prv={fa25.deposits} />
             </span>
-            <span className="open">Open →</span>
-          </div>
-        </Link>
-        <Link href="/enrollment/admissions" className="card enroll-27" style={{ ["--c" as string]: "var(--blue-mid)" }}>
-          <div className="card-head">
-            <div className="card-title">FA27 Enrollment YOY</div>
-            <span className="pill">FA27</span>
-          </div>
-          <div className="card-desc">Early FA27 funnel vs FA26 at same point.</div>
-          <div className="krow k3">
-            <div className="ks">
-              <div className="kn">{fmt(fa27.deposits)}</div>
-              <div className="kl">Net deposits</div>
-            </div>
-            <div className="ks">
-              <div className="kn">{fmt(fa27.accepted)}</div>
-              <div className="kl">Accepted</div>
-            </div>
-            <div className="ks">
-              <div className="kn">{fmt(fa27.created)}</div>
-              <div className="kl">Created</div>
-            </div>
-          </div>
-          <div className="card-foot">
             <span className="open">Open →</span>
           </div>
         </Link>

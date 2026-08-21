@@ -67,7 +67,7 @@ export function EnrollmentProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<EnrollmentBundle | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [cycle, setCycle] = useState<"fa26" | "fa27">("fa26");
+  const [cycle, setCycle] = useState<"fa26" | "fa27">("fa27");
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -179,8 +179,8 @@ export function EnrollmentChrome({ children }: { children: ReactNode }) {
             onChange={(e) => setCycle(e.target.value as "fa26" | "fa27")}
             aria-label="Select enrollment term to compare"
           >
-            <option value="fa26">Fall 2026</option>
             <option value="fa27">Fall 2027</option>
+            <option value="fa26">Fall 2026</option>
           </select>
         </label>
       </nav>
