@@ -53,8 +53,8 @@ export async function loadEnrollmentBundle(): Promise<EnrollmentBundle> {
   return {
     generatedAt: session.generated_at,
     admissions: _procAdm(admRows, session.generated_at),
-    psw: _procPSW(pswRows),
-    slc: _procSLC(slcRows, islcRows),
+    psw: _procPSW(pswRows, session.generated_at),
+    slc: _procSLC(slcRows, islcRows, session.generated_at),
     withdrawn: processWithdrawals(wdRows, admRows),
     campus: _procCampus(campusRows),
     ame: _procAME(ameRows, session.generated_at),
@@ -64,6 +64,20 @@ export async function loadEnrollmentBundle(): Promise<EnrollmentBundle> {
 export function fmt(n: number | null | undefined) {
   if (n === null || n === undefined || Number.isNaN(n)) return "—";
   return Number(n).toLocaleString();
+}
+
+/** ISO timestamp → "Aug 21, 2026, 10:36 AM" in the viewer's local zone. */
+export function fmtAsOf(iso?: string) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(+d)) return iso;
+  return d.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 export function fmt1(n: number | null | undefined) {

@@ -399,6 +399,16 @@ export function _procAdm(rows, asOf) {
   };
 }
 
+/** Signed up and not cancelled — Qlik Match(status, 'Registered', 'Attended'). */
+function _isEventRegistrant(status) {
+  return status === 'Registered' || status === 'Attended';
+}
+function _shiftYears(d, years) {
+  const x = new Date(d);
+  x.setFullYear(x.getFullYear() + years);
+  return x;
+}
+
 /** January YYYY PSW event → Fall YYYY (Qlik counts by Form Start Date, not Term). */
 function _pswCycleKey(r) {
   const d = _parseDate(r.FormStartDateTime);
@@ -412,17 +422,23 @@ function _bumpPsw(map, key, r) {
   if (r.RegistrationStatus === 'Attended') map[key].att++;
 }
 
-export function _procPSW(rows) {
+export function _procPSW(rows, asOf) {
+  const asOfDay = _asOfDay(asOf);
+  const lastYear = _shiftYears(asOfDay, -1);
   const byTerm = {};
   const byCycle = {};
+  const byCycleYoy = {};
   rows.forEach(r => {
+    if (!_isEventRegistrant(r.RegistrationStatus)) return;
+    const date = r.FormSubmissionDate || r.FormStartDateTime;
     _bumpPsw(byTerm, r.Term || '', r);
     _bumpPsw(byCycle, _pswCycleKey(r), r);
+    if (_leDate(date, lastYear)) _bumpPsw(byCycleYoy, _pswCycleKey(r), r);
   });
-  return { byTerm, byCycle };
+  return { byTerm, byCycle, byCycleYoy };
 }
 
-export function _procSLC(rows, islcRows = []) {
+export function _procSLC(rows, islcRows = [], asOf) {
   const byClass = {};
   ['Freshman', 'Sophomore', 'Junior', 'Senior'].forEach(c => {
     byClass[c] = { applied: 0, accepted: 0, registered: 0, denied: 0 };
@@ -450,10 +466,21 @@ export function _procSLC(rows, islcRows = []) {
     const b = r.SLC_WorkflowRecordsSummerLeadershipBin || '';
     bins[b] = (bins[b] || 0) + 1;
   });
-  const slcReg = rows.filter(r => { const s = r.SLC_RegistrationStatus || ''; return s === 'Registered' || s === 'Attended'; }).length;
+  const slcReg = rows.filter(r => _isEventRegistrant(r.SLC_RegistrationStatus)).length;
   const slcAtt = rows.filter(r => r.SLC_RegistrationStatus === 'Attended').length;
   const islcList = islcRows || [];
+  const islcReg = islcList.filter(r => _isEventRegistrant(r.ISLCRegistrationStatus)).length;
   const islcAtt = islcList.filter(r => r.ISLCRegistrationStatus === 'Attended').length;
+  const asOfDay = _asOfDay(asOf);
+  const lastYear = _shiftYears(asOfDay, -1);
+  const slcRegYoy = rows.filter(r =>
+    _isEventRegistrant(r.SLC_RegistrationStatus)
+    && _leDate(r.SLC_FormSubmissionDate || r.SLC_FormStartDateTime, lastYear),
+  ).length;
+  const islcRegYoy = islcList.filter(r =>
+    _isEventRegistrant(r.ISLCRegistrationStatus)
+    && _leDate(r.ISLCFormSubmissionDate, lastYear),
+  ).length;
   return {
     applied: rows.length,
     accepted: rows.filter(r => r.SLC_Accepted === 'Accepted').length,
@@ -462,8 +489,13 @@ export function _procSLC(rows, islcRows = []) {
     denied: rows.filter(r => r.SLC_Denied === 'Denied').length,
     byClass, bySess, bins,
     byTerm: {
-      'Fall 2025': { registered: islcList.length, attended: islcAtt },
+      'Fall 2025': { registered: islcReg, attended: islcAtt },
       'Fall 2026': { registered: slcReg, attended: slcAtt },
+      'Fall 2027': { registered: 0, attended: 0 },
+    },
+    byTermYoy: {
+      'Fall 2025': { registered: islcRegYoy, attended: 0 },
+      'Fall 2026': { registered: slcRegYoy, attended: 0 },
       'Fall 2027': { registered: 0, attended: 0 },
     },
   };
@@ -533,39 +565,46 @@ export function _procCampus(rows) {
 
 export function _procAME(rows, asOf) {
   const MONTH_LABELS = { 2:'Feb', 3:'Mar', 4:'Apr', 9:'Sep', 10:'Oct', 11:'Nov' };
-  const FALL = new Set(['Sep', 'Oct', 'Nov']);
   const asOfDay = _asOfDay(asOf);
+  const lastYear = _shiftYears(asOfDay, -1);
 
   function emptyMonth() {
-    return { attended: 0, registered: 0, chg: 0 };
+    return { attended: 0, registered: 0, registrants: 0, chg: 0 };
   }
 
-  // Qlik groups AME by event month → recruiting cycle, not the person's Term.
-  const byCycle = {};
-  rows.forEach(r => {
+  function addRow(bc, r, trackChg) {
     const eventDate = r.FormStartDateTime || '';
     if (!eventDate) return;
     const y = parseInt(eventDate.slice(0, 4), 10);
     const mo = parseInt(eventDate.slice(5, 7), 10);
     const label = MONTH_LABELS[mo];
     if (!y || !label) return;
+    const status = r.RegistrationStatus || '';
+    if (!_isEventRegistrant(status)) return;
     const faYear = (mo >= 9) ? y + 1 : y;
     const faKey = `Fall ${faYear}`;
-    if (!byCycle[faKey]) byCycle[faKey] = {};
-    if (!byCycle[faKey][label]) byCycle[faKey][label] = emptyMonth();
-    const status = r.RegistrationStatus || '';
-    if (status === 'Attended') byCycle[faKey][label].attended++;
-    else if (status === 'Registered') byCycle[faKey][label].registered++;
-    const inWindow = FALL.has(label)
-      ? status === 'Attended'
-      : (status === 'Attended' || status === 'Registered');
-    if (inWindow && _inLast7(r.SubmissionDate, asOfDay)) byCycle[faKey][label].chg++;
+    if (!bc[faKey]) bc[faKey] = {};
+    if (!bc[faKey][label]) bc[faKey][label] = emptyMonth();
+    const cell = bc[faKey][label];
+    cell.registrants++;
+    if (status === 'Attended') cell.attended++;
+    else cell.registered++;
+    if (trackChg && _inLast7(r.SubmissionDate, asOfDay)) cell.chg++;
+  }
+
+  // Event month → recruiting cycle. Registrants = Registered + Attended.
+  // YoY column uses submission date <= same calendar date last year.
+  const byCycle = {};
+  const byCycleYoy = {};
+  rows.forEach(r => {
+    addRow(byCycle, r, true);
+    if (_leDate(r.SubmissionDate, lastYear)) addRow(byCycleYoy, r, false);
   });
 
   return {
     total: rows.length,
     byCycle,
-    byCycleYoy: byCycle,
+    byCycleYoy,
     byCycle7d: byCycle,
   };
 }

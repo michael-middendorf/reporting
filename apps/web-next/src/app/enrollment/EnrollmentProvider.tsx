@@ -13,6 +13,7 @@ import {
 import type { ReportId } from "@/lib/access";
 import { apiFetch, fetchMe, setBearer } from "@/lib/api";
 import {
+  fmtAsOf,
   loadEnrollmentBundle,
   type EnrollmentBundle,
 } from "@/lib/reports/enrollment/load";
@@ -141,7 +142,7 @@ export function EnrollmentChrome({ children }: { children: ReactNode }) {
         </div>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <span className="gh-date">
-            {loading ? "Loading…" : data?.generatedAt ? `As of ${data.generatedAt}` : ""}
+            {loading ? "Loading…" : data?.generatedAt ? `As of ${fmtAsOf(data.generatedAt)}` : ""}
           </span>
           <button type="button" className="back-btn" onClick={refresh}>
             Refresh

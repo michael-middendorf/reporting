@@ -12,21 +12,20 @@ function fmtDelta(delta: number | null | undefined, pct?: boolean) {
   const sign = delta > 0 ? "+" : "";
   return pct ? `${sign}${delta.toFixed(1)}pp` : `${sign}${Math.round(delta).toLocaleString()}`;
 }
-type AmeCyc = Record<string, { attended: number; registered: number; chg?: number }>;
-const FALL_AME = new Set(["Sep", "Oct", "Nov"]);
+type AmeCyc = Record<string, { attended: number; registered: number; registrants?: number; chg?: number }>;
 
-/** Qlik: fall months = Attended; spring months = Registered + Attended. */
-function ameVal(cyc: AmeCyc, mo: string): number | null {
+/** Registrants = Registered + Attended for every AME month. */
+function ameVal(cyc: AmeCyc, mo: string): number {
   if (!cyc[mo]) return 0;
-  if (FALL_AME.has(mo)) return cyc[mo].attended;
+  if (cyc[mo].registrants != null) return cyc[mo].registrants;
   return (cyc[mo].attended || 0) + (cyc[mo].registered || 0);
 }
 function ameLabel(mo: string): string {
-  return FALL_AME.has(mo) ? `${mo} AME Attendees` : `${mo} AME Registrants`;
+  return `${mo} AME Registrants`;
 }
-function pswVal(entry: { att: number; total: number } | null | undefined): number | null {
-  if (!entry) return null;
-  return entry.att > 0 ? entry.att : entry.total || null;
+function pswVal(entry: { att: number; total: number } | null | undefined): number {
+  if (!entry) return 0;
+  return entry.total || 0;
 }
 
 export default function EnrollmentOverviewPage() {
@@ -61,28 +60,27 @@ export default function EnrollmentOverviewPage() {
 
   const ameData = data.ame as unknown as Record<string, Record<string, AmeCyc>>;
   const curCyc = (ameData.byCycle || {})[curKey] || {};
-  const prvCyc = (ameData.byCycle || {})[prvKey] || {};
+  const prvCyc = (ameData.byCycleYoy || ameData.byCycle || {})[prvKey] || {};
 
   const pswData = data.psw as unknown as {
     byCycle?: Record<string, { att: number; total: number }>;
+    byCycleYoy?: Record<string, { att: number; total: number }>;
     byTerm?: Record<string, { att: number; total: number }>;
   };
   const pswByCycle = pswData.byCycle || {};
+  const pswByCycleYoy = pswData.byCycleYoy || {};
   const pswCurEntry = pswByCycle[curKey] ?? pswData.byTerm?.[curKey] ?? null;
-  const pswPrvEntry = pswByCycle[prvKey] ?? pswData.byTerm?.[prvKey] ?? null;
-  const pswHappened = (pswCurEntry?.att ?? 0) > 0;
+  const pswPrvEntry = pswByCycleYoy[prvKey] ?? pswByCycle[prvKey] ?? pswData.byTerm?.[prvKey] ?? null;
 
   const slc = data.slc as unknown as {
     registered?: number | null;
-    attended?: number | null;
     byTerm?: Record<string, { registered: number; attended: number }>;
+    byTermYoy?: Record<string, { registered: number; attended: number }>;
   };
   const slcCur = slc.byTerm?.[curKey];
-  const slcPrv = slc.byTerm?.[prvKey];
-  const slcReg = slcCur?.registered ?? slc.registered ?? null;
-  const slcAtt = slcCur?.attended ?? slc.attended ?? null;
-  const slcRegPrv = slcPrv?.registered ?? null;
-  const slcAttPrv = slcPrv?.attended ?? null;
+  const slcPrv = slc.byTermYoy?.[prvKey] ?? slc.byTerm?.[prvKey];
+  const slcReg = slcCur?.registered ?? slc.registered ?? 0;
+  const slcRegPrv = slcPrv?.registered ?? 0;
 
   const chg = ((cur as { chg?: Record<string, number | null> }).chg || {}) as Record<string, number | null>;
   function delta7d(field: string): number | null {
@@ -120,12 +118,11 @@ export default function EnrollmentOverviewPage() {
     { label: ameLabel("Sep"), cur: ameVal(curCyc, "Sep"), prv: ameVal(prvCyc, "Sep"), delta: ameDelta("Sep"), divider: true },
     { label: ameLabel("Oct"), cur: ameVal(curCyc, "Oct"), prv: ameVal(prvCyc, "Oct"), delta: ameDelta("Oct") },
     { label: ameLabel("Nov"), cur: ameVal(curCyc, "Nov"), prv: ameVal(prvCyc, "Nov"), delta: ameDelta("Nov") },
-    { label: pswHappened ? "PSW Attendees" : "PSW Registrants", cur: pswVal(pswCurEntry), prv: pswVal(pswPrvEntry), delta: null },
+    { label: "PSW Registrants", cur: pswVal(pswCurEntry), prv: pswVal(pswPrvEntry), delta: null },
     { label: ameLabel("Feb"), cur: ameVal(curCyc, "Feb"), prv: ameVal(prvCyc, "Feb"), delta: ameDelta("Feb") },
     { label: ameLabel("Mar"), cur: ameVal(curCyc, "Mar"), prv: ameVal(prvCyc, "Mar"), delta: ameDelta("Mar") },
     { label: ameLabel("Apr"), cur: ameVal(curCyc, "Apr"), prv: ameVal(prvCyc, "Apr"), delta: ameDelta("Apr") },
     { label: "SLC Registrants",        cur: slcReg, prv: slcRegPrv, delta: null },
-    { label: "SLC Attendees",          cur: slcAtt, prv: slcAttPrv, delta: null },
   ];
 
   return (
@@ -138,9 +135,6 @@ export default function EnrollmentOverviewPage() {
             <Delta cur={cur.deposits} prv={prv.deposits} />
           </p>
         </div>
-        <span className={`cycle-badge ${cycle === "fa26" ? "cb-26" : "cb-27"}`}>
-          {label} View
-        </span>
       </div>
 
       <div className="panel" style={{ overflowX: "auto" }}>

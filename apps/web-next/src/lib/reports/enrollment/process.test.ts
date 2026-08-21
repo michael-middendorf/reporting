@@ -5,7 +5,7 @@ import {
   emptyAcFunnel,
   isActivityCounselorKey,
 } from "./counselors";
-import { _procAdm, _termStats } from "./process.js";
+import { _procAdm, _procAME, _termStats } from "./process.js";
 
 function row(partial: Record<string, unknown> = {}) {
   return {
@@ -71,6 +71,19 @@ test("allRows stays unfiltered so the Fall report can apply its own type filter"
   const adm = _procAdm(rows, "2026-08-20");
   assert.equal(adm.allRows.length, 2);
   assert.equal(adm.fa27.created, 1);
+});
+
+test("AME overview counts registrants and YoY-gates the prior cycle", () => {
+  const rows = [
+    { FormStartDateTime: "2026-09-12", RegistrationStatus: "Registered", SubmissionDate: "2026-08-01" },
+    { FormStartDateTime: "2025-09-10", RegistrationStatus: "Attended", SubmissionDate: "2025-07-01" },
+    { FormStartDateTime: "2025-09-10", RegistrationStatus: "Registered", SubmissionDate: "2025-09-01" },
+    { FormStartDateTime: "2025-09-10", RegistrationStatus: "Cancelled", SubmissionDate: "2025-06-01" },
+  ];
+  const ame = _procAME(rows, "2026-08-21");
+  assert.equal(ame.byCycle["Fall 2027"].Sep.registrants, 1);
+  assert.equal(ame.byCycle["Fall 2026"].Sep.registrants, 2);
+  assert.equal(ame.byCycleYoy["Fall 2026"].Sep.registrants, 1);
 });
 
 test("activityByAC drops Danielle, Georgiana, Anna, and Annie; keeps Unassigned when present", () => {

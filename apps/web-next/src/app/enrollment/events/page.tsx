@@ -24,7 +24,7 @@ export default function EventsPage() {
   const campus = data.campus as unknown as Record<string, unknown>;
   const byCycle = ((ame.byCycle || campus.byCycle || {}) as Record<
     string,
-    Record<string, { attended: number; registered: number }>
+    Record<string, { attended: number; registered: number; registrants?: number }>
   >);
   const cycleKeys = Object.keys(byCycle).sort();
   const FALL_MONTHS = ["Sep", "Oct", "Nov"];
@@ -93,7 +93,7 @@ export default function EventsPage() {
                     padding: "8px 0 4px",
                   }}
                 >
-                  Fall AME Attendees (Sept / Oct / Nov)
+                  Fall AME Registrants (Sept / Oct / Nov)
                 </caption>
                 <thead>
                   <tr>
@@ -107,15 +107,14 @@ export default function EventsPage() {
                 <tbody>
                   {cycleKeys.map((cy) => {
                     const cyc = byCycle[cy];
-                    const total = FALL_MONTHS.reduce(
-                      (s, m) => s + (cyc[m]?.attended || 0),
-                      0,
-                    );
+                    const monthVal = (m: string) =>
+                      (cyc[m]?.registrants ?? ((cyc[m]?.attended || 0) + (cyc[m]?.registered || 0)));
+                    const total = FALL_MONTHS.reduce((s, m) => s + monthVal(m), 0);
                     return (
                       <tr key={cy}>
                         <td>{cy}</td>
                         {FALL_MONTHS.map((m) => (
-                          <td key={m}>{fmt(cyc[m]?.attended ?? null)}</td>
+                          <td key={m}>{fmt(cyc[m] ? monthVal(m) : null)}</td>
                         ))}
                         <td style={{ fontWeight: 600 }}>{fmt(total)}</td>
                       </tr>

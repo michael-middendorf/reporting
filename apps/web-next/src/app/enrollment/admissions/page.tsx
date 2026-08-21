@@ -94,12 +94,9 @@ export default function AdmissionsPage() {
         <div>
           <h1 className="rpt-title">{label} Admissions Detail</h1>
           <p className="rpt-sub">
-            Point-in-time vs {vs} · withdrawal cutoff {cur.withdrawalCutoff}
+            vs {vs}
           </p>
         </div>
-        <span className={`cycle-badge ${cycle === "fa26" ? "cb-26" : "cb-27"}`}>
-          {label} View
-        </span>
       </div>
 
       <Section label="Key Metrics" />
