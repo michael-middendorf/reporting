@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AccessGate, ReportTopBar } from "@/components/AccessGate";
+import { ADVANCEMENT_NAV } from "@/lib/report-nav";
 import { apiFetch } from "@/lib/api";
 import {
   formatRecurring,
@@ -455,10 +456,7 @@ function AnnunciationInner() {
 export default function AnnunciationPage() {
   return (
     <AccessGate report="annunciation">
-      <ReportTopBar
-        title="Annunciation Circle"
-        nav={[{ href: "/advancement", label: "Advancement" }]}
-      />
+      <ReportTopBar title="Advancement" nav={ADVANCEMENT_NAV} />
       <AnnunciationInner />
     </AccessGate>
   );

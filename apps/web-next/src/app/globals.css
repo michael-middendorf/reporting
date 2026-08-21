@@ -2,9 +2,11 @@
   --blue: #1a3f6f;
   --blue-mid: #2a5899;
   --gold: #b8922e;
+  --gold-lo: rgba(184, 146, 46, 0.14);
   --pale: #ebf0f7;
   --bdr: #c8d6e8;
   --t2: #4a6a90;
+  --t3: #8aabcc;
   --up: #1e7a50;
   --dn: #b83a3a;
 }
@@ -20,4 +22,207 @@ body {
   background: var(--pale);
   color: var(--blue);
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Shared report chrome (ReportTopBar + Enrollment). Specificity beats
+   per-report `a` resets (Institute, Points) so tabs never fall back to
+   browser-purple underlines. */
+.rc {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  background: #fff;
+  box-shadow: 0 1px 0 var(--bdr);
+  width: 100vw;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.rc-header {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 28px;
+}
+
+.rc:has(.rc-tabs) .rc-header {
+  border-bottom: 1px solid var(--bdr);
+}
+
+.rc-brand {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.rc a.rc-wordmark {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.rc a.rc-wordmark:hover {
+  color: var(--blue);
+  text-decoration: none;
+}
+
+.rc-sep {
+  color: var(--bdr);
+  font-weight: 300;
+  font-size: 18px;
+  margin: 0 14px;
+  line-height: 1;
+}
+
+.rc-name {
+  font-size: 14px;
+  color: var(--t2);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rc-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.rc-meta {
+  font-size: 12px;
+  color: var(--blue-mid);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.rc-btn {
+  background: #fff;
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font: 700 12px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--blue);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.rc-btn:hover {
+  background: var(--pale);
+}
+
+.rc-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 0 20px;
+  min-width: 0;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.rc a.rc-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 16px 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t2);
+  text-decoration: none;
+  white-space: nowrap;
+  letter-spacing: 0.005em;
+  margin-bottom: -1px;
+  flex-shrink: 0;
+}
+
+.rc a.rc-tab:hover {
+  color: var(--blue);
+  text-decoration: none;
+}
+
+.rc a.rc-tab.is-active {
+  color: var(--blue);
+  border-bottom-color: var(--gold);
+  text-decoration: none;
+}
+
+.rc-tabs-spacer {
+  flex: 1 1 12px;
+  min-width: 8px;
+}
+
+.rc-tabs-extra {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px 8px 0;
+}
+
+.rc a.rc-wordmark:focus-visible,
+.rc a.rc-tab:focus-visible,
+.rc-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.rc-denied {
+  max-width: 36rem;
+  margin: 48px auto;
+  padding: 24px 28px;
+  background: #fff;
+  border: 1px solid var(--bdr);
+  border-radius: 8px;
+}
+
+.rc-denied p {
+  margin: 0 0 12px;
+}
+
+.rc-denied a {
+  color: var(--blue);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.rc-denied a:hover {
+  color: var(--gold);
+}
+
+.rc-loading {
+  padding: 24px 28px;
+  color: var(--t2);
+}
+
+@media (max-width: 720px) {
+  .rc-header {
+    padding: 8px 16px;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .rc-meta {
+    display: none;
+  }
+
+  .rc-sep {
+    margin: 0 10px;
+  }
+
+  .rc-tabs {
+    padding: 0 8px;
+  }
+
+  .rc a.rc-tab {
+    padding: 10px 12px 9px;
+  }
 }

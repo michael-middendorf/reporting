@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AccessGate, ReportTopBar } from "@/components/AccessGate";
+import { ASPIREDU_NAV } from "@/lib/report-nav";
 import { apiFetch } from "@/lib/api";
 import styles from "../aspiredu.module.css";
 
@@ -72,10 +73,7 @@ export default function AspireduStudentsPage() {
   return (
     <AccessGate report="aspiredu">
       <div className={styles.shell}>
-        <ReportTopBar title="AspireDU Student Risk" nav={[
-          { href: "/aspiredu", label: "Summary" },
-          { href: "/aspiredu/students", label: "Student follow-up (MFA)" },
-        ]} />
+        <ReportTopBar title="AspireDU Student Risk" nav={ASPIREDU_NAV} />
         <main className={styles.content}>
           <h1>Student follow-up</h1>
           {mfa === "checking" && <p>Checking MFA session…</p>}
