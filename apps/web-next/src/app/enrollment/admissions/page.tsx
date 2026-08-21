@@ -41,15 +41,18 @@ export default function AdmissionsPage() {
   const vs = cycle === "fa26" ? "FA25" : "FA26 (same date last yr)";
 
   const fa26Yoy = (adm.fa26Yoy as typeof data.admissions.fa26) ?? fa26;
+  const fa25Yoy = (adm.fa25Yoy as typeof data.admissions.fa26) ?? fa25;
+  const fa25Yoy2 = (adm.fa25Yoy2 as typeof data.admissions.fa26) ?? fa25;
+  const fa24Yoy2 = (adm.fa24Yoy2 as typeof data.admissions.fa26) ?? fa24;
   const history =
     cycle === "fa26"
       ? [
-          { label: "FA24", tone: "muted" as const, stats: fa24 },
-          { label: "FA25", tone: "secondary" as const, stats: fa25 },
+          { label: "FA24 2 yrs ago", tone: "muted" as const, stats: fa24Yoy2 },
+          { label: "FA25 last yr", tone: "secondary" as const, stats: fa25Yoy },
           { label: "FA26", tone: "gold" as const, stats: fa26 },
         ]
       : [
-          { label: "FA25", tone: "muted" as const, stats: fa25 },
+          { label: "FA25 2 yrs ago", tone: "muted" as const, stats: fa25Yoy2 },
           { label: "FA26 last yr", tone: "secondary" as const, stats: fa26Yoy },
           { label: "FA27", tone: "gold" as const, stats: fa27 },
         ];
@@ -121,6 +124,11 @@ export default function AdmissionsPage() {
       </div>
 
       <Section label="Historical Trend — Application Funnel" />
+      <p className="rpt-sub" style={{ margin: "0 0 12px" }}>
+        {cycle === "fa27"
+          ? "Same calendar date in each cycle: FA25 two years ago, FA26 last year, FA27 today. Not finished-cycle totals."
+          : "Same calendar date in each cycle: FA24 two years ago, FA25 last year, FA26 today. Not finished-cycle totals."}
+      </p>
       <FunnelHistoryCharts terms={history} />
 
       <Section label="Funnel Comparison" />

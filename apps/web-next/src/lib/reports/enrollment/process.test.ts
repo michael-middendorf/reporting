@@ -87,6 +87,21 @@ test("enrollment funnel drops graduate and dual enrollment", () => {
   assert.equal(adm.fa26Yoy.created, 1);
 });
 
+test("FA27 history FA25 snapshot is two years ago, not the finished cycle", () => {
+  const rows = [
+    row({ ApplicationTerm: "Fall 2025", CreatedDate: "08/01/2024", ApplicationSubmittedDate: "08/01/2024" }),
+    row({ ApplicationTerm: "Fall 2025", CreatedDate: "09/15/2024", ApplicationSubmittedDate: "09/15/2024" }),
+    row({ ApplicationTerm: "Fall 2024", CreatedDate: "08/01/2023", ApplicationSubmittedDate: "08/01/2023" }),
+    row({ ApplicationTerm: "Fall 2024", CreatedDate: "08/22/2024", ApplicationSubmittedDate: "08/22/2024" }),
+  ];
+  const adm = _procAdm(rows, "2026-08-21");
+  assert.equal(adm.fa25.created, 2);
+  assert.equal(adm.fa25Yoy.created, 2);
+  assert.equal(adm.fa25Yoy2.created, 1);
+  assert.equal(adm.fa25Yoy2.submitted, 1);
+  assert.equal(adm.fa24Yoy2.created, 1);
+});
+
 test("PSW YoY uses FormSubmissionDate and is 0 when nobody had signed up yet", () => {
   const rows = [
     {

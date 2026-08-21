@@ -391,11 +391,14 @@ export function _procAdm(rows, asOf) {
   const asOfDay = _asOfDay(asOf);
   const lastYear = new Date(asOfDay);
   lastYear.setFullYear(lastYear.getFullYear() - 1);
+  const twoYearsAgo = new Date(asOfDay);
+  twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
   const ug = rows.filter(_isUndergraduate);
   const byTerm = {};
   ['Fall 2024', 'Fall 2025', 'Fall 2026', 'Fall 2027'].forEach(t => {
     byTerm[t] = _termStats(ug.filter(r => r.ApplicationTerm === t), _termYear(t), asOfDay);
   });
+  const fa24Rows = ug.filter(r => r.ApplicationTerm === 'Fall 2024');
   const fa25Rows = ug.filter(r => r.ApplicationTerm === 'Fall 2025');
   const fa26Rows = ug.filter(r => r.ApplicationTerm === 'Fall 2026');
   const fa27Rows = ug.filter(r => r.ApplicationTerm === 'Fall 2027');
@@ -406,7 +409,9 @@ export function _procAdm(rows, asOf) {
     fa25: byTerm['Fall 2025'],
     fa26: byTerm['Fall 2026'],
     fa27: byTerm['Fall 2027'],
+    fa24Yoy2: _termStatsAsOf(fa24Rows, twoYearsAgo, 2024),
     fa25Yoy: _termStatsAsOf(fa25Rows, lastYear, 2025),
+    fa25Yoy2: _termStatsAsOf(fa25Rows, twoYearsAgo, 2025),
     fa26Yoy: _termStatsAsOf(fa26Rows, lastYear, 2026),
     fa26_7d: _termStatsAsOf(fa26Rows, d6, 2026),
     fa27_7d: _termStatsAsOf(fa27Rows, d6, 2027),
