@@ -67,7 +67,6 @@ export default function ChapelNamingPage() {
       rows = rows.filter((i) => {
         const hay = [
           i.item,
-          i.constructionNotes,
           i.type,
           ...i.gifts.map((g) => g.donorName || ""),
           ...i.gifts.map((g) => g.specifics || ""),
@@ -166,7 +165,7 @@ export default function ChapelNamingPage() {
               className="ac-search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search items, notes, or donors"
+              placeholder="Search items or donors"
             />
             <div className="cn-filters">
               {(
@@ -199,7 +198,6 @@ export default function ChapelNamingPage() {
               <thead>
                 <tr>
                   <th onClick={() => toggleSort("item")}>Item{arrow("item")}</th>
-                  <th>Construction notes</th>
                   <th onClick={() => toggleSort("itemAmount")} className="ac-num">
                     Item amount{arrow("itemAmount")}
                   </th>
@@ -226,7 +224,7 @@ export default function ChapelNamingPage() {
               <tbody>
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="ac-empty">
+                    <td colSpan={8} className="ac-empty">
                       {loading ? "Loading…" : "No naming opportunities match."}
                     </td>
                   </tr>
@@ -259,7 +257,6 @@ export default function ChapelNamingPage() {
                             )}
                           </div>
                         </td>
-                        <td className="cn-notes">{item.constructionNotes || "—"}</td>
                         <td className="ac-num">{usd(item.itemAmount)}</td>
                         <td className="ac-num">{item.quantity ?? "—"}</td>
                         <td className="ac-num">{usd(item.fundingRequest)}</td>
@@ -275,7 +272,7 @@ export default function ChapelNamingPage() {
                       </tr>
                       {isOpen && (
                         <tr className="cn-gifts" key={`${item.chapelObject}-gifts`}>
-                          <td colSpan={9}>
+                          <td colSpan={8}>
                             <table>
                               <thead>
                                 <tr>

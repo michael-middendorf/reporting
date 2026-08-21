@@ -10,7 +10,6 @@ function item(partial: Partial<ChapelNamingItem>): ChapelNamingItem {
     fundingRequest: 125000,
     type: null,
     setNote: null,
-    constructionNotes: null,
     fromCatalog: true,
     amountReceived: 0,
     pctReceived: 0,

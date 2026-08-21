@@ -19,7 +19,6 @@ export type ChapelNamingItem = {
   fundingRequest: number | null;
   type: string | null;
   setNote: number | string | null;
-  constructionNotes: string | null;
   fromCatalog: boolean;
   amountReceived: number;
   pctReceived: number | null;
