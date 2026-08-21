@@ -11,10 +11,8 @@ import {
   Section,
   acShort,
 } from "@/components/enrollment/ui";
-import { FallAdmissionsReport } from "@/components/enrollment/fall-report";
 import { cycleMeta, pickCurPrv } from "@/lib/reports/enrollment/cycle";
 import { DEFS } from "@/lib/reports/enrollment/defs";
-import { buildFallReport } from "@/lib/reports/enrollment/fall-report";
 import { fmt } from "@/lib/reports/enrollment/load";
 
 export default function AdmissionsPage() {
@@ -33,7 +31,7 @@ export default function AdmissionsPage() {
     );
 
   const adm = data.admissions;
-  const { label, vs, year } = cycleMeta(cycle);
+  const { label, vs } = cycleMeta(cycle);
   const { cur, prv } = pickCurPrv(adm, cycle);
   const fa24 = adm.fa24;
   const fa25 = adm.fa25;
@@ -60,7 +58,6 @@ export default function AdmissionsPage() {
             { label: "FA26", tone: "secondary" as const, stats: fa26Yoy },
             { label: "FA27", tone: "gold" as const, stats: fa27 },
           ];
-  const fallReport = buildFallReport(adm.allRows, year, data.generatedAt);
 
   const funnelRows: [string, string, number | null | undefined, number | null | undefined][] = [
     ["Applications", DEFS.created, cur.created, prv.created],
@@ -300,8 +297,6 @@ export default function AdmissionsPage() {
           </tbody>
         </table>
       </div>
-
-      <FallAdmissionsReport report={fallReport} />
     </div>
   );
 }
