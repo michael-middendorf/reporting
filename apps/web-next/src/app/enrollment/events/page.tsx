@@ -4,8 +4,81 @@ import { useEnrollment } from "../EnrollmentProvider";
 import { Section } from "@/components/enrollment/ui";
 import { fmt } from "@/lib/reports/enrollment/load";
 
+type AmeMonth = { attended: number; registered: number; registrants?: number };
+type AmeCycle = Record<string, AmeMonth>;
+
+function ameMonthVal(cyc: AmeCycle | undefined, mo: string): number {
+  const cell = cyc?.[mo];
+  if (!cell) return 0;
+  if (cell.registrants != null) return cell.registrants;
+  return (cell.attended || 0) + (cell.registered || 0);
+}
+
+function AmeMonthTable({
+  caption,
+  months,
+  curLabel,
+  prvLabel,
+  curCyc,
+  prvCyc,
+}: {
+  caption: string;
+  months: string[];
+  curLabel: string;
+  prvLabel: string;
+  curCyc: AmeCycle;
+  prvCyc: AmeCycle;
+}) {
+  const yoyRows = [
+    { label: curLabel, cyc: curCyc, bold: true },
+    { label: prvLabel, cyc: prvCyc, bold: false },
+  ];
+  return (
+    <div className="panel" style={{ overflowX: "auto" }}>
+      <table className="data-table">
+        <caption
+          style={{
+            textAlign: "left",
+            fontWeight: 600,
+            fontSize: 12,
+            color: "var(--muted,#666)",
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            padding: "8px 0 4px",
+          }}
+        >
+          {caption}
+        </caption>
+        <thead>
+          <tr>
+            <th></th>
+            {months.map((m) => (
+              <th key={m}>{m}</th>
+            ))}
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {yoyRows.map((row) => {
+            const total = months.reduce((s, m) => s + ameMonthVal(row.cyc, m), 0);
+            return (
+              <tr key={row.label} style={{ fontWeight: row.bold ? 600 : undefined }}>
+                <td>{row.label}</td>
+                {months.map((m) => (
+                  <td key={m}>{fmt(ameMonthVal(row.cyc, m))}</td>
+                ))}
+                <td style={{ fontWeight: 600 }}>{fmt(total)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function EventsPage() {
-  const { data, loading, error } = useEnrollment();
+  const { data, loading, error, cycle } = useEnrollment();
   if (loading)
     return (
       <div className="view active">
@@ -19,16 +92,18 @@ export default function EventsPage() {
       </div>
     );
 
-  // AME grouped by event-month recruiting cycle (Qlik FA26 Enrollment Report).
   const ame = data.ame as unknown as Record<string, unknown>;
   const campus = data.campus as unknown as Record<string, unknown>;
-  const byCycle = ((ame.byCycle || campus.byCycle || {}) as Record<
-    string,
-    Record<string, { attended: number; registered: number; registrants?: number }>
-  >);
-  const cycleKeys = Object.keys(byCycle).sort();
+  const byCycle = (ame.byCycle || campus.byCycle || {}) as Record<string, AmeCycle>;
+  const byCycleYoy = (ame.byCycleYoy || {}) as Record<string, AmeCycle>;
   const FALL_MONTHS = ["Sep", "Oct", "Nov"];
   const SPRING_MONTHS = ["Feb", "Mar", "Apr"];
+  const curKey = cycle === "fa26" ? "Fall 2026" : "Fall 2027";
+  const prvKey = cycle === "fa26" ? "Fall 2025" : "Fall 2026";
+  const curLabel = cycle === "fa26" ? "FA26" : "FA27";
+  const prvLabel = cycle === "fa26" ? "FA25 (same date last yr)" : "FA26 (same date last yr)";
+  const curCyc = byCycle[curKey] || {};
+  const prvCyc = byCycleYoy[prvKey] || {};
 
   // PSW
   const pswPack = data.psw as unknown as {
@@ -36,7 +111,7 @@ export default function EventsPage() {
   } & Record<string, { att: number; total: number }>;
   const pswMap = pswPack.byTerm || pswPack;
   const pswTerms = Object.entries(pswMap)
-    .filter(([k]) => k !== "byTerm" && k !== "byCycle")
+    .filter(([k]) => k !== "byTerm" && k !== "byCycle" && k !== "byCycleYoy")
     .sort((a, b) => a[0].localeCompare(b[0]));
 
   // SLC
@@ -58,7 +133,10 @@ export default function EventsPage() {
       </div>
 
       {/* ── AME ── */}
-      <Section label="Ave Maria Experience (AME) — Campus Visits" />
+      <Section label="Ave Maria Experience (AME)" />
+      <p className="rpt-sub" style={{ margin: "0 0 12px" }}>
+        Registrants vs the same calendar date last year, using AME form submission date.
+      </p>
       <div className="kpi-strip">
         {(
           [
@@ -76,108 +154,24 @@ export default function EventsPage() {
         ))}
       </div>
 
-      {cycleKeys.length > 0 && (
-        <>
-          <div className="g2" style={{ gap: 16, marginTop: 16 }}>
-            {/* Fall AME (attendees by month) */}
-            <div className="panel" style={{ overflowX: "auto" }}>
-              <table className="data-table">
-                <caption
-                  style={{
-                    textAlign: "left",
-                    fontWeight: 600,
-                    fontSize: 12,
-                    color: "var(--muted,#666)",
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    padding: "8px 0 4px",
-                  }}
-                >
-                  Fall AME Registrants (Sept / Oct / Nov)
-                </caption>
-                <thead>
-                  <tr>
-                    <th>FA Cycle</th>
-                    {FALL_MONTHS.map((m) => (
-                      <th key={m}>{m}</th>
-                    ))}
-                    <th>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cycleKeys.map((cy) => {
-                    const cyc = byCycle[cy];
-                    const monthVal = (m: string) =>
-                      (cyc[m]?.registrants ?? ((cyc[m]?.attended || 0) + (cyc[m]?.registered || 0)));
-                    const total = FALL_MONTHS.reduce((s, m) => s + monthVal(m), 0);
-                    return (
-                      <tr key={cy}>
-                        <td>{cy}</td>
-                        {FALL_MONTHS.map((m) => (
-                          <td key={m}>{fmt(cyc[m] ? monthVal(m) : null)}</td>
-                        ))}
-                        <td style={{ fontWeight: 600 }}>{fmt(total)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Spring AME (registrants by month) */}
-            <div className="panel" style={{ overflowX: "auto" }}>
-              <table className="data-table">
-                <caption
-                  style={{
-                    textAlign: "left",
-                    fontWeight: 600,
-                    fontSize: 12,
-                    color: "var(--muted,#666)",
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    padding: "8px 0 4px",
-                  }}
-                >
-                  Spring AME Registrants (Feb / Mar / Apr)
-                </caption>
-                <thead>
-                  <tr>
-                    <th>FA Cycle</th>
-                    {SPRING_MONTHS.map((m) => (
-                      <th key={m}>{m}</th>
-                    ))}
-                    <th>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cycleKeys.map((cy) => {
-                    const cyc = byCycle[cy];
-                    const total = SPRING_MONTHS.reduce(
-                      (s, m) => s + (cyc[m]?.attended || 0) + (cyc[m]?.registered || 0),
-                      0,
-                    );
-                    return (
-                      <tr key={cy}>
-                        <td>{cy}</td>
-                        {SPRING_MONTHS.map((m) => (
-                          <td key={m}>
-                            {fmt(
-                              cyc[m]
-                                ? (cyc[m].attended || 0) + (cyc[m].registered || 0)
-                                : null,
-                            )}
-                          </td>
-                        ))}
-                        <td style={{ fontWeight: 600 }}>{fmt(total)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      )}
+      <div className="g2" style={{ gap: 16, marginTop: 16 }}>
+        <AmeMonthTable
+          caption="Fall AME Registrants (Sept / Oct / Nov)"
+          months={FALL_MONTHS}
+          curLabel={curLabel}
+          prvLabel={prvLabel}
+          curCyc={curCyc}
+          prvCyc={prvCyc}
+        />
+        <AmeMonthTable
+          caption="Spring AME Registrants (Feb / Mar / Apr)"
+          months={SPRING_MONTHS}
+          curLabel={curLabel}
+          prvLabel={prvLabel}
+          curCyc={curCyc}
+          prvCyc={prvCyc}
+        />
+      </div>
 
       {/* ── PSW ── */}
       <Section label="President's Scholarship Weekend (PSW)" />
