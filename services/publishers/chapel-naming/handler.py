@@ -162,9 +162,23 @@ def _item_label_from_naming(raw: str, chapel_object: str) -> str:
 
 
 def load_catalog() -> list[dict[str, Any]]:
+    env = (os.environ.get("CHAPEL_NAMING_CATALOG") or "").strip()
+    candidates = []
+    if env:
+        candidates.append(Path(env))
     here = Path(__file__).resolve().parent
-    path = Path(os.environ.get("CHAPEL_NAMING_CATALOG") or here / "catalog.json")
-    return json.loads(path.read_text())
+    candidates.extend(
+        [
+            here / "catalog.json",
+            Path("/var/task/catalog.json"),
+            Path.cwd() / "catalog.json",
+        ]
+    )
+    for path in candidates:
+        if path.is_file():
+            return json.loads(path.read_text())
+    tried = ", ".join(str(p) for p in candidates)
+    raise FileNotFoundError(f"chapel naming catalog.json not found (tried {tried})")
 
 
 def build_snapshot(gifts: list[dict[str, Any]], catalog: list[dict[str, Any]]) -> dict[str, Any]:
