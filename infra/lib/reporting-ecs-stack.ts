@@ -142,6 +142,8 @@ export class ReportingEcsStack extends cdk.Stack {
     // object. Scope the write narrowly to just that key (least privilege) — reads
     // are already covered by the GetObject grant above.
     task.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:PutObject"], resources: [`${dataBucketArn}/points/review-flags.json`] }));
+    // Housing verification/uploads: staff xlsx + edit state under cache/housing/.
+    task.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:PutObject"], resources: [`${dataBucketArn}/cache/housing/*`] }));
     // On-demand report Lambdas (Institute/MAS/Alumni) live in the SST runtime; the
     // web app invokes them by name (see /api/institute-data, /api/reports/mas, alumni).
     // The web container needs both the function names AND permission to invoke them.

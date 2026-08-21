@@ -1,0 +1,1092 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AMU Residence Life Dashboard</title>
+<style>
+  :root{
+    --bg:#EEF2F8; --card:#FFFFFF; --raised:#F0F5FF;
+    --gold:#B8892A; --gold-lt:#D4A843;
+    --text:#0D2B5E; --dim:#4A6490;
+    --men:#1B5EA8; --men-glow:#2E75C8;
+    --women:#943060; --women-glow:#B84080;
+    --other:#1F6B42; --other-glow:#2E8A55;
+    --border:#D8E2F0; --border-hi:#C0D0E8;
+    --shadow-sm:0 1px 3px rgba(13,43,94,.07),0 1px 2px rgba(13,43,94,.05);
+    --shadow:0 6px 22px rgba(13,43,94,.12),0 2px 6px rgba(13,43,94,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:14px;line-height:1.45}
+  h1,h2,h3,.serif{font-family:Georgia,'Times New Roman',serif}
+  .eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);font-weight:600}
+  .lbl{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:600}
+
+  header.top{background:var(--card);border-bottom:3px solid var(--gold);padding:26px 34px;
+    display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap}
+  header.top h1{margin:2px 0 6px;font-size:30px;font-weight:400;letter-spacing:-.01em}
+  .sub{color:var(--dim);font-size:13px}
+  .live{display:inline-flex;align-items:center;gap:6px;color:var(--other);font-weight:600;font-size:12px;margin-left:6px}
+  .live .dot{width:8px;height:8px;border-radius:50%;background:var(--other-glow)}
+  .grow{flex:1 1 40px}
+  .stats{display:flex;gap:30px}
+  .stat b{font-family:Georgia,serif;font-size:30px;font-weight:400;display:block;line-height:1}
+  .stat span{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .legend{display:grid;gap:5px;font-size:12px;color:var(--dim)}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:7px;vertical-align:-1px}
+
+  .wrap{padding:22px 34px 60px}
+  .sectitle{display:flex;align-items:center;gap:14px;margin:22px 2px 12px}
+  .sectitle .lbl{font-size:11px}
+  .sectitle .rule{flex:1;height:1px;background:var(--border)}
+
+  /* hall cards */
+  .halls{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+  .hcard{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;
+    cursor:pointer;box-shadow:var(--shadow-sm);transition:.15s;display:flex;gap:13px;align-items:center}
+  .hcard:hover{border-color:var(--border-hi);transform:translateY(-1px);box-shadow:var(--shadow)}
+  .hcard.on{border-color:var(--gold);box-shadow:0 0 0 2px rgba(184,137,42,.25),var(--shadow)}
+  .hcard .abbr{font-family:Georgia,serif;font-size:26px;line-height:1;min-width:52px}
+  .hcard .nm{font-weight:600;font-size:14px}
+  .hcard .gen{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;margin-top:2px}
+  .hcard .ct{margin-left:auto;text-align:right;color:var(--dim);font-size:11px}
+  .hcard .ct b{display:block;font-family:Georgia,serif;font-size:19px;color:var(--text);font-weight:400}
+  .w .abbr,.w .gen{color:var(--women)} .m .abbr,.m .gen{color:var(--men)} .o .abbr,.o .gen{color:var(--other)}
+
+  /* date filter bar */
+  .datebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 2px 0}
+  .db{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:12.5px;font-weight:600;color:var(--dim);cursor:pointer}
+  .db.on{border-color:var(--gold);background:#FBF6EC;color:#8A6C28}
+  .db-date{font-size:12.5px;color:var(--dim);display:inline-flex;align-items:center;gap:6px}
+  .db-date input{border:1px solid var(--border);border-radius:8px;padding:4px 8px;font:inherit;color:var(--text)}
+  .asof-sum{font-size:12.5px;color:var(--text);font-weight:600;margin-left:2px}
+  .room.movein{box-shadow:0 0 0 2px #2E75C8}
+  .mibadge{position:absolute;top:3px;right:3px;background:#1B5EA8;color:#fff;font-size:7px;font-weight:800;border-radius:3px;padding:1px 3px;letter-spacing:.04em}
+  /* detail panel */
+  .detail{margin-top:16px;background:var(--card);border:1px solid var(--border);border-radius:16px;
+    box-shadow:var(--shadow);overflow:hidden}
+  .dhead{display:flex;gap:22px;align-items:center;padding:18px 24px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .dhead h2{margin:0;font-size:22px;font-weight:400}
+  .dhead .gtag{font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;padding:3px 9px;border-radius:20px}
+  .floors{display:flex;gap:14px;margin-left:auto;align-items:flex-start}
+  .fbtn{background:none;border:0;cursor:pointer;text-align:center;color:var(--dim)}
+  .fbtn .circ{width:46px;height:46px;border-radius:50%;border:2px solid var(--border-hi);
+    display:grid;place-items:center;font-family:Georgia,serif;font-size:18px;color:var(--dim);margin:0 auto;transition:.15s;background:var(--card)}
+  .fbtn.on .circ{border-color:var(--gold);color:var(--gold);background:#FBF6EC}
+  .fbtn small{display:block;margin-top:5px;font-size:10.5px;color:var(--dim);white-space:nowrap}
+  .fbtn.on small{color:var(--gold-lt);font-weight:600}
+
+  .dbody{display:block}
+  .map{padding:22px 20px;overflow:auto;display:flex;justify-content:center}
+  .floorgrid{display:flex;flex-direction:column;gap:6px;align-items:center;
+    border:1px solid var(--border-hi);border-radius:14px;background:#FAFCFF;padding:16px 20px;
+    box-shadow:inset 0 1px 4px rgba(13,43,94,.05);width:fit-content}
+  .frow{display:flex;gap:4px;justify-content:center}
+  .hallway{align-self:stretch;min-height:22px;margin:2px 0;border-radius:5px;
+    background:repeating-linear-gradient(90deg,#E7ECF4 0 14px,#EDF1F8 14px 28px);
+    display:flex;align-items:center;justify-content:center}
+  .hallway span{font-size:8.5px;letter-spacing:.28em;color:var(--dim);opacity:.7;font-weight:700}
+  .room{width:60px;height:50px;border:1px solid var(--border);border-radius:6px;padding:4px 5px;cursor:pointer;
+    position:relative;transition:.12s;display:flex;flex-direction:column;gap:2px;background:var(--card);flex:none}
+  .room.suite{width:118px}
+  .room.spacer{visibility:hidden;border:0;box-shadow:none;cursor:default;pointer-events:none}
+  .room:hover{box-shadow:var(--shadow);transform:translateY(-1px);z-index:2}
+  .room .rn{font-weight:700;font-size:11px;line-height:1}
+  .room .rt{font-size:8.5px;color:var(--dim);letter-spacing:.02em;line-height:1}
+  .room.reduced{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold-lt)}
+  .room .early{position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;
+    background:#E08A2B;box-shadow:0 0 0 1.5px var(--card)}
+  .edot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#E08A2B;flex:none}
+  .room .pips{display:flex;flex-wrap:wrap;gap:1.5px;margin-top:auto}
+  .pip{width:6px;height:6px;border-radius:1px;background:var(--border-hi)}
+  .space{border:1px dashed var(--border);border-radius:8px;background:var(--raised);color:var(--dim);
+    font-size:9.5px;display:grid;place-items:center;text-align:center;padding:3px;min-height:34px}
+  .selroom{outline:3px solid var(--gold);outline-offset:1px}
+
+  /* unit list */
+  .units{border-top:1px solid var(--border);background:var(--raised)}
+  .units h3{margin:0;padding:14px 20px 6px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .ulist{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));padding:0 8px 10px}
+  .urow{display:flex;align-items:center;gap:10px;padding:6px 12px;border-top:1px solid var(--border);cursor:pointer;font-size:13px}
+  .urow:hover{background:#E7EEF9}
+  .urow.on{background:#E2EAF7;box-shadow:inset 3px 0 0 var(--gold)}
+  .urow .rdot{width:11px;height:11px;border-radius:3px;flex:none}
+  .urow .un{font-weight:600;min-width:44px}
+  .urow .ut{color:var(--dim);font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .urow .uoc{font-variant-numeric:tabular-nums;font-weight:600;font-size:12px}
+
+  /* drawer */
+  .drawer{position:fixed;top:0;right:-460px;width:440px;max-width:92vw;height:100vh;background:var(--card);
+    box-shadow:-14px 0 40px rgba(13,43,94,.20);transition:right .25s;z-index:50;display:flex;flex-direction:column}
+  .drawer.open{right:0}
+  .dh{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:12px}
+  .dh h2{margin:0;font-size:24px;font-weight:400}
+  .dh .rt{color:var(--dim);font-size:12.5px;text-transform:uppercase;letter-spacing:.05em}
+  .dh .x{margin-left:auto;background:none;border:0;font-size:26px;color:var(--dim);cursor:pointer;line-height:1}
+  .dcontent{padding:18px 24px;overflow:auto;flex:1}
+  .roommeta{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+  .chip{font-size:11px;padding:4px 10px;border-radius:20px;background:var(--raised);border:1px solid var(--border);color:var(--dim)}
+  .chip b{color:var(--text)}
+  .person{border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow-sm)}
+  .person .pn{font-weight:700;font-size:15px}
+  .person .psub{color:var(--dim);font-size:12px;margin-bottom:9px}
+  .kv{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-top:1px solid var(--border);font-size:12.5px}
+  .kv:first-of-type{border-top:0}
+  .kv span{color:var(--dim)} .kv b{color:var(--text);text-align:right;font-weight:600}
+  .badge{display:inline-block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;
+    padding:2px 7px;border-radius:5px;background:#FBF6EC;color:var(--gold-muted,#8A6C28);border:1px solid #EAD9AE}
+  .empty{color:var(--dim);font-style:italic;padding:16px 0}
+  .ferpa{margin-top:8px;font-size:11px;color:#9c4a3c;background:#FBEEEB;border:1px solid #E7C4BB;border-radius:9px;padding:9px 12px}
+  .campus{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:8px}
+  .campus .chead{display:flex;align-items:baseline;gap:12px;padding:14px 22px;border-bottom:1px solid var(--border)}
+  .campus .chead h2{margin:0;font-size:19px;font-weight:400}
+  .cmapwrap{position:relative;width:100%;background:#EAF0F5}
+  .cmapwrap img{display:block;width:100%}
+  .cpin{position:absolute;transform:translate(-50%,-120%);cursor:pointer;white-space:nowrap;font-size:12px;
+    font-weight:700;padding:3px 10px;border-radius:20px;background:#fff;box-shadow:0 2px 9px rgba(13,43,94,.3);
+    border:2px solid;display:inline-flex;align-items:center;gap:6px;transition:.12s;z-index:2}
+  .cpin:hover{transform:translate(-50%,-135%) scale(1.06);z-index:3}
+  .cpin small{font-weight:600;font-size:10px;color:var(--dim)}
+  .cpin.w{border-color:var(--women);color:var(--women)} .cpin.m{border-color:var(--men);color:var(--men)}
+  .scrim{position:fixed;inset:0;background:rgba(13,43,94,.28);opacity:0;pointer-events:none;transition:.25s;z-index:40}
+  .scrim.on{opacity:1;pointer-events:auto}
+
+  /* ── view nav tabs ── */
+  .nav{background:var(--card);border-bottom:1px solid var(--border);padding:0 34px;display:flex;gap:4px}
+  .navtab{appearance:none;background:none;border:0;border-bottom:3px solid transparent;margin-bottom:-1px;
+    padding:13px 16px;font:inherit;font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--dim);cursor:pointer;transition:.15s}
+  .navtab:hover{color:var(--text)}
+  .navtab.on{color:var(--text);border-bottom-color:var(--gold)}
+
+  /* ── overview: metric cards ── */
+  .pcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:14px}
+  .pcard{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow-sm)}
+  .pcard .lab{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:8px}
+  .pcard .big{font-family:Georgia,serif;font-size:34px;font-weight:400;line-height:1;letter-spacing:-.01em}
+  .pcard .big.gold{color:var(--gold)} .pcard .big.warn{color:var(--gold-lt)}
+  .pcard .big.good{color:var(--other)} .pcard .big.crit{color:var(--women)}
+  .bar{height:7px;border-radius:4px;background:var(--border);overflow:hidden;margin:9px 0 2px}
+  .bar>i{display:block;height:100%;border-radius:4px}
+  .bar>i.warn{background:var(--gold-lt)} .bar>i.good{background:var(--other-glow)} .bar>i.crit{background:var(--women-glow)}
+  .split{display:flex;gap:20px;margin-top:9px;padding-top:9px;border-top:1px solid var(--border)}
+  .split .k{font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);font-weight:700}
+  .split .v{font-family:Georgia,serif;font-size:17px;margin-top:1px}
+  .split .v.w{color:var(--women)} .split .v.m{color:var(--men)}
+  .cnote{margin-top:9px;padding-top:8px;border-top:1px solid var(--border);font-size:9.5px;color:var(--dim);
+    display:flex;justify-content:space-between;gap:8px}
+
+  /* ── overview: tables + panels ── */
+  .ovgrid{display:grid;gap:14px;margin-top:14px}
+  .ovgrid.two{grid-template-columns:2fr 1fr}
+  .ovgrid.even{grid-template-columns:1fr 1fr}
+  @media(max-width:900px){.ovgrid.two,.ovgrid.even{grid-template-columns:1fr}}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow-sm)}
+  .panel .ph{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+  .panel .pt{font-family:Georgia,serif;font-size:18px;font-weight:400}
+  .panel .pb{font-size:10px;color:var(--dim);letter-spacing:.03em}
+  table.ov{width:100%;border-collapse:collapse;font-size:13px}
+  table.ov th{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);font-weight:700;
+    text-align:right;padding:5px 8px;border-bottom:1px solid var(--border)}
+  table.ov th:first-child{text-align:left}
+  table.ov td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
+  table.ov td:first-child{text-align:left;font-weight:600}
+  table.ov tr:last-child td{border-bottom:0}
+  table.ov tr.tot td{font-weight:700;border-top:2px solid var(--border-hi);background:var(--raised)}
+  .cw{color:var(--women)} .cm{color:var(--men)}
+  .pill{display:inline-block;min-width:30px;padding:1px 8px;border-radius:20px;font-weight:600;font-variant-numeric:tabular-nums}
+  .pill.ok{background:#E7F3EC;color:var(--other)} .pill.warn{background:#FBF1DC;color:var(--gold)}
+  .delta{font-weight:600} .delta.dn{color:var(--women)} .delta.up{color:var(--other)}
+  /* commuters mini-panel */
+  .cbox{display:flex;flex-direction:column;justify-content:center;gap:10px}
+  .cbox .crow{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-radius:8px;background:var(--raised)}
+  .cbox .crow b{font-family:Georgia,serif;font-size:22px;font-weight:400}
+  .cbox .ctot{text-align:center;margin-top:2px}
+  .cbox .ctot b{font-family:Georgia,serif;font-size:30px;font-weight:400;color:var(--gold)}
+  .cbox .ctot span{display:block;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+  /* all-students segmented breakdown */
+  .segbar{display:flex;height:24px;border-radius:6px;overflow:hidden;background:var(--border);margin:2px 0 14px}
+  .segbar>span{display:block;height:100%;min-width:2px}
+  .seglegend{display:flex;flex-wrap:wrap;gap:14px 30px}
+  .seglegend .li{display:flex;align-items:center;gap:9px}
+  .seglegend .sw{width:12px;height:12px;border-radius:3px;flex:none}
+  .seglegend .n{font-family:Georgia,serif;font-size:22px;font-weight:400;line-height:1}
+  .seglegend .t{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);font-weight:700;margin-top:2px}
+  .seglegend .sub{font-size:10px;color:var(--dim);margin-top:1px}
+  .srcnote{margin-top:14px;padding:11px 15px;background:var(--raised);border:1px solid var(--border);border-radius:8px;
+    font-size:10.5px;color:var(--dim);line-height:1.5}
+  .srcnote b{color:var(--text)}
+
+  /* ── student verification (spreadsheet) ── */
+  .verbar{display:flex;gap:12px;align-items:center;margin-bottom:10px}
+  .versave{font-size:11px;color:var(--dim)}
+  .verfilter{margin-left:auto;padding:7px 11px;border:1px solid var(--border);border-radius:7px;font:inherit;font-size:13px;min-width:280px}
+  .vertable-wrap{overflow-x:auto;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-sm)}
+  table.vertable{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.vertable th{position:sticky;top:0;background:var(--raised);text-align:left;font-size:9.5px;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--dim);font-weight:700;padding:9px 10px;border-bottom:1px solid var(--border);white-space:nowrap;z-index:1}
+  table.vertable td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  table.vertable tr:hover td{background:var(--raised)}
+  table.vertable tr.row-Confirmed td{opacity:.58}
+  .vname{font-weight:600} .vpc{font-size:10px;color:var(--dim);margin-top:1px}
+  .vreason{max-width:300px} .vgrp{font-size:11px;white-space:nowrap}
+  .badge-reason{display:inline-block;background:#FBF1DC;color:var(--gold);border-radius:4px;padding:1px 6px;font-size:9.5px;font-weight:700;margin:1px 3px 1px 0;cursor:help}
+  .vsel,.vdate,.vnote,.vnum{font:inherit;font-size:12px;padding:5px 7px;border:1px solid var(--border);border-radius:6px;background:var(--card)}
+  .vsel{font-weight:600} .vnote{width:190px} .vnum{width:64px}
+  table.vertable tr.row-off td{background:#FBEFF3}
+  /* inline room editing in the drawer */
+  .capedit{width:46px;font:inherit;font-weight:700;font-size:13px;text-align:center;border:1px solid var(--border);border-radius:5px;padding:2px 3px;color:var(--text);margin-left:2px}
+  .roomacts{margin:12px 0 6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .btnroom{font:inherit;font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:7px;cursor:pointer;border:1px solid}
+  .btnroom.unavail{background:#FBEFF3;color:var(--women);border-color:#E2B7C9}
+  .btnroom.unavail:hover{background:var(--women);color:#fff;border-color:var(--women)}
+  .btnroom.restore{background:#E7F3EC;color:var(--other);border-color:#B7DCC5}
+  .btnroom.restore:hover{background:var(--other);color:#fff;border-color:var(--other)}
+  .offnote{font-size:10.5px;color:var(--dim)}
+  .noteadd{display:flex;gap:8px;margin:2px 0 14px}
+  .noteinput{flex:1;padding:8px 11px;border:1px solid var(--border);border-radius:7px;font:inherit;font-size:13px}
+  .notewho{width:150px;padding:8px 11px;border:1px solid var(--border);border-radius:7px;font:inherit;font-size:13px}
+  .btn{padding:8px 16px;border:1px solid var(--gold);background:var(--gold);color:#fff;border-radius:7px;font:inherit;font-weight:600;cursor:pointer}
+  .btn:hover{background:var(--gold-lt);border-color:var(--gold-lt)}
+  .notelist{display:flex;flex-direction:column;gap:8px}
+  .noteitem{padding:9px 12px;background:var(--raised);border:1px solid var(--border);border-radius:8px;font-size:12.5px}
+  .noteitem .meta{font-size:10px;color:var(--dim);margin-top:3px}
+  .noteitem .del{float:right;color:var(--dim);cursor:pointer;font-size:11px;border:0;background:none}
+  .noteitem .del:hover{color:var(--women)}
+  .upbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:4px 2px 12px;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px}
+  .upbar .uplbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-weight:700}
+  .upbtn{font-size:12.5px;font-weight:600;color:var(--gold);border:1px solid #E7D2A0;background:#FBF6EC;padding:7px 13px;border-radius:7px;cursor:pointer}
+  .upbtn:hover{background:var(--gold);color:#fff;border-color:var(--gold)}
+  .upbtn input{display:none}
+  .upstatus{font-size:11.5px;color:var(--dim)}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div>
+    <div class="eyebrow">Ave Maria University · Residence Life</div>
+    <h1>Residence Life Dashboard</h1>
+    <div class="sub">Fall 2026 · room-level occupancy<span class="live" id="live"><span class="dot"></span>LIVE</span></div>
+  </div>
+  <div class="grow"></div>
+  <div class="stats">
+    <div class="stat"><b id="stRes">–</b><span>In halls</span></div>
+    <div class="stat"><b id="stHalls">–</b><span>Halls</span></div>
+    <div class="stat"><b id="stOpen">–</b><span>Beds open</span></div>
+  </div>
+  <div class="legend">
+    <div><i style="background:var(--men)"></i>Men's residence</div>
+    <div><i style="background:var(--women)"></i>Women's residence</div>
+    <div><i style="background:var(--other)"></i>Other / commuter</div>
+    <div><i style="background:#CBD8EC"></i>Partial / open bed</div>
+    <div><i style="background:#FBF6EC;border:1px solid var(--gold)"></i>Reduced capacity (2-bed)</div>
+    <div><i style="background:#E08A2B;border-radius:50%"></i>Has early-arrival resident</div>
+  </div>
+</header>
+
+<nav class="nav">
+  <button class="navtab on" id="tabOverview" onclick="setView('overview')">Stats</button>
+  <button class="navtab" id="tabFloor" onclick="setView('floor')">Housing</button>
+  <button class="navtab" id="tabMovein" onclick="setView('movein')">Move-ins</button>
+  <button class="navtab" id="tabVerify" onclick="setView('verify')">Verification</button>
+</nav>
+
+<div class="wrap" id="viewOverview">
+  <div class="sectitle"><span class="lbl">Fall 2026 · Housing Overview</span><span class="rule"></span><span class="lbl" id="ovAsOf"></span></div>
+
+  <div class="pcards">
+    <!-- Domestic capacity -->
+    <div class="pcard">
+      <div class="lab">Domestic Capacity</div>
+      <div class="big gold" id="ovCap">–</div>
+      <div class="split">
+        <div><div class="k">Women</div><div class="v w" id="ovCapW">–</div></div>
+        <div><div class="k">Men</div><div class="v m" id="ovCapM">–</div></div>
+      </div>
+      <div class="cnote"><span>Overseas (not for placement)</span><span id="ovOverseas">–</span></div>
+    </div>
+    <!-- Current fill -->
+    <div class="pcard">
+      <div class="lab">Current Fill</div>
+      <div class="big warn" id="ovFill">–</div>
+      <div class="bar"><i class="warn" id="ovFillBar" style="width:0"></i></div>
+      <div class="split">
+        <div><div class="k">Women</div><div class="v w" id="ovFillW">–</div></div>
+        <div><div class="k">Men</div><div class="v m" id="ovFillM">–</div></div>
+      </div>
+    </div>
+    <!-- Predicted fill (after melt) -->
+    <div class="pcard">
+      <div class="lab">Predicted Fill · after remaining melt</div>
+      <div class="big warn" id="ovPred">–</div>
+      <div class="bar"><i class="warn" id="ovPredBar" style="width:0"></i></div>
+      <div class="split">
+        <div><div class="k">Women</div><div class="v w" id="ovPredW">–</div></div>
+        <div><div class="k">Men</div><div class="v m" id="ovPredM">–</div></div>
+      </div>
+      <div class="cnote" id="ovPredNote"></div>
+    </div>
+    <!-- Melt rate (constant) -->
+    <div class="pcard">
+      <div class="lab">Melt Rate — FA25 Final</div>
+      <div class="big crit" id="ovMelt">–</div>
+      <div class="bar"><i class="crit" id="ovMeltBar" style="width:0"></i></div>
+      <div class="split">
+        <div><div class="k">FA25 W</div><div class="v w" id="ovMeltW">–</div></div>
+        <div><div class="k">FA25 M</div><div class="v m" id="ovMeltM">–</div></div>
+      </div>
+    </div>
+    <!-- Retention (constant) -->
+    <div class="pcard">
+      <div class="lab">Retention · S25 → FA25</div>
+      <div class="big good" id="ovRet">–</div>
+      <div class="bar"><i class="good" id="ovRetBar" style="width:0"></i></div>
+      <div class="split">
+        <div><div class="k">Women</div><div class="v w" id="ovRetW">–</div></div>
+        <div><div class="k">Men</div><div class="v m" id="ovRetM">–</div></div>
+      </div>
+    </div>
+    <!-- Study abroad (Ireland) — live from eRez -->
+    <div class="pcard">
+      <div class="lab">Study Abroad · Ireland</div>
+      <div class="big" style="color:var(--other)" id="ovIre">–</div>
+      <div class="split">
+        <div><div class="k">CIARA</div><div class="v" id="ovCiara">–</div></div>
+        <div><div class="k">MALAC</div><div class="v" id="ovMalac">–</div></div>
+      </div>
+      <div class="cnote"><span id="ovIreNote">eRezLife live</span><span id="ovIreDate"></span></div>
+    </div>
+  </div>
+
+  <!-- All students breakdown -->
+  <div class="panel" style="margin-top:14px">
+    <div class="ph"><span class="pt">All Students</span><span class="pb" id="ovAllTot">–</span></div>
+    <div class="segbar" id="ovSeg"></div>
+    <div class="seglegend" id="ovSegLeg"></div>
+  </div>
+
+  <div class="ovgrid two">
+    <!-- Hall occupancy -->
+    <div class="panel">
+      <div class="ph"><span class="pt">Hall Occupancy</span><span class="pb">Capacity · In Halls Now · Predicted · Beds Open</span></div>
+      <table class="ov">
+        <thead><tr><th></th><th>Capacity</th><th>In Halls</th><th>Fill %</th><th>Predicted</th><th>Open Now</th><th>Open Pred.</th></tr></thead>
+        <tbody id="ovHallRows"></tbody>
+      </table>
+    </div>
+    <!-- Possible commuters -->
+    <div class="panel cbox">
+      <div class="ph"><span class="pt">Possible Commuters</span></div>
+      <div style="font-size:11px;color:var(--dim);margin:-4px 0 4px">Incoming freshmen from Collier / Lee County · no housing assignment yet</div>
+      <div class="crow cw"><span class="k" style="font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase">Women</span><b class="cw" id="ovComW">–</b></div>
+      <div class="crow cm"><span class="k" style="font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase">Men</span><b class="cm" id="ovComM">–</b></div>
+      <div class="ctot"><b id="ovComT">–</b><span>potential commuters</span></div>
+    </div>
+  </div>
+
+  <div class="ovgrid even">
+    <!-- Incoming freshmen -->
+    <div class="panel">
+      <div class="ph"><span class="pt">Incoming Freshmen</span><span class="pb">In Halls · Goal · vs Goal · Predicted (after melt)</span></div>
+      <table class="ov">
+        <thead><tr><th></th><th>In Halls</th><th>Goal</th><th>vs Goal</th><th>Predicted</th></tr></thead>
+        <tbody id="ovIncRows"></tbody>
+      </table>
+    </div>
+    <!-- Returner status -->
+    <div class="panel">
+      <div class="ph"><span class="pt">Returner Status</span><span class="pb">Eligible · In Halls · Abroad · Retention → Expected</span></div>
+      <table class="ov">
+        <thead><tr><th></th><th>Eligible</th><th>In Halls</th><th>Abroad</th><th>Retention</th><th>Expected Return</th></tr></thead>
+        <tbody id="ovRetRows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="srcnote" id="ovSrc"></div>
+</div>
+
+<div class="wrap" id="viewFloor" style="display:none">
+  <div class="datebar">
+    <span class="lbl">View</span>
+    <button class="db on" id="dbAll" onclick="setAsof(null)">All assignments</button>
+    <button class="db" id="dbToday" onclick="setAsof(TODAY)">Today</button>
+    <label class="db-date">As of <input type="date" id="asofInput" onchange="setAsof(this.value)"></label>
+    <span class="asof-sum" id="asofSum"></span>
+  </div>
+  <div class="sectitle"><span class="lbl">Residence Halls</span><span class="rule"></span><span class="lbl" id="hallsCount"></span></div>
+  <div class="halls" id="halls"></div>
+  <div id="detail"></div>
+</div>
+
+<div class="wrap" id="viewMovein" style="display:none">
+  <div class="sectitle"><span class="lbl">Move-in Schedule</span><span class="rule"></span><span class="lbl" id="moveinSummary"></span></div>
+  <div class="datebar" id="moveinDays"></div>
+  <div class="verbar">
+    <span class="lbl" id="moveinDayLabel"></span>
+    <input class="verfilter" id="moveinFilter" placeholder="Filter by name, room, sport, or reason…" oninput="renderMoveinRows()">
+  </div>
+  <div class="vertable-wrap">
+    <table class="vertable">
+      <thead><tr>
+        <th>Student</th><th>Class</th><th>Status</th><th>Building · Room</th>
+        <th>Sport</th><th>Early arrival</th><th>Move-in</th>
+      </tr></thead>
+      <tbody id="moveinRows"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="wrap" id="viewVerify" style="display:none">
+  <div class="sectitle"><span class="lbl">Student Verification · Early Arrivals</span><span class="rule"></span><span class="lbl" id="verSummary"></span></div>
+  <div class="upbar">
+    <span class="uplbl">Upload spreadsheets</span>
+    <label class="upbtn">Registration Status <input type="file" accept=".xlsx" onchange="uploadFile('registration',this)"></label>
+    <label class="upbtn">Early Arrivals <input type="file" accept=".xlsx" onchange="uploadFile('early-arrivals',this)"></label>
+    <span class="upstatus" id="upStatus">Static files → grade levels, move-in dates &amp; this list. Re-upload when they change.</span>
+  </div>
+  <div class="verbar">
+    <span class="versave" id="verSave">Loading…</span>
+    <input class="verfilter" id="verFilter" placeholder="Filter by name, group, or reason…" oninput="renderVerRows()">
+  </div>
+  <div class="vertable-wrap">
+    <table class="vertable">
+      <thead><tr>
+        <th>Student</th><th>Class</th><th>G</th><th>Group(s)</th><th>Flag reason</th>
+        <th>Status</th><th>Move-in</th><th>Note</th>
+      </tr></thead>
+      <tbody id="verRows"></tbody>
+    </table>
+  </div>
+</div>
+
+
+<div class="scrim" id="scrim" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="dh"><div><h2 id="drNo"></h2><div class="rt" id="drTy"></div></div><button class="x" onclick="closeDrawer()">×</button></div>
+  <div class="dcontent" id="drBody"></div>
+</div>
+
+<script>
+const META={
+  JPII:  {abbr:'JPII',name:'St. John Paul II Hall', sec:'w', std:4},
+  XAVIER:{abbr:'Xav', name:'Francis Xavier Hall',   sec:'w', std:3},
+  GORET: {abbr:'Gor', name:'Maria Goretti Hall',    sec:'w', std:3},
+  TERESA:{abbr:'MT',  name:'St. Mother Teresa Hall', sec:'m', std:4},
+  SEBAST:{abbr:'Seb', name:'St. Sebastian Hall',    sec:'m', std:3},
+  STJOSE:{abbr:'JOS', name:'St. Joseph Hall',        sec:'m', std:2},
+};
+const SEC_NAME={w:'Women’s',m:'Men’s',o:'Other'};
+const SEC_COL={w:'var(--women)',m:'var(--men)',o:'var(--other)'};
+const SEC_ORDER=[['w','Women’s Residences',['JPII','XAVIER','GORET']],
+                 ['m','Men’s Residences',['SEBAST','TERESA','STJOSE']]];
+let RES=[], CHART={}, OCC={}, CUR='JPII', FLOOR=null, SELROOM=null, MELTINFO=null;
+// as-of date filter: null = all assignments; when set, only people in the dorm
+// that day are shown (moved in and not yet departed), arrivals highlighted.
+let ASOF=null;
+const TODAY=(new Date()).toISOString().slice(0,10);
+function visibleOn(p,d){ return (p.move_in && p.move_in<=d) && (!p.end_date || p.end_date>=d); }
+function peopleIn(code,num){ const all=(OCC[code]||{})[num]||[]; return ASOF? all.filter(p=>visibleOn(p,ASOF)) : all; }
+function arriving(p){ return !!ASOF && p.move_in===ASOF; }
+// pin positions on assets/campus.png (% of width/height). BEST-GUESS hall↔building
+// mapping — adjust code/x/y here if a pin sits on the wrong hall.
+const PINS=[
+  {code:'XAVIER', x:39, y:26},
+  {code:'GORET',  x:49, y:34},
+  {code:'JPII',   x:37, y:66},
+  {code:'STJOSE', x:61, y:73},
+  {code:'TERESA', x:72, y:24},
+  {code:'SEBAST', x:72, y:60},
+];
+
+async function boot(){
+  const _rj=await fetch('/data/residents.json').then(r=>r.json());
+  if(!_rj || _rj.error || !Array.isArray(_rj.residents)){
+    document.body.insertAdjacentHTML('afterbegin',
+      '<p style="padding:24px;color:#943060">Housing data unavailable: '
+      + ((_rj && _rj.error) || 'empty payload')
+      + '. Wait for HousingRefresh, then reload.</p>');
+    return;
+  }
+  RES=_rj.residents; MELTINFO=_rj.withdrawn||null;
+  for(const code of Object.keys(META)){
+    try{ CHART[code]=await fetch(`/data/halls/${code.toLowerCase()}.chart.json`).then(r=>r.ok?r.json():Promise.reject()); }catch(e){}
+  }
+  OCC={};
+  for(const r of RES){ if(!r.building||!r.room) continue;
+    (OCC[r.building]??={});(OCC[r.building][r.room]??=[]).push(r); }
+  const p=new URLSearchParams(location.search);
+  if(p.get('hall')&&META[p.get('hall')]) CUR=p.get('hall');
+  if(p.get('floor')) FLOOR=+p.get('floor');
+  try{ await loadRooms(); }catch(e){}
+  renderHeader(); renderHalls(); renderDetail(); renderOverview();
+  if(p.get('asof')) setAsof(p.get('asof')); else updateAsofSum();
+  if(p.get('room')) openRoom(p.get('room'));
+  loadStudyAbroad();
+  const vparam=p.get('view'); if(['floor','movein','verify'].includes(vparam)) setView(vparam);
+}
+
+/* ── Overview (stats) view ─────────────────────────────────────────────── */
+// Melt & retention are fixed planning figures (per Res Life); everything else is live from eRez.
+const MELT={all:12.6,w:12.9,m:12.2};
+const RET ={all:91.1,w:93.5,m:88.2};
+const ELIG={w:559,m:510};          // eligible returners (S25/FA25 census − confirmed grads); NOT in eRez, a constant
+const GOAL={w:254,m:277};          // FA26 residential incoming goal
+const ROME=25;                     // Rome program (planning figure)
+const WH=['JPII','XAVIER','GORET'], MH=['TERESA','SEBAST','STJOSE'];
+const COMMUTER_CITIES=new Set(['naples','ave maria','immokalee','marco island','golden gate','everglades city',
+  'bonita springs','bonita','estero','fort myers','cape coral','lehigh acres','north fort myers',
+  'fort myers beach','sanibel','captiva','san carlos park']);
+const pct=x=>(isFinite(x)?x.toFixed(1):'0.0')+'%';
+const sum=(arr,f)=>arr.reduce((a,c)=>a+f(c),0);
+// per-room overrides from the Rooms state: editable capacity + off-limits (unavailable)
+function _roomEdit(hall,num){ return (typeof ROOMS!=='undefined'&&ROOMS.state&&ROOMS.state.edits&&ROOMS.state.edits[hall+'-'+num])||{}; }
+function effCap(hall,r){ const e=_roomEdit(hall,r.number); const c=(e.capacity!=null&&e.capacity!=='')?parseInt(e.capacity,10):r.cap; return isFinite(c)?c:r.cap; }
+function isOffLimits(hall,num){ return _roomEdit(hall,num).status==='Off-limits'; }
+function hallCap(code){ const c=CHART[code]; if(!c) return 0; let s=0;
+  for(const f of c.floors) for(const r of f.rooms){ if(isOffLimits(code,r.number)) continue; s+=effCap(code,r); } return s; }
+
+function setView(v){
+  const views={overview:'viewOverview',floor:'viewFloor',movein:'viewMovein',verify:'viewVerify'};
+  for(const k in views) document.getElementById(views[k]).style.display=(k===v)?'':'none';
+  tabOverview.classList.toggle('on',v==='overview');
+  tabFloor.classList.toggle('on',v==='floor');
+  tabMovein.classList.toggle('on',v==='movein');
+  tabVerify.classList.toggle('on',v==='verify');
+  if(v==='overview') renderOverview();
+  if(v==='movein') renderMovein();
+  if(v==='verify' && !VERIF._loaded){ VERIF._loaded=true; loadVerification(); }
+  window.scrollTo(0,0);
+}
+
+function renderOverview(){
+  const secOf=b=>META[b]&&META[b].sec;
+  // capacity + current occupancy (all assignments)
+  const capW=sum(WH,hallCap),capM=sum(MH,hallCap),capT=capW+capM;
+  const occW=sum(WH,hallResidents),occM=sum(MH,hallResidents),occT=occW+occM;
+  ovCap.textContent=capT.toLocaleString(); ovCapW.textContent=capW; ovCapM.textContent=capM;
+  const fW=capW?occW/capW*100:0,fM=capM?occM/capM*100:0,fT=capT?occT/capT*100:0;
+  ovFill.textContent=pct(fT); ovFillBar.style.width=Math.min(100,fT)+'%';
+  ovFillW.textContent=pct(fW); ovFillM.textContent=pct(fM);
+  // predicted fill = current MINUS remaining expected melt (not the full rate).
+  // remaining = max(0, expected total incoming melt − deposits already withdrawn).
+  const remMelt=(rate,depTot,wd)=>(depTot!=null&&wd!=null)?Math.max(0,Math.round(rate/100*depTot)-wd):null;
+  let remW=MELTINFO?remMelt(MELT.w,MELTINFO.deposit_total_w,MELTINFO.withdrawn_w):null;
+  let remM=MELTINFO?remMelt(MELT.m,MELTINFO.deposit_total_m,MELTINFO.withdrawn_m):null;
+  if(remW==null) remW=Math.round(occW*MELT.w/100);   // fallback to full melt if no withdrawn data
+  if(remM==null) remM=Math.round(occM*MELT.m/100);
+  const pOccW=Math.max(0,occW-remW),pOccM=Math.max(0,occM-remM),pOccT=pOccW+pOccM;
+  const pW=capW?pOccW/capW*100:0,pM=capM?pOccM/capM*100:0,pT=capT?pOccT/capT*100:0;
+  ovPred.textContent=pct(pT); ovPredBar.style.width=Math.min(100,pT)+'%';
+  ovPredW.textContent=pct(pW); ovPredM.textContent=pct(pM);
+  if(MELTINFO&&MELTINFO.withdrawn_total!=null){
+    const exp=Math.round(MELT.all/100*(MELTINFO.deposit_total||0));
+    ovPredNote.innerHTML=`<span>${MELTINFO.withdrawn_total} withdrawn so far</span><span>~${Math.max(0,exp-MELTINFO.withdrawn_total)} more expected</span>`;
+  }
+  // constants
+  ovMelt.textContent=pct(MELT.all); ovMeltBar.style.width=MELT.all+'%'; ovMeltW.textContent=pct(MELT.w); ovMeltM.textContent=pct(MELT.m);
+  ovRet.textContent=pct(RET.all); ovRetBar.style.width=RET.all+'%'; ovRetW.textContent=pct(RET.w); ovRetM.textContent=pct(RET.m);
+  // hall occupancy table
+  const hrow=(label,codes,cls,rem)=>{
+    const cap=sum(codes,hallCap),occ=sum(codes,hallResidents),pOcc=Math.max(0,occ-rem);
+    const fill=cap?occ/cap*100:0,openNow=Math.max(0,cap-occ),openPred=Math.max(0,cap-pOcc);
+    return `<tr><td class="${cls}">${label}</td><td>${cap}</td><td class="${cls}">${occ}</td><td>${pct(fill)}</td><td>${pOcc}</td>`+
+      `<td><span class="pill ${openNow>60?'warn':'ok'}">${openNow}</span></td><td><span class="pill ${openPred>60?'warn':'ok'}">${openPred}</span></td></tr>`;
+  };
+  ovHallRows.innerHTML=hrow('Women',WH,'cw',remW)+hrow('Men',MH,'cm',remM)+
+    `<tr class="tot"><td>Total</td><td>${capT}</td><td>${occT}</td><td>${pct(fT)}</td><td>${pOccT}</td>`+
+    `<td>${Math.max(0,capT-occT)}</td><td>${Math.max(0,capT-pOccT)}</td></tr>`;
+  // incoming freshmen (live) vs goal (constant)
+  const inc=RES.filter(r=>(r.student_type||'').startsWith('Incoming'));
+  const ret=RES.filter(r=>r.student_type==='Returning');
+  const incW=inc.filter(r=>secOf(r.building)==='w').length, incM=inc.filter(r=>secOf(r.building)==='m').length;
+  // predicted incoming = current in-halls incoming minus remaining expected melt
+  const pIncW=Math.max(0,incW-remW), pIncM=Math.max(0,incM-remM);
+  const dcell=d=>`<span class="delta ${d<0?'dn':'up'}">${d>=0?'+':''}${d}</span>`;
+  const irow=(l,v,g,pred,cls)=>`<tr><td class="${cls}">${l}</td><td class="${cls}">${v}</td><td>${g}</td><td>${dcell(v-g)}</td><td>${pred}</td></tr>`;
+  ovIncRows.innerHTML=irow('Women',incW,GOAL.w,pIncW,'cw')+irow('Men',incM,GOAL.m,pIncM,'cm')+
+    `<tr class="tot"><td>Total</td><td>${incW+incM}</td><td>${GOAL.w+GOAL.m}</td><td>${dcell((incW+incM)-(GOAL.w+GOAL.m))}</td><td>${pIncW+pIncM}</td></tr>`;
+  // returners: expected to return = ELIGIBLE returners (census) × retention — NOT in-halls-now × retention.
+  // Abroad (Ireland CIARA/MALAC) returners are shown separately so they're no longer missing.
+  const isAbroad=b=>b==='CIARA'||b==='MALAC';
+  const retW=ret.filter(r=>secOf(r.building)==='w').length, retM=ret.filter(r=>secOf(r.building)==='m').length;
+  const abrW=ret.filter(r=>isAbroad(r.building)&&r.gender==='F').length, abrM=ret.filter(r=>isAbroad(r.building)&&r.gender==='M').length;
+  const projW=Math.round(ELIG.w*RET.w/100),projM=Math.round(ELIG.m*RET.m/100);
+  const rrow=(l,elig,inhall,abr,rate,proj,cls)=>`<tr><td class="${cls}">${l}</td><td>${elig}</td><td class="${cls}">${inhall}</td><td>${abr}</td><td>${pct(rate)}</td><td>${proj}</td></tr>`;
+  ovRetRows.innerHTML=rrow('Women',ELIG.w,retW,abrW,RET.w,projW,'cw')+rrow('Men',ELIG.m,retM,abrM,RET.m,projM,'cm')+
+    `<tr class="tot"><td>Total</td><td>${ELIG.w+ELIG.m}</td><td>${retW+retM}</td><td>${abrW+abrM}</td><td>${pct(RET.all)}</td><td>${projW+projM}</td></tr>`;
+  // possible commuters — incoming freshmen from Collier/Lee County (approx via hometown),
+  // excluding anyone who already holds an on-campus housing assignment (hall or Middle Brook)
+  const cityOf=r=>((r.hometown||'').split(',')[0]||'').trim().toLowerCase();
+  const isFL=r=>/,\s*FL\b/i.test(r.hometown||'');
+  const hasHousing=r=>r.building&&r.building!=='Commuter';  // hall, Middle Brook, or abroad = placed
+  const com=inc.filter(r=>isFL(r)&&COMMUTER_CITIES.has(cityOf(r))&&!hasHousing(r));
+  const comW=com.filter(r=>r.gender==='F').length, comM=com.filter(r=>r.gender==='M').length;
+  ovComW.textContent=comW; ovComM.textContent=comM; ovComT.textContent=com.length;
+  renderBreakdown();
+  // meta
+  ovAsOf.textContent='All current assignments';
+  ovSrc.innerHTML=`<b>Live from eRezLife</b> — occupancy, fill %, beds open, incoming/returner splits and Ireland counts `+
+    `(domestic 2026FALL01 + study-abroad 2026FALL03Ireland). Abroad returners (CIARA/MALAC) are folded into the returner totals. `+
+    `<b>Fixed census / planning figures</b> — eligible returners `+
+    `(W ${ELIG.w} · M ${ELIG.m}, from S25/FA25 census minus confirmed grads), S25→FA25 retention, and melt rate (FA25 final) `+
+    `are constants. <b>Expected to return = eligible × retention</b> (all returning students, residential + commuter — not `+
+    `only hall residents). <b>Withdrawn deposits (WT) are excluded from every count</b>`+
+    `${(MELTINFO&&MELTINFO.excluded_from_feed)?` — ${MELTINFO.excluded_from_feed} removed from the feed`:''}. `+
+    `Predicted Fill / Incoming / Hall Occupancy apply only the REMAINING expected melt (expected total − deposits already `+
+    `withdrawn), so melt already experienced is not double-counted. Incoming goals (W ${GOAL.w} · M ${GOAL.m}) and Rome (${ROME}) `+
+    `are planning figures. Possible commuters are approximated from hometown city (Collier / Lee County) among incoming freshmen who do not yet hold an on-campus housing assignment.`;
+}
+
+let SA_TOTAL=null;  // Ireland study-abroad headcount, filled by loadStudyAbroad()
+function renderBreakdown(){
+  const secOf=b=>META[b]&&META[b].sec;
+  const inHalls=RES.filter(r=>secOf(r.building)).length;
+  const gsub=rows=>{const w=rows.filter(r=>r.gender==='F').length,m=rows.filter(r=>r.gender==='M').length;return `${w} W · ${m} M`;};
+  const halls=RES.filter(r=>secOf(r.building));
+  const commuters=RES.filter(r=>r.building==='Commuter');
+  const mbk=RES.filter(r=>r.building==='MBK');
+  const abroad=RES.filter(r=>r.building==='CIARA'||r.building==='MALAC');
+  const unassigned=RES.filter(r=>!r.building);
+  const segs=[
+    {t:'In residence halls', n:inHalls,          sub:gsub(halls),      c:'#1B5EA8'},
+    {t:'Middle Brook',       n:mbk.length,        sub:gsub(mbk),        c:'#B8892A'},
+    {t:'Commuters',          n:commuters.length,  sub:gsub(commuters),  c:'#1F6B42'},
+    {t:'Study abroad · Ireland', n:abroad.length, sub:gsub(abroad),     c:'#943060'},
+    {t:'Not yet assigned',   n:unassigned.length, sub:gsub(unassigned), c:'#9AAAC6'},
+  ];
+  const known=segs.filter(s=>s.n!=null);
+  const total=known.reduce((a,s)=>a+s.n,0)||1;
+  ovAllTot.textContent=total.toLocaleString()+' students';
+  ovSeg.innerHTML=known.map(s=>`<span style="width:${(s.n/total*100).toFixed(2)}%;background:${s.c}" title="${s.t}: ${s.n}"></span>`).join('');
+  ovSegLeg.innerHTML=segs.map(s=>`<div class="li"><span class="sw" style="background:${s.c}"></span>`+
+    `<div><div class="n">${s.n==null?'…':s.n.toLocaleString()}</div><div class="t">${s.t}</div><div class="sub">${s.sub}</div></div></div>`).join('');
+}
+
+/* ── Room Verification tab (fully-empty rooms) ─────────────────────────── */
+let ROOMS={state:{edits:{}},_loaded:false}; let _roomSaveT=null;
+const RSTATUSES=['Pending','Confirmed available','Off-limits','Needs fix'];
+const rstColor=s=>s==='Confirmed available'?'var(--other)':s==='Off-limits'?'var(--women)':s==='Needs fix'?'var(--gold)':'var(--dim)';
+function emptyRooms(){
+  const out=[];
+  for(const code of Object.keys(META)){
+    const c=CHART[code]; if(!c) continue;
+    for(const f of c.floors) for(const r of f.rooms){
+      const occ=((OCC[code]||{})[r.number]||[]).length;
+      if(occ===0 && (r.cap||0)>0) out.push({hall:code,hallName:META[code].name,abbr:META[code].abbr,floor:f.level,number:r.number,type:r.type||'',cap:r.cap||0});
+    }
+  }
+  return out;
+}
+const roomKey=r=>r.hall+'-'+r.number;
+async function loadRooms(){
+  try{
+    const d=await fetch('/api/room-verification').then(r=>r.json());
+    ROOMS.state=(d&&d.state&&typeof d.state==='object')?d.state:{};
+    if(!ROOMS.state.edits) ROOMS.state.edits={};
+    ROOMS._loaded=true;
+  }catch(e){ /* room state unavailable — floor plan still works without overrides */ }
+}
+function roomSummaryText(rows){
+  const e=ROOMS.state.edits; let c=0,o=0,n=0,p=0;
+  for(const r of rows){ const st=(e[roomKey(r)]||{}).status||'Pending';
+    st==='Confirmed available'?c++:st==='Off-limits'?o++:st==='Needs fix'?n++:p++; }
+  return `${rows.length} empty rooms · ${c} confirmed · ${o} off-limits · ${n} needs fix · ${p} pending`;
+}
+function renderRoomRows(){
+  const all=emptyRooms();
+  const q=(document.getElementById('roomFilter').value||'').toLowerCase();
+  const rows=all.filter(r=>!q||(r.hall+' '+r.hallName+' '+r.number+' '+r.type).toLowerCase().indexOf(q)>-1);
+  roomRows.innerHTML=rows.map(r=>{
+    const k=roomKey(r), e=ROOMS.state.edits[k]||{};
+    const st=e.status||'Pending', cap=(e.capacity!=null&&e.capacity!=='')?e.capacity:r.cap, note=e.note||'';
+    const opts=RSTATUSES.map(s=>`<option ${s===st?'selected':''}>${s}</option>`).join('');
+    return `<tr class="${st==='Off-limits'?'row-off':''}">
+      <td><div class="vname">${esc(r.abbr)} ${esc(r.number)}</div><div class="vpc">${esc(r.hallName)} · floor ${r.floor}</div></td>
+      <td>${esc(r.type||'—')}</td>
+      <td>${r.cap}</td>
+      <td><select class="vsel" style="color:${rstColor(st)}" onchange="roomEdit('${k}','status',this.value);this.style.color=rstColor(this.value);this.closest('tr').className=(this.value==='Off-limits'?'row-off':'')">${opts}</select></td>
+      <td><input class="vnum" type="number" min="0" max="12" value="${cap}" onchange="roomEdit('${k}','capacity',this.value)"></td>
+      <td><input class="vnote" type="text" value="${esc(note)}" placeholder="add note…" oninput="roomEdit('${k}','note',this.value)"></td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="6" style="padding:16px;color:var(--dim)">No fully-empty rooms.</td></tr>';
+  roomSummary.textContent=roomSummaryText(all);
+}
+function roomEdit(k,field,val){
+  (ROOMS.state.edits[k]||(ROOMS.state.edits[k]={}))[field]=val;
+  roomSummary.textContent=roomSummaryText(emptyRooms());
+  scheduleRoomSave();
+}
+function scheduleRoomSave(){ setRoomSave('Saving…'); clearTimeout(_roomSaveT); _roomSaveT=setTimeout(doRoomSave,600); }
+async function doRoomSave(){
+  try{
+    const r=await fetch('/api/room-verification',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(ROOMS.state)}).then(r=>r.json());
+    setRoomSave(r&&r.ok?('✓ Saved '+(r.saved_at||'')):'Save failed');
+  }catch(e){ setRoomSave('Save failed — check the server'); }
+}
+function setRoomSave(t){ const el=document.getElementById('roomSave'); if(el) el.textContent=t; }
+
+/* ── Student Verification tab ──────────────────────────────────────────── */
+let VERIF={candidates:[],state:{edits:{},notes:[]},_loaded:false};
+let _verSaveT=null;
+const VSTATUSES=['Pending','Confirmed','Needs fix'];
+const stColor=s=>s==='Confirmed'?'var(--other)':s==='Needs fix'?'var(--women)':'var(--gold)';
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function shortReason(r){
+  if(r.indexOf('Sport mismatch')>-1) return 'Sport mismatch';
+  if(r.indexOf('roster or a student manager')>-1) return 'No roster/manager status';
+  if(r.indexOf('athletic')>-1) return 'Athlete not confirmed';
+  if(r.indexOf('Not matched')>-1) return 'Not in roster';
+  if(r.indexOf('multiple')>-1) return 'Multiple groups';
+  return r;
+}
+async function uploadFile(kind, input){
+  const f = input.files && input.files[0]; if(!f) return;
+  const st = document.getElementById('upStatus'); st.textContent = 'Uploading ' + f.name + '…';
+  try{
+    const r = await fetch('/api/upload/' + kind, {method:'POST', body:f}).then(x=>x.json());
+    if(!r || !r.ok){ st.textContent = 'Upload failed: ' + ((r&&r.error)||''); input.value=''; return; }
+    st.textContent = 'Uploaded (' + r.persisted + ') — rebuilding data, this takes a moment…';
+    const before = r.generated_before || '';
+    const start = Date.now();
+    while (Date.now() - start < 180000) {
+      await new Promise((res) => setTimeout(res, 4000));
+      try {
+        const d = await fetch('/data/residents.json', { cache: 'no-store' }).then((x) => x.json());
+        if (d && !d.error && d.generated && d.generated !== before) break;
+      } catch (e) {}
+    }
+    st.textContent = '✓ ' + f.name + ' applied — reloading';
+    location.reload();
+  }catch(e){ st.textContent = 'Upload failed — check the server'; }
+  input.value = '';
+}
+async function loadVerification(){
+  try{
+    const d=await fetch('/api/verification').then(r=>r.json());
+    VERIF.candidates=d.candidates||[];
+    VERIF.state=(d.state&&typeof d.state==='object')?d.state:{};
+    if(!VERIF.state.edits) VERIF.state.edits={};
+    if(!Array.isArray(VERIF.state.notes)) VERIF.state.notes=[];
+    setVerSave('All changes saved automatically');
+    renderVerification();
+  }catch(e){ verRows.innerHTML='<tr><td colspan="8" style="padding:16px">Could not load verification data.</td></tr>'; }
+}
+function verSummaryText(){
+  const e=VERIF.state.edits; let c=0,n=0,p=0;
+  for(const cand of VERIF.candidates){ const st=(e[cand.pcid]||{}).status||'Pending';
+    st==='Confirmed'?c++:st==='Needs fix'?n++:p++; }
+  return `${VERIF.candidates.length} flagged · ${c} confirmed · ${n} needs fix · ${p} pending`;
+}
+function renderVerification(){ renderVerRows(); verSummary.textContent=verSummaryText(); }
+function renderVerRows(){
+  const q=(document.getElementById('verFilter').value||'').toLowerCase();
+  const rows=VERIF.candidates.filter(c=>!q||(c.name+' '+c.groups.join(' ')+' '+c.reasons.join(' ')+' '+(c.class_status||'')).toLowerCase().indexOf(q)>-1);
+  verRows.innerHTML=rows.map(c=>{
+    const e=VERIF.state.edits[c.pcid]||{};
+    const st=e.status||'Pending', mv=(e.move_in!=null?e.move_in:(c.move_in||'')), note=e.note||'';
+    const reasons=c.reasons.map(r=>`<span class="badge-reason" title="${esc(r)}">${esc(shortReason(r))}</span>`).join(' ');
+    const opts=VSTATUSES.map(s=>`<option ${s===st?'selected':''}>${s}</option>`).join('');
+    const loc=c.building?(' · '+c.building+(c.room?' '+c.room:'')):'';
+    return `<tr class="${st==='Confirmed'?'row-Confirmed':''}">
+      <td><div class="vname">${esc(c.name)}</div><div class="vpc">${esc(c.pcid)}${esc(loc)}</div></td>
+      <td>${esc(c.class_status||'—')}<div class="vpc">${esc(c.student_type||'')}</div></td>
+      <td>${esc(c.gender||'—')}</td>
+      <td class="vgrp">${c.groups.map(esc).join('<br>')}</td>
+      <td class="vreason">${reasons}</td>
+      <td><select class="vsel" style="color:${stColor(st)}" onchange="verEdit('${c.pcid}','status',this.value);this.style.color=stColor(this.value);this.closest('tr').className=(this.value==='Confirmed'?'row-Confirmed':'')">${opts}</select></td>
+      <td><input class="vdate" type="date" value="${mv}" onchange="verEdit('${c.pcid}','move_in',this.value)"></td>
+      <td><input class="vnote" type="text" value="${esc(note)}" placeholder="add note…" oninput="verEdit('${c.pcid}','note',this.value)"></td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="8" style="padding:16px;color:var(--dim)">No matches.</td></tr>';
+}
+function verEdit(pcid,field,val){
+  (VERIF.state.edits[pcid]||(VERIF.state.edits[pcid]={}))[field]=val;
+  verSummary.textContent=verSummaryText();
+  scheduleVerSave();
+}
+function scheduleVerSave(){ setVerSave('Saving…'); clearTimeout(_verSaveT); _verSaveT=setTimeout(doVerSave,600); }
+async function doVerSave(){
+  try{
+    const r=await fetch('/api/verification',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(VERIF.state)}).then(r=>r.json());
+    setVerSave(r&&r.ok?('✓ Saved '+(r.saved_at||'')):'Save failed');
+  }catch(e){ setVerSave('Save failed — check the server'); }
+}
+function setVerSave(t){ const el=document.getElementById('verSave'); if(el) el.textContent=t; }
+
+async function loadStudyAbroad(){
+  const fail=msg=>{ ovIre.textContent='—'; ovCiara.textContent='–'; ovMalac.textContent='–';
+    ovIreNote.textContent=msg; ovOverseas.textContent=`Rome ${ROME}`; };
+  try{
+    const d=await fetch('/api/study-abroad').then(r=>r.json());
+    if(!d||d.error){ fail('eRez unavailable'); return; }
+    const h=d.houses||{}, cia=h.CIARA||0, mal=h.MALAC||0, tot=d.total||(cia+mal);
+    ovIre.textContent=tot; ovCiara.textContent=cia; ovMalac.textContent=mal;
+    ovIreDate.textContent=d.cached_at||''; ovIreNote.textContent=d.stale?'eRez (cached)':'eRezLife live';
+    ovOverseas.textContent=`Ireland ${tot} · Rome ${ROME}`;
+    SA_TOTAL=tot; renderBreakdown();
+  }catch(e){ fail('eRez unavailable'); }
+}
+function renderCampus(){
+  cpins.innerHTML=PINS.map(p=>{ const m=META[p.code]; if(!m) return '';
+    return `<div class="cpin ${m.sec}" style="left:${p.x}%;top:${p.y}%" onclick="pinClick('${p.code}')"
+      title="${m.name}">${m.abbr} <small>${bedsOpen(p.code)} open</small></div>`; }).join('');
+}
+function pinClick(code){ selectHall(code); document.getElementById('detail').scrollIntoView({behavior:'smooth',block:'start'}); }
+function bedsOpen(code){ let o=0; const c=CHART[code]; if(!c)return 0;
+  for(const f of c.floors)for(const r of f.rooms){ if(isOffLimits(code,r.number)) continue;
+    o+=Math.max(0, effCap(code,r)-((OCC[code]||{})[r.number]||[]).length); }
+  return o; }
+function hallResidents(code){ let n=0; for(const rm in (OCC[code]||{})) n+=OCC[code][rm].length; return n; }
+
+function renderHeader(){
+  let res=0; for(const c in META) res+=hallResidents(c);
+  let open=0; for(const c in META) open+=bedsOpen(c);
+  stRes.textContent=res.toLocaleString(); stHalls.textContent=Object.keys(META).length; stOpen.textContent=open.toLocaleString();
+}
+function renderHalls(){
+  hallsCount.textContent=Object.keys(META).length+' halls';
+  let html='';
+  for(const [sec,title,codes] of SEC_ORDER){
+    for(const code of codes){ const m=META[code];
+      html+=`<div class="hcard ${sec} ${code===CUR?'on':''}" onclick="selectHall('${code}')">
+        <div class="abbr">${m.abbr}</div>
+        <div><div class="nm">${m.name}</div><div class="gen">${SEC_NAME[sec]}</div></div>
+        <div class="ct"><b>${hallResidents(code)}</b>${bedsOpen(code)} open</div></div>`;
+    }
+  }
+  halls.innerHTML=html;
+}
+function selectHall(code){ CUR=code; FLOOR=null; SELROOM=null;
+  document.querySelectorAll('.hcard').forEach(e=>e.classList.remove('on'));
+  event&&event.currentTarget&&event.currentTarget.classList?.add('on');
+  renderDetail(); }
+
+function renderDetail(){
+  const m=META[CUR], c=CHART[CUR];
+  document.querySelectorAll('.hcard').forEach(e=>e.classList.toggle('on', e.querySelector('.nm')?.textContent===m.name));
+  if(!c){ detail.innerHTML=''; return; }
+  const floors=c.floors.map(f=>f.level);
+  if(FLOOR==null) FLOOR=floors[0];
+  const F=c.floors.find(f=>f.level===FLOOR)||c.floors[0];
+  const col=SEC_COL[m.sec];
+  const circles=c.floors.map(f=>{
+    let o=0; for(const r of f.rooms) o+=Math.max(0,r.cap-peopleIn(CUR,r.number).length);
+    return `<button class="fbtn ${f.level===FLOOR?'on':''}" onclick="setFloor(${f.level})">
+      <div class="circ">${f.level}</div><small>${o} open</small></button>`;}).join('');
+  detail.innerHTML=`<div class="detail">
+    <div class="dhead">
+      <h2>${m.name}</h2>
+      <span class="gtag" style="color:${col};background:${col}1a">${SEC_NAME[m.sec]} Residence</span>
+      <div class="floors">${circles}</div>
+    </div>
+    <div class="dbody">
+      <div class="map"><div class="floorgrid" id="fg"></div></div>
+      <div class="units" id="units"></div>
+    </div></div>`;
+  drawFloor(F,col); drawUnits(F,col);
+}
+function setFloor(l){ FLOOR=l; SELROOM=null; renderDetail(); }
+function setAsof(d){
+  ASOF=(d && /^\d{4}-\d{2}-\d{2}$/.test(d)) ? d : null;
+  document.getElementById('dbAll').classList.toggle('on',!ASOF);
+  document.getElementById('dbToday').classList.toggle('on',ASOF===TODAY);
+  document.getElementById('asofInput').value=ASOF||'';
+  renderDetail(); updateAsofSum();
+}
+function updateAsofSum(){
+  const el=document.getElementById('asofSum'); if(!el) return;
+  el.replaceChildren();
+  if(!ASOF) return;
+  let inn=0, arr=0;
+  for(const code in META) for(const rm in (OCC[code]||{})) for(const p of OCC[code][rm]){
+    if(visibleOn(p,ASOF)){ inn++; if(p.move_in===ASOF) arr++; }
+  }
+  const b1=document.createElement('b');
+  b1.textContent=inn.toLocaleString();
+  el.append(b1, ' in dorms as of '+fmtDate(ASOF));
+  if(arr){
+    const b2=document.createElement('b');
+    b2.style.color='#1B5EA8';
+    b2.textContent=String(arr);
+    el.append(' · ', b2, ' moving in that day');
+  }
+}
+
+function fillColor(occ,cap,col){ if(occ===0) return '#F4F8FE';
+  const a=(0.20+0.80*Math.min(occ/cap,1)).toFixed(2); return col.replace('var(--','').length? col:col; }
+function shade(sec,occ,cap){
+  const base={w:[148,48,96],m:[27,94,168],o:[31,107,66]}[sec];
+  if(occ===0) return '#F4F8FE';
+  const a=0.18+0.80*Math.min(occ/cap,1);
+  return `rgba(${base[0]},${base[1]},${base[2]},${a.toFixed(2)})`;
+}
+function roomBox(r){
+  const ppl=peopleIn(CUR,r.number); const occ=ppl.length; const cap=effCap(CUR,r);
+  const reduced=cap<META[CUR].std && cap<=2;
+  const suite=cap>=6;
+  const movingIn=ppl.some(arriving);
+  const pips=Array.from({length:cap},(_,i)=>`<span class="pip" style="background:${i<occ?SEC_COL[META[CUR].sec]:'#CBD8EC'}"></span>`).join('');
+  const dark=occ/cap>0.55?'#fff':'var(--text)';
+  return `<div class="room ${suite?'suite':''} ${reduced?'reduced':''} ${movingIn?'movein':''} ${SELROOM===r.number?'selroom':''}"
+    style="background:${shade(META[CUR].sec,occ,cap)};color:${dark}" onclick="openRoom('${r.number}')">
+    <div class="rn">${r.number}</div><div class="rt" style="color:${occ/cap>0.55?'rgba(255,255,255,.8)':'var(--dim)'}">${occ}/${cap}</div>
+    <div class="pips">${pips}</div>${!ASOF&&ppl.some(isEarly)?'<span class="early" title="Contains an early-arrival resident"></span>':''}${movingIn?'<span class="mibadge" title="Someone moves in this day">IN</span>':''}</div>`;
+}
+function drawFloor(F,col){
+  const fg=document.getElementById('fg');
+  // double-loaded corridor: two packed rows with a hallway between, each room
+  // directly across from its partner (paired by position, spacers fill gaps).
+  const bands={};
+  for(const r of F.rooms){ if(isOffLimits(CUR,r.number)) continue; (bands[r.row]??=[]).push(r); }
+  let arr=Object.keys(bands).map(k=>({row:+k, rooms:bands[k].slice().sort((a,b)=>a.col-b.col)}))
+                            .sort((a,b)=>a.row-b.row);
+  const bySize=[...arr].sort((a,b)=>b.rooms.length-a.rooms.length);
+  let top=bySize[0]||{rooms:[]}, bot=bySize[1]||{rooms:[]};
+  if((top.row||0)>(bot.row||0)){ const t=top; top=bot; bot=t; }
+  const T=top.rooms.slice(), B=bot.rooms.slice();
+  // suites / small bands become end units, kept aligned across the hall
+  arr.filter(b=>b!==top&&b!==bot).flatMap(b=>b.rooms)
+     .forEach((r,i)=> (i%2 ? B : T).push(r));
+  const n=Math.max(T.length,B.length);
+  const spacer='<div class="room spacer"></div>';
+  const rowHtml=row=>{let h='';for(let i=0;i<n;i++) h+=row[i]?roomBox(row[i]):spacer; return h;};
+  fg.innerHTML =
+    `<div class="frow">`+rowHtml(T)+`</div>`+
+    `<div class="hallway"><span>HALLWAY</span></div>`+
+    `<div class="frow">`+rowHtml(B)+`</div>`;
+}
+function drawUnits(F,col){
+  const rooms=[...F.rooms].filter(r=>!isOffLimits(CUR,r.number)).sort((a,b)=>a.number.localeCompare(b.number,undefined,{numeric:true}));
+  let html=`<h3>${rooms.length} rooms · this floor</h3><div class="ulist">`;
+  for(const r of rooms){ const occ=peopleIn(CUR,r.number).length; const cap=effCap(CUR,r);
+    const dot=occ===0?'#CBD8EC':shade(META[CUR].sec,occ,cap);
+    html+=`<div class="urow ${SELROOM===r.number?'on':''}" onclick="openRoom('${r.number}')">
+      <span class="rdot" style="background:${dot}"></span><span class="un">${r.number}</span>
+      <span class="ut">${cap<META[CUR].std&&cap<=2?'Reduced · ':''}${r.type||''}</span>
+      ${roomEarly(r.number)?'<span class="edot" title="Early arrival"></span>':''}
+      <span class="uoc">${occ}/${cap}</span></div>`; }
+  document.getElementById('units').innerHTML=html+`</div>`;
+}
+
+function openRoom(num){
+  SELROOM=num;
+  const c=CHART[CUR]; let R=null; for(const f of c.floors){const m=f.rooms.find(x=>x.number===num); if(m){R=m;break;}}
+  if(!R)return;
+  document.querySelectorAll('.room').forEach(e=>e.classList.toggle('selroom', e.querySelector('.rn')?.textContent===num));
+  document.querySelectorAll('.urow').forEach(e=>e.classList.toggle('on', e.querySelector('.un')?.textContent===num));
+  const ppl=peopleIn(CUR,num);
+  const cap=effCap(CUR,R); const off=isOffLimits(CUR,num); const open=cap-ppl.length;
+  drNo.textContent=`${META[CUR].abbr} ${num}`;
+  drTy.textContent=`${R.type||'Room'} · ${ppl.length}/${cap} filled${cap<META[CUR].std&&cap<=2?' · reduced capacity':''}${off?' · UNAVAILABLE':''}`;
+  let body=`<div class="roommeta">
+    <span class="chip">Capacity <input class="capedit" type="number" min="0" max="12" value="${cap}" onchange="setRoomCap('${num}',this.value)"></span>
+    <span class="chip">Filled <b>${ppl.length}</b></span>
+    <span class="chip">Open <b>${open}</b></span></div>
+    <div class="roomacts">
+      <button class="btnroom ${off?'restore':'unavail'}" onclick="toggleRoomAvail('${num}')">${off?'↩ Restore to floor plan':'⌀ Mark unavailable'}</button>
+      ${off?'<span class="offnote">Hidden from the floor plan &amp; excluded from bed counts.</span>':''}
+    </div>`;
+  if(!ppl.length){ body+=`<div class="empty">No residents assigned to this room.</div>`; }
+  for(const p of ppl){
+    body+=`<div class="person">
+      <div class="pn">${p.name||'(name unavailable)'}${arriving(p)?' <span class="badge" style="background:#E7F0FB;color:#1B5EA8;border-color:#BBD3EE">Moving in</span>':isEarly(p)?' <span class="badge" style="background:#FDF0E6;color:#B4661E;border-color:#F0C9A3">Early</span>':''}</div>
+      <div class="psub">${p.student_type||'Resident'}${isEarly(p)&&p.early_reason?' · '+esc(p.early_reason):(p.transfer&&!/Transfer/.test(p.student_type||'')?' · Transfer':'')}${p.category?' · '+p.category:''}</div>
+      ${row('Class year', p.class_status||'—')}
+      ${row('Student type', (p.student_type||'—')+(p.transfer&&!/Transfer/.test(p.student_type||'')?' (transfer)':''))}
+      ${row('Move-in', fmtDate(p.move_in)+(p.move_in_source?` <span class="badge">${srcLabel(p.move_in_source)}</span>`:''))}
+      ${isEarly(p)&&p.early_reason?row('Early arrival', esc(p.early_reason)):''}
+      ${p.sport?row('Sport', p.sport+(p.athletic_type?` · ${p.athletic_type}`:'')):''}
+      ${p.entry_term?row('Entry term', p.entry_term):''}
+      ${p.hometown?row('Hometown', p.hometown):''}
+      ${row('PCID', p.pcid||'—')}
+      ${row('Email', p.email||'—')}
+      ${p.end_date?row('Contract end', fmtDate(p.end_date)):''}
+    </div>`;
+  }
+  body+=`<div class="ferpa">FERPA — student data for authorized ResLife staff only. Do not share or export.</div>`;
+  drBody.innerHTML=body;
+  drawer.classList.add('open'); scrim.classList.add('on');
+}
+function setRoomCap(num,val){
+  const k=CUR+'-'+num; (ROOMS.state.edits[k]||(ROOMS.state.edits[k]={})).capacity=(val===''?'':String(parseInt(val,10)));
+  _persistRoomsRefresh(); openRoom(num);
+}
+function toggleRoomAvail(num){
+  const k=CUR+'-'+num, e=(ROOMS.state.edits[k]||(ROOMS.state.edits[k]={}));
+  e.status=(e.status==='Off-limits')?'Confirmed available':'Off-limits';
+  _persistRoomsRefresh();
+  if(e.status==='Off-limits') closeDrawer(); else openRoom(num);
+}
+function _persistRoomsRefresh(){
+  if(typeof scheduleRoomSave==='function') scheduleRoomSave();
+  renderDetail(); renderHeader();
+  if(document.getElementById('viewOverview').style.display!=='none') renderOverview();
+}
+const MAIN_MOVEIN='2026-08-17';   // general new-student move-in day
+function isEarly(p){ return p.move_in && p.move_in < MAIN_MOVEIN; }
+function roomEarly(num){ return peopleIn(CUR,num).some(isEarly); }
+function row(k,v){ return `<div class="kv"><span>${k}</span><b>${v}</b></div>`; }
+const GROUP_LABELS={FB:'Football',VB:'Volleyball',BAND:'Band',MSOC:"Men's Soccer",
+  WSOC:"Women's Soccer",XC:'Cross Country','ATHLETIC EARLY ARRIVALS':'Athletics'};
+function srcLabel(s){ const m={'eRez':'eRez','class-default':'Standard'}; if(m[s])return m[s];
+  const base=String(s).split(' - ')[0].trim(); return GROUP_LABELS[base.toUpperCase()]||base; }
+function fmtDate(d){ if(!d) return '—'; const [y,mo,da]=d.split('-'); if(!da) return d;
+  return new Date(y,mo-1,da).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }
+function closeDrawer(){ drawer.classList.remove('open'); scrim.classList.remove('on'); SELROOM=null;
+  document.querySelectorAll('.selroom').forEach(e=>e.classList.remove('selroom'));
+  document.querySelectorAll('.urow.on').forEach(e=>e.classList.remove('on')); }
+
+/* ── Move-ins tab ──────────────────────────────────────────────────────── */
+let MOVEIN_DAY=undefined;   // selected move-in date; '' = All assignments
+function fmtChip(d){ const [y,mo,da]=d.split('-'); return new Date(y,mo-1,da).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
+function statusLabel(p){ let s=p.student_type||'Resident';
+  if(p.transfer && !/Transfer/.test(s)) s+=' · Transfer'; return s; }
+function moveinDayList(){
+  const m={}; for(const p of RES){ if(!p.move_in) continue; m[p.move_in]=(m[p.move_in]||0)+1; }
+  return Object.keys(m).sort().map(d=>({date:d,count:m[d]}));
+}
+function renderMovein(){
+  if(MOVEIN_DAY===undefined) MOVEIN_DAY='';           // first open → All
+  const days=moveinDayList(), total=days.reduce((a,d)=>a+d.count,0);
+  moveinSummary.textContent=`${days.length} move-in day${days.length===1?'':'s'} · ${total.toLocaleString()} residents`;
+  const chip=(d,label,count,on)=>`<button class="db ${on?'on':''}" onclick="selectMoveinDay('${d}')">${label} · ${count}</button>`;
+  moveinDays.innerHTML=`<span class="lbl">Move-in day</span>`
+    +chip('','All',total,MOVEIN_DAY==='')
+    +days.map(d=>chip(d.date,fmtChip(d.date),d.count,MOVEIN_DAY===d.date)).join('');
+  renderMoveinRows();
+}
+function selectMoveinDay(d){ MOVEIN_DAY=d; renderMovein(); }
+function renderMoveinRows(){
+  const q=(document.getElementById('moveinFilter').value||'').toLowerCase();
+  let rows=RES.filter(p=>p.building&&p.room);          // assigned residents only
+  if(MOVEIN_DAY) rows=rows.filter(p=>p.move_in===MOVEIN_DAY);
+  if(q) rows=rows.filter(p=>((p.name||'')+' '+(p.building||'')+' '+(p.room||'')+' '+(p.sport||'')
+    +' '+(p.early_reason||'')+' '+(p.student_type||'')+' '+(p.class_status||'')).toLowerCase().indexOf(q)>-1);
+  rows.sort((a,b)=>(a.move_in||'').localeCompare(b.move_in||'')||(a.building||'').localeCompare(b.building||'')
+    ||(a.room||'').localeCompare(b.room||'',undefined,{numeric:true})||(a.name||'').localeCompare(b.name||''));
+  moveinDayLabel.textContent=MOVEIN_DAY?`${fmtDate(MOVEIN_DAY)} · ${rows.length} moving in`:`All assignments · ${rows.length}`;
+  moveinRows.innerHTML=rows.map(p=>{
+    const hall=META[p.building]?META[p.building].abbr:(p.building||'—');
+    const sport=p.sport?esc(p.sport)+(p.athletic_type?` <span class="vpc" style="display:inline"> · ${esc(p.athletic_type)}</span>`:''):'—';
+    const src=(p.move_in_source&&p.move_in_source!=='class-default')?` <span class="badge">${srcLabel(p.move_in_source)}</span>`:'';
+    return `<tr style="cursor:pointer" onclick="openResident('${p.building}','${esc(p.room)}')">
+      <td><div class="vname">${esc(p.name||'(name unavailable)')}</div><div class="vpc">${esc(p.pcid||'')}${p.gender?' · '+esc(p.gender):''}</div></td>
+      <td>${esc(p.class_status||'—')}</td>
+      <td>${esc(statusLabel(p))}</td>
+      <td>${esc(hall)} ${esc(p.room||'')}</td>
+      <td>${sport}</td>
+      <td>${p.early_reason?esc(p.early_reason):'—'}</td>
+      <td style="white-space:nowrap">${fmtDate(p.move_in)}${src}</td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="7" style="padding:16px;color:var(--dim)">No residents match.</td></tr>';
+}
+function openResident(building,room){
+  if(!building||!room) return;
+  CUR=building; setView('floor'); renderHeader(); renderHalls(); renderDetail(); openRoom(room);
+}
+boot();
+</script>
+</body>
+</html>

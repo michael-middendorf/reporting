@@ -45,6 +45,9 @@ infra/cdk.out/
 **/data/**/*.jsonl
 **/data/**/*.gz
 !**/data/**/.gitkeep
+# Next.js App Router folder for GET /data/residents.json — not a data file.
+!apps/web-next/src/app/data/residents.json/
+!apps/web-next/src/app/data/residents.json/**
 apps/web/public/reports/**/data/**
 !apps/web/public/reports/**/data/.gitkeep
 !apps/web/public/reports/**/data/exports/.gitkeep
