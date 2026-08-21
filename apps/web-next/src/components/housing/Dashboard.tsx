@@ -5,9 +5,11 @@ import { apiFetch } from "@/lib/api";
 import {
   HALL_CHARTS,
   META,
+  ROME,
   bedsOpen,
   hallResidents,
   indexOccupancy,
+  isAbroad,
   isIsoDate,
 } from "@/lib/reports/housing/model";
 import type { OccIndex } from "@/lib/reports/housing/model";
@@ -97,7 +99,10 @@ export function HousingDashboard() {
     persistRooms({ ...edits, [key]: { ...(edits[key] || {}), [field]: value } });
   }
 
-  const inHalls = Object.keys(META).reduce((n, c) => n + hallResidents(occ, c), 0);
+  const inResidenceHalls = Object.keys(META).reduce((n, c) => n + hallResidents(occ, c), 0);
+  const ireland =
+    studyAbroad?.total ?? residents.filter((r) => isAbroad(r.building)).length;
+  const inHalls = inResidenceHalls + ireland + ROME;
   const openBeds = Object.keys(META).reduce((n, c) => n + bedsOpen(HALL_CHARTS[c], c, occ, edits, asof), 0);
 
   return (
