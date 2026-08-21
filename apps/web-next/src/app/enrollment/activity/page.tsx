@@ -2,6 +2,7 @@
 
 import { useEnrollment } from "../EnrollmentProvider";
 import { BarChart, Section, acShort } from "@/components/enrollment/ui";
+import { activityByAC, type AcFunnel } from "@/lib/reports/enrollment/counselors";
 import { fmt } from "@/lib/reports/enrollment/load";
 
 export default function ActivityPage() {
@@ -20,17 +21,7 @@ export default function ActivityPage() {
     );
   const cur = cycle === "fa26" ? data.admissions.fa26 : data.admissions.fa27;
   const label = cycle === "fa26" ? "FA26" : "FA27";
-  const byAC = (cur.byAC || {}) as Record<
-    string,
-    {
-      created: number;
-      submitted: number;
-      accepted: number;
-      deposited: number;
-      denied: number;
-      interviewed: number;
-    }
-  >;
+  const byAC = activityByAC((cur.byAC || {}) as Record<string, AcFunnel>);
   const rows = Object.entries(byAC).sort((a, b) => b[1].deposited - a[1].deposited);
   const interviewBars = rows
     .map(([ac, v]) => ({ label: acShort(ac), value: v.interviewed, tone: "secondary" as const }))

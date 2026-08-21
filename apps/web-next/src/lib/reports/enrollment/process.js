@@ -1,4 +1,11 @@
 /** Enrollment data processors — ported from admissions hub, no DOM. */
+import { isUndergraduateRow } from "./student-type";
+import {
+  emptyAcFunnel,
+  isActivityCounselorKey,
+  UG_COUNSELOR_USERNAMES,
+} from "./counselors";
+
 export const DATA = {
   api: (typeof window !== 'undefined' && window.AMU_DASHBOARD_API) || '/api/dashboard',
   // Logical hub keys → keys in report_presigned_urls
@@ -81,17 +88,6 @@ export async function _dataFetch(name, session, fetchImpl = fetch) {
 
 // ── processors ───────────────────────────────────────────
 const TUITION = 33315;
-const AC_SHORT = {
-  'abel.cordero': 'Abel C',
-  'annie.esposito': 'Annie E',
-  'caroline.g.savoie': 'Caroline S',
-  'christine.m.gulas': 'Christine G',
-  'lillian.doyle': 'Lillian D',
-  'madelyn.r.byers': 'Madelyn B',
-  'michael.j.mcgrath': 'Michael M',
-  'joseph.r.pinho': 'Joseph P',
-  'katherine.n.lyons': 'Katherine L',
-};
 const ACCEPT_CODE_LABEL = {
   AT: 'Accept (Full Accept)',
   CA: 'Conditional Accept',
@@ -161,26 +157,19 @@ function _aidStats(grp) {
     drTot: tot !== null ? tot / TUITION * 100 : null,
   };
 }
-function _acSlug(ac) {
-  return (ac || 'unassigned').replace(/\./g, '-');
-}
-function _acLabel(ac) {
-  if (!ac) return 'Unassigned';
-  return AC_SHORT[ac] || ac.split('.').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
-}
-
 export function _termStats(rows, termYear, asOf) {
+  const ug = rows.filter(isUndergraduateRow);
   const cutoff = _withdrawalCutoff(termYear, asOf);
-  const acc = rows.filter(r => r.AcceptCode);
-  const depG = rows.filter(r => _isDepositAsOf(r, cutoff));
+  const acc = ug.filter(r => r.AcceptCode);
+  const depG = ug.filter(r => _isDepositAsOf(r, cutoff));
   const dep = depG.filter(r => !_isWithdrawnAsOf(r, cutoff));
-  const den = rows.filter(r => r.DeniedCode);
+  const den = ug.filter(r => r.DeniedCode);
   const codes = {};
   acc.forEach(r => { codes[r.AcceptCode] = (codes[r.AcceptCode] || 0) + 1; });
-  const gpas = rows.map(r => _parseNum(r['Self-ReportedHSGPA'])).filter(v => v !== null && v > 0 && v <= 5);
-  const acts = rows.map(r => _parseNum(r.ACT)).filter(v => v !== null && v > 0);
-  const sats = rows.map(r => _parseNum(r.SAT)).filter(v => v !== null && v > 0);
-  const clts = rows.map(r => _parseNum(r.CLT)).filter(v => v !== null && v > 0);
+  const gpas = ug.map(r => _parseNum(r['Self-ReportedHSGPA'])).filter(v => v !== null && v > 0 && v <= 5);
+  const acts = ug.map(r => _parseNum(r.ACT)).filter(v => v !== null && v > 0);
+  const sats = ug.map(r => _parseNum(r.SAT)).filter(v => v !== null && v > 0);
+  const clts = ug.map(r => _parseNum(r.CLT)).filter(v => v !== null && v > 0);
   const subToAcc = [];
   const accToDep = [];
   acc.forEach(r => {
@@ -192,9 +181,13 @@ export function _termStats(rows, termYear, asOf) {
     if (a && b && b >= a) accToDep.push((b - a) / 86400000);
   });
   const byAC = {};
-  rows.forEach(r => {
+  UG_COUNSELOR_USERNAMES.forEach((ac) => {
+    byAC[ac] = emptyAcFunnel();
+  });
+  byAC[''] = emptyAcFunnel();
+  ug.forEach(r => {
     const ac = r.ApplicationACAssignment || '';
-    if (!byAC[ac]) byAC[ac] = { created: 0, submitted: 0, accepted: 0, deposited: 0, denied: 0, interviewed: 0 };
+    if (!isActivityCounselorKey(ac)) return;
     byAC[ac].created++;
     byAC[ac].submitted++;
     if (r.AcceptCode) byAC[ac].accepted++;
@@ -202,17 +195,18 @@ export function _termStats(rows, termYear, asOf) {
     if (r.DeniedCode) byAC[ac].denied++;
     if (r.InterviewStatus === 'Interviewed') byAC[ac].interviewed++;
   });
+  if (byAC[''].created === 0) delete byAC[''];
   return {
-    created: rows.length,
-    submitted: rows.length,
-    interviewed: rows.filter(r => r.InterviewStatus === 'Interviewed').length,
+    created: ug.length,
+    submitted: ug.length,
+    interviewed: ug.filter(r => r.InterviewStatus === 'Interviewed').length,
     accepted: acc.length,
     deposits: dep.length,
     depositsGross: depG.length,
     depositsWithdrawn: depG.length - dep.length,
     denied: den.length,
-    withdrawn: rows.filter(r => r.WithdrawnCode).length,
-    acceptRate: rows.length ? acc.length / rows.length * 100 : null,
+    withdrawn: ug.filter(r => r.WithdrawnCode).length,
+    acceptRate: ug.length ? acc.length / ug.length * 100 : null,
     conditional: codes.CA || 0,
     codes,
     gpa: _avg(gpas),
@@ -221,9 +215,9 @@ export function _termStats(rows, termYear, asOf) {
     clt: _avg(clts),
     daysSubmitAccept: _median(subToAcc),
     daysAcceptDeposit: _median(accToDep),
-    catholic: rows.filter(r => r.Religion === 'Catholic').length,
-    male: rows.filter(r => r.Gender === 'M').length,
-    female: rows.filter(r => r.Gender === 'F').length,
+    catholic: ug.filter(r => r.Religion === 'Catholic').length,
+    male: ug.filter(r => r.Gender === 'M').length,
+    female: ug.filter(r => r.Gender === 'F').length,
     aidAcc: _aidStats(acc),
     aidDep: _aidStats(dep),
     byAC,
