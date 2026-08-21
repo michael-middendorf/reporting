@@ -53,6 +53,9 @@ ROSTER_CACHE_FILE = DATA_DIR / "roster_cache.json"
 DEPOSITS_CSV_FILE = DATA_DIR / "slate_deposits.csv"
 CACHE_TTL_HOURS = float(os.getenv("HOUSING_CACHE_TTL_HOURS", "6"))
 
+# eRez assignment fields. price_type_id is how Rome is stored: halls=UGDP,
+# commuter=NODM, Ireland=ISTA (CIARA/MALAC), Rome=RSTA (no building_id),
+# commuter study-abroad=CSTA.
 _EREZ_FIELDS = [
     "session_id",
     "student_id",

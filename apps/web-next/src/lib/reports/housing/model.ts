@@ -44,8 +44,18 @@ export const MELT = { all: 12.6, w: 12.9, m: 12.2 };
 export const RET = { all: 91.1, w: 93.5, m: 88.2 };
 export const ELIG = { w: 559, m: 510 };
 export const GOAL = { w: 254, m: 277 };
+/** Planning figure only. Occupancy Rome is eRez price type RSTA, not this constant. */
 export const ROME = 25;
 export const MAIN_MOVEIN = "2026-08-17";
+
+/** eRez `price_type_id` values on Fall 2026 assignments. */
+export const EREZ_PRICE = {
+  HALL: "UGDP",
+  COMMUTER: "NODM",
+  IRELAND: "ISTA",
+  ROME: "RSTA",
+  COMMUTER_ABROAD: "CSTA",
+} as const;
 
 const COMMUTER_CITIES = new Set([
   "naples",
@@ -179,8 +189,35 @@ export function secOf(building?: string): Sec | undefined {
   return building ? META[building]?.sec : undefined;
 }
 
-export function isAbroad(building?: string): boolean {
+export function priceTypeOf(r: { price_type?: string }): string {
+  return (r.price_type || "").trim().toUpperCase();
+}
+
+export function isIreland(building?: string): boolean {
   return building === "CIARA" || building === "MALAC";
+}
+
+/** Ireland houses in the extra eRez session (CIARA / MALAC). */
+export function isAbroad(building?: string): boolean {
+  return isIreland(building);
+}
+
+/** Resident study abroad (Rome). eRez stores these with price type RSTA and no hall. */
+export function isRome(r: { price_type?: string }): boolean {
+  return priceTypeOf(r) === EREZ_PRICE.ROME;
+}
+
+export function isCommuterAbroad(r: { price_type?: string }): boolean {
+  return priceTypeOf(r) === EREZ_PRICE.COMMUTER_ABROAD;
+}
+
+export function isCommuter(r: { building?: string; price_type?: string }): boolean {
+  return r.building === "Commuter" || isCommuterAbroad(r);
+}
+
+/** No hall, and not Rome / commuter-abroad (those also have a blank building_id). */
+export function isUnassigned(r: { building?: string; price_type?: string }): boolean {
+  return !r.building && !isRome(r) && !isCommuterAbroad(r);
 }
 
 export function possibleCommuters(incoming: Resident[]): Resident[] {

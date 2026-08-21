@@ -42,7 +42,7 @@ sources/_catalog.json
 
 Each dataset keeps ~3 dated days. Report pages read `_latest` (or invoke on-read processors for MAS/alumni/institute derived views). Raw sources stay the contract; MAS also writes a short-lived `cache/mas/` snapshot so the portal stays under CloudFront’s 60s origin limit. Housing writes `cache/housing/residents.json` for the same reason.
 
-The `/housing` page is the App Runner residence-life dashboard (eRez assignments, floor maps, move-ins, verification), gated by the shared reporting login.
+The `/housing` page is a native residence-life dashboard from the eRezLife assignment API (sessions `2026FALL01` + `2026FALL03Ireland`), gated by the shared reporting login. Occupancy buckets: six halls, Ireland (CIARA/MALAC), Rome (price type RSTA), commuters (NODM), Middle Brook.
 
 Institute publisher needs Slate query tokens once:
 

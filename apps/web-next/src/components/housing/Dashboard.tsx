@@ -5,12 +5,12 @@ import { apiFetch } from "@/lib/api";
 import {
   HALL_CHARTS,
   META,
-  ROME,
   bedsOpen,
   hallResidents,
   indexOccupancy,
-  isAbroad,
+  isIreland,
   isIsoDate,
+  isRome,
 } from "@/lib/reports/housing/model";
 import type { OccIndex } from "@/lib/reports/housing/model";
 import type {
@@ -101,8 +101,9 @@ export function HousingDashboard() {
 
   const inResidenceHalls = Object.keys(META).reduce((n, c) => n + hallResidents(occ, c), 0);
   const ireland =
-    studyAbroad?.total ?? residents.filter((r) => isAbroad(r.building)).length;
-  const inHalls = inResidenceHalls + ireland + ROME;
+    studyAbroad?.total ?? residents.filter((r) => isIreland(r.building)).length;
+  const rome = residents.filter(isRome).length;
+  const inHalls = inResidenceHalls + ireland + rome;
   const openBeds = Object.keys(META).reduce((n, c) => n + bedsOpen(HALL_CHARTS[c], c, occ, edits, asof), 0);
 
   return (
@@ -112,7 +113,8 @@ export function HousingDashboard() {
           <div className={styles.eyebrow}>Ave Maria University · Residence Life</div>
           <h1>Residence Life Dashboard</h1>
           <div className={styles.sub}>
-            Fall 2026 · room-level occupancy
+            Fall 2026 · eRezLife assignments
+            {payload?.cached_at ? ` · as of ${payload.cached_at}` : ""}
             <span className={styles.live}><span className={styles.dot} />LIVE</span>
           </div>
         </div>
