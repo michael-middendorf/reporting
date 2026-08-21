@@ -35,3 +35,31 @@ describe("chapel-only grant", () => {
     assert.equal(canAccessReport(ANNIE, "advancement"), false);
   });
 });
+
+describe("full Advancement grants", () => {
+  const people = [
+    "Leslie.Sonnen@avemaria.edu",
+    "Julie.Musselman@avemaria.edu",
+    "Jim.Thomas@avemaria.edu",
+  ];
+
+  it("lets Leslie, Julie, and Jim sign in to every Advancement report", () => {
+    for (const email of people) {
+      assert.equal(canLogin(email), true, email);
+      assert.equal(canAccessReport(email, "advancement"), true, email);
+      assert.equal(canAccessReport(email, "chapel"), true, email);
+      assert.equal(canAccessReport(email, "annunciation"), true, email);
+      assert.equal(canAccessReport(email, "enrollment"), false, email);
+      const reports = reportsForEmail(email);
+      assert.deepEqual(reports, ["advancement", "chapel", "annunciation"], email);
+    }
+  });
+
+  it("does not promote them to admins or other folders", () => {
+    for (const email of people) {
+      assert.equal(canAccessReport(email, "points"), false, email);
+      assert.equal(canAccessReport(email, "housing"), false, email);
+      assert.equal(canAccessReport(email, "census"), false, email);
+    }
+  });
+});

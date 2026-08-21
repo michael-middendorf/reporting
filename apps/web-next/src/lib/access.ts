@@ -49,13 +49,13 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,susan.gallagher@avemaria.edu,mark.middendorf@avemaria.edu",
   institute: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
   advancement:
-    "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu,susan.gallagher@avemaria.edu,mark.middendorf@avemaria.edu",
+    "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu,susan.gallagher@avemaria.edu,mark.middendorf@avemaria.edu,leslie.sonnen@avemaria.edu,julie.musselman@avemaria.edu,jim.thomas@avemaria.edu",
   // Chapel Naming + Stained Glass only. Advancement grants also cover these
   // pages (see canAccessReport). Do not add chapel-only people to advancement.
   chapel: "robert.musselman@avemaria.edu",
   points: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,annie.esposito@avemaria.edu",
   annunciation:
-    "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu,susan.gallagher@avemaria.edu,mark.middendorf@avemaria.edu",
+    "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu,susan.gallagher@avemaria.edu,mark.middendorf@avemaria.edu,leslie.sonnen@avemaria.edu,julie.musselman@avemaria.edu,jim.thomas@avemaria.edu",
   aspiredu:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
 };
