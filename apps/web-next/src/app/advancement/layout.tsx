@@ -1,6 +1,7 @@
 "use client";
 
 import { AccessGate, ReportTopBar } from "@/components/AccessGate";
+import { ADVANCEMENT_NAV } from "@/lib/report-nav";
 
 export default function AdvancementLayout({
   children,
@@ -9,15 +10,7 @@ export default function AdvancementLayout({
 }) {
   return (
     <AccessGate report="advancement">
-      <ReportTopBar
-        title="Advancement"
-        nav={[
-          { href: "/advancement/overview", label: "Overview" },
-          { href: "/advancement/mgo-top-prospects", label: "MGO Top Prospects" },
-          { href: "/annunciation", label: "Annunciation Circle" },
-          { href: "/advancement/chapel-naming", label: "Chapel Naming" },
-        ]}
-      />
+      <ReportTopBar title="Advancement" nav={ADVANCEMENT_NAV} />
       {children}
     </AccessGate>
   );

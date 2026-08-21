@@ -139,7 +139,7 @@ function InstituteDashboard() {
   if (status.startsWith("Failed") || (payload && (payload as { error?: string }).error)) {
     return (
       <div className="institute-root">
-        <ReportTopBar title="The Institute" nav={[{ href: "/institute", label: "Dashboard" }]} />
+        <ReportTopBar title="The Institute" nav={[]} />
         <div className="body">
           <div className="card">
             <h3>The Institute — Admissions Pipeline</h3>
@@ -152,7 +152,7 @@ function InstituteDashboard() {
   if (!payload || !F) {
     return (
       <div className="institute-root">
-        <ReportTopBar title="The Institute" nav={[{ href: "/institute", label: "Dashboard" }]} />
+        <ReportTopBar title="The Institute" nav={[]} />
         <div className="body">
           <div className="loadcard">
             <span className="spin" /> {status}
@@ -487,7 +487,7 @@ function InstituteDashboard() {
 
   return (
     <div className="institute-root">
-      <ReportTopBar title="The Institute" nav={[{ href: "/institute", label: "Dashboard" }]} />
+      <ReportTopBar title="The Institute" nav={[]} />
 
       <header className="top">
         <div className="wrap">

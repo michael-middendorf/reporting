@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import type { ReportId } from "@/lib/access";
 import { apiFetch, fetchMe, setBearer } from "@/lib/api";
+import { reportNavActive, type ReportNavItem } from "@/lib/report-nav";
 
 export function AccessGate({
   report,
@@ -22,12 +24,12 @@ export function AccessGate({
       setState(me.reports?.includes(report) ? "ok" : "denied");
     });
   }, [report]);
-  if (state === "loading") return <p style={{ padding: 24 }}>Loading…</p>;
+  if (state === "loading") return <p className="rc-loading">Loading…</p>;
   if (state === "denied")
     return (
-      <div style={{ padding: 24 }}>
+      <div className="rc-denied">
         <p>You do not have access to this report.</p>
-        <Link href="/">← Hub</Link>
+        <Link href="/">Back to Hub</Link>
       </div>
     );
   return <>{children}</>;
@@ -36,45 +38,63 @@ export function AccessGate({
 export function ReportTopBar({
   title,
   nav,
+  actions,
+  navExtra,
 }: {
   title: string;
-  nav: { href: string; label: string }[];
+  nav: ReportNavItem[];
+  actions?: ReactNode;
+  navExtra?: ReactNode;
 }) {
+  const pathname = usePathname() || "";
   async function logout() {
     await apiFetch("/api/auth/logout", { method: "POST" });
     setBearer(null);
     window.location.href = "/";
   }
+  const showTabs = nav.length > 0 || navExtra != null;
   return (
-    <header
-      style={{
-        display: "flex",
-        flexWrap: "wrap",
-        gap: "0.75rem 1.25rem",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "0.85rem 1.25rem",
-        borderBottom: "1px solid rgba(0,0,0,0.1)",
-        background: "#fff",
-        position: "sticky",
-        top: 0,
-        zIndex: 20,
-      }}
-    >
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem 1rem", alignItems: "baseline" }}>
-        <Link href="/" style={{ fontSize: "0.85rem", opacity: 0.7 }}>
-          ← Hub
-        </Link>
-        <strong>{title}</strong>
-        {nav.map((n) => (
-          <Link key={n.href} href={n.href} style={{ fontSize: "0.9rem" }}>
-            {n.label}
+    <div className="rc">
+      <header className="rc-header">
+        <div className="rc-brand">
+          <Link href="/" className="rc-wordmark" title="Reporting hub">
+            AMU
           </Link>
-        ))}
-      </div>
-      <button type="button" onClick={logout} style={{ cursor: "pointer" }}>
-        Sign out
-      </button>
-    </header>
+          <span className="rc-sep" aria-hidden="true">
+            |
+          </span>
+          <span className="rc-name">{title}</span>
+        </div>
+        <div className="rc-actions">
+          {actions}
+          <button type="button" className="rc-btn" onClick={logout}>
+            Sign out
+          </button>
+        </div>
+      </header>
+      {showTabs && (
+        <nav className="rc-tabs" aria-label={`${title} sections`}>
+          {nav.map((n) => {
+            const active = reportNavActive(n, nav, pathname);
+            return (
+              <Link
+                key={n.href}
+                href={n.href}
+                className={active ? "rc-tab is-active" : "rc-tab"}
+                aria-current={active ? "page" : undefined}
+              >
+                {n.label}
+              </Link>
+            );
+          })}
+          {navExtra != null && (
+            <>
+              <span className="rc-tabs-spacer" />
+              <div className="rc-tabs-extra">{navExtra}</div>
+            </>
+          )}
+        </nav>
+      )}
+    </div>
   );
 }

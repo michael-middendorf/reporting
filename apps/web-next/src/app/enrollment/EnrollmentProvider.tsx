@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
   createContext,
   useContext,
@@ -10,8 +9,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { ReportTopBar } from "@/components/AccessGate";
 import type { ReportId } from "@/lib/access";
-import { apiFetch, fetchMe, setBearer } from "@/lib/api";
+import { fetchMe } from "@/lib/api";
+import { ENROLLMENT_NAV } from "@/lib/report-nav";
 import {
   fmtAsOf,
   loadEnrollmentBundle,
@@ -59,12 +60,12 @@ function Gate({
       setOk(me.reports?.includes(report) ? "yes" : "no");
     });
   }, [report]);
-  if (ok === "loading") return <p className="enrollment-root" style={{ padding: 24 }}>Loading…</p>;
+  if (ok === "loading") return <p className="rc-loading">Loading…</p>;
   if (ok === "no")
     return (
-      <div className="enrollment-root" style={{ padding: 24 }}>
+      <div className="rc-denied">
         <p>You do not have access to this report.</p>
-        <Link href="/">← Hub</Link>
+        <Link href="/">Back to Hub</Link>
       </div>
     );
   return <>{children}</>;
@@ -119,81 +120,45 @@ export function EnrollmentProvider({ children }: { children: ReactNode }) {
   );
 }
 
-const TABS = [
-  { href: "/enrollment", label: "Overview", match: (p: string) => p === "/enrollment" },
-  { href: "/enrollment/admissions", label: "Admissions" },
-  { href: "/enrollment/events", label: "Events" },
-  { href: "/enrollment/withdrawals", label: "Withdrawals" },
-] as const;
-
 export function EnrollmentChrome({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
   const { cycle, setCycle, data, refresh, loading } = useEnrollment();
-
-  async function logout() {
-    await apiFetch("/api/auth/logout", { method: "POST" });
-    setBearer(null);
-    window.location.href = "/";
-  }
 
   return (
     <>
-      <header className="gh">
-        <div className="gh-left">
-          <Link href="/" className="gh-wordmark">
-            AMU
-          </Link>
-          <span className="gh-sep">|</span>
-          <span className="gh-report">Admissions Enrollment</span>
-        </div>
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <span className="gh-date">
-            {loading ? "Loading…" : data?.generatedAt ? `As of ${fmtAsOf(data.generatedAt)}` : ""}
-          </span>
-          <button type="button" className="back-btn" onClick={refresh}>
-            Refresh
-          </button>
-          <button type="button" className="back-btn" onClick={logout}>
-            Sign out
-          </button>
-        </div>
-      </header>
-      <nav className="tab-nav" aria-label="Enrollment sections">
-        {TABS.map((t) => {
-          const active =
-            "match" in t && t.match
-              ? t.match(pathname)
-              : pathname === t.href || pathname.startsWith(t.href + "/");
-          return (
-            <Link
-              key={t.href}
-              href={t.href}
-              className={`tab-btn${active ? " active" : ""}`}
+      <ReportTopBar
+        title="Admissions Enrollment"
+        nav={ENROLLMENT_NAV}
+        actions={
+          <>
+            <span className="rc-meta">
+              {loading ? "Loading…" : data?.generatedAt ? `As of ${fmtAsOf(data.generatedAt)}` : ""}
+            </span>
+            <button type="button" className="rc-btn" onClick={refresh}>
+              Refresh
+            </button>
+          </>
+        }
+        navExtra={
+          <label className="term-filter">
+            <span className="term-filter-lbl">Select term</span>
+            <select
+              className="term-select"
+              value={cycle}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (isEnrollmentCycle(v)) setCycle(v);
+              }}
+              aria-label="Select enrollment term"
             >
-              {t.label}
-            </Link>
-          );
-        })}
-        <span style={{ flex: 1 }} />
-        <label className="term-filter">
-          <span className="term-filter-lbl">Select term</span>
-          <select
-            className="term-select"
-            value={cycle}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (isEnrollmentCycle(v)) setCycle(v);
-            }}
-            aria-label="Select enrollment term"
-          >
-            {ENROLLMENT_CYCLES.map((c) => (
-              <option key={c} value={c}>
-                {cycleMeta(c).option}
-              </option>
-            ))}
-          </select>
-        </label>
-      </nav>
+              {ENROLLMENT_CYCLES.map((c) => (
+                <option key={c} value={c}>
+                  {cycleMeta(c).option}
+                </option>
+              ))}
+            </select>
+          </label>
+        }
+      />
       {children}
     </>
   );
