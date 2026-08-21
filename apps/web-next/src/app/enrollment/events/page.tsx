@@ -31,7 +31,9 @@ export default function EventsPage() {
   const SPRING_MONTHS = ["Feb", "Mar", "Apr"];
 
   // PSW
-  const pswPack = data.psw as { byTerm?: Record<string, { att: number; total: number }> } & Record<string, { att: number; total: number }>;
+  const pswPack = data.psw as unknown as {
+    byTerm?: Record<string, { att: number; total: number }>;
+  } & Record<string, { att: number; total: number }>;
   const pswMap = pswPack.byTerm || pswPack;
   const pswTerms = Object.entries(pswMap)
     .filter(([k]) => k !== "byTerm" && k !== "byCycle")
