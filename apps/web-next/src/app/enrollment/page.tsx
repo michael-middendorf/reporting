@@ -63,7 +63,10 @@ export default function EnrollmentOverviewPage() {
   const curCyc = (ameData.byCycle || {})[curKey] || {};
   const prvCyc = (ameData.byCycle || {})[prvKey] || {};
 
-  const pswData = data.psw as { byCycle?: Record<string, { att: number; total: number }>; byTerm?: Record<string, { att: number; total: number }> };
+  const pswData = data.psw as unknown as {
+    byCycle?: Record<string, { att: number; total: number }>;
+    byTerm?: Record<string, { att: number; total: number }>;
+  };
   const pswByCycle = pswData.byCycle || {};
   const pswCurEntry = pswByCycle[curKey] ?? pswData.byTerm?.[curKey] ?? null;
   const pswPrvEntry = pswByCycle[prvKey] ?? pswData.byTerm?.[prvKey] ?? null;
