@@ -20,6 +20,12 @@ const REPORTS: {
     desc: "Admissions funnel, decisions, SLC, PSW, visits, and withdrawals.",
   },
   {
+    id: "census",
+    href: "/census",
+    title: "Census",
+    desc: "Official fall census: headcount, FTE, UG profile, and retention.",
+  },
+  {
     id: "housing",
     href: "/housing",
     title: "Housing",

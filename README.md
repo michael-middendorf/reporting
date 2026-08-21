@@ -10,6 +10,7 @@ Remote: https://github.com/colecantu904/reporting
 |-------|--------|
 | `/` | Hub |
 | `/enrollment` | Admissions enrollment dashboard |
+| `/census` | Fall census (headcount, FTE, UG profile, retention) |
 | `/housing` | Housing occupancy, floor maps, move-ins, verification |
 | `/institute` | The Institute admissions pipeline |
 | `/advancement` | Advancement folder (Overview, MGO Top Prospects, Annunciation Circle, Chapel Naming) |

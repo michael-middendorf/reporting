@@ -264,6 +264,8 @@ export default $config({
         ALLOWED_EMAILS: allowedEmails.value,
         ENROLLMENT_ALLOWED_EMAILS:
           "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
+        CENSUS_ALLOWED_EMAILS:
+          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
         HOUSING_ALLOWED_EMAILS:
           "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
         INSTITUTE_ALLOWED_EMAILS:
@@ -425,6 +427,8 @@ export default $config({
           RESEND_API_KEY: resendApiKey.value,
           ALLOWED_EMAILS: allowedEmails.value,
           ENROLLMENT_ALLOWED_EMAILS:
+            "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
+          CENSUS_ALLOWED_EMAILS:
             "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
           HOUSING_ALLOWED_EMAILS:
             "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",

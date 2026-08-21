@@ -3,6 +3,7 @@ import { normalizeEmail } from "@/lib/auth";
 /** Report ids used in routes and ACL checks. */
 export const REPORT_IDS = [
   "enrollment",
+  "census",
   "housing",
   "institute",
   "advancement",
@@ -41,6 +42,8 @@ const ADMIN_SET = new Set(ADMIN_EMAILS.map(normalizeEmail));
 const REPORT_ALLOWED: Record<ReportId, string> = {
   enrollment:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu,dan.donaldson@avemaria.edu,andres.a.jimenez@avemaria.edu,susan.gallagher@avemaria.edu,mark.middendorf@avemaria.edu",
+  census:
+    "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
   housing:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,susan.gallagher@avemaria.edu,mark.middendorf@avemaria.edu",
   institute: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
@@ -55,6 +58,7 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
 
 const ENV_KEYS: Record<ReportId, string> = {
   enrollment: "ENROLLMENT_ALLOWED_EMAILS",
+  census: "CENSUS_ALLOWED_EMAILS",
   housing: "HOUSING_ALLOWED_EMAILS",
   institute: "INSTITUTE_ALLOWED_EMAILS",
   advancement: "ADVANCEMENT_ALLOWED_EMAILS",

@@ -1,0 +1,2046 @@
+{
+  "term": "Fall 2026",
+  "generated": "2026-08-21",
+  "status": "draft",
+  "pending": [
+    "Housing / residency (Ireland tagged Study Abroad only)",
+    "Dedicated FSP, Households, Mary's Marines, Institute lists (using registration association field)",
+    "Application decisions",
+    "Incoming SAT / ACT / CLT / HS GPA"
+  ],
+  "kpis": {
+    "states": 49,
+    "allStudents": 1629,
+    "ugStudents": 1400,
+    "foreignCountries": 13,
+    "ugOnCampusPct": null,
+    "incomingHsGpa": null,
+    "pctCatholic": 0.9371,
+    "avgClt": null,
+    "avgAct": null,
+    "avgSat": null
+  },
+  "summary": {
+    "newStudents": {
+      "headcount": 485,
+      "fte": 479.2
+    },
+    "ftca": {
+      "headcount": 398,
+      "fte": 396.0
+    },
+    "tran": {
+      "headcount": 78,
+      "fte": 76.0
+    },
+    "read": {
+      "headcount": 2,
+      "fte": 2.0
+    },
+    "secb": {
+      "headcount": 3,
+      "fte": 3.0
+    },
+    "luxMundiUg": {
+      "headcount": 0,
+      "fte": 0
+    },
+    "returning": {
+      "headcount": 915,
+      "fte": 876.2
+    },
+    "degreeSeeking": {
+      "headcount": 1400,
+      "fte": 1355.5
+    },
+    "dualEnrollment": {
+      "headcount": 68,
+      "fte": 0.0
+    },
+    "nonDegree": {
+      "headcount": 6,
+      "fte": 1.0
+    },
+    "totalUndergraduate": {
+      "headcount": 1474,
+      "fte": 1356.5
+    },
+    "gradMa": {
+      "headcount": 51,
+      "fte": 32.5
+    },
+    "gradPhd": {
+      "headcount": 21,
+      "fte": 20.0
+    },
+    "gradMba": {
+      "headcount": 51,
+      "fte": 42.0
+    },
+    "gradMedcl": {
+      "headcount": 32,
+      "fte": 28.0
+    },
+    "luxMundiGrad": {
+      "headcount": 10,
+      "fte": 4.0
+    },
+    "totalGraduate": {
+      "headcount": 155,
+      "fte": 122.5
+    },
+    "totalEnrollment": {
+      "headcount": 1629,
+      "fte": 1479.0
+    },
+    "notes": {
+      "newCollegeAttendBlank": 4
+    }
+  },
+  "historical": {
+    "years": [
+      2026,
+      2025,
+      2024,
+      2023,
+      2022,
+      2021,
+      2020
+    ],
+    "newStudents": {
+      "hc": [
+        485,
+        487,
+        426,
+        403,
+        431,
+        501,
+        366
+      ],
+      "fte": [
+        479.2,
+        486,
+        425,
+        402,
+        431,
+        498,
+        363
+      ]
+    },
+    "ftca": {
+      "hc": [
+        398,
+        398,
+        365,
+        318,
+        356,
+        379,
+        291
+      ],
+      "fte": [
+        396.0,
+        398,
+        365,
+        318,
+        356,
+        378,
+        null
+      ]
+    },
+    "tran": {
+      "hc": [
+        78,
+        77,
+        56,
+        82,
+        74,
+        118,
+        63
+      ],
+      "fte": [
+        76.0,
+        77,
+        55,
+        82,
+        74,
+        118,
+        null
+      ]
+    },
+    "read": {
+      "hc": [
+        2,
+        8,
+        5,
+        3,
+        null,
+        null,
+        8
+      ],
+      "fte": [
+        2.0,
+        7,
+        5,
+        2,
+        null,
+        null,
+        null
+      ]
+    },
+    "secb": {
+      "hc": [
+        3,
+        1,
+        null,
+        null,
+        1,
+        1,
+        2
+      ],
+      "fte": [
+        3.0,
+        1,
+        null,
+        null,
+        1,
+        1,
+        null
+      ]
+    },
+    "luxMundiUg": {
+      "hc": [
+        0,
+        3,
+        null,
+        null,
+        0,
+        0,
+        2
+      ],
+      "fte": [
+        0,
+        3,
+        null,
+        null,
+        0,
+        0,
+        1
+      ]
+    },
+    "returning": {
+      "hc": [
+        915,
+        858,
+        872,
+        826,
+        800,
+        741,
+        717
+      ],
+      "fte": [
+        876.2,
+        847,
+        867,
+        822,
+        792,
+        732,
+        711
+      ]
+    },
+    "degreeSeeking": {
+      "hc": [
+        1400,
+        1345,
+        1298,
+        1229,
+        1231,
+        1242,
+        1083
+      ],
+      "fte": [
+        1355.5,
+        null,
+        1292,
+        1224,
+        1226,
+        1235,
+        1074
+      ]
+    },
+    "dualEnrollment": {
+      "hc": [
+        68,
+        22,
+        23,
+        15,
+        14,
+        10,
+        15
+      ]
+    },
+    "nonDegree": {
+      "hc": [
+        6,
+        4,
+        5,
+        6,
+        3,
+        8,
+        2
+      ]
+    },
+    "totalUndergraduate": {
+      "hc": [
+        1474,
+        1371,
+        1326,
+        1250,
+        1248,
+        1260,
+        1102
+      ]
+    },
+    "gradMa": {
+      "hc": [
+        51,
+        20,
+        26,
+        24,
+        21,
+        18,
+        19
+      ],
+      "fte": [
+        32.5,
+        null,
+        21,
+        20,
+        20,
+        15,
+        19
+      ]
+    },
+    "gradPhd": {
+      "hc": [
+        21,
+        20,
+        24,
+        21,
+        19,
+        18,
+        18
+      ],
+      "fte": [
+        20.0,
+        20,
+        24,
+        21,
+        19,
+        18,
+        18
+      ]
+    },
+    "gradMba": {
+      "hc": [
+        51,
+        null,
+        48,
+        31,
+        23,
+        7,
+        null
+      ],
+      "fte": [
+        42.0,
+        null,
+        39,
+        27,
+        16,
+        1,
+        null
+      ]
+    },
+    "gradMedcl": {
+      "hc": [
+        32,
+        null,
+        18,
+        9,
+        null,
+        null,
+        47
+      ],
+      "fte": [
+        28.0,
+        null,
+        17,
+        9,
+        null,
+        null,
+        46
+      ]
+    },
+    "totalGraduate": {
+      "hc": [
+        155,
+        130,
+        122,
+        85,
+        63,
+        43,
+        null
+      ],
+      "fte": [
+        122.5,
+        81,
+        104,
+        77,
+        55,
+        34,
+        null
+      ]
+    },
+    "totalEnrollment": {
+      "hc": [
+        1629,
+        1503,
+        1448,
+        1335,
+        1311,
+        1303,
+        null
+      ]
+    }
+  },
+  "ug": {
+    "n": 1400,
+    "states": [
+      {
+        "label": "FL",
+        "n": 380,
+        "pct": 0.2714
+      },
+      {
+        "label": "MI",
+        "n": 119,
+        "pct": 0.085
+      },
+      {
+        "label": "VA",
+        "n": 76,
+        "pct": 0.0543
+      },
+      {
+        "label": "IL",
+        "n": 74,
+        "pct": 0.0529
+      },
+      {
+        "label": "NY",
+        "n": 49,
+        "pct": 0.035
+      },
+      {
+        "label": "TX",
+        "n": 48,
+        "pct": 0.0343
+      },
+      {
+        "label": "OH",
+        "n": 43,
+        "pct": 0.0307
+      },
+      {
+        "label": "WI",
+        "n": 42,
+        "pct": 0.03
+      },
+      {
+        "label": "CA",
+        "n": 38,
+        "pct": 0.0271
+      },
+      {
+        "label": "PA",
+        "n": 37,
+        "pct": 0.0264
+      },
+      {
+        "label": "MD",
+        "n": 35,
+        "pct": 0.025
+      },
+      {
+        "label": "IN",
+        "n": 32,
+        "pct": 0.0229
+      },
+      {
+        "label": "NC",
+        "n": 31,
+        "pct": 0.0221
+      },
+      {
+        "label": "MN",
+        "n": 30,
+        "pct": 0.0214
+      },
+      {
+        "label": "GA",
+        "n": 27,
+        "pct": 0.0193
+      },
+      {
+        "label": "CO",
+        "n": 26,
+        "pct": 0.0186
+      },
+      {
+        "label": "SC",
+        "n": 25,
+        "pct": 0.0179
+      },
+      {
+        "label": "NJ",
+        "n": 21,
+        "pct": 0.015
+      },
+      {
+        "label": "LA",
+        "n": 19,
+        "pct": 0.0136
+      },
+      {
+        "label": "CT",
+        "n": 17,
+        "pct": 0.0121
+      },
+      {
+        "label": "NH",
+        "n": 16,
+        "pct": 0.0114
+      },
+      {
+        "label": "TN",
+        "n": 16,
+        "pct": 0.0114
+      },
+      {
+        "label": "NE",
+        "n": 12,
+        "pct": 0.0086
+      },
+      {
+        "label": "AZ",
+        "n": 11,
+        "pct": 0.0079
+      },
+      {
+        "label": "WA",
+        "n": 11,
+        "pct": 0.0079
+      },
+      {
+        "label": "AR",
+        "n": 10,
+        "pct": 0.0071
+      },
+      {
+        "label": "KS",
+        "n": 9,
+        "pct": 0.0064
+      },
+      {
+        "label": "KY",
+        "n": 9,
+        "pct": 0.0064
+      },
+      {
+        "label": "NM",
+        "n": 8,
+        "pct": 0.0057
+      },
+      {
+        "label": "AL",
+        "n": 7,
+        "pct": 0.005
+      },
+      {
+        "label": "MA",
+        "n": 7,
+        "pct": 0.005
+      },
+      {
+        "label": "MO",
+        "n": 7,
+        "pct": 0.005
+      },
+      {
+        "label": "IA",
+        "n": 6,
+        "pct": 0.0043
+      },
+      {
+        "label": "ID",
+        "n": 6,
+        "pct": 0.0043
+      },
+      {
+        "label": "MT",
+        "n": 6,
+        "pct": 0.0043
+      },
+      {
+        "label": "OK",
+        "n": 6,
+        "pct": 0.0043
+      },
+      {
+        "label": "OR",
+        "n": 6,
+        "pct": 0.0043
+      },
+      {
+        "label": "ND",
+        "n": 4,
+        "pct": 0.0029
+      },
+      {
+        "label": "RI",
+        "n": 4,
+        "pct": 0.0029
+      },
+      {
+        "label": "WY",
+        "n": 4,
+        "pct": 0.0029
+      },
+      {
+        "label": "AK",
+        "n": 3,
+        "pct": 0.0021
+      },
+      {
+        "label": "NV",
+        "n": 3,
+        "pct": 0.0021
+      },
+      {
+        "label": "SD",
+        "n": 3,
+        "pct": 0.0021
+      },
+      {
+        "label": "DE",
+        "n": 2,
+        "pct": 0.0014
+      },
+      {
+        "label": "MS",
+        "n": 2,
+        "pct": 0.0014
+      },
+      {
+        "label": "WV",
+        "n": 2,
+        "pct": 0.0014
+      },
+      {
+        "label": "AE",
+        "n": 1,
+        "pct": 0.0007
+      },
+      {
+        "label": "ME",
+        "n": 1,
+        "pct": 0.0007
+      },
+      {
+        "label": "VT",
+        "n": 1,
+        "pct": 0.0007
+      },
+      {
+        "label": "International",
+        "n": 48,
+        "pct": 0.0343
+      }
+    ],
+    "countries": [
+      {
+        "label": "Unknown",
+        "n": 18,
+        "pct": 0.4615
+      },
+      {
+        "label": "CAN",
+        "n": 4,
+        "pct": 0.1026
+      },
+      {
+        "label": "GERMAN",
+        "n": 3,
+        "pct": 0.0769
+      },
+      {
+        "label": "BRAZIL",
+        "n": 2,
+        "pct": 0.0513
+      },
+      {
+        "label": "ITALY",
+        "n": 2,
+        "pct": 0.0513
+      },
+      {
+        "label": "MEX",
+        "n": 2,
+        "pct": 0.0513
+      },
+      {
+        "label": "CAY",
+        "n": 1,
+        "pct": 0.0256
+      },
+      {
+        "label": "IRELAN",
+        "n": 1,
+        "pct": 0.0256
+      },
+      {
+        "label": "MONT",
+        "n": 1,
+        "pct": 0.0256
+      },
+      {
+        "label": "NICARA",
+        "n": 1,
+        "pct": 0.0256
+      },
+      {
+        "label": "NORW",
+        "n": 1,
+        "pct": 0.0256
+      },
+      {
+        "label": "PARAGU",
+        "n": 1,
+        "pct": 0.0256
+      },
+      {
+        "label": "SPAIN",
+        "n": 1,
+        "pct": 0.0256
+      },
+      {
+        "label": "UK",
+        "n": 1,
+        "pct": 0.0256
+      }
+    ],
+    "gender": [
+      {
+        "label": "Female",
+        "n": 751,
+        "pct": 0.5364
+      },
+      {
+        "label": "Male",
+        "n": 649,
+        "pct": 0.4636
+      }
+    ],
+    "classLevel": [
+      {
+        "label": "Freshman",
+        "n": 521,
+        "fullTime": 515
+      },
+      {
+        "label": "Sophomore",
+        "n": 331,
+        "fullTime": 314
+      },
+      {
+        "label": "Junior",
+        "n": 292,
+        "fullTime": 280
+      },
+      {
+        "label": "Senior",
+        "n": 254,
+        "fullTime": 232
+      }
+    ],
+    "sports": [
+      {
+        "label": "Football",
+        "n": 87,
+        "pctOfAthletes": 0.149,
+        "pctOfAll": 0.0621
+      },
+      {
+        "label": "Ultimate Frisbee",
+        "n": 49,
+        "pctOfAthletes": 0.0839,
+        "pctOfAll": 0.035
+      },
+      {
+        "label": "Baseball",
+        "n": 40,
+        "pctOfAthletes": 0.0685,
+        "pctOfAll": 0.0286
+      },
+      {
+        "label": "Soccer-Men",
+        "n": 40,
+        "pctOfAthletes": 0.0685,
+        "pctOfAll": 0.0286
+      },
+      {
+        "label": "Volleyball",
+        "n": 39,
+        "pctOfAthletes": 0.0668,
+        "pctOfAll": 0.0279
+      },
+      {
+        "label": "Rugby-Men",
+        "n": 37,
+        "pctOfAthletes": 0.0634,
+        "pctOfAll": 0.0264
+      },
+      {
+        "label": "Basketball-Men",
+        "n": 36,
+        "pctOfAthletes": 0.0616,
+        "pctOfAll": 0.0257
+      },
+      {
+        "label": "Soccer-Women",
+        "n": 33,
+        "pctOfAthletes": 0.0565,
+        "pctOfAll": 0.0236
+      },
+      {
+        "label": "Band",
+        "n": 31,
+        "pctOfAthletes": 0.0531,
+        "pctOfAll": 0.0221
+      },
+      {
+        "label": "XC/Track-Men",
+        "n": 29,
+        "pctOfAthletes": 0.0497,
+        "pctOfAll": 0.0207
+      },
+      {
+        "label": "XC/Track-Women",
+        "n": 26,
+        "pctOfAthletes": 0.0445,
+        "pctOfAll": 0.0186
+      },
+      {
+        "label": "Softball",
+        "n": 23,
+        "pctOfAthletes": 0.0394,
+        "pctOfAll": 0.0164
+      },
+      {
+        "label": "Lacrosse",
+        "n": 16,
+        "pctOfAthletes": 0.0274,
+        "pctOfAll": 0.0114
+      },
+      {
+        "label": "Swimming-Men",
+        "n": 16,
+        "pctOfAthletes": 0.0274,
+        "pctOfAll": 0.0114
+      },
+      {
+        "label": "Competitive Dance",
+        "n": 15,
+        "pctOfAthletes": 0.0257,
+        "pctOfAll": 0.0107
+      },
+      {
+        "label": "Tennis-Women",
+        "n": 15,
+        "pctOfAthletes": 0.0257,
+        "pctOfAll": 0.0107
+      },
+      {
+        "label": "Basketball-Women",
+        "n": 14,
+        "pctOfAthletes": 0.024,
+        "pctOfAll": 0.01
+      },
+      {
+        "label": "Swimming-Women",
+        "n": 12,
+        "pctOfAthletes": 0.0205,
+        "pctOfAll": 0.0086
+      },
+      {
+        "label": "Tennis-Men",
+        "n": 11,
+        "pctOfAthletes": 0.0188,
+        "pctOfAll": 0.0079
+      },
+      {
+        "label": "Golf-Men",
+        "n": 9,
+        "pctOfAthletes": 0.0154,
+        "pctOfAll": 0.0064
+      },
+      {
+        "label": "Golf-Women",
+        "n": 6,
+        "pctOfAthletes": 0.0103,
+        "pctOfAll": 0.0043
+      }
+    ],
+    "religion": [
+      {
+        "label": "Catholic",
+        "n": 1296,
+        "pct": 0.9257
+      },
+      {
+        "label": "Christian",
+        "n": 82,
+        "pct": 0.0586
+      },
+      {
+        "label": "Eastern Rite Catholic",
+        "n": 16,
+        "pct": 0.0114
+      },
+      {
+        "label": "Other",
+        "n": 6,
+        "pct": 0.0043
+      }
+    ],
+    "athlete": [
+      {
+        "label": "Non-Athlete",
+        "n": 816,
+        "pct": 0.5829
+      },
+      {
+        "label": "Athlete",
+        "n": 584,
+        "pct": 0.4171
+      }
+    ],
+    "incomingAthlete": [
+      {
+        "label": "Non-Athlete",
+        "n": 297,
+        "pct": 0.6124
+      },
+      {
+        "label": "Athlete",
+        "n": 188,
+        "pct": 0.3876
+      }
+    ],
+    "residency": [
+      {
+        "label": "Unknown",
+        "n": 1351,
+        "pct": 0.965
+      },
+      {
+        "label": "Study Abroad",
+        "n": 49,
+        "pct": 0.035
+      }
+    ],
+    "honorsByClass": [
+      {
+        "label": "Freshman",
+        "n": 85,
+        "pct": 0.3881
+      },
+      {
+        "label": "Sophomore",
+        "n": 59,
+        "pct": 0.2694
+      },
+      {
+        "label": "Senior",
+        "n": 41,
+        "pct": 0.1872
+      },
+      {
+        "label": "Junior",
+        "n": 34,
+        "pct": 0.1553
+      }
+    ],
+    "honorsN": 219,
+    "athleticReligion": [
+      {
+        "label": "Catholic",
+        "n": 503,
+        "pct": 0.8613
+      },
+      {
+        "label": "Christian",
+        "n": 72,
+        "pct": 0.1233
+      },
+      {
+        "label": "Eastern Rite Catholic",
+        "n": 6,
+        "pct": 0.0103
+      },
+      {
+        "label": "Other",
+        "n": 3,
+        "pct": 0.0051
+      }
+    ],
+    "floridaAthlete": [
+      {
+        "label": "Non-Athlete",
+        "n": 236,
+        "pct": 0.6036
+      },
+      {
+        "label": "Athlete",
+        "n": 155,
+        "pct": 0.3964
+      }
+    ],
+    "floridaCatholic": [
+      {
+        "label": "Catholic",
+        "n": 340,
+        "pct": 0.8696
+      },
+      {
+        "label": "Non-Catholic",
+        "n": 51,
+        "pct": 0.1304
+      }
+    ],
+    "nonFloridaCatholicAthlete": [
+      {
+        "label": "Non-Athlete",
+        "n": 574,
+        "pct": 0.5905
+      },
+      {
+        "label": "Athlete",
+        "n": 398,
+        "pct": 0.4095
+      }
+    ],
+    "genderLoad": [
+      {
+        "gender": "Female",
+        "incomingReturning": "Incoming",
+        "full": 250,
+        "half": 0,
+        "less": 1,
+        "other": 5,
+        "total": 256
+      },
+      {
+        "gender": "Female",
+        "incomingReturning": "Returning",
+        "full": 466,
+        "half": 6,
+        "less": 13,
+        "other": 10,
+        "total": 495
+      },
+      {
+        "gender": "Male",
+        "incomingReturning": "Incoming",
+        "full": 229,
+        "half": 0,
+        "less": 0,
+        "other": 0,
+        "total": 229
+      },
+      {
+        "gender": "Male",
+        "incomingReturning": "Returning",
+        "full": 396,
+        "half": 6,
+        "less": 8,
+        "other": 10,
+        "total": 420
+      }
+    ],
+    "majors": [
+      {
+        "label": "Accounting",
+        "freshman": 15,
+        "sophomore": 16,
+        "junior": 11,
+        "senior": 11,
+        "total": 54
+      },
+      {
+        "label": "Advanced Chemistry",
+        "freshman": 2,
+        "sophomore": 0,
+        "junior": 0,
+        "senior": 1,
+        "total": 3
+      },
+      {
+        "label": "American Studies",
+        "freshman": 0,
+        "sophomore": 2,
+        "junior": 0,
+        "senior": 1,
+        "total": 3
+      },
+      {
+        "label": "Biochemistry",
+        "freshman": 4,
+        "sophomore": 5,
+        "junior": 6,
+        "senior": 4,
+        "total": 19
+      },
+      {
+        "label": "Biology",
+        "freshman": 20,
+        "sophomore": 15,
+        "junior": 6,
+        "senior": 14,
+        "total": 55
+      },
+      {
+        "label": "Business",
+        "freshman": 75,
+        "sophomore": 40,
+        "junior": 37,
+        "senior": 36,
+        "total": 188
+      },
+      {
+        "label": "CLAMIN",
+        "freshman": 0,
+        "sophomore": 0,
+        "junior": 0,
+        "senior": 1,
+        "total": 1
+      },
+      {
+        "label": "Classics",
+        "freshman": 0,
+        "sophomore": 3,
+        "junior": 1,
+        "senior": 2,
+        "total": 6
+      },
+      {
+        "label": "Communications",
+        "freshman": 16,
+        "sophomore": 19,
+        "junior": 25,
+        "senior": 26,
+        "total": 86
+      },
+      {
+        "label": "Computer Science",
+        "freshman": 6,
+        "sophomore": 3,
+        "junior": 6,
+        "senior": 3,
+        "total": 18
+      },
+      {
+        "label": "Economics",
+        "freshman": 1,
+        "sophomore": 8,
+        "junior": 7,
+        "senior": 2,
+        "total": 18
+      },
+      {
+        "label": "Elementary Education",
+        "freshman": 0,
+        "sophomore": 2,
+        "junior": 4,
+        "senior": 5,
+        "total": 12
+      },
+      {
+        "label": "Environmental Science",
+        "freshman": 2,
+        "sophomore": 0,
+        "junior": 1,
+        "senior": 0,
+        "total": 3
+      },
+      {
+        "label": "Exercise Physiology",
+        "freshman": 39,
+        "sophomore": 31,
+        "junior": 22,
+        "senior": 16,
+        "total": 108
+      },
+      {
+        "label": "Finance",
+        "freshman": 26,
+        "sophomore": 16,
+        "junior": 15,
+        "senior": 11,
+        "total": 68
+      },
+      {
+        "label": "Global Affairs",
+        "freshman": 5,
+        "sophomore": 1,
+        "junior": 4,
+        "senior": 0,
+        "total": 10
+      },
+      {
+        "label": "Health Science",
+        "freshman": 14,
+        "sophomore": 8,
+        "junior": 16,
+        "senior": 6,
+        "total": 44
+      },
+      {
+        "label": "History",
+        "freshman": 13,
+        "sophomore": 2,
+        "junior": 9,
+        "senior": 4,
+        "total": 28
+      },
+      {
+        "label": "Humanities",
+        "freshman": 4,
+        "sophomore": 2,
+        "junior": 3,
+        "senior": 2,
+        "total": 11
+      },
+      {
+        "label": "Literature",
+        "freshman": 6,
+        "sophomore": 12,
+        "junior": 4,
+        "senior": 6,
+        "total": 28
+      },
+      {
+        "label": "Managerial Economics",
+        "freshman": 3,
+        "sophomore": 4,
+        "junior": 5,
+        "senior": 5,
+        "total": 17
+      },
+      {
+        "label": "Marine Biology",
+        "freshman": 11,
+        "sophomore": 1,
+        "junior": 5,
+        "senior": 2,
+        "total": 19
+      },
+      {
+        "label": "Marketing",
+        "freshman": 12,
+        "sophomore": 15,
+        "junior": 11,
+        "senior": 10,
+        "total": 48
+      },
+      {
+        "label": "Mathematics",
+        "freshman": 2,
+        "sophomore": 1,
+        "junior": 4,
+        "senior": 5,
+        "total": 12
+      },
+      {
+        "label": "Mechanical Engineering",
+        "freshman": 27,
+        "sophomore": 8,
+        "junior": 3,
+        "senior": 1,
+        "total": 39
+      },
+      {
+        "label": "Music",
+        "freshman": 10,
+        "sophomore": 1,
+        "junior": 3,
+        "senior": 1,
+        "total": 15
+      },
+      {
+        "label": "Nursing",
+        "freshman": 0,
+        "sophomore": 0,
+        "junior": 1,
+        "senior": 5,
+        "total": 6
+      },
+      {
+        "label": "Philosophy",
+        "freshman": 7,
+        "sophomore": 6,
+        "junior": 9,
+        "senior": 8,
+        "total": 30
+      },
+      {
+        "label": "Physics",
+        "freshman": 2,
+        "sophomore": 0,
+        "junior": 2,
+        "senior": 4,
+        "total": 8
+      },
+      {
+        "label": "Political Economy",
+        "freshman": 3,
+        "sophomore": 2,
+        "junior": 4,
+        "senior": 2,
+        "total": 11
+      },
+      {
+        "label": "Political Science",
+        "freshman": 9,
+        "sophomore": 5,
+        "junior": 9,
+        "senior": 8,
+        "total": 31
+      },
+      {
+        "label": "Pre-Education",
+        "freshman": 18,
+        "sophomore": 11,
+        "junior": 0,
+        "senior": 0,
+        "total": 29
+      },
+      {
+        "label": "Pre-Nursing",
+        "freshman": 59,
+        "sophomore": 30,
+        "junior": 20,
+        "senior": 15,
+        "total": 124
+      },
+      {
+        "label": "Psychology",
+        "freshman": 29,
+        "sophomore": 31,
+        "junior": 14,
+        "senior": 21,
+        "total": 95
+      },
+      {
+        "label": "Quantitative Economics",
+        "freshman": 0,
+        "sophomore": 1,
+        "junior": 2,
+        "senior": 1,
+        "total": 4
+      },
+      {
+        "label": "Theology",
+        "freshman": 22,
+        "sophomore": 19,
+        "junior": 20,
+        "senior": 15,
+        "total": 76
+      },
+      {
+        "label": "Undecided",
+        "freshman": 59,
+        "sophomore": 11,
+        "junior": 3,
+        "senior": 0,
+        "total": 73
+      }
+    ]
+  },
+  "ftcaAttrition": {
+    "cohort": 392,
+    "enrolledThisFall": 325,
+    "notRetained": 67,
+    "retentionRate": 0.8291,
+    "byState": [
+      {
+        "label": "FL",
+        "students": 99,
+        "notRetained": 21,
+        "retainedPct": 0.7879,
+        "shareOfNotRetained": 0.3134
+      },
+      {
+        "label": "MI",
+        "students": 34,
+        "notRetained": 2,
+        "retainedPct": 0.9412,
+        "shareOfNotRetained": 0.0299
+      },
+      {
+        "label": "OH",
+        "students": 19,
+        "notRetained": 7,
+        "retainedPct": 0.6316,
+        "shareOfNotRetained": 0.1045
+      },
+      {
+        "label": "TX",
+        "students": 19,
+        "notRetained": 5,
+        "retainedPct": 0.7368,
+        "shareOfNotRetained": 0.0746
+      },
+      {
+        "label": "VA",
+        "students": 18,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "IL",
+        "students": 15,
+        "notRetained": 5,
+        "retainedPct": 0.6667,
+        "shareOfNotRetained": 0.0746
+      },
+      {
+        "label": "CA",
+        "students": 14,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "MN",
+        "students": 13,
+        "notRetained": 2,
+        "retainedPct": 0.8462,
+        "shareOfNotRetained": 0.0299
+      },
+      {
+        "label": "NJ",
+        "students": 13,
+        "notRetained": 3,
+        "retainedPct": 0.7692,
+        "shareOfNotRetained": 0.0448
+      },
+      {
+        "label": "IN",
+        "students": 12,
+        "notRetained": 2,
+        "retainedPct": 0.8333,
+        "shareOfNotRetained": 0.0299
+      },
+      {
+        "label": "NC",
+        "students": 12,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "NH",
+        "students": 11,
+        "notRetained": 1,
+        "retainedPct": 0.9091,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "CO",
+        "students": 10,
+        "notRetained": 1,
+        "retainedPct": 0.9,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "PA",
+        "students": 10,
+        "notRetained": 2,
+        "retainedPct": 0.8,
+        "shareOfNotRetained": 0.0299
+      },
+      {
+        "label": "MD",
+        "students": 9,
+        "notRetained": 1,
+        "retainedPct": 0.8889,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "GA",
+        "students": 7,
+        "notRetained": 1,
+        "retainedPct": 0.8571,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "WI",
+        "students": 7,
+        "notRetained": 1,
+        "retainedPct": 0.8571,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "-",
+        "students": 6,
+        "notRetained": 2,
+        "retainedPct": 0.6667,
+        "shareOfNotRetained": 0.0299
+      },
+      {
+        "label": "CT",
+        "students": 6,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "AL",
+        "students": 5,
+        "notRetained": 2,
+        "retainedPct": 0.6,
+        "shareOfNotRetained": 0.0299
+      },
+      {
+        "label": "FC",
+        "students": 5,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "NY",
+        "students": 5,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "SC",
+        "students": 5,
+        "notRetained": 1,
+        "retainedPct": 0.8,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "ID",
+        "students": 3,
+        "notRetained": 1,
+        "retainedPct": 0.6667,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "KS",
+        "students": 3,
+        "notRetained": 1,
+        "retainedPct": 0.6667,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "MA",
+        "students": 3,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "RI",
+        "students": 3,
+        "notRetained": 2,
+        "retainedPct": 0.3333,
+        "shareOfNotRetained": 0.0299
+      },
+      {
+        "label": "TN",
+        "students": 3,
+        "notRetained": 1,
+        "retainedPct": 0.6667,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "AK",
+        "students": 2,
+        "notRetained": 1,
+        "retainedPct": 0.5,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "AR",
+        "students": 2,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "AZ",
+        "students": 2,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "MO",
+        "students": 2,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "NM",
+        "students": 2,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "OK",
+        "students": 2,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "VT",
+        "students": 2,
+        "notRetained": 1,
+        "retainedPct": 0.5,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "DE",
+        "students": 1,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "IA",
+        "students": 1,
+        "notRetained": 1,
+        "retainedPct": 0.0,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "LA",
+        "students": 1,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "ME",
+        "students": 1,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "NE",
+        "students": 1,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "OR",
+        "students": 1,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "SD",
+        "students": 1,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "WA",
+        "students": 1,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "WY",
+        "students": 1,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      }
+    ],
+    "byAthlete": [
+      {
+        "label": "Non-Athlete",
+        "students": 227,
+        "notRetained": 33,
+        "retainedPct": 0.8546,
+        "shareOfNotRetained": 0.4925
+      },
+      {
+        "label": "Athlete",
+        "students": 165,
+        "notRetained": 34,
+        "retainedPct": 0.7939,
+        "shareOfNotRetained": 0.5075
+      }
+    ],
+    "bySport": [
+      {
+        "label": "Football",
+        "students": 45,
+        "notRetained": 14,
+        "retainedPct": 0.6889,
+        "shareOfNotRetained": 0.209
+      },
+      {
+        "label": "Basketball-Men",
+        "students": 16,
+        "notRetained": 3,
+        "retainedPct": 0.8125,
+        "shareOfNotRetained": 0.0448
+      },
+      {
+        "label": "Ultimate Frisbee",
+        "students": 14,
+        "notRetained": 1,
+        "retainedPct": 0.9286,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "Soccer-Women",
+        "students": 11,
+        "notRetained": 3,
+        "retainedPct": 0.7273,
+        "shareOfNotRetained": 0.0448
+      },
+      {
+        "label": "Rugby-Men",
+        "students": 8,
+        "notRetained": 2,
+        "retainedPct": 0.75,
+        "shareOfNotRetained": 0.0299
+      },
+      {
+        "label": "Soccer-Men",
+        "students": 7,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "Softball",
+        "students": 7,
+        "notRetained": 2,
+        "retainedPct": 0.7143,
+        "shareOfNotRetained": 0.0299
+      },
+      {
+        "label": "Lacrosse",
+        "students": 6,
+        "notRetained": 1,
+        "retainedPct": 0.8333,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "Volleyball",
+        "students": 6,
+        "notRetained": 1,
+        "retainedPct": 0.8333,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "XC/Track-Men",
+        "students": 6,
+        "notRetained": 2,
+        "retainedPct": 0.6667,
+        "shareOfNotRetained": 0.0299
+      },
+      {
+        "label": "XC/Track-Women",
+        "students": 6,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "Baseball",
+        "students": 5,
+        "notRetained": 1,
+        "retainedPct": 0.8,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "Basketball-Women",
+        "students": 5,
+        "notRetained": 1,
+        "retainedPct": 0.8,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "Swimming-Men",
+        "students": 4,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "Competitive Dance",
+        "students": 3,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "Golf-Men",
+        "students": 3,
+        "notRetained": 1,
+        "retainedPct": 0.6667,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "Golf-Women",
+        "students": 3,
+        "notRetained": 1,
+        "retainedPct": 0.6667,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "Pickleball-Men",
+        "students": 3,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "Swimming-Women",
+        "students": 3,
+        "notRetained": 1,
+        "retainedPct": 0.6667,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "Tennis-Men",
+        "students": 2,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "Tennis-Women",
+        "students": 2,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      }
+    ],
+    "byGpa": [
+      {
+        "label": "-",
+        "students": 323,
+        "notRetained": 64,
+        "retainedPct": 0.8019,
+        "shareOfNotRetained": 0.9552
+      },
+      {
+        "label": "<1.0",
+        "students": 60,
+        "notRetained": 3,
+        "retainedPct": 0.95,
+        "shareOfNotRetained": 0.0448
+      },
+      {
+        "label": "3.5 - 4.0",
+        "students": 6,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "3.0 - 3.49",
+        "students": 2,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      },
+      {
+        "label": "2.0 - 2.49",
+        "students": 1,
+        "notRetained": 0,
+        "retainedPct": 1.0,
+        "shareOfNotRetained": 0.0
+      }
+    ],
+    "byEthnicity": [
+      {
+        "label": "WHITE",
+        "students": 271,
+        "notRetained": 47,
+        "retainedPct": 0.8266,
+        "shareOfNotRetained": 0.7015
+      },
+      {
+        "label": "HISPAN",
+        "students": 60,
+        "notRetained": 8,
+        "retainedPct": 0.8667,
+        "shareOfNotRetained": 0.1194
+      },
+      {
+        "label": "-",
+        "students": 21,
+        "notRetained": 4,
+        "retainedPct": 0.8095,
+        "shareOfNotRetained": 0.0597
+      },
+      {
+        "label": "ASIAN",
+        "students": 18,
+        "notRetained": 4,
+        "retainedPct": 0.7778,
+        "shareOfNotRetained": 0.0597
+      },
+      {
+        "label": "BLACK",
+        "students": 17,
+        "notRetained": 2,
+        "retainedPct": 0.8824,
+        "shareOfNotRetained": 0.0299
+      },
+      {
+        "label": "HAWAII",
+        "students": 3,
+        "notRetained": 1,
+        "retainedPct": 0.6667,
+        "shareOfNotRetained": 0.0149
+      },
+      {
+        "label": "AMINDI",
+        "students": 2,
+        "notRetained": 1,
+        "retainedPct": 0.5,
+        "shareOfNotRetained": 0.0149
+      }
+    ],
+    "byCatholicAthlete": [
+      {
+        "label": "Catholic / Non-Athlete",
+        "students": 222,
+        "notRetained": 32,
+        "retainedPct": 0.8559,
+        "shareOfNotRetained": 0.4776
+      },
+      {
+        "label": "Catholic / Athlete",
+        "students": 141,
+        "notRetained": 25,
+        "retainedPct": 0.8227,
+        "shareOfNotRetained": 0.3731
+      },
+      {
+        "label": "Non-Catholic / Athlete",
+        "students": 24,
+        "notRetained": 9,
+        "retainedPct": 0.625,
+        "shareOfNotRetained": 0.1343
+      },
+      {
+        "label": "Non-Catholic / Non-Athlete",
+        "students": 5,
+        "notRetained": 1,
+        "retainedPct": 0.8,
+        "shareOfNotRetained": 0.0149
+      }
+    ]
+  },
+  "allUgRetention": {
+    "priorUg": 1343,
+    "graduates": 272,
+    "pool": 1071,
+    "enrolledThisFall": 907,
+    "notRetained": 164,
+    "retentionRate": 0.8469
+  },
+  "historicalFtcaRetention": [
+    {
+      "label": "F19\u2013F20",
+      "rate": 0.713
+    },
+    {
+      "label": "F20\u2013F21",
+      "rate": 0.765
+    },
+    {
+      "label": "F21\u2013F22",
+      "rate": 0.715
+    },
+    {
+      "label": "F22\u2013F23",
+      "rate": 0.75
+    },
+    {
+      "label": "F23\u2013F24",
+      "rate": 0.789
+    },
+    {
+      "label": "F24\u2013F25",
+      "rate": 0.8493
+    },
+    {
+      "label": "F25\u2013F26",
+      "rate": 0.8291
+    }
+  ],
+  "historicalAllUgRetention": [
+    {
+      "label": "F19\u2013F20",
+      "rate": 0.763
+    },
+    {
+      "label": "F20\u2013F21",
+      "rate": 0.79
+    },
+    {
+      "label": "F21\u2013F22",
+      "rate": 0.77
+    },
+    {
+      "label": "F22\u2013F23",
+      "rate": 0.82
+    },
+    {
+      "label": "F23\u2013F24",
+      "rate": 0.855
+    },
+    {
+      "label": "F24\u2013F25",
+      "rate": 0.8677
+    },
+    {
+      "label": "F25\u2013F26",
+      "rate": 0.8469
+    }
+  ]
+}
