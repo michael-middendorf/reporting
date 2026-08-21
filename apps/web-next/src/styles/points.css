@@ -64,25 +64,108 @@ a:hover { color: var(--gold); }
 
 .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
 main.wrap { padding-top: 28px; padding-bottom: 64px; }
+main.wrap.dash { max-width: 1100px; padding: 28px 24px 64px; }
+
+/* ---- Page header ---- */
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 24px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+}
+.page-head h1 { margin: 0; }
+.page-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.page-head-meta {
+  font-size: .82rem;
+  color: var(--slate-400);
+  font-weight: 400;
+}
 
 /* ---- Controls ---- */
-.controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 6px 0 22px; }
-.seg { display: inline-flex; background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 3px; box-shadow: var(--shadow); }
-.seg button {
-  border: 0; background: transparent; font-family: var(--sans); font-size: .9rem; color: var(--slate);
-  padding: 7px 15px; border-radius: 999px; cursor: pointer; font-weight: 400;
+.controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 22px; }
+.seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px;
+  box-shadow: var(--shadow);
 }
+.seg button {
+  border: 0;
+  background: transparent;
+  font-family: var(--sans);
+  font-size: .82rem;
+  color: var(--slate);
+  padding: 7px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 500;
+  line-height: 1.2;
+}
+.seg button:hover:not(.active) { color: var(--navy); }
 .seg button.active { background: var(--navy); color: #fff; }
-.daterange { display: inline-flex; align-items: center; gap: 8px; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 4px 8px; box-shadow: var(--shadow); }
+.seg button:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.daterange {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 10px 4px 14px;
+  box-shadow: var(--shadow);
+}
 .daterange.active { border-color: var(--navy); box-shadow: 0 0 0 2px var(--gold-soft); }
-.daterange label { display: inline-flex; align-items: center; gap: 5px; font-size: .78rem; color: var(--slate-400); }
-.daterange input[type="date"] { font-family: var(--sans); font-size: .82rem; color: var(--slate); border: 1px solid var(--line); border-radius: 8px; padding: 5px 7px; background: #fff; }
+.daterange label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--slate-400);
+}
+.daterange-sep { color: var(--line); font-weight: 300; }
+.daterange input[type="date"] {
+  appearance: none;
+  -webkit-appearance: none;
+  font-family: var(--sans);
+  font-size: .82rem;
+  font-weight: 500;
+  color: var(--navy);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px 8px;
+  background: #fff;
+  min-height: 32px;
+  color-scheme: light;
+}
+.daterange input[type="date"]:focus {
+  outline: none;
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px var(--gold-soft);
+}
 .daterange button { border: 0; background: var(--navy); color: #fff; font-family: var(--sans); font-size: .82rem; font-weight: 500; padding: 6px 12px; border-radius: 8px; cursor: pointer; }
 .daterange button.ghost { background: transparent; color: var(--slate-400); font-weight: 400; }
 .daterange button.ghost:hover { color: var(--slate); }
 .controls .spacer { flex: 1; }
 .controls .meta { color: var(--slate-400); font-size: .82rem; }
 .badge-sample { background: var(--gold-soft); color: #7a5a10; font-size: .72rem; padding: 4px 10px; border-radius: 999px; font-weight: 500; }
+
+.page-head .mini-btn.solid {
+  padding: 8px 14px;
+  font-size: .82rem;
+}
 
 /* ---- KPI row ---- */
 .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 26px; }
@@ -167,4 +250,14 @@ table.grid.audit thead th { position: sticky; top: 0; background: #fff; z-index:
   .kpis { grid-template-columns: repeat(2, 1fr); }
   .two-col { grid-template-columns: 1fr; }
   .topbar .wrap { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .page-head { align-items: flex-start; }
+  .seg {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .seg button { flex-shrink: 0; }
+  .daterange { border-radius: 14px; flex-wrap: wrap; padding: 8px 10px; }
 }

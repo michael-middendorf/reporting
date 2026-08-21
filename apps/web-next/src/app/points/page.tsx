@@ -23,12 +23,14 @@ import "@/styles/points.css";
 type RangeKey = "today" | "7" | "14" | "week" | "all" | "custom";
 
 const RANGES: Record<string, { label: string; days?: number; weekToDate?: boolean }> = {
-  today: { label: "Today", days: 1 },
   "7": { label: "Last 7 days", days: 7 },
   "14": { label: "Last 14 days", days: 14 },
+  today: { label: "Today", days: 1 },
   week: { label: "This week", weekToDate: true },
   all: { label: "All" },
 };
+
+const RANGE_KEYS = ["7", "14", "today", "week", "all"] as const;
 
 type Owner = {
   name: string;
@@ -286,63 +288,71 @@ export default function PointsPage() {
     <AccessGate report="points">
       <div className="points-root">
         <ReportTopBar title="MA Points" nav={POINTS_NAV} />
-        <main className="wrap" style={{ padding: "24px 20px 48px", maxWidth: 1100, margin: "0 auto" }}>
-          <h1>Points Dashboard</h1>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "12px 0 20px" }}>
-            {Object.entries(RANGES).map(([key, cfg]) => (
+        <main className="wrap dash">
+          <header className="page-head">
+            <h1>Points Dashboard</h1>
+            <div className="page-head-actions">
+              <span className="page-head-meta">{error || status}</span>
               <button
-                key={key}
                 type="button"
-                onClick={() => {
-                  setRange(key as RangeKey);
-                  setCustomStart("");
-                  setCustomEnd("");
-                }}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 999,
-                  border: "1px solid #c8d6e8",
-                  background: range === key ? "#0c233f" : "#fff",
-                  color: range === key ? "#fff" : "#0c233f",
-                  cursor: "pointer",
-                }}
+                onClick={exportCalculation}
+                disabled={!rows}
+                title="Download a spreadsheet of every task and how its points were calculated, with a link to each record in Virtuous"
+                className="mini-btn solid"
               >
-                {cfg.label}
+                Export calculation report
               </button>
-            ))}
-            <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              From
-              <input
-                type="date"
-                value={customStart}
-                onChange={(e) => {
-                  setCustomStart(e.target.value);
-                  setRange("custom");
-                }}
-              />
-            </label>
-            <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              To
-              <input
-                type="date"
-                value={customEnd}
-                onChange={(e) => {
-                  setCustomEnd(e.target.value);
-                  setRange("custom");
-                }}
-              />
-            </label>
-            <button
-              type="button"
-              onClick={exportCalculation}
-              disabled={!rows}
-              title="Download a spreadsheet of every task and how its points were calculated, with a link to each record in Virtuous"
-              className="mini-btn solid"
-              style={{ marginLeft: "auto" }}
-            >
-              Export calculation report
-            </button>
-            <span style={{ opacity: 0.7 }}>{error || status}</span>
+            </div>
+          </header>
+          <div className="controls">
+            <div className="seg" role="group" aria-label="Preset range">
+              {RANGE_KEYS.map((key) => {
+                const cfg = RANGES[key];
+                const active = range === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className={active ? "active" : undefined}
+                    aria-pressed={active}
+                    onClick={() => {
+                      setRange(key);
+                      setCustomStart("");
+                      setCustomEnd("");
+                    }}
+                  >
+                    {cfg.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className={`daterange${range === "custom" ? " active" : ""}`}>
+              <label>
+                From
+                <input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => {
+                    setCustomStart(e.target.value);
+                    setRange("custom");
+                  }}
+                />
+              </label>
+              <span className="daterange-sep" aria-hidden="true">
+                –
+              </span>
+              <label>
+                To
+                <input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => {
+                    setCustomEnd(e.target.value);
+                    setRange("custom");
+                  }}
+                />
+              </label>
+            </div>
           </div>
 
           <section
