@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEnrollment } from "./EnrollmentProvider";
 import { Delta } from "@/components/enrollment/ui";
+import { activityByAC, type AcFunnel } from "@/lib/reports/enrollment/counselors";
 import { fmt } from "@/lib/reports/enrollment/load";
 
 export default function EnrollmentHubPage() {
@@ -30,6 +31,9 @@ export default function EnrollmentHubPage() {
   const vs = cycle === "fa26" ? "FA25" : "FA26";
   const pswTerms = Object.entries(data.psw);
   const wd = cycle === "fa26" ? data.withdrawn.fa26 : data.withdrawn.fa27;
+  const counselorCount = Object.keys(
+    activityByAC((cur.byAC || {}) as Record<string, AcFunnel>),
+  ).length;
 
   return (
     <div className="view active">
@@ -185,7 +189,7 @@ export default function EnrollmentHubPage() {
               <div className="kl">Interviews</div>
             </div>
             <div className="ks">
-              <div className="kn">{Object.keys(cur.byAC || {}).length}</div>
+              <div className="kn">{fmt(counselorCount)}</div>
               <div className="kl">Counselors</div>
             </div>
           </div>

@@ -7,7 +7,7 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "test:enrollment": "npx tsx --test src/lib/reports/enrollment/fall-report.test.ts src/lib/reports/enrollment/withdrawals.test.ts",
+    "test:enrollment": "npx tsx --test src/lib/reports/enrollment/fall-report.test.ts src/lib/reports/enrollment/withdrawals.test.ts src/lib/reports/enrollment/process.test.ts",
     "test:housing": "npx tsx --test src/lib/reports/housing/model.test.ts"
   },
   "dependencies": {

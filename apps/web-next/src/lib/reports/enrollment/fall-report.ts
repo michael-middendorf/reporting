@@ -24,6 +24,9 @@ import {
   YEAR_GOAL,
   type StudentTypeLabel,
 } from "./fall-report-config";
+import { mapStudentType } from "./student-type";
+
+export { mapStudentType };
 
 export type AdmRow = Record<string, unknown>;
 
@@ -150,28 +153,6 @@ export function fallYear(term: unknown): number | null {
   if (m) return 2000 + +m[1];
   m = s.match(/(\d{4})\s*FALL/i);
   if (m) return +m[1];
-  return null;
-}
-
-export function mapStudentType(raw: unknown): StudentTypeLabel | null {
-  const s = String(raw || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-  if (!s) return null;
-  if (/transfer/.test(s)) return "Transfer";
-  if (/re ?admit/.test(s) || /readmission/.test(s) || /re admission/.test(s)) {
-    return "Re-Admit";
-  }
-  if (/second/.test(s) && (/degree/.test(s) || /bachelor/.test(s))) {
-    return "Second Bachelor's";
-  }
-  if (
-    /fresh/.test(s) ||
-    (/first/.test(s) && (/year/.test(s) || /time/.test(s)))
-  ) {
-    return "First-Time Freshmen";
-  }
   return null;
 }
 

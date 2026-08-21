@@ -237,24 +237,4 @@ export function AcceptCodesTable({ codes }: { codes?: Record<string, number> }) 
   );
 }
 
-export function acShort(ac: string) {
-  if (!ac) return "Unassigned";
-  const map: Record<string, string> = {
-    "abel.cordero": "Abel C",
-    "annie.esposito": "Annie E",
-    "caroline.g.savoie": "Caroline S",
-    "christine.m.gulas": "Christine G",
-    "lillian.doyle": "Lillian D",
-    "madelyn.r.byers": "Madelyn B",
-    "michael.j.mcgrath": "Michael M",
-    "joseph.r.pinho": "Joseph P",
-    "katherine.n.lyons": "Katherine L",
-  };
-  return (
-    map[ac] ||
-    ac
-      .split(".")
-      .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-      .join(" ")
-  );
-}
+export { acShort } from "@/lib/reports/enrollment/counselors";
