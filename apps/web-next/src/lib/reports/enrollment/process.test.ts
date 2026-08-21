@@ -125,6 +125,18 @@ test("PSW YoY uses FormSubmissionDate and is 0 when nobody had signed up yet", (
   assert.equal(psw.byCycleYoy["Fall 2025"].total, 1);
 });
 
+test("PSW event cycle ignores application term so Spring attendees stay on the January weekend", () => {
+  const rows = [
+    { Term: "Fall 2026", RegistrationStatus: "Attended", FormStartDateTime: "2026-01-16", FormSubmissionDate: "2025-12-01" },
+    { Term: "Spring 2026", RegistrationStatus: "No Show", FormStartDateTime: "2026-01-16", FormSubmissionDate: "2025-12-02" },
+  ];
+  const psw = _procPSW(rows, "2026-08-21");
+  assert.equal(psw.byCycle["Fall 2026"].total, 2);
+  assert.equal(psw.byCycle["Fall 2026"].att, 1);
+  assert.equal(psw.byCycle["Fall 2026"].noShow, 1);
+  assert.equal(psw.byTerm["Spring 2026"].total, 1);
+});
+
 test("AME overview counts registrants and YoY-gates the prior cycle", () => {
   const rows = [
     { FormStartDateTime: "2026-09-12", RegistrationStatus: "Registered", SubmissionDate: "2026-08-01" },

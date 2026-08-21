@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useEnrollment } from "../EnrollmentProvider";
-import { BarChart, Kpi, Section, acShort } from "@/components/enrollment/ui";
+import { BarChart, InfoTip, Kpi, Section, acShort } from "@/components/enrollment/ui";
+import { DEFS } from "@/lib/reports/enrollment/defs";
 import { fmt } from "@/lib/reports/enrollment/load";
 import {
   cycleLabel,
@@ -32,10 +33,6 @@ const COLS: Col[] = [
 
 function cycleBundle(data: { withdrawn: WithdrawnBundle }, cycle: "fa26" | "fa27") {
   return cycle === "fa26" ? data.withdrawn.fa26 : data.withdrawn.fa27;
-}
-
-function priorBundle(data: { withdrawn: WithdrawnBundle }, cycle: "fa26" | "fa27") {
-  return cycle === "fa26" ? data.withdrawn.fa25 : data.withdrawn.fa26;
 }
 
 function isAthlete(label: string) {
@@ -76,9 +73,7 @@ export default function WithdrawalsPage() {
   const [sortDir, setSortDir] = useState<-1 | 1>(-1);
 
   const cur = data ? cycleBundle(data, cycle) : null;
-  const prv = data ? priorBundle(data, cycle) : null;
   const cohort = cur ? cur[kind] : null;
-  const vs = cycle === "fa26" ? "FA25" : "FA26";
   const emptyCopy =
     kind === "deposits"
       ? `No withdrawn deposits for this cycle yet.`
@@ -129,7 +124,7 @@ export default function WithdrawalsPage() {
         <p>Loading…</p>
       </div>
     );
-  if (error || !data || !cur || !prv)
+  if (error || !data || !cur)
     return (
       <div className="view active">
         <p>{error || "No data"}</p>
@@ -161,16 +156,16 @@ export default function WithdrawalsPage() {
         <div>
           <h1 className="rpt-title">Withdrawals {cycleLabel(cycle)}</h1>
           <p className="rpt-sub">
-            Deposited students who withdrew, and deferred students who withdrew. Compared with {vs}.
+            Deposited students who withdrew, and deferred students who withdrew.
           </p>
         </div>
       </div>
 
       <div className="kpi-strip">
-        <Kpi label="Withdrawn deposits" cur={cur.deposits.total} prv={prv.deposits.total} invert highlight />
-        <Kpi label="Withdrawn deferred" cur={cur.deferred.total} prv={prv.deferred.total} invert />
-        <Kpi label="Athletes (deposits)" cur={cur.deposits.athlete} />
-        <Kpi label="Non-athletes (deposits)" cur={cur.deposits.nonAthlete} />
+        <Kpi label="Withdrawn deposits" cur={cur.deposits.total} invert highlight info={DEFS.wdDeposits} />
+        <Kpi label="Withdrawn deferred" cur={cur.deferred.total} invert info={DEFS.wdDeferred} />
+        <Kpi label="Athletes (deposits)" cur={cur.deposits.athlete} info={DEFS.wdAthlete} />
+        <Kpi label="Non-athletes (deposits)" cur={cur.deposits.nonAthlete} info={DEFS.wdNonAthlete} />
       </div>
 
       <div className="wd-toolbar">
@@ -229,24 +224,15 @@ export default function WithdrawalsPage() {
       </div>
 
       <div className="kpi-strip">
+        <Kpi label="In view" cur={visible.length} info={DEFS.wdInView} />
+        <Kpi label="Athletes" cur={viewStats.athlete} info={DEFS.wdAthlete} />
+        <Kpi label="Non-athletes" cur={viewStats.nonAthlete} info={DEFS.wdNonAthlete} />
+        <Kpi label="Counselors" cur={viewStats.counselorCount} info={DEFS.wdCounselors} />
         <div className="kpi">
-          <div className="kpi-label">In view</div>
-          <div className="kpi-val">{fmt(visible.length)}</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-label">Athletes</div>
-          <div className="kpi-val">{fmt(viewStats.athlete)}</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-label">Non-athletes</div>
-          <div className="kpi-val">{fmt(viewStats.nonAthlete)}</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-label">Counselors</div>
-          <div className="kpi-val">{fmt(viewStats.counselorCount)}</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-label">Latest withdrawal</div>
+          <div className="kpi-label">
+            Latest withdrawal
+            <InfoTip text={DEFS.wdLatest} flip />
+          </div>
           <div className="kpi-val" style={{ fontSize: 16 }}>
             {viewStats.latestDate || "—"}
           </div>
@@ -255,12 +241,12 @@ export default function WithdrawalsPage() {
 
       <div className="cols2">
         <div>
-          <Section label="By counselor" />
-          {byAc.length ? <BarChart rows={byAc} /> : <p className="rpt-sub">{emptyCopy}</p>}
+          <Section label="By counselor" info={DEFS.wdByAc} />
+          {byAc.length ? <BarChart rows={byAc} info={DEFS.wdByAc} /> : <p className="rpt-sub">{emptyCopy}</p>}
         </div>
         <div>
-          <Section label="By reason" />
-          {byReason.length ? <BarChart rows={byReason} /> : <p className="rpt-sub">{emptyCopy}</p>}
+          <Section label="By reason" info={DEFS.wdByReason} />
+          {byReason.length ? <BarChart rows={byReason} info={DEFS.wdByReason} /> : <p className="rpt-sub">{emptyCopy}</p>}
         </div>
       </div>
 

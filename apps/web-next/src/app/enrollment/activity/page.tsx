@@ -1,8 +1,9 @@
 "use client";
 
 import { useEnrollment } from "../EnrollmentProvider";
-import { BarChart, Section, acShort } from "@/components/enrollment/ui";
+import { BarChart, MetricLabel, Section, acShort } from "@/components/enrollment/ui";
 import { activityByAC, type AcFunnel } from "@/lib/reports/enrollment/counselors";
+import { DEFS } from "@/lib/reports/enrollment/defs";
 import { fmt } from "@/lib/reports/enrollment/load";
 
 export default function ActivityPage() {
@@ -41,24 +42,24 @@ export default function ActivityPage() {
         </div>
       </div>
 
-      <Section label="Interviews by Counselor" />
-      <BarChart rows={interviewBars} />
+      <Section label="Interviews by Counselor" info={DEFS.interviewsByAc} />
+      <BarChart rows={interviewBars} info={DEFS.interviewsByAc} />
 
-      <Section label="Caseload (Applications) by Counselor" />
-      <BarChart rows={caseloadBars} />
+      <Section label="Caseload (Applications) by Counselor" info={DEFS.caseload} />
+      <BarChart rows={caseloadBars} info={DEFS.caseload} />
 
-      <Section label="Funnel By Admissions Counselor" />
+      <Section label="Funnel By Admissions Counselor" info={DEFS.counselor} />
       <div className="panel" style={{ overflowX: "auto" }}>
         <table className="data-table">
           <thead>
             <tr>
               <th>Counselor</th>
-              <th>Created</th>
-              <th>Submitted</th>
-              <th>Accepted</th>
-              <th>Deposited</th>
-              <th>Denied</th>
-              <th>Interviewed</th>
+              <th><MetricLabel label="Created" info={DEFS.created} /></th>
+              <th><MetricLabel label="Submitted" info={DEFS.submitted} /></th>
+              <th><MetricLabel label="Accepted" info={DEFS.accepted} /></th>
+              <th><MetricLabel label="Deposited" info={DEFS.depositsNet} /></th>
+              <th><MetricLabel label="Denied" info={DEFS.denied} /></th>
+              <th><MetricLabel label="Interviewed" info={DEFS.interviewed} /></th>
             </tr>
           </thead>
           <tbody>

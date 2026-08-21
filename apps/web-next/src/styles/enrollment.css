@@ -175,7 +175,26 @@ tr:hover td{background:#F5F8FD}
 .view.active{display:block}
 .kpi-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:22px}
 .kpi{background:var(--surf);border:1px solid var(--bdr);border-radius:6px;padding:12px 14px}
-.kpi-label{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)}
+.kpi-label{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);display:flex;align-items:center;gap:6px}
+.kpi{position:relative;overflow:visible}
+.bar-chart h3{display:flex;align-items:center;gap:6px}
+.sec-lbl{display:inline-flex;align-items:center;gap:6px}
+.enr-metric-label{display:inline-flex;align-items:center;gap:6px}
+.enrollment-root .enr-info{
+  position:relative;display:inline-flex;align-items:center;justify-content:center;
+  width:14px;height:14px;border-radius:50%;background:var(--pale);color:var(--t2);
+  font-size:9px;font-weight:800;line-height:1;cursor:help;flex-shrink:0;z-index:1;
+}
+.enrollment-root .enr-info .enr-tip{
+  display:none;position:absolute;top:18px;left:0;z-index:30;width:260px;
+  background:var(--blue);color:#fff;font-size:11px;font-weight:500;line-height:1.4;
+  letter-spacing:normal;text-transform:none;text-align:left;padding:8px 10px;
+  border-radius:8px;box-shadow:0 8px 22px rgba(26,63,111,.22);
+}
+.enrollment-root .enr-info.flip .enr-tip{left:auto;right:0}
+.enrollment-root .kpi .enr-info .enr-tip{left:auto;right:0;width:230px}
+.enrollment-root .enr-info:hover,.enrollment-root .enr-info:focus{z-index:8;outline:none}
+.enrollment-root .enr-info:hover .enr-tip,.enrollment-root .enr-info:focus .enr-tip{display:block}
 .kpi-val{font-size:22px;font-weight:700;color:var(--blue);margin-top:4px}
 .kpi-delta{font-size:12px;margin-top:4px}
 .panel{background:var(--surf);border:1px solid var(--bdr);border-radius:6px;padding:14px 16px;margin-bottom:16px}

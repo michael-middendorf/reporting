@@ -170,12 +170,12 @@ export function EnrollmentChrome({ children }: { children: ReactNode }) {
         })}
         <span style={{ flex: 1 }} />
         <label className="term-filter">
-          <span className="term-filter-lbl">Compare</span>
+          <span className="term-filter-lbl">Select term</span>
           <select
             className="term-select"
             value={cycle}
             onChange={(e) => setCycle(e.target.value as "fa26" | "fa27")}
-            aria-label="Select enrollment term to compare"
+            aria-label="Select enrollment term"
           >
             <option value="fa27">Fall 2027</option>
             <option value="fa26">Fall 2026</option>

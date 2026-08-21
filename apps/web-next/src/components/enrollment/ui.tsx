@@ -1,5 +1,6 @@
 "use client";
 
+import { DEFS } from "@/lib/reports/enrollment/defs";
 import { deltaPct, fmt, fmt1 } from "@/lib/reports/enrollment/load";
 
 const ACCEPT_CODE_LABEL: Record<string, string> = {
@@ -35,10 +36,49 @@ export function Delta({
   );
 }
 
-export function Section({ label }: { label: string }) {
+export function InfoTip({
+  text,
+  flip,
+}: {
+  text: string;
+  flip?: boolean;
+}) {
+  return (
+    <span
+      className={`enr-info${flip ? " flip" : ""}`}
+      tabIndex={0}
+      aria-label={text}
+      onClick={(e) => e.stopPropagation()}
+    >
+      i<span className="enr-tip">{text}</span>
+    </span>
+  );
+}
+
+export function MetricLabel({
+  label,
+  info,
+  flip,
+}: {
+  label: string;
+  info?: string;
+  flip?: boolean;
+}) {
+  return (
+    <span className="enr-metric-label">
+      {label}
+      {info ? <InfoTip text={info} flip={flip} /> : null}
+    </span>
+  );
+}
+
+export function Section({ label, info }: { label: string; info?: string }) {
   return (
     <div className="sec-row">
-      <span className="sec-lbl">{label}</span>
+      <span className="sec-lbl">
+        {label}
+        {info ? <InfoTip text={info} /> : null}
+      </span>
       <span className="sec-rule" />
     </div>
   );
@@ -51,6 +91,7 @@ export function Kpi({
   format = "int",
   highlight,
   invert,
+  info,
 }: {
   label: string;
   cur?: number | null;
@@ -58,6 +99,7 @@ export function Kpi({
   format?: "int" | "1" | "pct" | "days";
   highlight?: boolean;
   invert?: boolean;
+  info?: string;
 }) {
   const display =
     format === "1" || format === "pct"
@@ -81,7 +123,10 @@ export function Kpi({
           : fmt(prv);
   return (
     <div className={`kpi${highlight ? " hl" : ""}`}>
-      <div className="kpi-label">{label}</div>
+      <div className="kpi-label">
+        {label}
+        {info ? <InfoTip text={info} flip /> : null}
+      </div>
       <div className="kpi-val">{display}</div>
       {(prv != null || prevDisplay) && (
         <div className="kpi-delta">
@@ -99,15 +144,22 @@ export function BarChart({
   title,
   rows,
   max,
+  info,
 }: {
   title?: string;
   rows: BarRow[];
   max?: number;
+  info?: string;
 }) {
   const peak = max ?? Math.max(1, ...rows.map((r) => r.value || 0));
   return (
     <div className="bar-chart">
-      {title && <h3>{title}</h3>}
+      {title && (
+        <h3>
+          {title}
+          {info ? <InfoTip text={info} /> : null}
+        </h3>
+      )}
       {rows.map((r) => {
         const pct = Math.max(0, Math.min(100, ((r.value || 0) / peak) * 100));
         const fillClass =
@@ -137,11 +189,15 @@ export function FunnelHistoryCharts({
 }: {
   terms: { label: string; tone: BarRow["tone"]; stats: { created: number; accepted: number; deposits: number; submitted?: number } }[];
 }) {
-  const metrics: { key: "created" | "submitted" | "accepted" | "deposits"; title: string }[] = [
-    { key: "created", title: "Created / Apps" },
-    { key: "submitted", title: "Submitted" },
-    { key: "accepted", title: "Accepted" },
-    { key: "deposits", title: "Net Deposits" },
+  const metrics: {
+    key: "created" | "submitted" | "accepted" | "deposits";
+    title: string;
+    info: string;
+  }[] = [
+    { key: "created", title: "Created / Apps", info: DEFS.historyCreated },
+    { key: "submitted", title: "Submitted", info: DEFS.historySubmitted },
+    { key: "accepted", title: "Accepted", info: DEFS.historyAccepted },
+    { key: "deposits", title: "Net Deposits", info: DEFS.historyDeposits },
   ];
   return (
     <div className="g2" style={{ gap: 16 }}>
@@ -149,6 +205,7 @@ export function FunnelHistoryCharts({
         <BarChart
           key={m.key}
           title={m.title}
+          info={m.info}
           rows={terms.map((t) => ({
             label: t.label,
             value: (t.stats[m.key] as number) ?? t.stats.created,
@@ -177,12 +234,12 @@ export function AidTable({
 }) {
   const money = (n: number | null | undefined) => (n == null ? "—" : `$${Math.round(n).toLocaleString()}`);
   const pct = (n: number | null | undefined) => (n == null ? "—" : `${fmt1(n)}%`);
-  const rows: [string, string, string, string, string][] = [
-    ["Avg Unfunded (Accepted)", money(curAcc?.ua), money(prvAcc?.ua), money(curDep?.ua), money(prvDep?.ua)],
-    ["Unfunded DR (Accepted)", pct(curAcc?.drUa), pct(prvAcc?.drUa), pct(curDep?.drUa), pct(prvDep?.drUa)],
-    ["Avg Funded (Accepted)", money(curAcc?.fund), money(prvAcc?.fund), money(curDep?.fund), money(prvDep?.fund)],
-    ["Avg Total Aid (Accepted)", money(curAcc?.tot), money(prvAcc?.tot), money(curDep?.tot), money(prvDep?.tot)],
-    ["Total DR (Accepted)", pct(curAcc?.drTot), pct(prvAcc?.drTot), pct(curDep?.drTot), pct(prvDep?.drTot)],
+  const rows: { label: string; info: string; cells: string[] }[] = [
+    { label: "Avg Unfunded", info: DEFS.aidUnfunded, cells: [money(curAcc?.ua), money(prvAcc?.ua), money(curDep?.ua), money(prvDep?.ua)] },
+    { label: "Unfunded DR", info: DEFS.aidDr, cells: [pct(curAcc?.drUa), pct(prvAcc?.drUa), pct(curDep?.drUa), pct(prvDep?.drUa)] },
+    { label: "Avg Funded", info: DEFS.aidFunded, cells: [money(curAcc?.fund), money(prvAcc?.fund), money(curDep?.fund), money(prvDep?.fund)] },
+    { label: "Avg Total Aid", info: DEFS.aidTotal, cells: [money(curAcc?.tot), money(prvAcc?.tot), money(curDep?.tot), money(prvDep?.tot)] },
+    { label: "Total DR", info: DEFS.aidDr, cells: [pct(curAcc?.drTot), pct(prvAcc?.drTot), pct(curDep?.drTot), pct(prvDep?.drTot)] },
   ];
   return (
     <div className="panel" style={{ overflowX: "auto" }}>
@@ -198,8 +255,9 @@ export function AidTable({
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r[0]}>
-              {r.map((c, i) => (
+            <tr key={r.label}>
+              <td><MetricLabel label={r.label} info={r.info} /></td>
+              {r.cells.map((c, i) => (
                 <td key={i}>{c}</td>
               ))}
             </tr>
@@ -220,7 +278,7 @@ export function AcceptCodesTable({ codes }: { codes?: Record<string, number> }) 
           <tr>
             <th>Code</th>
             <th>Label</th>
-            <th>Count</th>
+            <th><MetricLabel label="Count" info={DEFS.acceptCodes} /></th>
           </tr>
         </thead>
         <tbody>

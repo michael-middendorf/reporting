@@ -1,7 +1,8 @@
 "use client";
 
 import { useEnrollment } from "../EnrollmentProvider";
-import { Section } from "@/components/enrollment/ui";
+import { Kpi, MetricLabel, Section } from "@/components/enrollment/ui";
+import { DEFS } from "@/lib/reports/enrollment/defs";
 import { fmt } from "@/lib/reports/enrollment/load";
 
 type AmeMonth = { attended: number; registered: number; registrants?: number };
@@ -47,7 +48,7 @@ function AmeMonthTable({
             padding: "8px 0 4px",
           }}
         >
-          {caption}
+          <MetricLabel label={caption} info={DEFS.ameRegistrants} />
         </caption>
         <thead>
           <tr>
@@ -101,18 +102,24 @@ export default function EventsPage() {
   const curKey = cycle === "fa26" ? "Fall 2026" : "Fall 2027";
   const prvKey = cycle === "fa26" ? "Fall 2025" : "Fall 2026";
   const curLabel = cycle === "fa26" ? "FA26" : "FA27";
-  const prvLabel = cycle === "fa26" ? "FA25 (same date last yr)" : "FA26 (same date last yr)";
+  const prvLabel = cycle === "fa26" ? "FA25" : "FA26";
   const curCyc = byCycle[curKey] || {};
   const prvCyc = byCycleYoy[prvKey] || {};
 
-  // PSW
+  // PSW is one January weekend per year. byCycle keys off event date, not
+  // the student's application Term (which is why Fall/Spring used to appear).
   const pswPack = data.psw as unknown as {
+    byCycle?: Record<string, { att: number; total: number; noShow?: number; cancelled?: number }>;
     byTerm?: Record<string, { att: number; total: number; noShow?: number; cancelled?: number }>;
-  } & Record<string, { att: number; total: number; noShow?: number; cancelled?: number }>;
-  const pswMap = pswPack.byTerm || pswPack;
-  const pswTerms = Object.entries(pswMap)
-    .filter(([k]) => k !== "byTerm" && k !== "byCycle" && k !== "byCycleYoy")
-    .sort((a, b) => a[0].localeCompare(b[0]));
+  };
+  const pswMap = pswPack.byCycle || {};
+  const pswEvents = Object.entries(pswMap)
+    .filter(([k, v]) => k && (v.total || 0) > 0)
+    .sort((a, b) => b[0].localeCompare(a[0]));
+  function pswEventLabel(cycleKey: string) {
+    const m = String(cycleKey).match(/(\d{4})/);
+    return m ? `January ${m[1]}` : cycleKey;
+  }
 
   // SLC
   const s = data.slc;
@@ -133,25 +140,16 @@ export default function EventsPage() {
       </div>
 
       {/* ── AME ── */}
-      <Section label="Ave Maria Experience (AME)" />
+      <Section label="Ave Maria Experience (AME)" info={DEFS.ameYoy} />
       <p className="rpt-sub" style={{ margin: "0 0 12px" }}>
         Registrants vs the same calendar date last year, using AME form submission date.
       </p>
       <div className="kpi-strip">
-        {(
-          [
-            ["Total", (ame.total as number) ?? (campus.total as number)],
-            ["Attended", campus.attended as number],
-            ["Registered", campus.registered as number],
-            ["Cancelled", campus.cancelled as number],
-            ["No Show", campus.noShow as number],
-          ] as [string, number][]
-        ).map(([l, v]) => (
-          <div className="kpi" key={l}>
-            <div className="kpi-label">{l}</div>
-            <div className="kpi-val">{fmt(v)}</div>
-          </div>
-        ))}
+        <Kpi label="Total" cur={(ame.total as number) ?? (campus.total as number)} info={DEFS.ameTotal} />
+        <Kpi label="Attended" cur={campus.attended as number} info={DEFS.campusAttended} />
+        <Kpi label="Registered" cur={campus.registered as number} info={DEFS.campusRegistered} />
+        <Kpi label="Cancelled" cur={campus.cancelled as number} info={DEFS.campusCancelled} />
+        <Kpi label="No Show" cur={campus.noShow as number} info={DEFS.campusNoShow} />
       </div>
 
       <div className="g2" style={{ gap: 16, marginTop: 16 }}>
@@ -174,27 +172,30 @@ export default function EventsPage() {
       </div>
 
       {/* ── PSW ── */}
-      <Section label="President's Scholarship Weekend (PSW)" />
+      <Section label="President's Scholarship Weekend (PSW)" info={DEFS.pswRegistrants} />
+      <p className="rpt-sub" style={{ margin: "0 0 12px" }}>
+        One weekend per year, typically January. Counts are by event date, not application term.
+      </p>
       <div className="panel" style={{ overflowX: "auto" }}>
         <table className="data-table">
           <thead>
             <tr>
-              <th>Term</th>
-              <th>Attended</th>
-              <th>No Show</th>
-              <th>Cancelled</th>
-              <th>Total Registrations</th>
-              <th>Attend Rate</th>
+              <th>Event</th>
+              <th><MetricLabel label="Attended" info={DEFS.pswAttended} /></th>
+              <th><MetricLabel label="No Show" info={DEFS.pswNoShow} /></th>
+              <th><MetricLabel label="Cancelled" info={DEFS.pswCancelled} /></th>
+              <th><MetricLabel label="Total Registrations" info={DEFS.pswTotal} /></th>
+              <th><MetricLabel label="Attend Rate" info={DEFS.pswRate} flip /></th>
             </tr>
           </thead>
           <tbody>
-            {pswTerms.map(([term, v]) => {
+            {pswEvents.map(([cycleKey, v]) => {
               const att = v.att || 0;
               const total = v.total || 0;
               const rate = total ? (att / total) * 100 : 0;
               return (
-                <tr key={term}>
-                  <td>{term || "—"}</td>
+                <tr key={cycleKey}>
+                  <td>{pswEventLabel(cycleKey)}</td>
                   <td>{fmt(att)}</td>
                   <td>{fmt(v.noShow || 0)}</td>
                   <td>{fmt(v.cancelled || 0)}</td>
@@ -208,22 +209,13 @@ export default function EventsPage() {
       </div>
 
       {/* ── SLC ── */}
-      <Section label="Summer Leadership Conference (SLC)" />
+      <Section label="Summer Leadership Conference (SLC)" info={DEFS.slcRegistrants} />
       <div className="kpi-strip">
-        {(
-          [
-            ["Applied", s.applied],
-            ["Accepted", s.accepted],
-            ["Registered", s.registered],
-            ["Attended", s.attended],
-            ["Denied", s.denied],
-          ] as [string, number][]
-        ).map(([l, v]) => (
-          <div className="kpi" key={l}>
-            <div className="kpi-label">{l}</div>
-            <div className="kpi-val">{fmt(v)}</div>
-          </div>
-        ))}
+        <Kpi label="Applied" cur={s.applied} info={DEFS.slcApplied} />
+        <Kpi label="Accepted" cur={s.accepted} info={DEFS.slcAccepted} />
+        <Kpi label="Registered" cur={s.registered} info={DEFS.slcRegistered} />
+        <Kpi label="Attended" cur={s.attended} info={DEFS.slcAttended} />
+        <Kpi label="Denied" cur={s.denied} info={DEFS.slcDenied} />
       </div>
 
       <div className="g2" style={{ gap: 16, marginTop: 16 }}>
@@ -240,15 +232,15 @@ export default function EventsPage() {
                 padding: "8px 0 4px",
               }}
             >
-              By Class Level
+              <MetricLabel label="By Class Level" info={DEFS.slcClass} />
             </caption>
             <thead>
               <tr>
                 <th>Class Year</th>
-                <th>Applied</th>
-                <th>Accepted</th>
-                <th>Registered</th>
-                <th>Denied</th>
+                <th><MetricLabel label="Applied" info={DEFS.slcApplied} /></th>
+                <th><MetricLabel label="Accepted" info={DEFS.slcAccepted} /></th>
+                <th><MetricLabel label="Registered" info={DEFS.slcRegistered} /></th>
+                <th><MetricLabel label="Denied" info={DEFS.slcDenied} /></th>
               </tr>
             </thead>
             <tbody>
@@ -283,7 +275,7 @@ export default function EventsPage() {
                 padding: "8px 0 4px",
               }}
             >
-              Registration by Session & Gender
+              <MetricLabel label="Registration by Session & Gender" info={DEFS.slcSession} />
             </caption>
             <thead>
               <tr>
@@ -317,7 +309,7 @@ export default function EventsPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Workflow Bin / Status</th>
+                <th><MetricLabel label="Workflow Bin / Status" info={DEFS.slcBin} /></th>
                 <th>Count</th>
               </tr>
             </thead>

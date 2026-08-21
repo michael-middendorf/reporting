@@ -7,9 +7,11 @@ import {
   BarChart,
   FunnelHistoryCharts,
   Kpi,
+  MetricLabel,
   Section,
   acShort,
 } from "@/components/enrollment/ui";
+import { DEFS } from "@/lib/reports/enrollment/defs";
 import { fmt } from "@/lib/reports/enrollment/load";
 
 export default function AdmissionsPage() {
@@ -38,7 +40,7 @@ export default function AdmissionsPage() {
   const fa26 = data.admissions.fa26;
   const fa27 = data.admissions.fa27;
   const label = cycle === "fa26" ? "FA26" : "FA27";
-  const vs = cycle === "fa26" ? "FA25" : "FA26 (same date last yr)";
+  const vs = cycle === "fa26" ? "FA25" : "FA26";
 
   const fa26Yoy = (adm.fa26Yoy as typeof data.admissions.fa26) ?? fa26;
   const fa25Yoy = (adm.fa25Yoy as typeof data.admissions.fa26) ?? fa25;
@@ -47,26 +49,26 @@ export default function AdmissionsPage() {
   const history =
     cycle === "fa26"
       ? [
-          { label: "FA24 2 yrs ago", tone: "muted" as const, stats: fa24Yoy2 },
-          { label: "FA25 last yr", tone: "secondary" as const, stats: fa25Yoy },
+          { label: "FA24", tone: "muted" as const, stats: fa24Yoy2 },
+          { label: "FA25", tone: "secondary" as const, stats: fa25Yoy },
           { label: "FA26", tone: "gold" as const, stats: fa26 },
         ]
       : [
-          { label: "FA25 2 yrs ago", tone: "muted" as const, stats: fa25Yoy2 },
-          { label: "FA26 last yr", tone: "secondary" as const, stats: fa26Yoy },
+          { label: "FA25", tone: "muted" as const, stats: fa25Yoy2 },
+          { label: "FA26", tone: "secondary" as const, stats: fa26Yoy },
           { label: "FA27", tone: "gold" as const, stats: fa27 },
         ];
 
-  const funnelRows: [string, number | null | undefined, number | null | undefined][] = [
-    ["Applications", cur.created, prv.created],
-    ["Submitted", cur.submitted, prv.submitted],
-    ["Accepted", cur.accepted, prv.accepted],
-    ["Conditional accepts", cur.conditional, prv.conditional],
-    ["Net deposits", cur.deposits, prv.deposits],
-    ["Gross deposits", cur.depositsGross, prv.depositsGross],
-    ["Deposit withdrawals", cur.depositsWithdrawn, prv.depositsWithdrawn],
-    ["Denied", cur.denied, prv.denied],
-    ["Interviewed", cur.interviewed, prv.interviewed],
+  const funnelRows: [string, string, number | null | undefined, number | null | undefined][] = [
+    ["Applications", DEFS.created, cur.created, prv.created],
+    ["Submitted", DEFS.submitted, cur.submitted, prv.submitted],
+    ["Accepted", DEFS.accepted, cur.accepted, prv.accepted],
+    ["Conditional accepts", DEFS.conditional, cur.conditional, prv.conditional],
+    ["Net deposits", DEFS.depositsNet, cur.deposits, prv.deposits],
+    ["Gross deposits", DEFS.depositsGross, cur.depositsGross, prv.depositsGross],
+    ["Deposit withdrawals", DEFS.depositsWithdrawn, cur.depositsWithdrawn, prv.depositsWithdrawn],
+    ["Denied", DEFS.denied, cur.denied, prv.denied],
+    ["Interviewed", DEFS.interviewed, cur.interviewed, prv.interviewed],
   ];
 
   // Counselor activity
@@ -98,40 +100,35 @@ export default function AdmissionsPage() {
         <div>
           <h1 className="rpt-title">{label} Admissions Detail</h1>
           <p className="rpt-sub">
-            vs {vs}
+            Year-over-year as of this date in each cycle, not finished-cycle totals.
           </p>
         </div>
       </div>
 
-      <Section label="Key Metrics" />
+      <Section label="Key Metrics" info={DEFS.ug} />
       <div className="kpi-strip">
-        <Kpi label="Created" cur={cur.created} prv={prv.created} />
-        <Kpi label="Submitted" cur={cur.submitted} prv={prv.submitted} />
-        <Kpi label="Accepted" cur={cur.accepted} prv={prv.accepted} />
-        <Kpi label="Interviews" cur={cur.interviewed} prv={prv.interviewed} />
-        <Kpi label="Total Deposits" cur={cur.deposits} prv={prv.deposits} />
-        <Kpi label="Accept Rate" cur={cur.acceptRate} prv={prv.acceptRate} format="pct" highlight />
+        <Kpi label="Created" cur={cur.created} prv={prv.created} info={DEFS.created} />
+        <Kpi label="Submitted" cur={cur.submitted} prv={prv.submitted} info={DEFS.submitted} />
+        <Kpi label="Accepted" cur={cur.accepted} prv={prv.accepted} info={DEFS.accepted} />
+        <Kpi label="Interviews" cur={cur.interviewed} prv={prv.interviewed} info={DEFS.interviewed} />
+        <Kpi label="Total Deposits" cur={cur.deposits} prv={prv.deposits} info={DEFS.depositsNet} />
+        <Kpi label="Accept Rate" cur={cur.acceptRate} prv={prv.acceptRate} format="pct" highlight info={DEFS.acceptRate} />
       </div>
 
       <Section label="Academic Profile — Averages" />
       <div className="kpi-strip">
-        <Kpi label="Avg GPA" cur={cur.gpa} prv={prv.gpa} format="1" />
-        <Kpi label="Avg ACT" cur={cur.act} prv={prv.act} format="1" />
-        <Kpi label="Avg SAT" cur={cur.sat} prv={prv.sat} format="1" />
-        <Kpi label="Avg CLT" cur={cur.clt} prv={prv.clt} format="1" />
-        <Kpi label="Submit → Accept" cur={cur.daysSubmitAccept} format="days" />
-        <Kpi label="Accept → Deposit" cur={cur.daysAcceptDeposit} format="days" />
+        <Kpi label="Avg GPA" cur={cur.gpa} prv={prv.gpa} format="1" info={DEFS.gpa} />
+        <Kpi label="Avg ACT" cur={cur.act} prv={prv.act} format="1" info={DEFS.act} />
+        <Kpi label="Avg SAT" cur={cur.sat} prv={prv.sat} format="1" info={DEFS.sat} />
+        <Kpi label="Avg CLT" cur={cur.clt} prv={prv.clt} format="1" info={DEFS.clt} />
+        <Kpi label="Submit → Accept" cur={cur.daysSubmitAccept} format="days" info={DEFS.daysSubmitAccept} />
+        <Kpi label="Accept → Deposit" cur={cur.daysAcceptDeposit} format="days" info={DEFS.daysAcceptDeposit} />
       </div>
 
-      <Section label="Historical Trend — Application Funnel" />
-      <p className="rpt-sub" style={{ margin: "0 0 12px" }}>
-        {cycle === "fa27"
-          ? "Same calendar date in each cycle: FA25 two years ago, FA26 last year, FA27 today. Not finished-cycle totals."
-          : "Same calendar date in each cycle: FA24 two years ago, FA25 last year, FA26 today. Not finished-cycle totals."}
-      </p>
+      <Section label="Historical Trend — Application Funnel" info={DEFS.history} />
       <FunnelHistoryCharts terms={history} />
 
-      <Section label="Funnel Comparison" />
+      <Section label="Funnel Comparison" info={DEFS.yoy} />
       <div className="panel">
         <table className="data-table">
           <thead>
@@ -142,9 +139,9 @@ export default function AdmissionsPage() {
             </tr>
           </thead>
           <tbody>
-            {funnelRows.map(([name, c, p]) => (
+            {funnelRows.map(([name, info, c, p]) => (
               <tr key={name}>
-                <td>{name}</td>
+                <td><MetricLabel label={name} info={info} /></td>
                 <td>{fmt(c)}</td>
                 <td>{fmt(p)}</td>
               </tr>
@@ -153,7 +150,7 @@ export default function AdmissionsPage() {
         </table>
       </div>
 
-      <Section label="Financial Aid & Discount Rate" />
+      <Section label="Financial Aid & Discount Rate" info={DEFS.aidTotal} />
       <AidTable
         curLabel={label}
         prvLabel={vs}
@@ -163,10 +160,10 @@ export default function AdmissionsPage() {
         prvDep={prv.aidDep}
       />
 
-      <Section label="Acceptances by Code" />
+      <Section label="Acceptances by Code" info={DEFS.acceptCodes} />
       <AcceptCodesTable codes={cur.codes} />
 
-      <Section label="Demographics" />
+      <Section label="Demographics" info={DEFS.religion} />
       <div className="g2" style={{ gap: 16 }}>
         <div className="panel" style={{ overflowX: "auto" }}>
           <table className="data-table">
@@ -181,7 +178,7 @@ export default function AdmissionsPage() {
                 padding: "8px 0 4px",
               }}
             >
-              Religion
+              <MetricLabel label="Religion" info={DEFS.religion} />
             </caption>
             <thead>
               <tr>
@@ -231,7 +228,7 @@ export default function AdmissionsPage() {
                 padding: "8px 0 4px",
               }}
             >
-              Gender
+              <MetricLabel label="Gender" info={DEFS.gender} />
             </caption>
             <thead>
               <tr>
@@ -270,19 +267,19 @@ export default function AdmissionsPage() {
         </div>
       </div>
 
-      <Section label="Counselor Activity" />
-      <BarChart rows={interviewBars} />
+      <Section label="Counselor Activity" info={DEFS.counselor} />
+      <BarChart title="Interviews by counselor" info={DEFS.interviewsByAc} rows={interviewBars} />
       <div className="panel" style={{ overflowX: "auto", marginTop: 16 }}>
         <table className="data-table">
           <thead>
             <tr>
               <th>Counselor</th>
-              <th>Created</th>
-              <th>Submitted</th>
-              <th>Accepted</th>
-              <th>Deposited</th>
-              <th>Denied</th>
-              <th>Interviewed</th>
+              <th><MetricLabel label="Created" info={DEFS.created} /></th>
+              <th><MetricLabel label="Submitted" info={DEFS.submitted} /></th>
+              <th><MetricLabel label="Accepted" info={DEFS.accepted} /></th>
+              <th><MetricLabel label="Deposited" info={DEFS.depositsNet} /></th>
+              <th><MetricLabel label="Denied" info={DEFS.denied} /></th>
+              <th><MetricLabel label="Interviewed" info={DEFS.interviewed} /></th>
             </tr>
           </thead>
           <tbody>

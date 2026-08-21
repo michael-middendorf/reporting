@@ -1,7 +1,8 @@
 "use client";
 
 import { useEnrollment } from "./EnrollmentProvider";
-import { Delta } from "@/components/enrollment/ui";
+import { Delta, MetricLabel } from "@/components/enrollment/ui";
+import { DEFS } from "@/lib/reports/enrollment/defs";
 import { fmt } from "@/lib/reports/enrollment/load";
 
 function fmtPct(v: number | null | undefined) {
@@ -54,7 +55,7 @@ export default function EnrollmentOverviewPage() {
   const c = cur as Record<string, number | null>;
   const p = prv as Record<string, number | null>;
   const label = cycle === "fa26" ? "FA26" : "FA27";
-  const vs = cycle === "fa26" ? "FA25" : "FA26 (same date last yr)";
+  const vs = cycle === "fa26" ? "FA25" : "FA26";
 
   const curKey = cycle === "fa26" ? "Fall 2026" : "Fall 2027";
   const prvKey = cycle === "fa26" ? "Fall 2025" : "Fall 2026";
@@ -92,6 +93,7 @@ export default function EnrollmentOverviewPage() {
 
   type Row = {
     label: string;
+    info: string;
     cur: number | null | undefined;
     prv: number | null | undefined;
     delta?: number | null;
@@ -107,24 +109,24 @@ export default function EnrollmentOverviewPage() {
   }
 
   const rows: Row[] = [
-    { label: "Applications Created",   cur: c.created,           prv: p.created,           delta: delta7d("created") },
-    { label: "Applications Submitted", cur: c.submitted,         prv: p.submitted,         delta: delta7d("submitted") },
-    { label: "Applications Accepted",  cur: c.accepted,          prv: p.accepted,          delta: delta7d("accepted") },
-    { label: "Acceptance %",           cur: c.acceptRate,        prv: p.acceptRate,        delta: delta7d("acceptRate"),        pct: true },
-    { label: "Yield",                  cur: c.yield,             prv: p.yield,             delta: delta7d("yield"),             pct: true },
-    { label: "Conditionally Accepted", cur: c.conditional,       prv: p.conditional,       delta: delta7d("conditional") },
-    { label: "Interviews Completed",   cur: c.interviewed,       prv: p.interviewed,       delta: delta7d("interviewed") },
-    { label: "Deposits Submitted",     cur: c.depositsGross,     prv: p.depositsGross,     delta: delta7d("depositsGross") },
-    { label: "Deposits Withdrawn",     cur: c.depositsWithdrawn, prv: p.depositsWithdrawn, delta: delta7d("depositsWithdrawn"), negativeIsGood: true },
-    { label: "Total Deposits",         cur: c.deposits,          prv: p.deposits,          delta: delta7d("deposits"),          bold: true },
-    { label: ameLabel("Sep"), cur: ameVal(curCyc, "Sep"), prv: ameVal(prvCyc, "Sep"), delta: ameDelta("Sep"), divider: true },
-    { label: ameLabel("Oct"), cur: ameVal(curCyc, "Oct"), prv: ameVal(prvCyc, "Oct"), delta: ameDelta("Oct") },
-    { label: ameLabel("Nov"), cur: ameVal(curCyc, "Nov"), prv: ameVal(prvCyc, "Nov"), delta: ameDelta("Nov") },
-    { label: "PSW Registrants", cur: pswVal(pswCurEntry), prv: pswVal(pswPrvEntry), delta: null },
-    { label: ameLabel("Feb"), cur: ameVal(curCyc, "Feb"), prv: ameVal(prvCyc, "Feb"), delta: ameDelta("Feb") },
-    { label: ameLabel("Mar"), cur: ameVal(curCyc, "Mar"), prv: ameVal(prvCyc, "Mar"), delta: ameDelta("Mar") },
-    { label: ameLabel("Apr"), cur: ameVal(curCyc, "Apr"), prv: ameVal(prvCyc, "Apr"), delta: ameDelta("Apr") },
-    { label: "SLC Registrants",        cur: slcReg, prv: slcRegPrv, delta: null },
+    { label: "Applications Created",   info: DEFS.created, cur: c.created,           prv: p.created,           delta: delta7d("created") },
+    { label: "Applications Submitted", info: DEFS.submitted, cur: c.submitted,       prv: p.submitted,         delta: delta7d("submitted") },
+    { label: "Applications Accepted",  info: DEFS.accepted, cur: c.accepted,          prv: p.accepted,          delta: delta7d("accepted") },
+    { label: "Acceptance %",           info: DEFS.acceptRate, cur: c.acceptRate,      prv: p.acceptRate,        delta: delta7d("acceptRate"),        pct: true },
+    { label: "Yield",                  info: DEFS.yield, cur: c.yield,                prv: p.yield,             delta: delta7d("yield"),             pct: true },
+    { label: "Conditionally Accepted", info: DEFS.conditional, cur: c.conditional,    prv: p.conditional,       delta: delta7d("conditional") },
+    { label: "Interviews Completed",   info: DEFS.interviewed, cur: c.interviewed,    prv: p.interviewed,       delta: delta7d("interviewed") },
+    { label: "Deposits Submitted",     info: DEFS.depositsGross, cur: c.depositsGross, prv: p.depositsGross,     delta: delta7d("depositsGross") },
+    { label: "Deposits Withdrawn",     info: DEFS.depositsWithdrawn, cur: c.depositsWithdrawn, prv: p.depositsWithdrawn, delta: delta7d("depositsWithdrawn"), negativeIsGood: true },
+    { label: "Total Deposits",         info: DEFS.depositsNet, cur: c.deposits,        prv: p.deposits,          delta: delta7d("deposits"),          bold: true },
+    { label: ameLabel("Sep"), info: DEFS.ameRegistrants, cur: ameVal(curCyc, "Sep"), prv: ameVal(prvCyc, "Sep"), delta: ameDelta("Sep"), divider: true },
+    { label: ameLabel("Oct"), info: DEFS.ameRegistrants, cur: ameVal(curCyc, "Oct"), prv: ameVal(prvCyc, "Oct"), delta: ameDelta("Oct") },
+    { label: ameLabel("Nov"), info: DEFS.ameRegistrants, cur: ameVal(curCyc, "Nov"), prv: ameVal(prvCyc, "Nov"), delta: ameDelta("Nov") },
+    { label: "PSW Registrants", info: DEFS.pswRegistrants, cur: pswVal(pswCurEntry), prv: pswVal(pswPrvEntry), delta: null },
+    { label: ameLabel("Feb"), info: DEFS.ameRegistrants, cur: ameVal(curCyc, "Feb"), prv: ameVal(prvCyc, "Feb"), delta: ameDelta("Feb") },
+    { label: ameLabel("Mar"), info: DEFS.ameRegistrants, cur: ameVal(curCyc, "Mar"), prv: ameVal(prvCyc, "Mar"), delta: ameDelta("Mar") },
+    { label: ameLabel("Apr"), info: DEFS.ameRegistrants, cur: ameVal(curCyc, "Apr"), prv: ameVal(prvCyc, "Apr"), delta: ameDelta("Apr") },
+    { label: "SLC Registrants",        info: DEFS.slcRegistrants, cur: slcReg, prv: slcRegPrv, delta: null },
   ];
 
   return (
@@ -133,7 +135,7 @@ export default function EnrollmentOverviewPage() {
         <div>
           <h1 className="rpt-title">Enrollment Overview</h1>
           <p className="rpt-sub">
-            {label} vs {vs} · net deposits{" "}
+            {label} vs {vs} · undergraduate, year-over-year as of this date · net deposits{" "}
             <Delta cur={cur.deposits} prv={prv.deposits} />
           </p>
         </div>
@@ -144,9 +146,9 @@ export default function EnrollmentOverviewPage() {
           <thead>
             <tr>
               <th style={{ minWidth: 220 }}>Metric</th>
-              <th style={{ textAlign: "right" }}>{label}</th>
-              <th style={{ textAlign: "right" }}>{vs}</th>
-              <th style={{ textAlign: "right" }}>+/− 7 days</th>
+              <th style={{ textAlign: "right" }}><MetricLabel label={label} info={DEFS.ug} flip /></th>
+              <th style={{ textAlign: "right" }}><MetricLabel label={vs} info={DEFS.yoy} flip /></th>
+              <th style={{ textAlign: "right" }}><MetricLabel label="+/− 7 days" info={DEFS.delta7d} flip /></th>
             </tr>
           </thead>
           <tbody>
@@ -160,7 +162,7 @@ export default function EnrollmentOverviewPage() {
                   fontWeight: row.bold ? 600 : undefined,
                 }}
               >
-                <td>{row.label}</td>
+                <td><MetricLabel label={row.label} info={row.info} /></td>
                 <td style={{ textAlign: "right" }}>
                   {row.pct ? fmtPct(row.cur) : fmt(row.cur)}
                 </td>
