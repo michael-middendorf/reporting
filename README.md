@@ -13,10 +13,11 @@ Remote: https://github.com/colecantu904/reporting
 | `/census` | Fall census (headcount, FTE, UG profile, retention) |
 | `/housing` | Housing occupancy, floor maps, move-ins, verification |
 | `/institute` | The Institute admissions pipeline |
-| `/advancement` | Advancement folder (Overview, MGO Top Prospects, Annunciation Circle, Chapel Naming) |
+| `/advancement` | Advancement folder (Overview, MGO Top Prospects, Annunciation Circle, Chapel Naming, Stained Glass) |
 | `/advancement/overview` | FY 2025-26 Advancement Overview (fundraising, MGO goals, pipeline) |
 | `/advancement/mgo-top-prospects` | FY MGO top prospects: open gift asks by portfolio, with named donors |
 | `/advancement/chapel-naming` | Chapel naming opportunities (Virtuous gifts + naming catalog) |
+| `/advancement/stained-glass-windows` | Named chapel stained-glass windows (rose, sanctuary, nave) with donors |
 | `/mas` | MA follow-on giving |
 | `/points` | MA points / productivity |
 | `/alumni` | Alumni coverage & opportunity |

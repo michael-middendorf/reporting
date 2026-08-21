@@ -10,6 +10,7 @@ export const ADVANCEMENT_NAV: ReportNavItem[] = [
   { href: "/advancement/mgo-top-prospects", label: "MGO Top Prospects" },
   { href: "/annunciation", label: "Annunciation Circle" },
   { href: "/advancement/chapel-naming", label: "Chapel Naming" },
+  { href: "/advancement/stained-glass-windows", label: "Stained Glass" },
 ];
 
 export const ENROLLMENT_NAV: ReportNavItem[] = [

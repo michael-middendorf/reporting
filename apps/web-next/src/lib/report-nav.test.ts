@@ -20,9 +20,11 @@ describe("reportNavActive", () => {
     const overview = item(ADVANCEMENT_NAV, "/advancement/overview");
     const mgo = item(ADVANCEMENT_NAV, "/advancement/mgo-top-prospects");
     const ac = item(ADVANCEMENT_NAV, "/annunciation");
+    const glass = item(ADVANCEMENT_NAV, "/advancement/stained-glass-windows");
     assert.equal(reportNavActive(overview, ADVANCEMENT_NAV, "/advancement/overview"), true);
     assert.equal(reportNavActive(mgo, ADVANCEMENT_NAV, "/advancement/mgo-top-prospects"), true);
     assert.equal(reportNavActive(ac, ADVANCEMENT_NAV, "/annunciation"), true);
+    assert.equal(reportNavActive(glass, ADVANCEMENT_NAV, "/advancement/stained-glass-windows"), true);
     assert.equal(reportNavActive(overview, ADVANCEMENT_NAV, "/advancement"), false);
     assert.equal(reportNavActive(overview, ADVANCEMENT_NAV, "/annunciation"), false);
   });

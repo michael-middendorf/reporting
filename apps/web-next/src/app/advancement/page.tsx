@@ -22,6 +22,11 @@ const REPORTS = [
     title: "Chapel Naming Opportunities",
     desc: "Student chapel naming catalog and gifts received, from Virtuous.",
   },
+  {
+    href: "/advancement/stained-glass-windows",
+    title: "Stained Glass Windows",
+    desc: "Named rose, sanctuary, and nave windows with every donor, from Virtuous.",
+  },
 ];
 
 export default function AdvancementHubPage() {

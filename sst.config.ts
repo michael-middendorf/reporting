@@ -236,17 +236,40 @@ export default $config({
       permissions: reportDataPerms,
     });
 
+    const stainedGlassWindows = new sst.aws.Function("StainedGlassWindowsData", {
+      handler: "services/publishers/stained-glass-windows/handler.handler",
+      runtime: "python3.12",
+      timeout: "2 minutes",
+      memory: "1024 MB",
+      link: [data],
+      python: { uv: true },
+      copyFiles: [
+        ...commonFiles,
+        {
+          from: "services/publishers/stained-glass-windows/windows.json",
+          to: "windows.json",
+        },
+      ],
+      environment: {
+        DATA_BUCKET: data.name,
+        API_KEY: virtuousApiKey.value,
+        VIRTUOUS_API_KEY: virtuousApiKey.value,
+        STAINED_GLASS_WINDOWS_CACHE_KEY: "stained-glass-windows/latest.json",
+      },
+      permissions: reportDataPerms,
+    });
+
     const site = new sst.aws.Nextjs("Web", {
       path: "apps/web-next",
       // SST 4.17.1 defaults to OpenNext 3.9.14, whose Node 24 image
       // optimizer fails before Sharp runs. Pin the canary-verified wrapper
       // and the patched native dependency used by the production bundle.
       openNextVersion: "4.1.0",
-      // Do not `link` MgoTopProspectsData onto Web. SST serializes each linked
-      // resource into Lambda environment metadata, and this function's env is
-      // already at the 4KB Lambda limit (SST deploy of #104 failed at 4204 bytes).
-      // The ECS web app reads mgo-top-prospects/latest.json from S3; the cron
-      // below writes that object. Cache-miss invoke is optional.
+      // Do not `link` MgoTopProspectsData or StainedGlassWindowsData onto Web.
+      // SST serializes each linked resource into Lambda environment metadata, and
+      // this function's env is already at the 4KB Lambda limit (SST deploy of
+      // #104 failed at 4204 bytes). The ECS web app reads those latest.json
+      // objects from S3; the crons below write them. Cache-miss invoke is optional.
       link: [data, masProcess, alumniProcess, instituteData, housingProcess, chapelNaming, advancementOverview],
       // The /api/institute-data route waits on the ~15-25s live Slate fetch.
       server: { timeout: "60 seconds" },
@@ -417,6 +440,11 @@ export default $config({
       function: mgoTopProspects,
     });
 
+    new sst.aws.Cron("StainedGlassWindowsRefresh", {
+      schedule: "rate(15 minutes)",
+      function: stainedGlassWindows,
+    });
+
     new sst.aws.Cron("DailyMagicLinks", {
       schedule: "cron(0 12 * * ? *)",
       function: {
@@ -463,6 +491,7 @@ export default $config({
       chapelNaming: chapelNaming.name,
       advancementOverview: advancementOverview.name,
       mgoTopProspects: mgoTopProspects.name,
+      stainedGlassWindows: stainedGlassWindows.name,
     };
   },
 });

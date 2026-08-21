@@ -1,0 +1,236 @@
+[
+  {
+    "group": "rose",
+    "item": "Rose Window",
+    "chapelObject": "ROSE WINDOW",
+    "itemAmount": 125000
+  },
+  {
+    "group": "sanctuary",
+    "item": "Immaculate Conception",
+    "chapelObject": "SANCTUARY WINDOW - IMMACULATE CONCEPTION",
+    "itemAmount": 25000
+  },
+  {
+    "group": "sanctuary",
+    "item": "Annunciation",
+    "chapelObject": "SANCTUARY WINDOW - ANNUNCIATION",
+    "itemAmount": 25000
+  },
+  {
+    "group": "sanctuary",
+    "item": "Visitation of Elizabeth",
+    "chapelObject": "SANCTUARY WINDOW - VISITATION OF ELIZABETH",
+    "itemAmount": 25000
+  },
+  {
+    "group": "sanctuary",
+    "item": "Nativity of Our Lord",
+    "chapelObject": "SANCTUARY WINDOW - NATIVITY OF OUR LORD",
+    "itemAmount": 25000
+  },
+  {
+    "group": "sanctuary",
+    "item": "Presentation",
+    "chapelObject": "SANCTUARY WINDOW - PRESENTATION",
+    "itemAmount": 25000
+  },
+  {
+    "group": "sanctuary",
+    "item": "Finding of Jesus in the Temple",
+    "chapelObject": "SANCTUARY WINDOW - FINDING OF JESUS IN THE TEMPLE",
+    "itemAmount": 25000
+  },
+  {
+    "group": "sanctuary",
+    "item": "Wedding Feast at Cana",
+    "chapelObject": "SANCTUARY WINDOW - WEDDING FEAST AT CANA",
+    "itemAmount": 25000
+  },
+  {
+    "group": "sanctuary",
+    "item": "Crucifixion of our Lord",
+    "chapelObject": "SANCTUARY WINDOW - CRUCIFIXION OF OUR LORD",
+    "itemAmount": 25000
+  },
+  {
+    "group": "sanctuary",
+    "item": "Ascension of our Lord",
+    "chapelObject": "SANCTUARY WINDOW - ASCENSION OF OUR LORD",
+    "itemAmount": 25000
+  },
+  {
+    "group": "sanctuary",
+    "item": "Descent of the Holy Spirit",
+    "chapelObject": "SANCTUARY WINDOW - DESCENT OF THE HOLY SPIRIT",
+    "itemAmount": 25000
+  },
+  {
+    "group": "sanctuary",
+    "item": "Assumption of Mary",
+    "chapelObject": "SANCTUARY WINDOW - ASSUMPTION OF MARY",
+    "itemAmount": 25000
+  },
+  {
+    "group": "sanctuary",
+    "item": "Coronation of Mary",
+    "chapelObject": "SANCTUARY WINDOW - CORONATION OF MARY",
+    "itemAmount": 25000
+  },
+  {
+    "group": "nave",
+    "item": "St. Joseph",
+    "chapelObject": "NAVE WINDOW - ST. JOSEPH",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "St. Rita of Cascia",
+    "chapelObject": "NAVE WINDOW - ST. RITA OF CASCIA",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "St. Anthony of Padua",
+    "chapelObject": "NAVE WINDOW - ST. ANTHONY OF PADUA",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "St. Thomas the Apostle",
+    "chapelObject": "NAVE WINDOW - ST. THOMAS THE APOSTLE",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "St. Patrick",
+    "chapelObject": "NAVE WINDOW - ST. PATRICK",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "St. Maximilian Kolbe",
+    "chapelObject": "NAVE WINDOW - ST. MAXIMILIAN KOLBE",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "St. Charbel",
+    "chapelObject": "NAVE WINDOW - ST. CHARBEL",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "St. Carlo Acutis",
+    "chapelObject": "NAVE WINDOW - ST. CARLO ACUTIS",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "St. John Paul II",
+    "chapelObject": "NAVE WINDOW - ST. JOHN PAUL II",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "St. Augustine of Hippo",
+    "chapelObject": "NAVE WINDOW - ST. AUGUSTINE OF HIPPO",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "St. Thomas Aquinas",
+    "chapelObject": "NAVE WINDOW - ST. THOMAS AQUINAS",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "St. Therese of Lisieux",
+    "chapelObject": "NAVE WINDOW - ST. THERESE OF LISIEUX",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "St. Teresa of Calcutta",
+    "chapelObject": "NAVE WINDOW - ST. TERESA OF CALCUTTA",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "St. Faustina Kowalska",
+    "chapelObject": "NAVE WINDOW - ST. FAUSTINA KOWALSKA",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "St. Peter the Apostle",
+    "chapelObject": "NAVE WINDOW - ST. PETER THE APOSTLE",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "St. Paul",
+    "chapelObject": "NAVE WINDOW - ST. PAUL",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "St. Lucy of Syracuse",
+    "chapelObject": "NAVE WINDOW - ST. LUCY OF SYRACUSE",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "St. Bernadette of Lourdes",
+    "chapelObject": "NAVE WINDOW - ST. BERNADETTE OF LOURDES",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "St. Pier Giorgio Frassati",
+    "chapelObject": "NAVE WINDOW - ST. PIER GIORGIO FRASSATI",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "St. Francis of Assisi",
+    "chapelObject": "NAVE WINDOW - ST. FRANCIS OF ASSISI",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "Our Lady of Guadalupe",
+    "chapelObject": "NAVE WINDOW - OUR LADY OF GUADALUPE",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "Our Lady of Fatima",
+    "chapelObject": "NAVE WINDOW - OUR LADY OF FATIMA",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "Our Lady of Lourdes",
+    "chapelObject": "NAVE WINDOW - OUR LADY OF LOURDES",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "Our Lady of Knock",
+    "chapelObject": "NAVE WINDOW - OUR LADY OF KNOCK",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "Our Lady of the Miraculous Medal",
+    "chapelObject": "NAVE WINDOW - OUR LADY OF THE MIRACULOUS MEDAL",
+    "itemAmount": 35000
+  },
+  {
+    "group": "nave",
+    "item": "Our Lady of Champion",
+    "chapelObject": "NAVE WINDOW - OUR LADY OF CHAMPION",
+    "itemAmount": 35000
+  }
+]
