@@ -179,13 +179,36 @@ export default $config({
       permissions: reportDataPerms,
     });
 
+    const chapelNaming = new sst.aws.Function("ChapelNamingData", {
+      handler: "services/publishers/chapel-naming/handler.handler",
+      runtime: "python3.12",
+      timeout: "2 minutes",
+      memory: "1024 MB",
+      link: [data],
+      python: { uv: true },
+      copyFiles: [
+        ...commonFiles,
+        {
+          from: "services/publishers/chapel-naming/catalog.json",
+          to: "catalog.json",
+        },
+      ],
+      environment: {
+        DATA_BUCKET: data.name,
+        API_KEY: virtuousApiKey.value,
+        VIRTUOUS_API_KEY: virtuousApiKey.value,
+        CHAPEL_NAMING_CACHE_KEY: "chapel-naming/latest.json",
+      },
+      permissions: reportDataPerms,
+    });
+
     const site = new sst.aws.Nextjs("Web", {
       path: "apps/web-next",
       // SST 4.17.1 defaults to OpenNext 3.9.14, whose Node 24 image
       // optimizer fails before Sharp runs. Pin the canary-verified wrapper
       // and the patched native dependency used by the production bundle.
       openNextVersion: "4.1.0",
-      link: [data, masProcess, alumniProcess, instituteData, housingProcess],
+      link: [data, masProcess, alumniProcess, instituteData, housingProcess, chapelNaming],
       // The /api/institute-data route waits on the ~15-25s live Slate fetch.
       server: { timeout: "60 seconds" },
       environment: {
@@ -225,6 +248,8 @@ export default $config({
         ALUMNI_PROCESS_FUNCTION: alumniProcess.name,
         INSTITUTE_FN_NAME: instituteData.name,
         HOUSING_PROCESS_FUNCTION: housingProcess.name,
+        CHAPEL_NAMING_FN_NAME: chapelNaming.name,
+        CHAPEL_NAMING_CACHE_KEY: "chapel-naming/latest.json",
         MAGIC_NONCE_TABLE: magicNonceTableName,
         EMAIL_FROM:
           "AMU Project Manager <noreply@notifications.avemaria.edu>",
@@ -232,7 +257,7 @@ export default $config({
       permissions: [
         {
           actions: ["lambda:InvokeFunction"],
-          resources: [masProcess.arn, alumniProcess.arn, instituteData.arn, housingProcess.arn],
+          resources: [masProcess.arn, alumniProcess.arn, instituteData.arn, housingProcess.arn, chapelNaming.arn],
         },
         {
           actions: ["dynamodb:PutItem"],
@@ -334,6 +359,11 @@ export default $config({
       },
     });
 
+    new sst.aws.Cron("ChapelNamingRefresh", {
+      schedule: "rate(15 minutes)",
+      function: chapelNaming,
+    });
+
     new sst.aws.Cron("DailyMagicLinks", {
       schedule: "cron(0 12 * * ? *)",
       function: {
@@ -375,6 +405,7 @@ export default $config({
       alumniProcess: alumniProcess.name,
       instituteData: instituteData.name,
       housingProcess: housingProcess.name,
+      chapelNaming: chapelNaming.name,
     };
   },
 });
