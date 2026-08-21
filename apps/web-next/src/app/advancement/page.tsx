@@ -13,6 +13,11 @@ const REPORTS = [
     desc: "Current Annunciation Circle members and new-member activity from Virtuous.",
   },
   {
+    href: "/advancement/mgo-top-prospects",
+    title: "MGO Top Prospects",
+    desc: "FY open gift asks by MGO portfolio, with every named donor.",
+  },
+  {
     href: "/advancement/chapel-naming",
     title: "Chapel Naming Opportunities",
     desc: "Student chapel naming catalog and gifts received, from Virtuous.",
