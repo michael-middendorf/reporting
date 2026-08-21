@@ -12,6 +12,7 @@ export default function AdvancementLayout({
       <ReportTopBar
         title="Advancement"
         nav={[
+          { href: "/advancement/overview", label: "Overview" },
           { href: "/annunciation", label: "Annunciation Circle" },
           { href: "/advancement/chapel-naming", label: "Chapel Naming" },
         ]}

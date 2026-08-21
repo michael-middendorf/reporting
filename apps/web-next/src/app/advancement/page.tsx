@@ -3,6 +3,11 @@ import styles from "../home.module.css";
 
 const REPORTS = [
   {
+    href: "/advancement/overview",
+    title: "Advancement Overview",
+    desc: "FY 2025-26 fundraising results, MGO goals, and the Virtuous pipeline.",
+  },
+  {
     href: "/annunciation",
     title: "Annunciation Circle",
     desc: "Current Annunciation Circle members and new-member activity from Virtuous.",
