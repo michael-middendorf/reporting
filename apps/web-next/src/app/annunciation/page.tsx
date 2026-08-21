@@ -455,7 +455,10 @@ function AnnunciationInner() {
 export default function AnnunciationPage() {
   return (
     <AccessGate report="annunciation">
-      <ReportTopBar title="Annunciation Circle" nav={[]} />
+      <ReportTopBar
+        title="Annunciation Circle"
+        nav={[{ href: "/advancement", label: "Advancement" }]}
+      />
       <AnnunciationInner />
     </AccessGate>
   );

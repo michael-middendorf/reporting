@@ -5,6 +5,7 @@ export const REPORT_IDS = [
   "enrollment",
   "housing",
   "institute",
+  "advancement",
   "points",
   "annunciation",
   "aspiredu",
@@ -43,6 +44,8 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
   housing:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,susan.gallagher@avemaria.edu,mark.middendorf@avemaria.edu",
   institute: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
+  advancement:
+    "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu,susan.gallagher@avemaria.edu,mark.middendorf@avemaria.edu",
   points: "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,annie.esposito@avemaria.edu",
   annunciation:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu,susan.gallagher@avemaria.edu,mark.middendorf@avemaria.edu",
@@ -54,6 +57,7 @@ const ENV_KEYS: Record<ReportId, string> = {
   enrollment: "ENROLLMENT_ALLOWED_EMAILS",
   housing: "HOUSING_ALLOWED_EMAILS",
   institute: "INSTITUTE_ALLOWED_EMAILS",
+  advancement: "ADVANCEMENT_ALLOWED_EMAILS",
   points: "POINTS_ALLOWED_EMAILS",
   annunciation: "ANNUNCIATION_ALLOWED_EMAILS",
   aspiredu: "ASPIREDU_ALLOWED_EMAILS",
