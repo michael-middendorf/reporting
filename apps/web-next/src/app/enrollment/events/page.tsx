@@ -2,18 +2,12 @@
 
 import { useEnrollment } from "../EnrollmentProvider";
 import { Kpi, MetricLabel, Section } from "@/components/enrollment/ui";
+import { cycleMeta } from "@/lib/reports/enrollment/cycle";
 import { DEFS } from "@/lib/reports/enrollment/defs";
 import { fmt } from "@/lib/reports/enrollment/load";
 
 type AmeMonth = { attended: number; registered: number; registrants?: number };
 type AmeCycle = Record<string, AmeMonth>;
-
-function ameMonthVal(cyc: AmeCycle | undefined, mo: string): number {
-  const cell = cyc?.[mo];
-  if (!cell) return 0;
-  if (cell.registrants != null) return cell.registrants;
-  return (cell.attended || 0) + (cell.registered || 0);
-}
 
 function AmeMonthTable({
   caption,
@@ -31,8 +25,10 @@ function AmeMonthTable({
   prvCyc: AmeCycle;
 }) {
   const yoyRows = [
-    { label: curLabel, cyc: curCyc, bold: true },
-    { label: prvLabel, cyc: prvCyc, bold: false },
+    { label: `${curLabel} Registered`, cyc: curCyc, field: "registered" as const, bold: true },
+    { label: `${curLabel} Attended`, cyc: curCyc, field: "attended" as const, bold: true },
+    { label: `${prvLabel} Registered`, cyc: prvCyc, field: "registered" as const, bold: false },
+    { label: `${prvLabel} Attended`, cyc: prvCyc, field: "attended" as const, bold: false },
   ];
   return (
     <div className="panel" style={{ overflowX: "auto" }}>
@@ -61,12 +57,14 @@ function AmeMonthTable({
         </thead>
         <tbody>
           {yoyRows.map((row) => {
-            const total = months.reduce((s, m) => s + ameMonthVal(row.cyc, m), 0);
+            const val = (m: string) =>
+              row.field === "attended" ? (row.cyc[m]?.attended || 0) : (row.cyc[m]?.registered || 0);
+            const total = months.reduce((s, m) => s + val(m), 0);
             return (
               <tr key={row.label} style={{ fontWeight: row.bold ? 600 : undefined }}>
                 <td>{row.label}</td>
                 {months.map((m) => (
-                  <td key={m}>{fmt(ameMonthVal(row.cyc, m))}</td>
+                  <td key={m}>{fmt(val(m))}</td>
                 ))}
                 <td style={{ fontWeight: 600 }}>{fmt(total)}</td>
               </tr>
@@ -101,10 +99,7 @@ export default function EventsPage() {
   const byCycleYoy = (ame.byCycleYoy || {}) as Record<string, AmeCycle>;
   const FALL_MONTHS = ["Sep", "Oct", "Nov"];
   const SPRING_MONTHS = ["Feb", "Mar", "Apr"];
-  const curKey = cycle === "fa26" ? "Fall 2026" : "Fall 2027";
-  const prvKey = cycle === "fa26" ? "Fall 2025" : "Fall 2026";
-  const curLabel = cycle === "fa26" ? "FA26" : "FA27";
-  const prvLabel = cycle === "fa26" ? "FA25" : "FA26";
+  const { label: curLabel, vs: prvLabel, curKey, prvKey } = cycleMeta(cycle);
   const fy = byFy[curKey] || { total: 0, attended: 0, registered: 0, cancelled: 0, noShow: 0 };
   const curCyc = byCycle[curKey] || {};
   const prvCyc = byCycleYoy[prvKey] || {};

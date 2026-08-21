@@ -17,14 +17,20 @@ import {
   loadEnrollmentBundle,
   type EnrollmentBundle,
 } from "@/lib/reports/enrollment/load";
+import {
+  ENROLLMENT_CYCLES,
+  cycleMeta,
+  isEnrollmentCycle,
+  type EnrollmentCycle,
+} from "@/lib/reports/enrollment/cycle";
 import "@/styles/enrollment.css";
 
 type Ctx = {
   data: EnrollmentBundle | null;
   error: string | null;
   loading: boolean;
-  cycle: "fa26" | "fa27";
-  setCycle: (c: "fa26" | "fa27") => void;
+  cycle: EnrollmentCycle;
+  setCycle: (c: EnrollmentCycle) => void;
   refresh: () => void;
 };
 
@@ -68,7 +74,7 @@ export function EnrollmentProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<EnrollmentBundle | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [cycle, setCycle] = useState<"fa26" | "fa27">("fa27");
+  const [cycle, setCycle] = useState<EnrollmentCycle>("fa27");
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -174,11 +180,17 @@ export function EnrollmentChrome({ children }: { children: ReactNode }) {
           <select
             className="term-select"
             value={cycle}
-            onChange={(e) => setCycle(e.target.value as "fa26" | "fa27")}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (isEnrollmentCycle(v)) setCycle(v);
+            }}
             aria-label="Select enrollment term"
           >
-            <option value="fa27">Fall 2027</option>
-            <option value="fa26">Fall 2026</option>
+            {ENROLLMENT_CYCLES.map((c) => (
+              <option key={c} value={c}>
+                {cycleMeta(c).option}
+              </option>
+            ))}
           </select>
         </label>
       </nav>

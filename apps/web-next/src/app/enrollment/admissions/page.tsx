@@ -11,7 +11,10 @@ import {
   Section,
   acShort,
 } from "@/components/enrollment/ui";
+import { FallAdmissionsReport } from "@/components/enrollment/fall-report";
+import { cycleMeta, pickCurPrv } from "@/lib/reports/enrollment/cycle";
 import { DEFS } from "@/lib/reports/enrollment/defs";
+import { buildFallReport } from "@/lib/reports/enrollment/fall-report";
 import { fmt } from "@/lib/reports/enrollment/load";
 
 export default function AdmissionsPage() {
@@ -29,35 +32,35 @@ export default function AdmissionsPage() {
       </div>
     );
 
-  const adm = data.admissions as Record<string, unknown>;
-  const cur = cycle === "fa26" ? data.admissions.fa26 : data.admissions.fa27;
-  // Qlik prior column is YoY point-in-time (event date <= today − 1 year).
-  const prv = cycle === "fa26"
-    ? ((adm.fa25Yoy as typeof data.admissions.fa26) ?? data.admissions.fa25)
-    : ((adm.fa26Yoy as typeof data.admissions.fa26) ?? data.admissions.fa26);
-  const fa24 = data.admissions.fa24;
-  const fa25 = data.admissions.fa25;
-  const fa26 = data.admissions.fa26;
-  const fa27 = data.admissions.fa27;
-  const label = cycle === "fa26" ? "FA26" : "FA27";
-  const vs = cycle === "fa26" ? "FA25" : "FA26";
-
-  const fa26Yoy = (adm.fa26Yoy as typeof data.admissions.fa26) ?? fa26;
-  const fa25Yoy = (adm.fa25Yoy as typeof data.admissions.fa26) ?? fa25;
-  const fa25Yoy2 = (adm.fa25Yoy2 as typeof data.admissions.fa26) ?? fa25;
-  const fa24Yoy2 = (adm.fa24Yoy2 as typeof data.admissions.fa26) ?? fa24;
+  const adm = data.admissions;
+  const { label, vs, year } = cycleMeta(cycle);
+  const { cur, prv } = pickCurPrv(adm, cycle);
+  const fa24 = adm.fa24;
+  const fa25 = adm.fa25;
+  const fa26 = adm.fa26;
+  const fa27 = adm.fa27;
+  const fa26Yoy = adm.fa26Yoy ?? fa26;
+  const fa25Yoy = adm.fa25Yoy ?? fa25;
+  const fa25Yoy2 = adm.fa25Yoy2 ?? fa25;
+  const fa24Yoy2 = adm.fa24Yoy2 ?? fa24;
   const history =
-    cycle === "fa26"
+    cycle === "fa25"
       ? [
-          { label: "FA24", tone: "muted" as const, stats: fa24Yoy2 },
-          { label: "FA25", tone: "secondary" as const, stats: fa25Yoy },
-          { label: "FA26", tone: "gold" as const, stats: fa26 },
+          { label: "FA24", tone: "muted" as const, stats: fa24 },
+          { label: "FA25", tone: "gold" as const, stats: fa25 },
         ]
-      : [
-          { label: "FA25", tone: "muted" as const, stats: fa25Yoy2 },
-          { label: "FA26", tone: "secondary" as const, stats: fa26Yoy },
-          { label: "FA27", tone: "gold" as const, stats: fa27 },
-        ];
+      : cycle === "fa26"
+        ? [
+            { label: "FA24", tone: "muted" as const, stats: fa24Yoy2 },
+            { label: "FA25", tone: "secondary" as const, stats: fa25Yoy },
+            { label: "FA26", tone: "gold" as const, stats: fa26 },
+          ]
+        : [
+            { label: "FA25", tone: "muted" as const, stats: fa25Yoy2 },
+            { label: "FA26", tone: "secondary" as const, stats: fa26Yoy },
+            { label: "FA27", tone: "gold" as const, stats: fa27 },
+          ];
+  const fallReport = buildFallReport(adm.allRows, year, data.generatedAt);
 
   const funnelRows: [string, string, number | null | undefined, number | null | undefined][] = [
     ["Applications", DEFS.created, cur.created, prv.created],
@@ -298,6 +301,7 @@ export default function AdmissionsPage() {
         </table>
       </div>
 
+      <FallAdmissionsReport report={fallReport} />
     </div>
   );
 }

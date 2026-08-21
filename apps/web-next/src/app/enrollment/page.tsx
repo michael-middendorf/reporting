@@ -2,6 +2,7 @@
 
 import { useEnrollment } from "./EnrollmentProvider";
 import { Delta, MetricLabel } from "@/components/enrollment/ui";
+import { cycleMeta, pickCurPrv } from "@/lib/reports/enrollment/cycle";
 import { DEFS } from "@/lib/reports/enrollment/defs";
 import { fmt } from "@/lib/reports/enrollment/load";
 
@@ -14,21 +15,6 @@ function fmtDelta(delta: number | null | undefined, pct?: boolean) {
   return pct ? `${sign}${delta.toFixed(1)}pp` : `${sign}${Math.round(delta).toLocaleString()}`;
 }
 type AmeCyc = Record<string, { attended: number; registered: number; registrants?: number; chg?: number }>;
-
-/** Registrants = Registered + Attended for every AME month. */
-function ameVal(cyc: AmeCyc, mo: string): number {
-  if (!cyc[mo]) return 0;
-  if (cyc[mo].registrants != null) return cyc[mo].registrants;
-  return (cyc[mo].attended || 0) + (cyc[mo].registered || 0);
-}
-function ameLabel(mo: string): string {
-  return `${mo} AME Registrants`;
-}
-function pswVal(entry: { att?: number; total?: number; registrants?: number } | null | undefined): number {
-  if (!entry) return 0;
-  if (entry.registrants != null) return entry.registrants;
-  return entry.total || 0;
-}
 
 export default function EnrollmentOverviewPage() {
   const { data, error, loading, cycle } = useEnrollment();
@@ -46,28 +32,20 @@ export default function EnrollmentOverviewPage() {
     );
   if (!data) return null;
 
-  const adm = data.admissions as Record<string, unknown>;
-  const cur = cycle === "fa26" ? data.admissions.fa26 : data.admissions.fa27;
-  // Qlik prior column is YoY point-in-time (event date <= today − 1 year).
-  const prv = cycle === "fa26"
-    ? ((adm.fa25Yoy as typeof data.admissions.fa26) ?? data.admissions.fa25)
-    : ((adm.fa26Yoy as typeof data.admissions.fa26) ?? data.admissions.fa26);
+  const adm = data.admissions;
+  const { label, vs, curKey, prvKey } = cycleMeta(cycle);
+  const { cur, prv } = pickCurPrv(adm, cycle);
   const c = cur as Record<string, number | null>;
   const p = prv as Record<string, number | null>;
-  const label = cycle === "fa26" ? "FA26" : "FA27";
-  const vs = cycle === "fa26" ? "FA25" : "FA26";
-
-  const curKey = cycle === "fa26" ? "Fall 2026" : "Fall 2027";
-  const prvKey = cycle === "fa26" ? "Fall 2025" : "Fall 2026";
 
   const ameData = data.ame as unknown as Record<string, Record<string, AmeCyc>>;
   const curCyc = (ameData.byCycle || {})[curKey] || {};
   const prvCyc = (ameData.byCycleYoy || ameData.byCycle || {})[prvKey] || {};
 
   const pswData = data.psw as unknown as {
-    byCycle?: Record<string, { att: number; total: number }>;
-    byCycleYoy?: Record<string, { att: number; total: number }>;
-    byTerm?: Record<string, { att: number; total: number }>;
+    byCycle?: Record<string, { att: number; total?: number; registered?: number }>;
+    byCycleYoy?: Record<string, { att: number; total?: number; registered?: number }>;
+    byTerm?: Record<string, { att: number; total?: number; registered?: number }>;
   };
   const pswByCycle = pswData.byCycle || {};
   const pswByCycleYoy = pswData.byCycleYoy || {};
@@ -84,6 +62,8 @@ export default function EnrollmentOverviewPage() {
   const slcPrv = slc.byTermYoy?.[prvKey] ?? slc.byTerm?.[prvKey];
   const slcReg = slcCur?.registered ?? slc.registered ?? 0;
   const slcRegPrv = slcPrv?.registered ?? 0;
+  const slcAtt = slcCur?.attended ?? 0;
+  const slcAttPrv = slcPrv?.attended ?? 0;
 
   const chg = ((cur as { chg?: Record<string, number | null> }).chg || {}) as Record<string, number | null>;
   function delta7d(field: string): number | null {
@@ -119,14 +99,22 @@ export default function EnrollmentOverviewPage() {
     { label: "Deposits Submitted",     info: DEFS.depositsGross, cur: c.depositsGross, prv: p.depositsGross,     delta: delta7d("depositsGross") },
     { label: "Deposits Withdrawn",     info: DEFS.depositsWithdrawn, cur: c.depositsWithdrawn, prv: p.depositsWithdrawn, delta: delta7d("depositsWithdrawn"), negativeIsGood: true },
     { label: "Total Deposits",         info: DEFS.depositsNet, cur: c.deposits,        prv: p.deposits,          delta: delta7d("deposits"),          bold: true },
-    { label: ameLabel("Sep"), info: DEFS.ameRegistrants, cur: ameVal(curCyc, "Sep"), prv: ameVal(prvCyc, "Sep"), delta: ameDelta("Sep"), divider: true },
-    { label: ameLabel("Oct"), info: DEFS.ameRegistrants, cur: ameVal(curCyc, "Oct"), prv: ameVal(prvCyc, "Oct"), delta: ameDelta("Oct") },
-    { label: ameLabel("Nov"), info: DEFS.ameRegistrants, cur: ameVal(curCyc, "Nov"), prv: ameVal(prvCyc, "Nov"), delta: ameDelta("Nov") },
-    { label: "PSW Registrants", info: DEFS.pswRegistrants, cur: pswVal(pswCurEntry), prv: pswVal(pswPrvEntry), delta: null },
-    { label: ameLabel("Feb"), info: DEFS.ameRegistrants, cur: ameVal(curCyc, "Feb"), prv: ameVal(prvCyc, "Feb"), delta: ameDelta("Feb") },
-    { label: ameLabel("Mar"), info: DEFS.ameRegistrants, cur: ameVal(curCyc, "Mar"), prv: ameVal(prvCyc, "Mar"), delta: ameDelta("Mar") },
-    { label: ameLabel("Apr"), info: DEFS.ameRegistrants, cur: ameVal(curCyc, "Apr"), prv: ameVal(prvCyc, "Apr"), delta: ameDelta("Apr") },
-    { label: "SLC Registrants",        info: DEFS.slcRegistrants, cur: slcReg, prv: slcRegPrv, delta: null },
+    { label: "Sep AME Registered", info: DEFS.ameRegisteredStatus, cur: curCyc.Sep?.registered || 0, prv: prvCyc.Sep?.registered || 0, delta: ameDelta("Sep"), divider: true },
+    { label: "Sep AME Attended", info: DEFS.ameAttendedMonth, cur: curCyc.Sep?.attended || 0, prv: prvCyc.Sep?.attended || 0 },
+    { label: "Oct AME Registered", info: DEFS.ameRegisteredStatus, cur: curCyc.Oct?.registered || 0, prv: prvCyc.Oct?.registered || 0, delta: ameDelta("Oct") },
+    { label: "Oct AME Attended", info: DEFS.ameAttendedMonth, cur: curCyc.Oct?.attended || 0, prv: prvCyc.Oct?.attended || 0 },
+    { label: "Nov AME Registered", info: DEFS.ameRegisteredStatus, cur: curCyc.Nov?.registered || 0, prv: prvCyc.Nov?.registered || 0, delta: ameDelta("Nov") },
+    { label: "Nov AME Attended", info: DEFS.ameAttendedMonth, cur: curCyc.Nov?.attended || 0, prv: prvCyc.Nov?.attended || 0 },
+    { label: "PSW Registered", info: DEFS.pswRegisteredStatus, cur: pswCurEntry?.registered || 0, prv: pswPrvEntry?.registered || 0 },
+    { label: "PSW Attended", info: DEFS.pswAttended, cur: pswCurEntry?.att || 0, prv: pswPrvEntry?.att || 0 },
+    { label: "Feb AME Registered", info: DEFS.ameRegisteredStatus, cur: curCyc.Feb?.registered || 0, prv: prvCyc.Feb?.registered || 0, delta: ameDelta("Feb") },
+    { label: "Feb AME Attended", info: DEFS.ameAttendedMonth, cur: curCyc.Feb?.attended || 0, prv: prvCyc.Feb?.attended || 0 },
+    { label: "Mar AME Registered", info: DEFS.ameRegisteredStatus, cur: curCyc.Mar?.registered || 0, prv: prvCyc.Mar?.registered || 0, delta: ameDelta("Mar") },
+    { label: "Mar AME Attended", info: DEFS.ameAttendedMonth, cur: curCyc.Mar?.attended || 0, prv: prvCyc.Mar?.attended || 0 },
+    { label: "Apr AME Registered", info: DEFS.ameRegisteredStatus, cur: curCyc.Apr?.registered || 0, prv: prvCyc.Apr?.registered || 0, delta: ameDelta("Apr") },
+    { label: "Apr AME Attended", info: DEFS.ameAttendedMonth, cur: curCyc.Apr?.attended || 0, prv: prvCyc.Apr?.attended || 0 },
+    { label: "SLC Registered", info: DEFS.slcRegistered, cur: slcReg, prv: slcRegPrv },
+    { label: "SLC Attended", info: DEFS.slcAttended, cur: slcAtt, prv: slcAttPrv },
   ];
 
   return (

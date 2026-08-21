@@ -169,7 +169,9 @@ export function BarChart({
               ? "bc-fill secondary"
               : r.tone === "red"
                 ? "bc-fill red"
-                : "bc-fill";
+                : r.tone === "muted"
+                  ? "bc-fill muted"
+                  : "bc-fill";
         return (
           <div className="bc-row" key={r.label}>
             <div className="bc-lbl">{r.label}</div>

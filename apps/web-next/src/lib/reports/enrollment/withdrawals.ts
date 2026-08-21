@@ -247,6 +247,8 @@ export function processWithdrawals(wdRows: Loose[] = [], admRows: Loose[] = []):
   };
 }
 
-export function cycleLabel(cycle: "fa26" | "fa27"): string {
-  return cycle === "fa26" ? "FA26 / SP27" : "FA27 / SP28";
+export function cycleLabel(cycle: "fa25" | "fa26" | "fa27"): string {
+  if (cycle === "fa25") return "FA25 / SP26";
+  if (cycle === "fa26") return "FA26 / SP27";
+  return "FA27 / SP28";
 }

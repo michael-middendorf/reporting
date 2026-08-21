@@ -3,6 +3,7 @@
 import { useEnrollment } from "../EnrollmentProvider";
 import { BarChart, MetricLabel, Section, acShort } from "@/components/enrollment/ui";
 import { activityByAC, type AcFunnel } from "@/lib/reports/enrollment/counselors";
+import { cycleMeta, pickCurPrv } from "@/lib/reports/enrollment/cycle";
 import { DEFS } from "@/lib/reports/enrollment/defs";
 import { fmt } from "@/lib/reports/enrollment/load";
 
@@ -20,8 +21,8 @@ export default function ActivityPage() {
         <p>{error}</p>
       </div>
     );
-  const cur = cycle === "fa26" ? data.admissions.fa26 : data.admissions.fa27;
-  const label = cycle === "fa26" ? "FA26" : "FA27";
+  const { label } = cycleMeta(cycle);
+  const { cur } = pickCurPrv(data.admissions, cycle);
   const byAC = activityByAC((cur.byAC || {}) as Record<string, AcFunnel>);
   const rows = Object.entries(byAC).sort((a, b) => b[1].deposited - a[1].deposited);
   const interviewBars = rows

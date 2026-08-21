@@ -12,6 +12,7 @@ import {
   type WithdrawalKind,
   type WithdrawalRow,
 } from "@/lib/reports/enrollment/withdrawals";
+import type { EnrollmentCycle } from "@/lib/reports/enrollment/cycle";
 
 type AthleteFilter = "all" | "athlete" | "non";
 type SortKey = keyof WithdrawalRow;
@@ -31,8 +32,10 @@ const COLS: Col[] = [
   { k: "otherSchool", t: "Other school" },
 ];
 
-function cycleBundle(data: { withdrawn: WithdrawnBundle }, cycle: "fa26" | "fa27") {
-  return cycle === "fa26" ? data.withdrawn.fa26 : data.withdrawn.fa27;
+function cycleBundle(data: { withdrawn: WithdrawnBundle }, cycle: EnrollmentCycle) {
+  if (cycle === "fa25") return data.withdrawn.fa25;
+  if (cycle === "fa26") return data.withdrawn.fa26;
+  return data.withdrawn.fa27;
 }
 
 function isAthlete(label: string) {

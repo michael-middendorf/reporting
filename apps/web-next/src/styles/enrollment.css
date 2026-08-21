@@ -119,9 +119,10 @@ tr:hover td{background:#F5F8FD}
 .bc-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
 .bc-lbl{font-size:12px;color:var(--t2);width:120px;text-align:right;flex-shrink:0}
 .bc-track{flex-grow:1;height:20px;background:#EEF3FA;border-radius:3px;overflow:hidden}
-.bc-fill{height:100%;border-radius:3px}
+.bc-fill{height:100%;border-radius:3px;background:var(--blue)}
 .bc-fill.primary{background:var(--blue)}
 .bc-fill.secondary{background:var(--blue-lt)}
+.bc-fill.muted{background:#8AABCC}
 .bc-fill.gold{background:var(--gold)}
 .bc-fill.red{background:var(--red)}
 .bc-n{font-size:12px;font-weight:700;color:var(--blue);width:50px;flex-shrink:0;font-variant-numeric:tabular-nums}

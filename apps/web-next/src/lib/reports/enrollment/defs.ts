@@ -51,6 +51,10 @@ export const DEFS = {
   acceptCodes: "Accepted apps in the current cycle, grouped by Accept Code (AT, CA, ADMI, CMRV, CTA, …).",
   ameRegistrants:
     "AME form rows with Registration Status Registered or Attended, grouped by event month (Form Start Date). Cancelled and No Show are excluded.",
+  ameRegisteredStatus:
+    "AME Registration Status = Registered (not yet attended) for that event month.",
+  ameAttendedMonth: "AME Registration Status = Attended for that event month.",
+  pswRegisteredStatus: "PSW Registration Status = Registered for that January weekend.",
   ameYoy:
     "Prior AME counts only include people whose AME form Submission Date was on or before this date last year.",
   ameTotal:
