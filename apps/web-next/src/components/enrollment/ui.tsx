@@ -14,17 +14,20 @@ export function Delta({
   cur,
   prv,
   suffix = "%",
+  invert = false,
 }: {
   cur?: number | null;
   prv?: number | null;
   suffix?: string;
+  invert?: boolean;
 }) {
   const d = deltaPct(cur ?? null, prv ?? null);
   if (d == null) return <span className="delta-flat">—</span>;
   if (Math.abs(d) < 0.05) return <span className="delta-flat">≈ Flat</span>;
   const up = d > 0;
+  const good = invert ? !up : up;
   return (
-    <span className={up ? "delta-up" : "delta-dn"}>
+    <span className={good ? "delta-up" : "delta-dn"}>
       {up ? "↑ +" : "↓ "}
       {Math.abs(d).toFixed(1)}
       {suffix}
@@ -47,12 +50,14 @@ export function Kpi({
   prv,
   format = "int",
   highlight,
+  invert,
 }: {
   label: string;
   cur?: number | null;
   prv?: number | null;
   format?: "int" | "1" | "pct" | "days";
   highlight?: boolean;
+  invert?: boolean;
 }) {
   const display =
     format === "1" || format === "pct"
@@ -81,7 +86,7 @@ export function Kpi({
       {(prv != null || prevDisplay) && (
         <div className="kpi-delta">
           {prevDisplay != null && <span className="kpi-prv-val">{prevDisplay} </span>}
-          <Delta cur={cur} prv={prv} />
+          <Delta cur={cur} prv={prv} invert={invert} />
         </div>
       )}
     </div>
