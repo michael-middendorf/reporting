@@ -32,16 +32,16 @@ const REPORTS: {
     desc: "Admissions pipeline: applicant funnel, pace vs goals, and recruiting.",
   },
   {
+    id: "advancement",
+    href: "/advancement",
+    title: "Advancement",
+    desc: "Annunciation Circle and other advancement reports.",
+  },
+  {
     id: "points",
     href: "/points",
     title: "MA Points",
     desc: "Activity points, tiers, and leaderboard for scoped MAs.",
-  },
-  {
-    id: "annunciation",
-    href: "/annunciation",
-    title: "Annunciation Circle",
-    desc: "Current Annunciation Circle members and new-member activity from Virtuous.",
   },
   {
     id: "aspiredu",

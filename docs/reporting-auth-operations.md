@@ -2,14 +2,14 @@
 
 The reporting site uses passwordless magic-link authentication. It does not use Cognito or a user database.
 
-The only URL to send people is **https://reporting.avemaria.edu**. After they sign in, the hub shows the reports their email is allowed to open. Do not send `/enrollment`, `/annunciation`, or CloudFront links.
+The only URL to send people is **https://reporting.avemaria.edu**. After they sign in, the hub shows the reports their email is allowed to open. Do not send `/enrollment`, `/advancement`, `/annunciation`, or CloudFront links.
 
 ## Authorization model
 
 - The runtime configuration is the AWS Secrets Manager secret `amu-reporting/production/runtime` in `us-east-2`.
 - `ALLOWED_EMAILS` must contain every person who may complete a magic-link sign-in.
-- Each report also has its own CSV allowlist: `ENROLLMENT_ALLOWED_EMAILS`, `HOUSING_ALLOWED_EMAILS`, `INSTITUTE_ALLOWED_EMAILS`, `MAS_ALLOWED_EMAILS`, `POINTS_ALLOWED_EMAILS`, `ALUMNI_ALLOWED_EMAILS`, and `ANNUNCIATION_ALLOWED_EMAILS`.
-- An email must be in at least one report list to receive a magic link. Add it to the specific report lists it should access; add it to all seven for full reporting access.
+- Each report also has its own CSV allowlist: `ENROLLMENT_ALLOWED_EMAILS`, `HOUSING_ALLOWED_EMAILS`, `INSTITUTE_ALLOWED_EMAILS`, `MAS_ALLOWED_EMAILS`, `POINTS_ALLOWED_EMAILS`, `ALUMNI_ALLOWED_EMAILS`, `ADVANCEMENT_ALLOWED_EMAILS`, and `ANNUNCIATION_ALLOWED_EMAILS`.
+- An email must be in at least one report list to receive a magic link. Add it to the specific report lists it should access; add it to every report list for full reporting access.
 - `ADMIN_EMAILS` in `apps/web-next/src/lib/access.ts` are source-controlled, full-access administrators. Do not add a normal report user there.
 
 ## Safe update procedure

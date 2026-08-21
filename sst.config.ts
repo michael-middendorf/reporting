@@ -212,8 +212,10 @@ export default $config({
           "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
         ALUMNI_ALLOWED_EMAILS:
           "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
-        // Annunciation-only viewers get app access + see ONLY the Annunciation
-        // card (they are not admins and are on no other report's allowlist).
+        ADVANCEMENT_ALLOWED_EMAILS:
+          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu,regina.m.pirolli+test@avemaria.edu",
+        // Annunciation-only viewers get app access + see ONLY the Advancement
+        // folder (they are not admins and are on no other report's allowlist).
         // Intentionally NOT in the DailyMagicLinks allowlist below, so they get
         // no unsolicited sign-in email — they request a magic link themselves.
         ANNUNCIATION_ALLOWED_EMAILS:
@@ -352,6 +354,8 @@ export default $config({
           POINTS_ALLOWED_EMAILS:
             "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
           ALUMNI_ALLOWED_EMAILS:
+            "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
+          ADVANCEMENT_ALLOWED_EMAILS:
             "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
           ANNUNCIATION_ALLOWED_EMAILS:
             "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
