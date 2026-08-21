@@ -2,19 +2,21 @@ import { apiFetch } from "@/lib/api";
 import {
   _dataFetch,
   _procAdm,
+  _procAME,
   _procCampus,
   _procPSW,
   _procSLC,
+  _procWD,
 } from "./process.js";
-import { processWithdrawals, type WithdrawnBundle } from "./withdrawals";
 
 export type EnrollmentBundle = {
   generatedAt?: string;
   admissions: ReturnType<typeof _procAdm>;
   psw: ReturnType<typeof _procPSW>;
   slc: ReturnType<typeof _procSLC>;
-  withdrawn: WithdrawnBundle;
+  withdrawn: ReturnType<typeof _procWD>;
   campus: ReturnType<typeof _procCampus>;
+  ame: ReturnType<typeof _procAME>;
 };
 
 async function loadSession() {
@@ -39,20 +41,23 @@ export async function loadEnrollmentBundle(): Promise<EnrollmentBundle> {
     return apiFetch(path, init);
   };
 
-  const [admRows, pswRows, slcRows, wdRows, campusRows] = await Promise.all([
+  const [admRows, pswRows, slcRows, islcRows, wdRows, campusRows, ameRows] = await Promise.all([
     _dataFetch("admissions", session, fetchImpl),
     _dataFetch("psw", session, fetchImpl),
     _dataFetch("slc", session, fetchImpl),
+    _dataFetch("islc", session, fetchImpl).catch(() => []),
     _dataFetch("withdrawn", session, fetchImpl),
     _dataFetch("campus", session, fetchImpl).catch(() => []),
+    _dataFetch("ame", session, fetchImpl).catch(() => []),
   ]);
   return {
     generatedAt: session.generated_at,
     admissions: _procAdm(admRows, session.generated_at),
     psw: _procPSW(pswRows),
-    slc: _procSLC(slcRows),
-    withdrawn: processWithdrawals(wdRows, admRows),
+    slc: _procSLC(slcRows, islcRows),
+    withdrawn: _procWD(wdRows),
     campus: _procCampus(campusRows),
+    ame: _procAME(ameRows, session.generated_at),
   };
 }
 

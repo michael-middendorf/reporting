@@ -1,30 +1,19 @@
 "use client";
 
-import { useMemo } from "react";
 import { useEnrollment } from "../EnrollmentProvider";
-import { FallAdmissionsReport } from "@/components/enrollment/fall-report";
 import {
   AcceptCodesTable,
   AidTable,
+  BarChart,
   FunnelHistoryCharts,
   Kpi,
   Section,
+  acShort,
 } from "@/components/enrollment/ui";
-import { buildFallReport } from "@/lib/reports/enrollment/fall-report";
 import { fmt } from "@/lib/reports/enrollment/load";
 
 export default function AdmissionsPage() {
   const { data, loading, error, cycle } = useEnrollment();
-  const reportYear = cycle === "fa26" ? 2026 : 2027;
-  const fallReport = useMemo(() => {
-    if (!data) return null;
-    return buildFallReport(
-      (data.admissions.allRows || []) as Record<string, unknown>[],
-      reportYear,
-      data.generatedAt,
-    );
-  }, [data, reportYear]);
-
   if (loading)
     return (
       <div className="view active">
@@ -38,14 +27,18 @@ export default function AdmissionsPage() {
       </div>
     );
 
+  const adm = data.admissions as Record<string, unknown>;
   const cur = cycle === "fa26" ? data.admissions.fa26 : data.admissions.fa27;
-  const prv = cycle === "fa26" ? data.admissions.fa25 : data.admissions.fa26;
+  // Qlik prior column is YoY point-in-time (event date <= today − 1 year).
+  const prv = cycle === "fa26"
+    ? ((adm.fa25Yoy as typeof data.admissions.fa26) ?? data.admissions.fa25)
+    : ((adm.fa26Yoy as typeof data.admissions.fa26) ?? data.admissions.fa26);
   const fa24 = data.admissions.fa24;
   const fa25 = data.admissions.fa25;
   const fa26 = data.admissions.fa26;
   const fa27 = data.admissions.fa27;
   const label = cycle === "fa26" ? "FA26" : "FA27";
-  const vs = cycle === "fa26" ? "FA25" : "FA26";
+  const vs = cycle === "fa26" ? "FA25" : "FA26 (same date last yr)";
 
   const history =
     cycle === "fa26"
@@ -70,18 +63,38 @@ export default function AdmissionsPage() {
     ["Deposit withdrawals", cur.depositsWithdrawn, prv.depositsWithdrawn],
     ["Denied", cur.denied, prv.denied],
     ["Interviewed", cur.interviewed, prv.interviewed],
-    ["Withdrawn (any)", cur.withdrawn, prv.withdrawn],
   ];
 
-  const denom = cur.created || 1;
+  // Counselor activity
+  const byAC = (cur.byAC || {}) as Record<
+    string,
+    {
+      created: number;
+      submitted: number;
+      accepted: number;
+      deposited: number;
+      denied: number;
+      interviewed: number;
+    }
+  >;
+  const acRows = Object.entries(byAC).sort((a, b) => b[1].deposited - a[1].deposited);
+  const interviewBars = acRows
+    .map(([ac, v]) => ({ label: acShort(ac), value: v.interviewed, tone: "secondary" as const }))
+    .filter((r) => r.value > 0);
+  const caseloadBars = acRows.map(([ac, v]) => ({
+    label: acShort(ac),
+    value: v.created,
+    tone: "gold" as const,
+  }));
+
 
   return (
     <div className="view active">
       <div className="rpt-hdr">
         <div>
-          <h1 className="rpt-title">{label} Enrollment</h1>
+          <h1 className="rpt-title">{label} Admissions Detail</h1>
           <p className="rpt-sub">
-            Point-in-time vs {vs}. Withdrawal cutoff {cur.withdrawalCutoff}.
+            Point-in-time vs {vs} · withdrawal cutoff {cur.withdrawalCutoff}
           </p>
         </div>
         <span className={`cycle-badge ${cycle === "fa26" ? "cb-26" : "cb-27"}`}>
@@ -96,11 +109,7 @@ export default function AdmissionsPage() {
         <Kpi label="Accepted" cur={cur.accepted} prv={prv.accepted} />
         <Kpi label="Interviews" cur={cur.interviewed} prv={prv.interviewed} />
         <Kpi label="Total Deposits" cur={cur.deposits} prv={prv.deposits} />
-        {cycle === "fa26" ? (
-          <Kpi label="Accept Rate" cur={cur.acceptRate} prv={prv.acceptRate} format="pct" highlight />
-        ) : (
-          <Kpi label="Denied" cur={cur.denied} prv={prv.denied} highlight />
-        )}
+        <Kpi label="Accept Rate" cur={cur.acceptRate} prv={prv.acceptRate} format="pct" highlight />
       </div>
 
       <Section label="Academic Profile — Averages" />
@@ -116,7 +125,7 @@ export default function AdmissionsPage() {
       <Section label="Historical Trend — Application Funnel" />
       <FunnelHistoryCharts terms={history} />
 
-      <Section label="Funnel comparison" />
+      <Section label="Funnel Comparison" />
       <div className="panel">
         <table className="data-table">
           <thead>
@@ -151,24 +160,141 @@ export default function AdmissionsPage() {
       <Section label="Acceptances by Code" />
       <AcceptCodesTable codes={cur.codes} />
 
-      {cycle === "fa27" && (
-        <>
-          <Section label="Demographics" />
-          <div className="kpi-strip">
-            <Kpi label="% Catholic" cur={(cur.catholic / denom) * 100} format="pct" />
-            <Kpi label="% Male" cur={(cur.male / denom) * 100} format="pct" />
-            <Kpi label="% Female" cur={(cur.female / denom) * 100} format="pct" />
-            <Kpi label="Denied" cur={cur.denied} />
-            <Kpi label="Withdrawn" cur={cur.withdrawn} />
-          </div>
-          <p className="rpt-sub" style={{ marginTop: 8 }}>
-            Catholic {fmt(cur.catholic)} · Male {fmt(cur.male)} · Female {fmt(cur.female)} · Apps{" "}
-            {fmt(cur.created)}
-          </p>
-        </>
-      )}
+      <Section label="Demographics" />
+      <div className="g2" style={{ gap: 16 }}>
+        <div className="panel" style={{ overflowX: "auto" }}>
+          <table className="data-table">
+            <caption
+              style={{
+                textAlign: "left",
+                fontWeight: 600,
+                fontSize: 12,
+                color: "var(--muted, #666)",
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                padding: "8px 0 4px",
+              }}
+            >
+              Religion
+            </caption>
+            <thead>
+              <tr>
+                <th></th>
+                <th>Apps</th>
+                <th>%</th>
+                <th>Accepted</th>
+                <th>%</th>
+                <th>Deposited</th>
+                <th>%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(["Catholic", "Other"] as const).map((rel) => {
+                const isC = rel === "Catholic";
+                const apps = isC ? cur.catholic : cur.created - cur.catholic;
+                const acc = isC ? cur.catholicAcc : cur.accepted - cur.catholicAcc;
+                const dep = isC ? cur.catholicDep : cur.deposits - cur.catholicDep;
+                const pApps = cur.created ? (apps / cur.created) * 100 : null;
+                const pAcc = cur.accepted ? (acc / cur.accepted) * 100 : null;
+                const pDep = cur.deposits ? (dep / cur.deposits) * 100 : null;
+                return (
+                  <tr key={rel}>
+                    <td style={{ fontWeight: 500 }}>{rel}</td>
+                    <td>{fmt(apps)}</td>
+                    <td>{pApps != null ? `${pApps.toFixed(1)}%` : "—"}</td>
+                    <td>{fmt(acc)}</td>
+                    <td>{pAcc != null ? `${pAcc.toFixed(1)}%` : "—"}</td>
+                    <td>{fmt(dep)}</td>
+                    <td>{pDep != null ? `${pDep.toFixed(1)}%` : "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="panel" style={{ overflowX: "auto" }}>
+          <table className="data-table">
+            <caption
+              style={{
+                textAlign: "left",
+                fontWeight: 600,
+                fontSize: 12,
+                color: "var(--muted, #666)",
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                padding: "8px 0 4px",
+              }}
+            >
+              Gender
+            </caption>
+            <thead>
+              <tr>
+                <th></th>
+                <th>Apps</th>
+                <th>%</th>
+                <th>Accepted</th>
+                <th>%</th>
+                <th>Deposited</th>
+                <th>%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(["Male", "Female"] as const).map((g) => {
+                const isM = g === "Male";
+                const apps = isM ? cur.male : cur.female;
+                const acc = isM ? cur.maleAcc : cur.femaleAcc;
+                const dep = isM ? cur.maleDep : cur.femaleDep;
+                const pApps = cur.created ? (apps / cur.created) * 100 : null;
+                const pAcc = cur.accepted ? (acc / cur.accepted) * 100 : null;
+                const pDep = cur.deposits ? (dep / cur.deposits) * 100 : null;
+                return (
+                  <tr key={g}>
+                    <td style={{ fontWeight: 500 }}>{g}</td>
+                    <td>{fmt(apps)}</td>
+                    <td>{pApps != null ? `${pApps.toFixed(1)}%` : "—"}</td>
+                    <td>{fmt(acc)}</td>
+                    <td>{pAcc != null ? `${pAcc.toFixed(1)}%` : "—"}</td>
+                    <td>{fmt(dep)}</td>
+                    <td>{pDep != null ? `${pDep.toFixed(1)}%` : "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-      {fallReport && <FallAdmissionsReport report={fallReport} />}
+      <Section label="Counselor Activity" />
+      <BarChart rows={interviewBars} />
+      <div className="panel" style={{ overflowX: "auto", marginTop: 16 }}>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Counselor</th>
+              <th>Created</th>
+              <th>Submitted</th>
+              <th>Accepted</th>
+              <th>Deposited</th>
+              <th>Denied</th>
+              <th>Interviewed</th>
+            </tr>
+          </thead>
+          <tbody>
+            {acRows.map(([ac, v]) => (
+              <tr key={ac || "unassigned"}>
+                <td>{acShort(ac)}</td>
+                <td>{fmt(v.created)}</td>
+                <td>{fmt(v.submitted)}</td>
+                <td>{fmt(v.accepted)}</td>
+                <td>{fmt(v.deposited)}</td>
+                <td>{fmt(v.denied)}</td>
+                <td>{fmt(v.interviewed)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
     </div>
   );
 }

@@ -16,6 +16,7 @@ const REPORT_KEYS: Record<string, string> = {
   withdrawn: "withdrawn",
   campus: "campus_visits",
   campus_visits: "campus_visits",
+  ame: "ame",
   messages: "messages",
   interactions: "interactions",
   islc: "islc",

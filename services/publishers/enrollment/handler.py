@@ -20,6 +20,7 @@ KEY_ALIASES = {
     "islc": "islc",
     "slc_stucents": "slc_students",
     "withdrawn": "withdrawn",
+    "ame": "ame",
 }
 
 USER_AGENT = "amu-reporting-slate-publisher/2.0"

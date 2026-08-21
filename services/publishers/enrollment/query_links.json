@@ -8,5 +8,6 @@
     "slc" : "https://apply.avemaria.edu/manage/query/run?id=a34874b1-07ff-4451-9b51-1d0ab73528e2&cmd=service&output=json&h=d576d0fe-df24-450a-a4da-373afad41242",
     "islc" : "https://apply.avemaria.edu/manage/query/run?id=a929c1d2-e18c-44e4-9247-167c429d57d0&cmd=service&output=json&h=b0f70487-1562-4f01-957a-5a2fe24c5578",
     "slc_stucents" : "https://apply.avemaria.edu/manage/query/run?id=a929c1d2-e18c-44e4-9247-167c429d57d0&cmd=service&output=json&h=b0f70487-1562-4f01-957a-5a2fe24c5578",
-    "withdrawn" : "https://apply.avemaria.edu/manage/query/run?id=d646a357-a5bb-4402-9bbc-0ff3a80461c4&cmd=service&output=json&h=7224bf1d-4010-46bd-b164-243503f68034"
+    "withdrawn" : "https://apply.avemaria.edu/manage/query/run?id=d646a357-a5bb-4402-9bbc-0ff3a80461c4&cmd=service&output=json&h=7224bf1d-4010-46bd-b164-243503f68034",
+    "ame" : "https://apply.avemaria.edu/manage/query/run?id=0c117863-f6ad-443c-a587-de8419fb6e8a&cmd=service&output=json&h=25cd3a96-d8b4-405e-a372-b45e1a9e55c6"
 }

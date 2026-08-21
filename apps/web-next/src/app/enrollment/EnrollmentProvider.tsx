@@ -113,12 +113,9 @@ export function EnrollmentProvider({ children }: { children: ReactNode }) {
 }
 
 const TABS = [
-  { href: "/enrollment", label: "Hub", match: (p: string) => p === "/enrollment" },
-  { href: "/enrollment/admissions", label: "Enrollment" },
-  { href: "/enrollment/slc", label: "SLC" },
-  { href: "/enrollment/campus", label: "AME / Visits" },
-  { href: "/enrollment/psw", label: "PSW" },
-  { href: "/enrollment/activity", label: "Activity" },
+  { href: "/enrollment", label: "Overview", match: (p: string) => p === "/enrollment" },
+  { href: "/enrollment/admissions", label: "Admissions" },
+  { href: "/enrollment/events", label: "Events" },
   { href: "/enrollment/withdrawals", label: "Withdrawals" },
 ] as const;
 
