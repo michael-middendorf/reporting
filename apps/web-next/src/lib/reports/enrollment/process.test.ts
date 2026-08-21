@@ -47,6 +47,7 @@ test("current UG roster is always present in byAC; leftover assignees are omitte
   const rows = [
     row({ ApplicationACAssignment: "abel.cordero" }),
     row({ ApplicationACAssignment: "dan.donaldson" }),
+    row({ ApplicationACAssignment: "annie.esposito" }),
     row({ ApplicationACAssignment: "anna.kaminski", ApplicationStudentType: "Graduate" }),
     row({ ApplicationACAssignment: "" }),
   ];
@@ -56,9 +57,10 @@ test("current UG roster is always present in byAC; leftover assignees are omitte
   assert.equal(stats.byAC["katherine.n.lyons"].created, 0);
   assert.equal(stats.byAC[""].created, 1);
   assert.equal(stats.byAC["dan.donaldson"], undefined);
+  assert.equal(stats.byAC["annie.esposito"], undefined);
   assert.equal(stats.byAC["anna.kaminski"], undefined);
   // leftover UG assignee is still in the funnel total
-  assert.equal(stats.created, 3);
+  assert.equal(stats.created, 4);
 });
 
 test("allRows stays unfiltered so the Fall report can apply its own type filter", () => {
@@ -71,24 +73,26 @@ test("allRows stays unfiltered so the Fall report can apply its own type filter"
   assert.equal(adm.fa27.created, 1);
 });
 
-test("activityByAC drops Danielle, Georgiana, and Anna; keeps Unassigned when present", () => {
+test("activityByAC drops Danielle, Georgiana, Anna, and Annie; keeps Unassigned when present", () => {
   const byAC = {
     "abel.cordero": { ...emptyAcFunnel(), created: 10, deposited: 2 },
     "danielle.d.domino": { ...emptyAcFunnel(), created: 2 },
     "georgiana.e.depugh": { ...emptyAcFunnel(), created: 1 },
     "anna.kaminski": { ...emptyAcFunnel(), created: 49 },
+    "annie.esposito": { ...emptyAcFunnel(), created: 8 },
     "": { ...emptyAcFunnel(), created: 23 },
   };
   const view = activityByAC(byAC);
   assert.equal(view["danielle.d.domino"], undefined);
   assert.equal(view["georgiana.e.depugh"], undefined);
   assert.equal(view["anna.kaminski"], undefined);
+  assert.equal(view["annie.esposito"], undefined);
   assert.equal(view[""].created, 23);
   assert.equal(view["abel.cordero"].created, 10);
-  assert.equal(view["annie.esposito"].created, 0);
   assert.equal(isActivityCounselorKey("danielle.d.domino"), false);
   assert.equal(isActivityCounselorKey("georgiana.e.depugh"), false);
   assert.equal(isActivityCounselorKey("anna.kaminski"), false);
+  assert.equal(isActivityCounselorKey("annie.esposito"), false);
   assert.equal(isActivityCounselorKey("abel.cordero"), true);
   assert.equal(isActivityCounselorKey(""), true);
 });
