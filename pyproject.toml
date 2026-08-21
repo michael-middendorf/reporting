@@ -13,6 +13,7 @@ members = [
   "services/publishers/alumni",
   "services/publishers/institute",
   "services/publishers/annunciation",
+  "services/publishers/chapel-naming",
 ]
 
 [tool.uv]
