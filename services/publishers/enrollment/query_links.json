@@ -1,5 +1,5 @@
 {
-    "admissions" : "https://apply.avemaria.edu/manage/query/run?id=eee04674-3f22-4f6e-be97-2b69a12d7834&cmd=service&output=json&h=0f23b92e-e58b-4130-a2b1-9c63f351db8f",
+    "admissions" : "https://apply.avemaria.edu/manage/query/run?id=d163168b-c25d-457b-b95a-e58c30edfae3&cmd=service&output=json&h=293d59cf-db12-4ee0-a80f-e906e3afa904",
     "psw"  : "https://apply.avemaria.edu/manage/query/run?id=a569aed1-ac1b-4314-8a82-186793c7fc96&cmd=service&output=json&h=345f6e2c-9613-4249-8337-b889dea47ca5",
     "messages" : "https://apply.avemaria.edu/manage/query/run?id=2609f749-59db-43fb-8e07-9c7223f6075c&cmd=service&output=json&h=a0b4e5d9-cee2-4d7d-b5d3-72f856927130",
     "campus_vists" : "https://apply.avemaria.edu/manage/query/run?id=a0088087-bf28-43db-8435-88e4818cf88b&cmd=service&output=json&h=08590e97-6973-4f35-88ef-8c962d895aff",
