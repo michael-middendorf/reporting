@@ -50,6 +50,8 @@ export type AdvancementOverviewSnapshot = {
   ytd: {
     overall: YtdRow;
     mgoTeam: YtdRow;
+    currentYear?: number;
+    priorYear?: number;
   };
   officers: OfficerRow[];
   pipeline: {
@@ -70,4 +72,10 @@ export function usd(n: number | null | undefined): string {
 export function pct(n: number | null | undefined, digits = 1): string {
   if (n == null || Number.isNaN(n)) return "—";
   return `${n.toFixed(digits)}%`;
+}
+
+/** Width of a 0–100 bar; values over 100 still fill the bar. */
+export function barFill(n: number | null | undefined): number {
+  if (n == null || Number.isNaN(n)) return 0;
+  return Math.max(0, Math.min(100, n));
 }

@@ -21,7 +21,6 @@ from common.s3util import put_json
 GIFT_PATH = "/api/Gift/Query"
 FULL_GIFT_PATH = "/api/Gift/Query/FullGift"
 ASK_PATH = "/api/GiftAsk/Query"
-PLEDGE_PATH = "/api/Pledge/Query"
 PLEDGE_PATH_V2 = "/api/v2/Pledge/Query"
 PLANNED_PATH = "/api/PlannedGift/Query"
 DESIGNATION_PATH = "/api/GiftDesignation/Query"
@@ -104,6 +103,10 @@ class VirtuousClient:
                 detail = exc.read().decode("utf-8", errors="replace")[:500]
                 raise RuntimeError(f"Virtuous {path} → {exc.code}: {detail}") from exc
         raise RuntimeError(f"Virtuous {path} failed after retries")
+
+
+def _status_key(value: Any) -> str:
+    return " ".join(str(value or "").strip().lower().split())
 
 
 def _num(value: Any) -> float:
@@ -260,22 +263,24 @@ def build_snapshot(client: VirtuousClient, today: dt.date) -> dict[str, Any]:
         })
 
     print("  fetching pledges / estate / asks…", flush=True)
-    try:
-        pledges = client.paged_query(
-            PLEDGE_PATH,
-            {"groups": [{"conditions": [{"parameter": "Frequency", "operator": "Is", "value": "Annually"}]}]},
-            500,
-        )
-    except RuntimeError:
-        pledges = client.paged_query(
-            PLEDGE_PATH_V2,
-            {"groups": [{"conditions": [{"parameter": "Frequency", "operator": "Is", "value": "Annually"}]}]},
-            500,
-        )
+    # /api/Pledge/Query is RecurringGift, not multi-year pledges. Qlik counts
+    # v2 Pledge rows with Frequency = Annually and pledgeDate in the FY through today.
+    pledges = client.paged_query(
+        PLEDGE_PATH_V2,
+        {"groups": [{"conditions": [
+            {"parameter": "Pledge Date", "operator": "OnOrAfter", "value": "7/1/2025"},
+            {"parameter": "Frequency", "operator": "Is", "value": "Annually"},
+        ]}]},
+        200,
+    )
+    cancelled = {"cancelled", "canceled", "writeoff", "write off"}
     new_pledges = 0
     for p in pledges:
+        status = _status_key(p.get("status"))
+        if status in cancelled:
+            continue
         pd = _parse_date(p.get("pledgeDate"))
-        if pd is not None and pd >= FY_START:
+        if pd is not None and FY_START <= pd <= today:
             new_pledges += 1
 
     realized = client.paged_query(
@@ -306,7 +311,7 @@ def build_snapshot(client: VirtuousClient, today: dt.date) -> dict[str, Any]:
     )
     pipeline_map: dict[str, dict[str, Any]] = defaultdict(lambda: {"amount": 0.0, "count": 0})
     for a in asks:
-        status = (a.get("status") or "").strip()
+        status = " ".join((a.get("status") or "").split())
         if not status or status in PIPELINE_EXCLUDE:
             continue
         ad = _parse_date(a.get("askDate") or a.get("askDateFormatted"))
@@ -375,6 +380,8 @@ def build_snapshot(client: VirtuousClient, today: dt.date) -> dict[str, Any]:
         "ytd": {
             "overall": _delta(current_total, prior_overall),
             "mgoTeam": _delta(mgo_current, mgo_prior),
+            "currentYear": FY_START.year,
+            "priorYear": PRIOR_FY_START.year,
         },
         "officers": officers,
         "pipeline": {
