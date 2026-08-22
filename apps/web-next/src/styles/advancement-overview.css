@@ -16,6 +16,47 @@
   background: var(--ao-bg);
 }
 
+.ao-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.ao-fy-switch {
+  display: inline-flex;
+  border: 1px solid var(--ao-line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.ao-fy-switch button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ao-navy);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.ao-fy-switch button + button {
+  border-left: 1px solid var(--ao-line);
+}
+
+.ao-fy-switch button[aria-pressed="true"] {
+  background: var(--ao-navy);
+  color: #fff;
+}
+
+.ao-fy-switch button:focus-visible {
+  outline: 2px solid var(--ao-gold);
+  outline-offset: -2px;
+}
+
 .ao-top {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.9fr);

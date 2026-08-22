@@ -48,13 +48,21 @@ async function invokeBuild(): Promise<AdvancementOverviewSnapshot | null> {
   return data;
 }
 
+function cacheIsCurrent(cached: AdvancementOverviewSnapshot | null): boolean {
+  return Boolean(
+    cached?.kpis &&
+      Array.isArray(cached.fiscalYears) &&
+      cached.fiscalYears.length >= 2,
+  );
+}
+
 /** FY Advancement Overview from DATA_BUCKET/advancement-overview/latest.json. */
 export async function GET(req: Request) {
   const denied = requireReportAccess(req, "advancement");
   if (denied) return denied;
 
   const cached = await readCache();
-  if (cached?.kpis) {
+  if (cacheIsCurrent(cached)) {
     return NextResponse.json(cached, {
       headers: { "Cache-Control": "private, max-age=30" },
     });
@@ -68,12 +76,23 @@ export async function GET(req: Request) {
       });
     }
   } catch (e) {
+    if (cached?.kpis) {
+      return NextResponse.json(cached, {
+        headers: { "Cache-Control": "private, max-age=30" },
+      });
+    }
     return NextResponse.json(
       {
         error: e instanceof Error ? e.message : "Advancement overview data unavailable",
       },
       { status: 502 },
     );
+  }
+
+  if (cached?.kpis) {
+    return NextResponse.json(cached, {
+      headers: { "Cache-Control": "private, max-age=30" },
+    });
   }
 
   return NextResponse.json(

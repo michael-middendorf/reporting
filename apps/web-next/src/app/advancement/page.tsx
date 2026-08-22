@@ -15,7 +15,7 @@ const REPORTS: {
   {
     href: "/advancement/overview",
     title: "Advancement Overview",
-    desc: "FY 2025-26 fundraising results, MGO goals, and the Virtuous pipeline.",
+    desc: "Fundraising results, MGO goals, and the Virtuous pipeline, with this year and last year.",
     report: "advancement",
   },
   {

@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import {
   barFill,
+  gaugeCopy,
+  hasFiscalYears,
   pct,
+  pickYear,
   usd,
   type AdvancementOverviewSnapshot,
   type OfficerRow,
@@ -27,7 +31,13 @@ function goalBarColor(n: number | null | undefined): string {
   return "#c5e6c8";
 }
 
-function Gauge({ value }: { value: number | null | undefined }) {
+function parseFy(raw: string | null): number | null {
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 1990 && n < 2100 ? n : null;
+}
+
+function Gauge({ value, subtitle }: { value: number | null | undefined; subtitle: string }) {
   const shown = value ?? 0;
   const r = 52;
   const c = 2 * Math.PI * r;
@@ -50,7 +60,7 @@ function Gauge({ value }: { value: number | null | undefined }) {
         {pct(value, 0)}
       </text>
       <text className="ao-gauge-sub" x="70" y="86" textAnchor="middle">
-        of 25/26 FY
+        {subtitle}
       </text>
     </svg>
   );
@@ -79,17 +89,27 @@ function VBar({
   );
 }
 
-export default function AdvancementOverviewPage() {
+function AdvancementOverviewPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const requestedFy = parseFy(searchParams.get("fy"));
   const [data, setData] = useState<AdvancementOverviewSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  function readSnapshot() {
+    return apiFetch("/api/advancement-overview-data").then(async (r) => {
+      const json = (await r.json()) as AdvancementOverviewSnapshot;
+      if (!r.ok) throw new Error(json.error || `Error ${r.status}`);
+      return json;
+    });
+  }
+
   function load() {
     setLoading(true);
-    apiFetch("/api/advancement-overview-data")
-      .then(async (r) => {
-        const json = (await r.json()) as AdvancementOverviewSnapshot;
-        if (!r.ok) throw new Error(json.error || `Error ${r.status}`);
+    readSnapshot()
+      .then((json) => {
         setData(json);
         setError(null);
       })
@@ -97,14 +117,43 @@ export default function AdvancementOverviewPage() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(load, []);
+  useEffect(() => {
+    let cancelled = false;
+    readSnapshot()
+      .then((json) => {
+        if (cancelled) return;
+        setData(json);
+        setError(null);
+      })
+      .catch((e: Error) => {
+        if (!cancelled) setError(e.message || "Failed to load");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const k = data?.kpis;
-  const ytd = data?.ytd;
-  const officers = data?.officers ?? [];
-  const pipeline = data?.pipeline;
+  const years = data?.fiscalYears ?? [];
+  const view = pickYear(data, requestedFy);
+  const selectedFy = view?.fiscalYear ?? requestedFy;
+  const k = view?.kpis;
+  const ytd = view?.ytd;
+  const officers = view?.officers ?? [];
+  const pipeline = view?.pipeline;
   const currentYear = ytd?.currentYear ?? 2025;
   const priorYear = ytd?.priorYear ?? 2024;
+
+  function selectFy(fy: number) {
+    const params = new URLSearchParams(searchParams.toString());
+    const current = data?.currentFiscalYear ?? years[0]?.fiscalYear;
+    if (current != null && fy === current) params.delete("fy");
+    else params.set("fy", String(fy));
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }
 
   return (
     <main className="ac-page ao-page">
@@ -112,13 +161,29 @@ export default function AdvancementOverviewPage() {
         <div>
           <h1>Advancement Overview</h1>
           <p className="ac-sub">
-            {data?.fiscalYearLabel ?? "FY 2025-26"} results from Virtuous
+            {view?.fiscalYearLabel ?? "FY"} results from Virtuous
             {data?.generated_at ? ` · updated ${data.generated_at}` : ""}.
           </p>
         </div>
-        <button type="button" className="ac-refresh" onClick={load} disabled={loading}>
-          {loading ? "Loading…" : "Refresh"}
-        </button>
+        <div className="ao-head-actions">
+          {hasFiscalYears(data) && selectedFy != null && (
+            <div className="ao-fy-switch" role="group" aria-label="Fiscal year">
+              {years.map((year) => (
+                <button
+                  key={year.fiscalYear}
+                  type="button"
+                  aria-pressed={year.fiscalYear === selectedFy}
+                  onClick={() => selectFy(year.fiscalYear)}
+                >
+                  {year.fiscalYearLabel}
+                </button>
+              ))}
+            </div>
+          )}
+          <button type="button" className="ac-refresh" onClick={load} disabled={loading}>
+            {loading ? "Loading…" : "Refresh"}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -142,7 +207,10 @@ export default function AdvancementOverviewPage() {
                   <div className="ao-kpi-goal">Goal: {usd(k?.unrestricted.goal)}</div>
                 </div>
                 <div className="ao-gauge">
-                  <Gauge value={k?.totalFundraising.pctOfGoal} />
+                  <Gauge
+                    value={k?.totalFundraising.pctOfGoal}
+                    subtitle={view ? gaugeCopy(view) : "of FY"}
+                  />
                 </div>
               </div>
             </section>
@@ -272,5 +340,19 @@ function YtdLine({ label, row }: { label: string; row?: YtdRow }) {
         {pct(row?.pct)}
       </td>
     </tr>
+  );
+}
+
+export default function AdvancementOverviewRoute() {
+  return (
+    <Suspense
+      fallback={
+        <main className="ac-page ao-page">
+          <p className="ac-sub">Loading…</p>
+        </main>
+      }
+    >
+      <AdvancementOverviewPage />
+    </Suspense>
   );
 }
