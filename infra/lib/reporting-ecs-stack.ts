@@ -39,14 +39,14 @@ export class ReportingEcsStack extends cdk.Stack {
     const vpc = ec2.Vpc.fromLookup(this, "DefaultVpc", { isDefault: true });
     const cluster = new ecs.Cluster(this, "Cluster", { vpc, clusterName: "amu-reporting", containerInsightsV2: ecs.ContainerInsights.ENABLED });
     // avemaria-alb only has AZ mappings for us-east-2a and us-east-2b (no us-east-2c).
-    // The web service must stay pinned to these two subnets - the default PUBLIC
-    // subnet selection includes a third, us-east-2c, subnet whose tasks can never
-    // register healthy in the ALB target group (AZ not enabled for the load balancer),
-    // and can trip the deployment circuit breaker / a full stack rollback.
-    const albSubnets = {
+    // Pin tasks to those AZs via the account-wide ecs-private-2a/2b subnets so they
+    // register in the ALB target group without public IPs (Security Hub ECS.2).
+    // Select by subnet ID: CDK's default-VPC lookup misses these /24s because egress
+    // is a NAT instance, not a NAT Gateway (do not use SubnetType.PUBLIC).
+    const ecsPrivateSubnets = {
       subnets: [
-        ec2.Subnet.fromSubnetAttributes(this, "AlbSubnetA", { subnetId: "subnet-0faac786118924240", availabilityZone: "us-east-2a", routeTableId: "rtb-0ae97e2a9ebb643dd" }),
-        ec2.Subnet.fromSubnetAttributes(this, "AlbSubnetB", { subnetId: "subnet-037e01d5bdd3c6fcd", availabilityZone: "us-east-2b", routeTableId: "rtb-0ae97e2a9ebb643dd" }),
+        ec2.Subnet.fromSubnetAttributes(this, "EcsPrivate2a", { subnetId: "subnet-0be5c13dc5c2fde89", availabilityZone: "us-east-2a", routeTableId: "rtb-0a7b29b7d187b8328" }),
+        ec2.Subnet.fromSubnetAttributes(this, "EcsPrivate2b", { subnetId: "subnet-071cbec0a09d5139d", availabilityZone: "us-east-2b", routeTableId: "rtb-0a7b29b7d187b8328" }),
       ],
     };
     const secret = secrets.Secret.fromSecretNameV2(this, "RuntimeSecret", "amu-reporting/production/runtime");
@@ -172,7 +172,7 @@ export class ReportingEcsStack extends cdk.Stack {
       { sourceVolume: "tmp", containerPath: "/tmp", readOnly: false },
       { sourceVolume: "next-cache", containerPath: "/app/.next/cache", readOnly: false },
     );
-    const service = new ecs.FargateService(this, "WebService", { cluster, taskDefinition: task, desiredCount: 1, assignPublicIp: true, securityGroups: [webSg], vpcSubnets: albSubnets, circuitBreaker: { rollback: true }, minHealthyPercent: 100, maxHealthyPercent: 200 });
+    const service = new ecs.FargateService(this, "WebService", { cluster, taskDefinition: task, desiredCount: 1, assignPublicIp: false, securityGroups: [webSg], vpcSubnets: ecsPrivateSubnets, circuitBreaker: { rollback: true }, minHealthyPercent: 100, maxHealthyPercent: 200 });
     webSg.addIngressRule(ec2.Peer.securityGroupId("sg-0c7c300cac7664317"), ec2.Port.tcp(3000), "HTTPS traffic from shared ALB");
     const tg = new elbv2.ApplicationTargetGroup(this, "WebTargets", { vpc, port: 3000, protocol: elbv2.ApplicationProtocol.HTTP, targetType: elbv2.TargetType.IP, healthCheck: { path: "/api/health" } });
     service.attachToApplicationTargetGroup(tg);
@@ -185,9 +185,9 @@ export class ReportingEcsStack extends cdk.Stack {
       { sourceVolume: "tmp", containerPath: "/tmp", readOnly: false },
     );
     for (const [name, schedule, action] of [["Enrollment", events.Schedule.rate(cdk.Duration.minutes(15)), "enrollment"], ["Virtuous", events.Schedule.rate(cdk.Duration.minutes(15)), "virtuous"], ["Housing", events.Schedule.rate(cdk.Duration.hours(6)), "housing"], ["Institute", events.Schedule.rate(cdk.Duration.hours(6)), "institute"]] as const) {
-      new events.Rule(this, `${name}Schedule`, { enabled: false, schedule, targets: [new targets.EcsTask({ cluster, taskDefinition: worker, taskCount: 1, subnetSelection: { subnetType: ec2.SubnetType.PUBLIC }, assignPublicIp: true, containerOverrides: [{ containerName: "worker", command: [action] }] })] });
+      new events.Rule(this, `${name}Schedule`, { enabled: false, schedule, targets: [new targets.EcsTask({ cluster, taskDefinition: worker, taskCount: 1, subnetSelection: ecsPrivateSubnets, assignPublicIp: false, containerOverrides: [{ containerName: "worker", command: [action] }] })] });
     }
-    new events.Rule(this, "DailyMagicLinksSchedule", { enabled: false, schedule: events.Schedule.expression("cron(0 12 * * ? *)"), targets: [new targets.EcsTask({ cluster, taskDefinition: worker, taskCount: 1, subnetSelection: { subnetType: ec2.SubnetType.PUBLIC }, assignPublicIp: true, containerOverrides: [{ containerName: "worker", command: ["daily-magic"] }] })] });
+    new events.Rule(this, "DailyMagicLinksSchedule", { enabled: false, schedule: events.Schedule.expression("cron(0 12 * * ? *)"), targets: [new targets.EcsTask({ cluster, taskDefinition: worker, taskCount: 1, subnetSelection: ecsPrivateSubnets, assignPublicIp: false, containerOverrides: [{ containerName: "worker", command: ["daily-magic"] }] })] });
     new cdk.CfnOutput(this, "AspireduUserPoolId", { value: aspireduUserPool.userPoolId });
     new cdk.CfnOutput(this, "AspireduUserPoolClientId", { value: aspireduClient.userPoolClientId });
     new cdk.CfnOutput(this, "AspireduLoginDomain", { value: aspireduDomain.baseUrl() });
