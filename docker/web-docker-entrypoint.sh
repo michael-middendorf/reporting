@@ -1,10 +1,12 @@
 #!/bin/sh
 set -e
-# ECS/Fargate empty volumes mounted over an existing path do NOT inherit
-# that path's permissions from the image - they come through as a fresh
-# mount regardless of what was chmod'd/chown'd at build time. Fix it here,
-# after mount, while still root, then drop to the unprivileged user.
-chmod 1777 /tmp
-mkdir -p /app/.next/cache
-chown -R node:node /app/.next/cache
-exec su-exec node node server.js "$@"
+# Local docker often starts as root. Fix volume perms, then drop to node.
+# ECS Fargate runs this image as task-definition user `node`; bind-mount
+# volumes are already owned by that user, and chmod/chown would EPERM.
+if [ "$(id -u)" = "0" ]; then
+  chmod 1777 /tmp 2>/dev/null || true
+  mkdir -p /app/.next/cache
+  chown -R node:node /app/.next/cache 2>/dev/null || true
+  exec su-exec node node server.js "$@"
+fi
+exec node server.js "$@"
