@@ -9,4 +9,5 @@ COPY docker/worker-entrypoint.py ./worker-entrypoint.py
 COPY docker/worker-docker-entrypoint.sh /docker-entrypoint.sh
 RUN adduser -D -u 10001 reporting && chown -R reporting:reporting /app && chmod +x /docker-entrypoint.sh
 ENV PYTHONPATH=/app/services/publishers:/app/services/publishers/common:/app/services/publishers/mas:/app/services/publishers/alumni:/app/services/publishers/institute:/app/services/publishers/housing
+USER reporting
 ENTRYPOINT ["/docker-entrypoint.sh"]
