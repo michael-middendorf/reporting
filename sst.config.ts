@@ -303,8 +303,6 @@ export default $config({
           "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu,regina.m.pirolli+test@avemaria.edu",
         // Annunciation-only viewers get app access + see ONLY the Advancement
         // folder (they are not admins and are on no other report's allowlist).
-        // Intentionally NOT in the DailyMagicLinks allowlist below, so they get
-        // no unsolicited sign-in email — they request a magic link themselves.
         ANNUNCIATION_ALLOWED_EMAILS:
           "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu,regina.m.pirolli+test@avemaria.edu",
         DATA_BUCKET: data.name,
@@ -444,42 +442,6 @@ export default $config({
     new sst.aws.Cron("StainedGlassWindowsRefresh", {
       schedule: "rate(15 minutes)",
       function: stainedGlassWindows,
-    });
-
-    new sst.aws.Cron("DailyMagicLinks", {
-      schedule: "cron(0 12 * * ? *)",
-      function: {
-        handler: "functions/daily-magic.handler",
-        timeout: "2 minutes",
-        environment: {
-          AUTH_SECRET: authSecret.value,
-          RESEND_API_KEY: resendApiKey.value,
-          ALLOWED_EMAILS: allowedEmails.value,
-          ENROLLMENT_ALLOWED_EMAILS:
-            "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
-          CENSUS_ALLOWED_EMAILS:
-            "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
-          HOUSING_ALLOWED_EMAILS:
-            "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
-          INSTITUTE_ALLOWED_EMAILS:
-            "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,liam.j.orourke@avemaria.edu,garrett.j.hallinan@avemaria.edu",
-          MAS_ALLOWED_EMAILS:
-            "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
-          POINTS_ALLOWED_EMAILS:
-            "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
-          ALUMNI_ALLOWED_EMAILS:
-            "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
-          ADVANCEMENT_ALLOWED_EMAILS:
-            "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
-          ANNUNCIATION_ALLOWED_EMAILS:
-            "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
-          // Daily sign-in mail lands on reporting.avemaria.edu (the hub),
-          // not the SST Function URL and not a per-report path.
-          APP_BASE_URL: reportingUrl,
-          EMAIL_FROM:
-            "AMU Project Manager <noreply@notifications.avemaria.edu>",
-        },
-      },
     });
 
     return {
