@@ -49,16 +49,61 @@
   margin-top: 0;
 }
 
-.panel label {
-  display: block;
-  margin: 16px 0 8px;
+.mfaPanel {
+  max-width: 36rem;
 }
 
-.panel form input {
+.mfaLead {
+  color: var(--t2);
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+
+.keyBox {
+  background: #f5f7fa;
+  border: 1px solid var(--bdr);
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin: 0 0 24px;
+}
+
+.keyLabel {
+  margin: 0 0 10px;
+  color: var(--t2);
+  font-size: 14px;
+}
+
+.keyValue {
+  margin: 0 0 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.55;
+  word-spacing: 0.35em;
+  overflow-wrap: anywhere;
+  color: var(--blue);
+}
+
+.mfaForm label {
   display: block;
-  margin-top: 6px;
-  padding: 8px 10px;
-  min-width: 12rem;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.codeInput {
+  display: block;
+  width: 11ch;
+  max-width: 100%;
+  box-sizing: content-box;
+  padding: 12px 14px;
+  border: 1px solid var(--bdr);
+  border-radius: 8px;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.35em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .tableWrap {

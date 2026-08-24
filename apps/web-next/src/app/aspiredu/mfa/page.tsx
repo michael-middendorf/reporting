@@ -6,13 +6,32 @@ import { ASPIREDU_NAV } from "@/lib/report-nav";
 import { apiFetch } from "@/lib/api";
 import styles from "../aspiredu.module.css";
 
+function groupedSecret(secret: string) {
+  return secret.replace(/(.{4})/g, "$1 ").trim();
+}
+
 export default function AspireduMfaPage() {
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
   const [secret, setSecret] = useState("");
-  const [otpauth, setOtpauth] = useState("");
   const [code, setCode] = useState("");
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  async function startEnroll() {
+    setBusy(true);
+    setError("");
+    try {
+      const response = await apiFetch("/aspiredu/api/mfa/enroll", { method: "POST" });
+      const body = (await response.json()) as { secret?: string; error?: string };
+      if (!response.ok) throw new Error(body.error || "Could not start authenticator setup");
+      setSecret(body.secret || "");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not start authenticator setup");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   useEffect(() => {
     apiFetch("/aspiredu/api/mfa/status")
@@ -23,25 +42,18 @@ export default function AspireduMfaPage() {
           return;
         }
         if (!response.ok) throw new Error(body.error || "Could not check authenticator status");
-        setEnrolled(Boolean(body.enrolled));
+        const already = Boolean(body.enrolled);
+        setEnrolled(already);
+        if (!already) void startEnroll();
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Could not check authenticator status"));
   }, []);
 
-  async function startEnroll() {
-    setBusy(true);
-    setError("");
-    try {
-      const response = await apiFetch("/aspiredu/api/mfa/enroll", { method: "POST" });
-      const body = (await response.json()) as { secret?: string; otpauth?: string; error?: string };
-      if (!response.ok) throw new Error(body.error || "Could not start authenticator setup");
-      setSecret(body.secret || "");
-      setOtpauth(body.otpauth || "");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Could not start authenticator setup");
-    } finally {
-      setBusy(false);
-    }
+  async function copyKey() {
+    if (!secret) return;
+    await navigator.clipboard.writeText(secret);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
   }
 
   async function submit(event: FormEvent) {
@@ -69,52 +81,43 @@ export default function AspireduMfaPage() {
       <div className={styles.shell}>
         <ReportTopBar title="Academic Affairs" nav={ASPIREDU_NAV} />
         <main className={styles.content}>
-          <section className={styles.panel}>
+          <section className={`${styles.panel} ${styles.mfaPanel}`}>
             <h1>Authenticator code</h1>
-            <p>
+            <p className={styles.mfaLead}>
               You are already signed in with your reporting email link. Student names and grades need a
-              6-digit authenticator code as the second factor. There is no separate Cognito password.
+              6-digit code from an authenticator app.
             </p>
-            {enrolled === false && !secret && (
-              <p>
-                <button className={styles.linkButton} type="button" disabled={busy} onClick={() => void startEnroll()}>
-                  Set up authenticator
+            {secret ? (
+              <div className={styles.keyBox}>
+                <p className={styles.keyLabel}>Add this key in Google Authenticator, Authy, or 1Password</p>
+                <p className={styles.keyValue}>{groupedSecret(secret)}</p>
+                <button className={`${styles.button} ${styles.secondary}`} type="button" onClick={() => void copyKey()}>
+                  {copied ? "Copied" : "Copy key"}
                 </button>
-              </p>
-            )}
-            {secret && (
-              <p>
-                Add this key in Google Authenticator, Authy, or 1Password: <strong>{secret}</strong>
-                {otpauth ? (
-                  <>
-                    <br />
-                    <span className={styles.notice}>Authenticator apps can also scan the otpauth URL from that key.</span>
-                  </>
-                ) : null}
-              </p>
-            )}
+              </div>
+            ) : null}
             {(enrolled || secret) && (
-              <form onSubmit={(event) => void submit(event)}>
-                <label>
-                  6-digit code
-                  <input
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    pattern="[0-9]{6}"
-                    maxLength={6}
-                    value={code}
-                    onChange={(event) => setCode(event.target.value)}
-                    required
-                  />
-                </label>
+              <form className={styles.mfaForm} onSubmit={(event) => void submit(event)}>
+                <label htmlFor="aspiredu-totp">6-digit code</label>
+                <input
+                  id="aspiredu-totp"
+                  className={styles.codeInput}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                  value={code}
+                  onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                  required
+                />
                 <p>
-                  <button className={styles.linkButton} type="submit" disabled={busy}>
+                  <button className={styles.button} type="submit" disabled={busy || code.length !== 6}>
                     Continue
                   </button>
                 </p>
               </form>
             )}
-            {error ? <p>{error}</p> : null}
+            {error ? <p className={styles.error}>{error}</p> : null}
           </section>
         </main>
       </div>
