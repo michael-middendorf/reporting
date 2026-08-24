@@ -29,6 +29,7 @@ export default $config({
     const slateQueryUrl = new sst.Secret("SlateQueryUrl");
     const slateDepositsUrl = new sst.Secret("SlateDepositsUrl");
     const instituteSlateQueries = new sst.Secret("InstituteSlateQueries");
+    const athleticsSlateQueries = new sst.Secret("AthleticsSlateQueries");
     const allowedEmails = new sst.Secret("AllowedEmails");
 
     const data = new sst.aws.Bucket("ReportData");
@@ -317,6 +318,8 @@ export default $config({
           "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
         CENSUS_ALLOWED_EMAILS:
           "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
+        ATHLETICS_ALLOWED_EMAILS:
+          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
         HOUSING_ALLOWED_EMAILS:
           "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
         INSTITUTE_ALLOWED_EMAILS:
@@ -378,6 +381,24 @@ export default $config({
         environment: {
           DATA_BUCKET: data.name,
           QUERY_LINKS_FILE: "/var/task/query_links.json",
+        },
+        permissions: reportDataPerms,
+      },
+    });
+
+    new sst.aws.Cron("AthleticsRefresh", {
+      schedule: "rate(1 hour)",
+      function: {
+        handler: "services/publishers/athletics/handler.handler",
+        runtime: "python3.12",
+        timeout: "15 minutes",
+        memory: "2048 MB",
+        link: [data],
+        python: { uv: true },
+        copyFiles: commonFiles,
+        environment: {
+          DATA_BUCKET: data.name,
+          ATHLETICS_SLATE_QUERIES: athleticsSlateQueries.value,
         },
         permissions: reportDataPerms,
       },

@@ -33,6 +33,7 @@ describe("chapel-only grant", () => {
     assert.equal(canAccessReport(ANNIE, "points"), true);
     assert.equal(canAccessReport(ANNIE, "chapel"), false);
     assert.equal(canAccessReport(ANNIE, "advancement"), false);
+    assert.equal(canAccessReport(ANNIE, "athletics"), false);
   });
 });
 
@@ -50,6 +51,7 @@ describe("institute-only grant", () => {
     assert.equal(canAccessReport(GABRIEL, "points"), false);
     assert.equal(canAccessReport(GABRIEL, "annunciation"), false);
     assert.equal(canAccessReport(GABRIEL, "aspiredu"), false);
+    assert.equal(canAccessReport(GABRIEL, "athletics"), false);
     assert.deepEqual(reportsForEmail(GABRIEL), ["institute"]);
   });
 });

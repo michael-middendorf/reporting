@@ -10,7 +10,8 @@ Remote: https://github.com/colecantu904/reporting
 |-------|--------|
 | `/` | Hub |
 | `/enrollment` | Admissions enrollment dashboard |
-| `/census` | Fall census (headcount, FTE, UG profile, retention) |
+| `/census` | Fall census (headcount, FTE, UG profile, and retention) |
+| `/athletics` | Athletics Master recruiting, sector, application, and prospect dashboards |
 | `/housing` | Housing occupancy, floor maps, move-ins, verification |
 | `/institute` | The Institute admissions pipeline |
 | `/advancement` | Advancement folder (Overview, MGO Top Prospects, Annunciation Circle, Fall Appeal, MA Points, Chapel Naming, Stained Glass) |
@@ -42,6 +43,7 @@ sources/_catalog.json
 | Source | Datasets | Publisher cron |
 |--------|----------|----------------|
 | `slate` | admissions, psw, messages, campus_visits, … | EnrollmentRefresh |
+| `athletics` | applications, prospects | AthleticsRefresh (hourly) |
 | `virtuous` | contact_notes, gifts, events, contacts | VirtuousRawRefresh |
 | `erez` | housing_occupancy | HousingRefresh (eRezLife assignments) |
 | `qlik` | housing_occupancy | HousingRefresh (mirror of eRez occupancy during cutover) |
@@ -58,6 +60,15 @@ npx sst secret set InstituteSlateQueries "$(cat slate_queries.json)" --stage pro
 ```
 
 (`slate_queries.json` shape: `{"queries":[{"name":"q1","query_id":"...","token":"...","timeout":600}, ...]}` for q1–q6.)
+
+Athletics uses the same secret-only pattern; its two service tokens must never be
+committed to the repository:
+
+```bash
+npx sst secret set AthleticsSlateQueries "$(cat athletics_queries.json)" --stage production
+```
+
+The JSON shape is `{"queries":[{"name":"applications","query_id":"...","token":"...","auth":"bearer","timeout":900},{"name":"prospects","query_id":"...","token":"...","auth":"query","timeout":900}]}`. Applications sends its token in the `Authorization: Bearer` header; prospects uses Slate's `h` query parameter.
 
 ## Layout
 

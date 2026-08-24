@@ -26,6 +26,12 @@ const REPORTS: {
     desc: "Official fall census: headcount, FTE, UG profile, and retention.",
   },
   {
+    id: "athletics",
+    href: "/athletics",
+    title: "Athletics Master",
+    desc: "Department-wide recruiting, sector boards, applications, prospects, and scholarships.",
+  },
+  {
     id: "housing",
     href: "/housing",
     title: "Housing",

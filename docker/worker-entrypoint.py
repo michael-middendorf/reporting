@@ -8,6 +8,7 @@ import sys
 from typing import Any
 
 HANDLERS = {
+    "athletics": "services.publishers.athletics.handler",
     "enrollment": "services.publishers.enrollment.handler",
     "virtuous": "services.publishers.virtuous.handler",
     "housing": "services.publishers.housing.handler",
