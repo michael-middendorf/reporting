@@ -4,6 +4,16 @@ The reporting site uses passwordless magic-link authentication. It does not use 
 
 The only URL to send people is **https://reporting.avemaria.edu**. After they sign in, the hub shows the reports their email is allowed to open. Do not send `/enrollment`, `/advancement`, `/annunciation`, `/advancement/chapel-naming`, `/advancement/mgo-top-prospects`, `/advancement/stained-glass-windows`, or CloudFront links.
 
+## Sign-in
+
+There is no daily sign-in email and no unsolicited magic-link blast. People bookmark the hub.
+
+- Unauthenticated visitors see the hub login form and request a magic link for their allowlisted work email.
+- That on-demand link expires in 15 minutes (`AUTH_MAGIC_LINK_TTL_MINUTES`) and is single-use. The extra Continue click on `/auth/magic` exists so email scanners do not consume it.
+- A successful sign-in sets an HttpOnly session cookie (`amu_reporting_session`) for 14 days (`AUTH_SESSION_TTL_DAYS`).
+- Notification mail (for example new Annunciation Circle members) must link to the hub with no `?token=`.
+- Old inbox messages titled "Your AMU Reporting sign-in link" are expired login tokens, not the report. Send people to the hub instead.
+
 ## Authorization model
 
 - The runtime configuration is the AWS Secrets Manager secret `amu-reporting/production/runtime` in `us-east-2`.

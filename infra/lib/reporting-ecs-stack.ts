@@ -187,7 +187,6 @@ export class ReportingEcsStack extends cdk.Stack {
     for (const [name, schedule, action] of [["Enrollment", events.Schedule.rate(cdk.Duration.minutes(15)), "enrollment"], ["Virtuous", events.Schedule.rate(cdk.Duration.minutes(15)), "virtuous"], ["Housing", events.Schedule.rate(cdk.Duration.hours(6)), "housing"], ["Institute", events.Schedule.rate(cdk.Duration.hours(6)), "institute"]] as const) {
       new events.Rule(this, `${name}Schedule`, { enabled: false, schedule, targets: [new targets.EcsTask({ cluster, taskDefinition: worker, taskCount: 1, subnetSelection: ecsPrivateSubnets, assignPublicIp: false, containerOverrides: [{ containerName: "worker", command: [action] }] })] });
     }
-    new events.Rule(this, "DailyMagicLinksSchedule", { enabled: false, schedule: events.Schedule.expression("cron(0 12 * * ? *)"), targets: [new targets.EcsTask({ cluster, taskDefinition: worker, taskCount: 1, subnetSelection: ecsPrivateSubnets, assignPublicIp: false, containerOverrides: [{ containerName: "worker", command: ["daily-magic"] }] })] });
     new cdk.CfnOutput(this, "AspireduUserPoolId", { value: aspireduUserPool.userPoolId });
     new cdk.CfnOutput(this, "AspireduUserPoolClientId", { value: aspireduClient.userPoolClientId });
     new cdk.CfnOutput(this, "AspireduLoginDomain", { value: aspireduDomain.baseUrl() });

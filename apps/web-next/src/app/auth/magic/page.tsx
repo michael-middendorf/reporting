@@ -5,6 +5,16 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, setBearer } from "@/lib/api";
 import styles from "../../auth.module.css";
 
+function friendlyMagicError(raw: string) {
+  if (/expired/i.test(raw)) {
+    return "This sign-in link has expired. Sign in at AMU Reporting to get a new one.";
+  }
+  if (/already been used/i.test(raw)) {
+    return "This sign-in link has already been used. Sign in at AMU Reporting if you need another.";
+  }
+  return raw;
+}
+
 function MagicInner() {
   const params = useSearchParams();
   const token = params.get("token");
@@ -26,10 +36,13 @@ function MagicInner() {
       setStatus({ kind: "ok", text: "Signed in. Redirecting…" });
       router.replace(data.redirect || "/");
     } catch (err) {
-      setStatus({ kind: "err", text: err instanceof Error ? err.message : String(err) });
+      const raw = err instanceof Error ? err.message : String(err);
+      setStatus({ kind: "err", text: friendlyMagicError(raw) });
       setBusy(false);
     }
   }
+
+  const showHubCta = !token || status.kind === "err";
 
   return (
     <main className={styles.card}>
@@ -43,12 +56,17 @@ function MagicInner() {
       </button>
       {!token && (
         <div className={`${styles.status} err`}>
-          This sign-in link is missing its token. Request a new email from reporting.avemaria.edu.
+          This sign-in link is missing its token. Request a new one from the sign-in page.
         </div>
       )}
       <div className={`${styles.status} ${status.kind}`} aria-live="polite">
         {status.text}
       </div>
+      {showHubCta && (
+        <a className={styles.hubLink} href="/">
+          Sign in at AMU Reporting
+        </a>
+      )}
     </main>
   );
 }

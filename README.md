@@ -22,7 +22,7 @@ Remote: https://github.com/colecantu904/reporting
 | `/points` | MA points / productivity |
 | `/alumni` | Alumni coverage & opportunity |
 
-Auth is a shared magic-link gate (Resend + email allowlist).
+Auth is a shared magic-link gate (Resend + email allowlist). People sign in at https://reporting.avemaria.edu; there is no daily sign-in email.
 
 ## Data layout (canonical raw)
 
