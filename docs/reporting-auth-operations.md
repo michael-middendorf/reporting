@@ -1,6 +1,8 @@
 # Reporting authentication operations
 
-The reporting site uses passwordless magic-link authentication. It does not use Cognito or a user database.
+The reporting site uses passwordless magic-link authentication. It does not use a password form for hub sign-in.
+
+Academic Affairs student-level rows (names, emails, grades) add a second factor: a TOTP authenticator code after the magic-link session. Staff do not get a Cognito password. The Cognito user pool remains in the stack but is not used for this sign-in.
 
 The only URL to send people is **https://reporting.avemaria.edu**. After they sign in, the hub shows the reports their email is allowed to open. Do not send `/enrollment`, `/advancement`, `/annunciation`, `/advancement/chapel-naming`, `/advancement/mgo-top-prospects`, `/advancement/stained-glass-windows`, or CloudFront links.
 

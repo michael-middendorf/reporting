@@ -9,6 +9,7 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { CognitoJwtVerifier } from "aws-jwt-verify";
 import { normalizeEmail } from "@/lib/auth";
+import { generateTotpSecret, otpauthUrl, verifyTotp } from "@/lib/totp";
 
 export const ASPIREDU_MFA_COOKIE = "amu_aspiredu_mfa";
 const AUTHORIZED = new Set([
@@ -79,6 +80,113 @@ function verifierForIdToken() {
 
 export function isAspireduStudentViewer(email: string) {
   return AUTHORIZED.has(normalizeEmail(email));
+}
+
+function totpKey(email: string, kind: "enrolled" | "pending") {
+  return `totp#${kind}#${normalizeEmail(email)}`;
+}
+
+export async function aspireduTotpStatus(email: string) {
+  const normalized = normalizeEmail(email);
+  if (!isAspireduStudentViewer(normalized)) throw new Error("not authorized for student-level AspireDU data");
+  const response = await ddb.send(new GetCommand({
+    TableName: required("ASPIREDU_SESSION_TABLE"),
+    Key: { sessionId: totpKey(normalized, "enrolled") },
+    ConsistentRead: true,
+  }));
+  return { enrolled: Boolean(response.Item?.secret) };
+}
+
+export async function beginAspireduTotpEnrollment(email: string) {
+  const normalized = normalizeEmail(email);
+  if (!isAspireduStudentViewer(normalized)) throw new Error("not authorized for student-level AspireDU data");
+  const existing = await aspireduTotpStatus(normalized);
+  if (existing.enrolled) throw new Error("authenticator is already enrolled");
+  const secret = generateTotpSecret();
+  const now = Math.floor(Date.now() / 1000);
+  await ddb.send(new PutCommand({
+    TableName: required("ASPIREDU_SESSION_TABLE"),
+    Item: {
+      sessionId: totpKey(normalized, "pending"),
+      type: "TOTP_PENDING",
+      email: normalized,
+      secret,
+      expiresAt: now + 10 * 60,
+    },
+  }));
+  return { otpauth: otpauthUrl(normalized, secret), secret };
+}
+
+export async function completeAspireduTotp(email: string, code: string) {
+  const normalized = normalizeEmail(email);
+  if (!isAspireduStudentViewer(normalized)) throw new Error("not authorized for student-level AspireDU data");
+  const table = required("ASPIREDU_SESSION_TABLE");
+  const enrolled = await ddb.send(new GetCommand({
+    TableName: table,
+    Key: { sessionId: totpKey(normalized, "enrolled") },
+    ConsistentRead: true,
+  }));
+  const pending = enrolled.Item?.secret
+    ? null
+    : await ddb.send(new GetCommand({
+      TableName: table,
+      Key: { sessionId: totpKey(normalized, "pending") },
+      ConsistentRead: true,
+    }));
+  const record = enrolled.Item?.secret ? enrolled.Item : pending?.Item;
+  const now = Math.floor(Date.now() / 1000);
+  if (!record?.secret || (record.expiresAt && record.expiresAt <= now && record.type === "TOTP_PENDING")) {
+    throw new Error("Set up an authenticator first");
+  }
+  if (Number(record.lockedUntil || 0) > now) throw new Error("Too many attempts. Try again in a few minutes.");
+  if (!verifyTotp(String(record.secret), code)) {
+    const fails = Number(record.fails || 0) + 1;
+    await ddb.send(new UpdateCommand({
+      TableName: table,
+      Key: { sessionId: record.sessionId },
+      UpdateExpression: "SET fails = :fails, lockedUntil = :locked",
+      ExpressionAttributeValues: {
+        ":fails": fails,
+        ":locked": fails >= 8 ? now + 15 * 60 : 0,
+      },
+    }));
+    throw new Error("That code is not valid");
+  }
+  if (record.type === "TOTP_PENDING") {
+    await ddb.send(new PutCommand({
+      TableName: table,
+      Item: {
+        sessionId: totpKey(normalized, "enrolled"),
+        type: "TOTP",
+        email: normalized,
+        secret: record.secret,
+        enrolledAt: now,
+        fails: 0,
+        expiresAt: now + 10 * 365 * 86400,
+      },
+    }));
+    await ddb.send(new DeleteCommand({ TableName: table, Key: { sessionId: totpKey(normalized, "pending") } }));
+  } else {
+    await ddb.send(new UpdateCommand({
+      TableName: table,
+      Key: { sessionId: totpKey(normalized, "enrolled") },
+      UpdateExpression: "SET fails = :zero REMOVE lockedUntil",
+      ExpressionAttributeValues: { ":zero": 0 },
+    }));
+  }
+  const sessionId = base64url(randomBytes(32));
+  await ddb.send(new PutCommand({
+    TableName: table,
+    Item: {
+      sessionId,
+      type: "SESSION",
+      auth: "totp",
+      email: normalized,
+      expiresAt: now + 8 * 60 * 60,
+    },
+    ConditionExpression: "attribute_not_exists(sessionId)",
+  }));
+  return { sessionId, email: normalized };
 }
 
 export async function beginAspireduMfa(email: string, redirectUri: string) {
@@ -211,7 +319,7 @@ export async function getAspireduMfaSession(req: Request, expectedEmail?: string
   if (!item || item.type !== "SESSION" || item.expiresAt <= now) return null;
   const email = normalizeEmail(String(item.email || ""));
   if (!isAspireduStudentViewer(email) || (expectedEmail && email !== normalizeEmail(expectedEmail))) return null;
-  if (Number(item.tokenExpiresAt || 0) <= now + 60) {
+  if (item.auth !== "totp" && Number(item.tokenExpiresAt || 0) <= now + 60) {
     item = await refreshSession(item) || undefined;
     if (!item) return null;
   }

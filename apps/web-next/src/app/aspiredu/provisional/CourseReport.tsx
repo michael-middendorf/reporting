@@ -223,9 +223,9 @@ export function CourseReport({
           {mfa === "checking" && <p>Checking MFA session…</p>}
           {mfa === "required" && (
             <section className={styles.panel}>
-              <h2>MFA required</h2>
-              <p>Student names and course records require your separate AspireDU password and authenticator code.</p>
-              <a className={styles.linkButton} href="/aspiredu/api/auth/start">Continue to secure sign-in</a>
+              <h2>Authenticator required</h2>
+              <p>Student names and course records need a 6-digit authenticator code on top of your reporting email link. There is no second password.</p>
+              <a className={styles.linkButton} href="/aspiredu/mfa">Continue</a>
             </section>
           )}
           {mfa === "ok" && (

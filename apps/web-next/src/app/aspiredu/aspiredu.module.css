@@ -49,6 +49,18 @@
   margin-top: 0;
 }
 
+.panel label {
+  display: block;
+  margin: 16px 0 8px;
+}
+
+.panel form input {
+  display: block;
+  margin-top: 6px;
+  padding: 8px 10px;
+  min-width: 12rem;
+}
+
 .tableWrap {
   overflow-x: auto;
 }
