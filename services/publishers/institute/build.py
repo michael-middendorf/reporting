@@ -20,6 +20,9 @@ generated HTML contain FERPA-protected student data and are git-ignored.
 """
 import json, os, sys, ssl, urllib.request, datetime, html
 from collections import Counter, defaultdict
+from zoneinfo import ZoneInfo
+
+EASTERN = ZoneInfo("America/New_York")
 
 HERE     = os.path.dirname(os.path.abspath(__file__))
 FRONTEND = os.path.join(HERE, "institute_dashboard.html")          # static frontend (fetches /api/dashboard)
@@ -153,6 +156,25 @@ def nz(v):
     return (v or "").strip()
 
 
+def now_eastern(when=None):
+    """Campus-local clock. Lambda datetime.now() is UTC and looked like local time."""
+    if when is None:
+        return datetime.datetime.now(EASTERN)
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=datetime.timezone.utc)
+    return when.astimezone(EASTERN)
+
+
+def format_generated_at(when=None):
+    dt = now_eastern(when)
+    hour = dt.strftime("%I").lstrip("0") or "12"
+    return f"{dt.strftime('%b %d, %Y')} at {hour}:{dt.strftime('%M %p %Z')}"
+
+
+def today_eastern(when=None):
+    return now_eastern(when).date()
+
+
 def is_purchased(v):
     """Slate PurchasedList flag: Y/Yes/1/true count as purchased-list prospects."""
     return nz(v).lower() in {"y", "yes", "1", "true"}
@@ -283,7 +305,7 @@ def compute_pace(q1_raw, q4_raw, today=None):
     Returns {term: {prior, asOf, measures:{M:{pace,byNow,final}}}, "_default": term}.
     """
     import re
-    today = today or datetime.datetime.now().date()
+    today = today or today_eastern()
     try:
         cutoff = datetime.date(today.year - 1, today.month, today.day)
     except ValueError:  # Feb 29
@@ -392,7 +414,7 @@ def compute_recruiting(q7_raw, today=None):
         "amu": sum(1 for r in rows if via_calls(r) and yes(r, "AMUAppSubmitted")),
         "institute": sum(1 for r in rows if yes(r, "InstituteAppSubmitted")),
     }
-    today = today or datetime.datetime.now().date()
+    today = today or today_eastern()
     kpis = []
     for key, name, goal, share, info in RECRUITING_KPIS:
         target = _rc_target(goal, share, today)
@@ -466,7 +488,7 @@ def payload(raw, ts=None):
     trimmed roster (recruitment-trip list); q3/q4/q5 pass through as rows.
     Shared by the offline builder, the data producer, and the dashboard API.
     """
-    ts = ts or datetime.datetime.now().strftime("%b %d, %Y at %-I:%M %p")
+    ts = ts or format_generated_at()
     q4_rows = rows_of(raw["q4"]) if raw.get("q4") else []
     enrich_scores(q4_rows, raw.get("q1"))  # join SAT/ACT/CLT from the admissions query
     return {

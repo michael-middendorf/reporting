@@ -29,13 +29,21 @@ export async function GET(req: Request) {
   }
 
   try {
-    const out = await new LambdaClient({ region }).send(
-      new InvokeCommand({
-        FunctionName: fn,
-        InvocationType: "RequestResponse",
-        Payload: new TextEncoder().encode(JSON.stringify({})),
-      }),
-    );
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 55_000);
+    let out;
+    try {
+      out = await new LambdaClient({ region }).send(
+        new InvokeCommand({
+          FunctionName: fn,
+          InvocationType: "RequestResponse",
+          Payload: new TextEncoder().encode(JSON.stringify({})),
+        }),
+        { abortSignal: ac.signal },
+      );
+    } finally {
+      clearTimeout(timer);
+    }
 
     const text = out.Payload ? new TextDecoder().decode(out.Payload) : "";
     if (!text) {
@@ -44,13 +52,23 @@ export async function GET(req: Request) {
         { status: 502 },
       );
     }
-    const data = JSON.parse(text);
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      return NextResponse.json(
+        { error: "Institute function returned a non-JSON payload" },
+        { status: 502 },
+      );
+    }
 
     // A Python handler that raises returns a 200 invoke with FunctionError set
     // and an { errorMessage, errorType } body — surface it as an upstream error.
     if (out.FunctionError) {
       const msg =
-        (data && (data.errorMessage || data.error)) || out.FunctionError;
+        (typeof data.errorMessage === "string" && data.errorMessage) ||
+        (typeof data.error === "string" && data.error) ||
+        out.FunctionError;
       return NextResponse.json(
         { error: `Institute data unavailable — ${msg}` },
         { status: 502 },

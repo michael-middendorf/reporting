@@ -120,8 +120,17 @@ function InstituteDashboard() {
     (async () => {
       try {
         const res = await apiFetch("/api/institute-data");
-        const json = (await res.json()) as InstitutePayload & { error?: string };
+        const text = await res.text();
         if (!alive) return;
+        let json: InstitutePayload & { error?: string };
+        try {
+          json = JSON.parse(text) as InstitutePayload & { error?: string };
+        } catch {
+          setStatus(
+            "Failed to load Institute data — the live Slate pull timed out. Refresh the page.",
+          );
+          return;
+        }
         if (!res.ok) {
           setStatus(json.error || res.statusText || "Data unavailable");
           return;

@@ -140,6 +140,10 @@ export default $config({
           from: "services/publishers/institute/build.py",
           to: "build.py",
         },
+        {
+          from: "services/publishers/institute/build.py",
+          to: "services/publishers/institute/build.py",
+        },
       ],
       environment: {
         INSTITUTE_SLATE_QUERIES: instituteSlateQueries.value,

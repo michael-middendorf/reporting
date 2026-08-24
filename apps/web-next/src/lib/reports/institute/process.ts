@@ -84,6 +84,7 @@ export type InstitutePayload = {
   generated_at?: string;
   source?: string;
   counts?: Record<string, number>;
+  errors?: Record<string, string>;
   q2?: Record<string, unknown>[];
   q3?: Record<string, unknown>[];
   q4?: Record<string, unknown>[];

@@ -10,8 +10,20 @@ from __future__ import annotations
 import json
 import os
 import ssl
+import sys
 import threading
+import time
+from pathlib import Path
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
+
+# SST may copy build.py to /var/task/build.py while the handler lives in
+# services/publishers/institute/. Make both importable.
+_HERE = Path(__file__).resolve().parent
+for _p in (_HERE, Path("/var/task")):
+    _s = str(_p)
+    if _s not in sys.path:
+        sys.path.insert(0, _s)
 
 import build
 from common.sources import publish_dataset, rows_from_slate_payload
@@ -50,12 +62,26 @@ def _load_query_config() -> dict:
     return out
 
 
-def _fetch(qid: str, token: str, timeout: int) -> object:
+def _fetch(qid: str, token: str, timeout: int, attempts: int = 3) -> object:
+    """Pull a Slate service query. Retry 429s from concurrent dashboard loads."""
     url = f"{build.BASE}?id={qid}&cmd=service&output=json&h={token}"
     ctx = ssl.create_default_context()
-    req = Request(url, headers={"User-Agent": USER_AGENT})
-    with urlopen(req, context=ctx, timeout=timeout) as r:
-        return json.loads(r.read().decode("utf-8"))
+    last_exc: Exception | None = None
+    for i in range(max(attempts, 1)):
+        try:
+            req = Request(url, headers={"User-Agent": USER_AGENT})
+            with urlopen(req, context=ctx, timeout=timeout) as r:
+                return json.loads(r.read().decode("utf-8"))
+        except HTTPError as exc:
+            last_exc = exc
+            if exc.code != 429 or i == attempts - 1:
+                raise
+            wait = min(1.5 * (i + 1), timeout / 3 if timeout else 1.5)
+            _log(event="fetch_retry", status=exc.code, attempt=i + 1, wait_s=round(wait, 2))
+            time.sleep(wait)
+        except Exception:
+            raise
+    raise last_exc or RuntimeError("Slate fetch failed")
 
 
 def handler(event, context):  # noqa: ANN001, ARG001
@@ -113,22 +139,30 @@ def handler(event, context):  # noqa: ANN001, ARG001
     fetched = sorted(k for k, v in raws.items() if v is not None)
     return {"ok": True, "source": "institute", "fetched": fetched, "errors": errors}
 
-def _fetch_all(queries: dict) -> tuple[dict, dict]:
+def _fetch_all(queries: dict, budget_s: float = 48.0) -> tuple[dict, dict]:
     """Fetch every configured query concurrently. Returns (raws, errors).
 
-    Each query gets its own thread + read timeout; q1/q2 (~600s ceiling, ~15s
-    in practice) run alongside the faster ones so wall-clock is the slowest
-    single query, not the sum. A failed query degrades to None (logged in
-    errors) rather than aborting the whole run.
+    Wall-clock is capped at `budget_s` so the Lambda can return JSON before
+    CloudFront/ALB's ~60s origin timeout (which otherwise serves HTML and the
+    dashboard shows "Unexpected token <"). A failed or unfinished query
+    degrades to None rather than aborting the whole run.
     """
     raws: dict = {}
     errors: dict = {}
     lock = threading.Lock()
+    deadline = time.monotonic() + max(budget_s, 1.0)
 
     def worker(name: str) -> None:
         qid, token, timeout = queries[name]
+        left = deadline - time.monotonic()
+        if left <= 0.25:
+            with lock:
+                raws[name] = None
+                errors[name] = "skipped: live pull budget exhausted"
+                _log(event="fetch_skipped", query=name)
+            return
         try:
-            raw = _fetch(qid, token, timeout)
+            raw = _fetch(qid, token, timeout=max(1, min(int(timeout), int(left))))
             with lock:
                 raws[name] = raw
         except Exception as exc:  # noqa: BLE001 - degrade gracefully per query
@@ -144,7 +178,16 @@ def _fetch_all(queries: dict) -> tuple[dict, dict]:
     for t in threads:
         t.start()
     for t in threads:
-        t.join()
+        left = deadline - time.monotonic()
+        t.join(timeout=max(left, 0.05))
+    for t in threads:
+        if t.is_alive():
+            name = t.name.removeprefix("load-")
+            with lock:
+                if name not in raws:
+                    raws[name] = None
+                    errors[name] = "timed out: live pull budget exhausted"
+                    _log(event="fetch_timeout", query=name)
     return raws, errors
 
 
@@ -159,7 +202,13 @@ def invoke_handler(event, context):  # noqa: ANN001, ARG001
     queries = _load_query_config()
     _log(event="ondemand_start", queries=sorted(queries))
 
-    raws, errors = _fetch_all(queries)
+    remaining_s = 60.0
+    getter = getattr(context, "get_remaining_time_in_millis", None)
+    if callable(getter):
+        remaining_s = max(getter() / 1000.0, 1.0)
+    # Leave headroom to build JSON and return before the 60s origin timeout.
+    budget_s = max(8.0, remaining_s - 10.0)
+    raws, errors = _fetch_all(queries, budget_s=budget_s)
 
     # q4 (Institute applicants) is the core dataset - without it there is no
     # payload to render, so surface a clear failure to the caller.
