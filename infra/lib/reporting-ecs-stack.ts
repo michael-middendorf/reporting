@@ -130,6 +130,26 @@ export class ReportingEcsStack extends cdk.Stack {
       refreshTokenRotationGracePeriod: cdk.Duration.seconds(0),
       enableTokenRevocation: true,
     });
+    // Managed login v2 (NEWER_MANAGED_LOGIN) serves "Login pages unavailable"
+    // until a branding style is attached to the app client. CLI/CDK do not
+    // auto-assign one the way the console does.
+    new cognito.CfnManagedLoginBranding(this, "AspireduLoginBranding", {
+      userPoolId: aspireduUserPool.userPoolId,
+      clientId: aspireduClient.userPoolClientId,
+      useCognitoProvidedValues: true,
+    });
+    for (const email of aspireduAllowedEmails.split(",")) {
+      const id = email.split("@")[0].replace(/[^a-z0-9]+/gi, "");
+      new cognito.CfnUserPoolUser(this, `AspireduUser${id}`, {
+        userPoolId: aspireduUserPool.userPoolId,
+        username: email,
+        desiredDeliveryMediums: ["EMAIL"],
+        userAttributes: [
+          { name: "email", value: email },
+          { name: "email_verified", value: "true" },
+        ],
+      });
+    }
     const webLogs = new logs.LogGroup(this, "WebLogs", { logGroupName: "/ecs/amu-reporting/web-v3", retention: logs.RetentionDays.ONE_MONTH, removalPolicy: cdk.RemovalPolicy.RETAIN });
     const workerLogs = new logs.LogGroup(this, "WorkerLogs", { logGroupName: "/ecs/amu-reporting/worker-v3", retention: logs.RetentionDays.ONE_MONTH, removalPolicy: cdk.RemovalPolicy.RETAIN });
     const webImage = new ecrAssets.DockerImageAsset(this, "WebImage", { directory: path.join(__dirname, "../.."), file: "Dockerfile.web" });
