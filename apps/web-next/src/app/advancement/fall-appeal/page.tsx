@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { apiFetch } from "@/lib/api";
 import {
+  addDaysIso,
+  formatMdDate,
   usd,
   type FallAppealSnapshot,
   type PacePoint,
@@ -100,7 +102,22 @@ function BarChart<T>({
   );
 }
 
-function PaceChart({ points, asOfOffset }: { points: PacePoint[]; asOfOffset: number }) {
+function PaceChart({
+  points,
+  asOfOffset,
+  currentName,
+  priorName,
+  currentStart,
+  priorStart,
+}: {
+  points: PacePoint[];
+  asOfOffset: number;
+  currentName: string;
+  priorName: string;
+  currentStart: string | null;
+  priorStart: string | null;
+}) {
+  const [hoverOff, setHoverOff] = useState<number | null>(null);
   const W = 720;
   const H = 240;
   const pad = { l: 56, r: 16, t: 12, b: 26 };
@@ -111,6 +128,11 @@ function PaceChart({ points, asOfOffset }: { points: PacePoint[]; asOfOffset: nu
   );
   const x = (off: number) => pad.l + (off / maxOff) * (W - pad.l - pad.r);
   const y = (rev: number) => H - pad.b - (rev / maxRev) * (H - pad.t - pad.b);
+  const byOff = useMemo(() => {
+    const m = new Map<number, PacePoint>();
+    for (const p of points) m.set(p.dayOffset, p);
+    return m;
+  }, [points]);
 
   const line = (sel: (p: PacePoint) => number | undefined) => {
     const pts = points
@@ -122,54 +144,93 @@ function PaceChart({ points, asOfOffset }: { points: PacePoint[]; asOfOffset: nu
       .join(" ");
   };
 
+  function offsetFromEvent(e: MouseEvent<SVGSVGElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = ((e.clientX - rect.left) / rect.width) * W;
+    const raw = Math.round(((px - pad.l) / Math.max(1, W - pad.l - pad.r)) * maxOff);
+    return Math.max(0, Math.min(maxOff, raw));
+  }
+
+  const hover = hoverOff == null ? null : byOff.get(hoverOff);
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(f * maxRev));
   return (
-    <svg
-      className="fa-pace-svg"
-      viewBox={`0 0 ${W} ${H}`}
-      role="img"
-      aria-label="Cumulative revenue pace: current vs prior appeal"
-    >
-      {ticks.map((t, i) => (
-        <g key={i}>
+    <div className="fa-pace-plot">
+      <svg
+        className="fa-pace-svg"
+        viewBox={`0 0 ${W} ${H}`}
+        role="img"
+        aria-label="Cumulative revenue pace: current vs prior appeal. Hover a day for detail."
+        onMouseMove={(e) => setHoverOff(offsetFromEvent(e))}
+        onMouseLeave={() => setHoverOff(null)}
+      >
+        {ticks.map((t, i) => (
+          <g key={i}>
+            <line
+              x1={pad.l}
+              x2={W - pad.r}
+              y1={y(t)}
+              y2={y(t)}
+              stroke="var(--ac-border)"
+              strokeWidth="1"
+            />
+            <text x={pad.l - 8} y={y(t) + 4} textAnchor="end" fontSize="10" fill="var(--ac-dim)">
+              {usd(t)}
+            </text>
+          </g>
+        ))}
+        {asOfOffset > 0 && asOfOffset <= maxOff && (
           <line
-            x1={pad.l}
-            x2={W - pad.r}
-            y1={y(t)}
-            y2={y(t)}
-            stroke="var(--ac-border)"
+            x1={x(asOfOffset)}
+            x2={x(asOfOffset)}
+            y1={pad.t}
+            y2={H - pad.b}
+            stroke="#B23A2E"
             strokeWidth="1"
+            strokeDasharray="4 3"
           />
-          <text x={pad.l - 8} y={y(t) + 4} textAnchor="end" fontSize="10" fill="var(--ac-dim)">
-            {usd(t)}
-          </text>
-        </g>
-      ))}
-      {asOfOffset > 0 && asOfOffset <= maxOff && (
-        <line
-          x1={x(asOfOffset)}
-          x2={x(asOfOffset)}
-          y1={pad.t}
-          y2={H - pad.b}
-          stroke="#B23A2E"
-          strokeWidth="1"
-          strokeDasharray="4 3"
+        )}
+        <path d={line((p) => p.priorCum?.revenue)} fill="none" stroke="var(--ac-dim)" strokeWidth="2" />
+        <path
+          d={line((p) => p.currentCum?.revenue)}
+          fill="none"
+          stroke="var(--ac-gold)"
+          strokeWidth="2.5"
         />
+        {hoverOff != null && (
+          <line
+            x1={x(hoverOff)}
+            x2={x(hoverOff)}
+            y1={pad.t}
+            y2={H - pad.b}
+            stroke="var(--ac-text)"
+            strokeWidth="1"
+            strokeDasharray="2 3"
+          />
+        )}
+        <text x={pad.l} y={H - 6} fontSize="10" fill="var(--ac-dim)">
+          Day 0
+        </text>
+        <text x={W - pad.r} y={H - 6} textAnchor="end" fontSize="10" fill="var(--ac-dim)">
+          Day {maxOff}
+        </text>
+      </svg>
+      {hover && hoverOff != null && (
+        <div className="fa-pace-tip" role="tooltip">
+          <strong>
+            Day {hoverOff}
+            {currentStart ? ` · ${formatMdDate(addDaysIso(currentStart, hoverOff))}` : ""}
+          </strong>
+          <div>
+            {currentName}: {usd(hover.currentCum?.revenue ?? 0)} · {num(hover.currentCum?.gifts ?? 0)}{" "}
+            gifts
+          </div>
+          <div>
+            {priorName}: {usd(hover.priorCum?.revenue ?? 0)} · {num(hover.priorCum?.gifts ?? 0)} gifts
+            {priorStart ? ` (${formatMdDate(addDaysIso(priorStart, hoverOff))})` : ""}
+          </div>
+        </div>
       )}
-      <path d={line((p) => p.priorCum?.revenue)} fill="none" stroke="var(--ac-dim)" strokeWidth="2" />
-      <path
-        d={line((p) => p.currentCum?.revenue)}
-        fill="none"
-        stroke="var(--ac-gold)"
-        strokeWidth="2.5"
-      />
-      <text x={pad.l} y={H - 6} fontSize="10" fill="var(--ac-dim)">
-        Day 0
-      </text>
-      <text x={W - pad.r} y={H - 6} textAnchor="end" fontSize="10" fill="var(--ac-dim)">
-        Day {maxOff}
-      </text>
-    </svg>
+    </div>
   );
 }
 
@@ -183,9 +244,12 @@ export default function FallAppealPage() {
     apiFetch("/api/fall-appeal-data")
       .then(async (r) => {
         const json = (await r.json()) as Payload;
-        if (!r.ok) throw new Error(json.error || `Error ${r.status}`);
-        setData(json);
-        setError(null);
+        if (json.summary) {
+          setData(json);
+          setError(r.ok ? null : json.error || null);
+          return;
+        }
+        throw new Error(json.error || `Error ${r.status}`);
       })
       .catch((e: Error) => setError(e.message || "Failed to load"))
       .finally(() => setLoading(false));
@@ -196,6 +260,8 @@ export default function FallAppealPage() {
   const segments = useMemo(() => data?.segments ?? [], [data]);
   const constituency = segments.filter((s) => s.group === "constituency");
   const donorType = segments.filter((s) => s.group === "donorType");
+  const campaignStart = data?.campaignStart || data?.appealStart || "2026-08-16";
+  const campaignEnd = data?.campaignEnd || "2027-02-28";
 
   return (
     <main className="ac-page">
@@ -203,8 +269,9 @@ export default function FallAppealPage() {
         <div>
           <h1>{data?.campaign || "Fall Appeal"}</h1>
           <div className="ac-sub">
-            {data?.generated_at ? `Updated ${data.generated_at}` : "Fundraising performance from Virtuous"}
-            {data?.asOf ? ` · as of ${data.asOf}` : ""}
+            Campaign {formatMdDate(campaignStart)} – {formatMdDate(campaignEnd)}
+            {data?.asOf ? ` · gift data as of ${formatMdDate(data.asOf)}` : ""}
+            {data?.generated_at ? ` · updated ${data.generated_at}` : ""}
           </div>
         </div>
         <button type="button" className="ac-refresh" onClick={load} disabled={loading}>
@@ -214,42 +281,42 @@ export default function FallAppealPage() {
 
       {error && <div className="ac-error">{error}</div>}
 
-      {data && !error && data.empty && (
+      {data && data.empty && (
         <div className="ac-note">
           No gifts are attributed to <strong>{data.campaign}</strong> in Virtuous yet. This
           dashboard will populate automatically as appeal gifts are recorded against the campaign.
         </div>
       )}
 
-      {data && !error && (
+      {data && (
         <>
           <section>
             <div className="ac-cards">
-              <div className="ac-card">
+              <div className="ac-card" title={`${DEFS.totalRevenue} As of ${formatMdDate(data.asOf)}.`}>
                 <span className="ac-card-num">{usd(data.summary.totalRevenue)}</span>
                 <span className="ac-card-label">
                   Total Revenue <InfoDot text={DEFS.totalRevenue} />
                 </span>
               </div>
-              <div className="ac-card">
+              <div className="ac-card" title={`${DEFS.totalGifts} As of ${formatMdDate(data.asOf)}.`}>
                 <span className="ac-card-num">{num(data.summary.totalGifts)}</span>
                 <span className="ac-card-label">
                   Total Gifts <InfoDot text={DEFS.totalGifts} />
                 </span>
               </div>
-              <div className="ac-card">
+              <div className="ac-card" title={`${DEFS.avgGift} As of ${formatMdDate(data.asOf)}.`}>
                 <span className="ac-card-num">{usd(data.summary.avgGift)}</span>
                 <span className="ac-card-label">
                   Average Gift <InfoDot text={DEFS.avgGift} />
                 </span>
               </div>
-              <div className="ac-card">
+              <div className="ac-card" title={`${DEFS.medianGift} As of ${formatMdDate(data.asOf)}.`}>
                 <span className="ac-card-num">{usd(data.summary.medianGift)}</span>
                 <span className="ac-card-label">
                   Median Gift <InfoDot text={DEFS.medianGift} />
                 </span>
               </div>
-              <div className="ac-card">
+              <div className="ac-card" title={`${DEFS.donors} As of ${formatMdDate(data.asOf)}.`}>
                 <span className="ac-card-num">{num(data.summary.donors)}</span>
                 <span className="ac-card-label">
                   Donors <InfoDot text={DEFS.donors} />
@@ -264,7 +331,10 @@ export default function FallAppealPage() {
                 Year-over-Year Pace <InfoDot text={DEFS.yoy} />
               </h2>
               <div className="ac-cards">
-                <div className="ac-card">
+                <div
+                  className="ac-card"
+                  title={`Day ${data.yoy.asOfOffset} (${formatMdDate(addDaysIso(campaignStart, data.yoy.asOfOffset))}) vs the same day of ${data.yoy.priorCampaign} (${formatMdDate(addDaysIso(data.yoy.priorStart, data.yoy.asOfOffset))}).`}
+                >
                   <span className="ac-card-num">{usd(data.yoy.currentToDate.revenue)}</span>
                   <span className="ac-card-label">This appeal — revenue to date</span>
                   <span className="fa-card-sub">
@@ -272,7 +342,10 @@ export default function FallAppealPage() {
                     <Delta value={data.yoy.revenueDeltaPct} />
                   </span>
                 </div>
-                <div className="ac-card">
+                <div
+                  className="ac-card"
+                  title={`Day ${data.yoy.asOfOffset}: ${num(data.yoy.currentToDate.gifts)} gifts vs ${num(data.yoy.priorToDate.gifts)} on the same day of ${data.yoy.priorCampaign}.`}
+                >
                   <span className="ac-card-num">{num(data.yoy.currentToDate.gifts)}</span>
                   <span className="ac-card-label">This appeal — gifts to date</span>
                   <span className="fa-card-sub">
@@ -280,7 +353,10 @@ export default function FallAppealPage() {
                     <Delta value={data.yoy.giftsDeltaPct} />
                   </span>
                 </div>
-                <div className="ac-card">
+                <div
+                  className="ac-card"
+                  title={`${data.yoy.priorCampaign} full campaign total, not the same-day pace figure.`}
+                >
                   <span className="ac-card-num">{usd(data.yoy.priorFinal.revenue)}</span>
                   <span className="ac-card-label">{data.yoy.priorCampaign} — final</span>
                   <span className="fa-card-sub">{num(data.yoy.priorFinal.gifts)} gifts</span>
@@ -295,10 +371,22 @@ export default function FallAppealPage() {
                     <i className="fa-swatch fa-swatch-prior" /> {data.yoy.priorCampaign} (cumulative)
                   </span>
                   <span>
-                    <i className="fa-swatch fa-swatch-now" /> today (day {data.yoy.asOfOffset})
+                    <i className="fa-swatch fa-swatch-now" /> today (day {data.yoy.asOfOffset}
+                    {campaignStart
+                      ? `, ${formatMdDate(addDaysIso(campaignStart, data.yoy.asOfOffset))}`
+                      : ""}
+                    )
                   </span>
                 </div>
-                <PaceChart points={data.yoy.points} asOfOffset={data.yoy.asOfOffset} />
+                <p className="fa-deferred">Hover the chart to compare any day of the two campaigns.</p>
+                <PaceChart
+                  points={data.yoy.points}
+                  asOfOffset={data.yoy.asOfOffset}
+                  currentName={data.campaign}
+                  priorName={data.yoy.priorCampaign}
+                  currentStart={campaignStart}
+                  priorStart={data.yoy.priorStart}
+                />
               </div>
             </section>
           )}
@@ -477,7 +565,10 @@ function SegmentGroup({ label, rows }: { label: string; rows: SegmentRow[] }) {
         <td colSpan={5}>{label}</td>
       </tr>
       {rows.map((s) => (
-        <tr key={s.key}>
+        <tr
+          key={s.key}
+          title={`${s.label}: ${usd(s.revenue)} from ${num(s.gifts)} gifts and ${num(s.donors)} donors (avg ${usd(s.avgGift)}).`}
+        >
           <td>{s.label}</td>
           <td className="ac-num">{usd(s.revenue)}</td>
           <td className="ac-num">{num(s.gifts)}</td>

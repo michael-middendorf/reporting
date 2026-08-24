@@ -93,6 +93,8 @@ export type FallAppealSnapshot = {
   campaign: string;
   asOf: string;
   appealStart: string | null;
+  campaignStart?: string | null;
+  campaignEnd?: string | null;
   empty: boolean;
   summary: FallAppealSummary;
   yoy: FallAppealYoY | null;
@@ -112,4 +114,23 @@ export function usd(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return "—";
   const sign = n < 0 ? "-" : "";
   return `${sign}$${Math.round(Math.abs(n)).toLocaleString("en-US")}`;
+}
+
+/** ISO date (`YYYY-MM-DD`) → `Aug 16, 2026`. Noon local avoids TZ day-shift. */
+export function formatMdDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+export function addDaysIso(iso: string | null | undefined, days: number): string | null {
+  if (!iso) return null;
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  d.setDate(d.getDate() + days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }

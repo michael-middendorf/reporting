@@ -28,7 +28,24 @@
 
 /* pace line chart */
 .fa-pace-box { position: relative; }
-.fa-pace-svg { width: 100%; height: auto; display: block; }
+.fa-pace-plot { position: relative; }
+.fa-pace-svg { width: 100%; height: auto; display: block; cursor: crosshair; }
+.fa-pace-tip {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  max-width: 320px;
+  background: var(--ac-text);
+  color: #fff;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+  z-index: 4;
+  box-shadow: 0 3px 10px rgba(13, 43, 94, 0.28);
+}
+.fa-pace-tip strong { display: block; margin-bottom: 4px; }
 .fa-legend {
   display: flex;
   gap: 18px;

@@ -253,9 +253,12 @@ export default $config({
         API_KEY: virtuousApiKey.value,
         VIRTUOUS_API_KEY: virtuousApiKey.value,
         FALL_APPEAL_CAMPAIGN: "2026 Fall Appeal",
+        FALL_APPEAL_START: "2026-08-16",
+        FALL_APPEAL_END: "2027-02-28",
         // Prior-year analog for the YoY pace comparison. Change if Advancement
         // names a different comparison set.
         FALL_APPEAL_PRIOR_CAMPAIGN: "2025 End of Calendar Year",
+        FALL_APPEAL_PRIOR_START: "2025-11-01",
         FALL_APPEAL_CACHE_KEY: "fall-appeal/latest.json",
       },
       permissions: reportDataPerms,

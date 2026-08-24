@@ -71,6 +71,9 @@ export async function GET(req: Request) {
       {
         error: e instanceof Error ? e.message : "Fall Appeal data unavailable",
         campaign: "2026 Fall Appeal",
+        campaignStart: "2026-08-16",
+        campaignEnd: "2027-02-28",
+        asOf: new Date().toISOString().slice(0, 10),
         empty: true,
         summary: { totalRevenue: 0, totalGifts: 0, avgGift: 0, medianGift: 0, donors: 0 },
       },
@@ -83,6 +86,9 @@ export async function GET(req: Request) {
       error:
         "Fall Appeal cache not published yet (DATA_BUCKET/fall-appeal/latest.json).",
       campaign: "2026 Fall Appeal",
+      campaignStart: "2026-08-16",
+      campaignEnd: "2027-02-28",
+      asOf: new Date().toISOString().slice(0, 10),
       empty: true,
       summary: { totalRevenue: 0, totalGifts: 0, avgGift: 0, medianGift: 0, donors: 0 },
     },

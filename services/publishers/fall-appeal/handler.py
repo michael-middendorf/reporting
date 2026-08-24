@@ -36,6 +36,9 @@ from typing import Any
 GIFT_QUERY_PATH = "/api/Gift/Query"
 CONTACT_PATH = "/api/Contact"
 RETRYABLE = {429, 500, 502, 503, 504}
+# Virtuous campaign 49 window (used when no gifts have posted yet).
+DEFAULT_CAMPAIGN_START = dt.date(2026, 8, 16)
+DEFAULT_CAMPAIGN_END = dt.date(2027, 2, 28)
 
 # ── segment definitions ──────────────────────────────────────────────────────
 # Constituency segments (non-exclusive; a donor may carry several). "Friends" is
@@ -484,7 +487,12 @@ def build_payload(
 
     overlays = _load_overlays()
     summary = summarize(gifts)
-    appeal_start = _env_start("FALL_APPEAL_START") or (min(g["date"] for g in gifts) if gifts else None)
+    appeal_start = (
+        _env_start("FALL_APPEAL_START")
+        or (min(g["date"] for g in gifts) if gifts else None)
+        or DEFAULT_CAMPAIGN_START
+    )
+    appeal_end = _env_start("FALL_APPEAL_END") or DEFAULT_CAMPAIGN_END
 
     yoy: dict[str, Any] | None = None
     if prior_campaign:
@@ -513,6 +521,8 @@ def build_payload(
         "campaign": campaign,
         "asOf": today.isoformat(),
         "appealStart": appeal_start.isoformat() if appeal_start else None,
+        "campaignStart": appeal_start.isoformat() if appeal_start else None,
+        "campaignEnd": appeal_end.isoformat() if appeal_end else None,
         "empty": not gifts,
         "summary": summary,
         "yoy": yoy,
