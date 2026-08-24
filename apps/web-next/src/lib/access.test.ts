@@ -56,6 +56,21 @@ describe("institute-only grant", () => {
   });
 });
 
+describe("Fall Appeal viewers", () => {
+  const people = [
+    "cassandra.l.bournos@avemaria.edu",
+    "zena.weist@avemaria.edu",
+    "sarah.chichester@avemaria.edu",
+  ];
+
+  it("lets Cassandra, Zena, and Sarah open Advancement reports including Fall Appeal", () => {
+    for (const email of people) {
+      assert.equal(canLogin(email), true, email);
+      assert.equal(canAccessReport(email, "advancement"), true, email);
+    }
+  });
+});
+
 describe("full Advancement grants", () => {
   const people = [
     "Leslie.Sonnen@avemaria.edu",

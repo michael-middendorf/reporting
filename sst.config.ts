@@ -329,7 +329,7 @@ export default $config({
         ALUMNI_ALLOWED_EMAILS:
           "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
         ADVANCEMENT_ALLOWED_EMAILS:
-          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu,regina.m.pirolli+test@avemaria.edu",
+          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu,sarah.chichester@avemaria.edu,regina.m.pirolli+test@avemaria.edu",
         // Annunciation-only viewers get app access + see ONLY the Advancement
         // folder (they are not admins and are on no other report's allowlist).
         ANNUNCIATION_ALLOWED_EMAILS:
