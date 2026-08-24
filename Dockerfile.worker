@@ -4,7 +4,6 @@ ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 RUN apk add --no-cache su-exec
 RUN pip install --no-cache-dir 'boto3>=1.34.0' 'websockets>=12.0'
 COPY services/publishers ./services/publishers
-COPY functions ./functions
 COPY docker/worker-entrypoint.py ./worker-entrypoint.py
 COPY docker/worker-docker-entrypoint.sh /docker-entrypoint.sh
 RUN adduser -D -u 10001 reporting && chown -R reporting:reporting /app && chmod +x /docker-entrypoint.sh
