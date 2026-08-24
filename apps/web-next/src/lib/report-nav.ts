@@ -32,6 +32,14 @@ export const POINTS_NAV: ReportNavItem[] = [
   { href: "/advancement/points/methodology", label: "Methodology" },
 ];
 
+export const ATHLETICS_NAV: ReportNavItem[] = [
+  { href: "/athletics", label: "Overview", exact: true, report: "athletics" },
+  { href: "/athletics/sectors", label: "Sectors", report: "athletics" },
+  { href: "/athletics/applications", label: "Applications", report: "athletics" },
+  { href: "/athletics/prospects", label: "Prospects", report: "athletics" },
+  { href: "/athletics/rosters", label: "Rosters", report: "athletics" },
+];
+
 export const ASPIREDU_NAV: ReportNavItem[] = [
   { href: "/aspiredu", label: "Overview", exact: true },
   { href: "/aspiredu/provisional/summer-1", label: "Summer 1 Athletic Provisional" },
@@ -42,6 +50,93 @@ export const ASPIREDU_NAV: ReportNavItem[] = [
 
 export function navForReports(nav: ReportNavItem[], reports: ReportId[]): ReportNavItem[] {
   return nav.filter((item) => !item.report || reports.includes(item.report));
+}
+
+export type Crumb = { href: string; label: string };
+
+export type ReportFolder = {
+  href: string;
+  label: string;
+  /** Path prefixes that belong to this folder (including aliases). */
+  match: string[];
+  nav?: ReportNavItem[];
+};
+
+/** Departments / hubs. Nested dashboards resolve a leaf label from `nav`. */
+export const REPORT_FOLDERS: ReportFolder[] = [
+  {
+    href: "/advancement",
+    label: "Advancement",
+    match: ["/advancement", "/annunciation"],
+    nav: ADVANCEMENT_NAV,
+  },
+  {
+    href: "/enrollment",
+    label: "Enrollment",
+    match: ["/enrollment"],
+    nav: ENROLLMENT_NAV,
+  },
+  {
+    href: "/aspiredu",
+    label: "Academic Affairs",
+    match: ["/aspiredu"],
+    nav: ASPIREDU_NAV,
+  },
+  { href: "/institute", label: "The Institute", match: ["/institute"] },
+  { href: "/housing", label: "Housing", match: ["/housing"] },
+  { href: "/census", label: "Census", match: ["/census"] },
+];
+
+const EXTRA_LEAVES: Crumb[] = [
+  { href: "/aspiredu/mfa", label: "Authenticator" },
+  { href: "/enrollment/activity", label: "Activity" },
+];
+
+function folderForPath(pathname: string): ReportFolder | undefined {
+  return REPORT_FOLDERS.find((folder) =>
+    folder.match.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)),
+  );
+}
+
+function titleCaseSegment(seg: string): string {
+  return seg
+    .split("-")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+/** Clickable trail: Reports / Advancement / MA Points */
+export function reportCrumbs(pathname: string): Crumb[] {
+  const crumbs: Crumb[] = [{ href: "/", label: "Reports" }];
+  if (!pathname || pathname === "/") return crumbs;
+
+  const folder = folderForPath(pathname);
+  if (!folder) {
+    const leaf = pathname.split("/").filter(Boolean).pop() || "Page";
+    crumbs.push({ href: pathname, label: titleCaseSegment(leaf) });
+    return crumbs;
+  }
+
+  crumbs.push({ href: folder.href, label: folder.label });
+  if (pathname === folder.href) return crumbs;
+
+  const chain = (folder.nav ?? [])
+    .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    .sort((a, b) => a.href.length - b.href.length);
+
+  for (const item of chain) {
+    if (item.href === folder.href) continue;
+    if (crumbs.some((crumb) => crumb.href === item.href)) continue;
+    crumbs.push({ href: item.href, label: item.label });
+  }
+
+  if (crumbs[crumbs.length - 1]?.href !== pathname) {
+    const extra = EXTRA_LEAVES.find((leaf) => leaf.href === pathname);
+    const leaf = pathname.split("/").filter(Boolean).pop() || "Page";
+    crumbs.push(extra ?? { href: pathname, label: titleCaseSegment(leaf) });
+  }
+  return crumbs;
 }
 
 export function reportNavActive(

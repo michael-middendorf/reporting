@@ -90,6 +90,49 @@ body {
   text-overflow: ellipsis;
 }
 
+.rc-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.rc-crumb-item {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.rc-crumb-sep {
+  margin: 0 8px;
+  color: var(--t3);
+  font-weight: 400;
+}
+
+.rc a.rc-crumb {
+  color: var(--blue);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.rc a.rc-crumb:hover {
+  color: var(--gold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.rc-crumb.is-current {
+  color: var(--t2);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: min(48vw, 28rem);
+}
+
 .rc-actions {
   display: flex;
   align-items: center;
@@ -169,6 +212,7 @@ body {
 }
 
 .rc a.rc-wordmark:focus-visible,
+.rc a.rc-crumb:focus-visible,
 .rc a.rc-tab:focus-visible,
 .rc-btn:focus-visible {
   outline: 2px solid var(--gold);

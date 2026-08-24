@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import type { ReportId } from "@/lib/access";
 import { apiFetch, fetchMe, setBearer } from "@/lib/api";
-import { reportNavActive, type ReportNavItem } from "@/lib/report-nav";
+import { reportCrumbs, reportNavActive, type ReportNavItem } from "@/lib/report-nav";
 
 export function AccessGate({
   report,
@@ -32,7 +32,7 @@ export function AccessGate({
     return (
       <div className="rc-denied">
         <p>You do not have access to this report.</p>
-        <Link href="/">Back to Hub</Link>
+        <Link href="/">Back to Reports</Link>
       </div>
     );
   return <>{children}</>;
@@ -50,6 +50,7 @@ export function ReportTopBar({
   navExtra?: ReactNode;
 }) {
   const pathname = usePathname() || "";
+  const crumbs = reportCrumbs(pathname);
   async function logout() {
     await apiFetch("/api/auth/logout", { method: "POST" });
     setBearer(null);
@@ -60,13 +61,35 @@ export function ReportTopBar({
     <div className="rc">
       <header className="rc-header">
         <div className="rc-brand">
-          <Link href="/" className="rc-wordmark" title="Reporting hub">
+          <Link href="/" className="rc-wordmark" title="All reports">
             AMU
           </Link>
           <span className="rc-sep" aria-hidden="true">
             |
           </span>
-          <span className="rc-name">{title}</span>
+          <nav className="rc-crumbs" aria-label="Breadcrumb">
+            {crumbs.map((crumb, i) => {
+              const last = i === crumbs.length - 1;
+              return (
+                <span key={crumb.href} className="rc-crumb-item">
+                  {i > 0 && (
+                    <span className="rc-crumb-sep" aria-hidden="true">
+                      /
+                    </span>
+                  )}
+                  {last ? (
+                    <span className="rc-crumb is-current" aria-current="page">
+                      {crumb.label}
+                    </span>
+                  ) : (
+                    <Link href={crumb.href} className="rc-crumb">
+                      {crumb.label}
+                    </Link>
+                  )}
+                </span>
+              );
+            })}
+          </nav>
         </div>
         <div className="rc-actions">
           {actions}

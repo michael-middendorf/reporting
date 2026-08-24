@@ -6,6 +6,7 @@ import {
   ENROLLMENT_NAV,
   POINTS_NAV,
   navForReports,
+  reportCrumbs,
   reportNavActive,
   type ReportNavItem,
 } from "./report-nav";
@@ -82,5 +83,57 @@ describe("reportNavActive", () => {
     assert.equal(reportNavActive(springEot, ASPIREDU_NAV, "/aspiredu/eot/spring"), true);
     assert.equal(reportNavActive(summary, ASPIREDU_NAV, "/aspiredu/eot/spring"), false);
     assert.equal(springEot.label, "Spring EOT Grade Report");
+  });
+});
+
+describe("reportCrumbs", () => {
+  it("builds Reports / folder / dashboard trails", () => {
+    assert.deepEqual(reportCrumbs("/"), [{ href: "/", label: "Reports" }]);
+    assert.deepEqual(reportCrumbs("/advancement"), [
+      { href: "/", label: "Reports" },
+      { href: "/advancement", label: "Advancement" },
+    ]);
+    assert.deepEqual(reportCrumbs("/advancement/points"), [
+      { href: "/", label: "Reports" },
+      { href: "/advancement", label: "Advancement" },
+      { href: "/advancement/points", label: "MA Points" },
+    ]);
+    assert.deepEqual(reportCrumbs("/advancement/points/methodology"), [
+      { href: "/", label: "Reports" },
+      { href: "/advancement", label: "Advancement" },
+      { href: "/advancement/points", label: "MA Points" },
+      { href: "/advancement/points/methodology", label: "Points Methodology" },
+    ]);
+    assert.deepEqual(reportCrumbs("/annunciation"), [
+      { href: "/", label: "Reports" },
+      { href: "/advancement", label: "Advancement" },
+      { href: "/annunciation", label: "Annunciation Circle" },
+    ]);
+  });
+
+  it("covers Enrollment, Academic Affairs, and single-report folders", () => {
+    assert.deepEqual(reportCrumbs("/enrollment"), [
+      { href: "/", label: "Reports" },
+      { href: "/enrollment", label: "Enrollment" },
+    ]);
+    assert.deepEqual(reportCrumbs("/enrollment/admissions"), [
+      { href: "/", label: "Reports" },
+      { href: "/enrollment", label: "Enrollment" },
+      { href: "/enrollment/admissions", label: "Admissions" },
+    ]);
+    assert.deepEqual(reportCrumbs("/aspiredu/students"), [
+      { href: "/", label: "Reports" },
+      { href: "/aspiredu", label: "Academic Affairs" },
+      { href: "/aspiredu/students", label: "Student follow-up" },
+    ]);
+    assert.deepEqual(reportCrumbs("/aspiredu/mfa"), [
+      { href: "/", label: "Reports" },
+      { href: "/aspiredu", label: "Academic Affairs" },
+      { href: "/aspiredu/mfa", label: "Authenticator" },
+    ]);
+    assert.deepEqual(reportCrumbs("/housing"), [
+      { href: "/", label: "Reports" },
+      { href: "/housing", label: "Housing" },
+    ]);
   });
 });
