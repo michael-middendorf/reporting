@@ -730,6 +730,39 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+.institute-root .thead-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.institute-root .btn {
+  font: inherit;
+  font-weight: 600;
+  font-size: 12.5px;
+  padding: 8px 14px;
+  border-radius: 9px;
+  border: 1px solid var(--teal);
+  background: var(--teal);
+  color: #fff;
+  cursor: pointer;
+}
+.institute-root .btn:hover {
+  background: var(--teal2);
+  border-color: var(--teal2);
+}
+.institute-root .btn.ghost {
+  background: #fff;
+  color: var(--teal);
+}
+.institute-root .btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.institute-root .filters.nested {
+  margin: 0 0 12px;
+  box-shadow: none;
+}
 .institute-root .tbl-scroll {
   overflow: auto;
   max-height: 640px;

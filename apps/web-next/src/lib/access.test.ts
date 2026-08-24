@@ -36,6 +36,24 @@ describe("chapel-only grant", () => {
   });
 });
 
+describe("institute-only grant", () => {
+  const GABRIEL = "Gabriel.F.Mellino@avemaria.edu";
+
+  it("lets Gabriel sign in and open only The Institute", () => {
+    assert.equal(canLogin(GABRIEL), true);
+    assert.equal(canAccessReport(GABRIEL, "institute"), true);
+    assert.equal(canAccessReport(GABRIEL, "enrollment"), false);
+    assert.equal(canAccessReport(GABRIEL, "census"), false);
+    assert.equal(canAccessReport(GABRIEL, "housing"), false);
+    assert.equal(canAccessReport(GABRIEL, "advancement"), false);
+    assert.equal(canAccessReport(GABRIEL, "chapel"), false);
+    assert.equal(canAccessReport(GABRIEL, "points"), false);
+    assert.equal(canAccessReport(GABRIEL, "annunciation"), false);
+    assert.equal(canAccessReport(GABRIEL, "aspiredu"), false);
+    assert.deepEqual(reportsForEmail(GABRIEL), ["institute"]);
+  });
+});
+
 describe("full Advancement grants", () => {
   const people = [
     "Leslie.Sonnen@avemaria.edu",

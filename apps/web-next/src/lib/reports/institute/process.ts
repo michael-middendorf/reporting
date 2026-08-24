@@ -54,6 +54,8 @@ export type ProspectSummary = {
   byStatus?: Record<string, number>;
   byBin?: Record<string, number>;
   byColumn?: Record<string, number>;
+  byPurchased?: Record<string, number>;
+  purchased?: number;
   msa?: number;
   gpaAvg?: number | null;
   gpaCount?: number;
@@ -82,6 +84,7 @@ export type InstitutePayload = {
   generated_at?: string;
   source?: string;
   counts?: Record<string, number>;
+  q2?: Record<string, unknown>[];
   q3?: Record<string, unknown>[];
   q4?: Record<string, unknown>[];
   q5?: Record<string, unknown>[];
@@ -236,6 +239,142 @@ export type Applicant = {
   // index signature so filters/date-basis lookups by string key type-check
   [key: string]: string | number | boolean | null;
 };
+
+/** Slate PurchasedList flag (Y/Yes/1/true). Missing/blank is not purchased. */
+export function isPurchased(v: unknown): boolean {
+  const s = clean(v).toLowerCase();
+  return s === "y" || s === "yes" || s === "1" || s === "true";
+}
+
+/* ---------- normalized prospect (q2) ---------- */
+export type Prospect = {
+  first: string;
+  last: string;
+  name: string;
+  status: string;
+  email: string;
+  phone: string;
+  street: string;
+  city: string;
+  state: string;
+  postal: string;
+  country: string;
+  sat: number | null;
+  highschool: string;
+  hsCity: string;
+  hsState: string;
+  msa: boolean;
+  gpa: number | null;
+  guid: string;
+  bin: string;
+  column: string;
+  purchased: boolean;
+  purchasedLabel: string;
+  url: string;
+  [key: string]: string | number | boolean | null;
+};
+
+export function normalizeProspects(q2: Record<string, unknown>[]): Prospect[] {
+  return q2.map((r) => {
+    const guid = clean(r.PersonGUID);
+    const purchased = isPurchased(r.PurchasedList);
+    return {
+      first: clean(r.FirstName),
+      last: clean(r.LastName),
+      name: (clean(r.FirstName) + " " + clean(r.LastName)).trim() || "(no name)",
+      status: clean(r.Status) || BLANK,
+      email: clean(r.Email),
+      phone: clean(r.Phone),
+      street: clean(r.Street1),
+      city: clean(r.City),
+      state: clean(r.Region) || BLANK,
+      postal: clean(r.Postal),
+      country: clean(r.Country),
+      sat: numOr(r.SAT),
+      highschool: clean(r.HighSchool),
+      hsCity: clean(r.HighSchoolCity),
+      hsState: clean(r.HighSchoolState),
+      msa: truthy(r.MSATag),
+      gpa: numOr(r["PersonGPA-Self-Reportedhighschool"]),
+      guid,
+      bin: clean(r.InstituteRecruitingBin) || BLANK,
+      column: clean(r.InstituteRecruitingColumn) || BLANK,
+      purchased,
+      purchasedLabel: purchased ? "Yes" : "No",
+      url: guid ? `https://apply.avemaria.edu/manage/lookup/record?id=${guid}` : "",
+    };
+  });
+}
+
+export type ProspectFilters = {
+  search: string;
+  state: string;
+  purchased: string; // "" | "Y" | "N"
+  status: string;
+  bin: string;
+};
+
+export function emptyProspectFilters(): ProspectFilters {
+  return { search: "", state: "", purchased: "", status: "", bin: "" };
+}
+
+export function passesProspect(d: Prospect, F: ProspectFilters): boolean {
+  if (F.state && d.state !== F.state) return false;
+  if (F.status && d.status !== F.status) return false;
+  if (F.bin && d.bin !== F.bin) return false;
+  if (F.purchased === "Y" && !d.purchased) return false;
+  if (F.purchased === "N" && d.purchased) return false;
+  if (F.search) {
+    const q = F.search.toLowerCase();
+    if (
+      ![d.name, d.city, d.highschool, d.email, d.phone, d.state].join(" ").toLowerCase().includes(q)
+    )
+      return false;
+  }
+  return true;
+}
+
+export const uniqProspectValues = (
+  data: Prospect[],
+  key: keyof Prospect,
+): string[] => {
+  const s = [...new Set(data.map((d) => String(d[key])))].filter((x) => x && x !== BLANK);
+  return s.sort((a, b) => a.localeCompare(b));
+};
+
+const PROSPECT_CSV_COLS: { k: keyof Prospect; t: string }[] = [
+  { k: "last", t: "Last" },
+  { k: "first", t: "First" },
+  { k: "status", t: "Status" },
+  { k: "street", t: "Street" },
+  { k: "city", t: "City" },
+  { k: "state", t: "State" },
+  { k: "postal", t: "Postal" },
+  { k: "highschool", t: "High School" },
+  { k: "hsCity", t: "HS City" },
+  { k: "hsState", t: "HS State" },
+  { k: "phone", t: "Phone" },
+  { k: "email", t: "Email" },
+  { k: "sat", t: "SAT" },
+  { k: "gpa", t: "GPA" },
+  { k: "purchasedLabel", t: "Purchased List" },
+  { k: "bin", t: "Recruiting Bin" },
+  { k: "column", t: "Recruiting Column" },
+  { k: "url", t: "Slate URL" },
+];
+
+function csvCell(v: unknown): string {
+  const s = v == null ? "" : String(v);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+/** CSV of the filtered prospect roster for recruitment trips. */
+export function prospectsToCsv(rows: Prospect[]): string {
+  const header = PROSPECT_CSV_COLS.map((c) => csvCell(c.t)).join(",");
+  const body = rows.map((d) => PROSPECT_CSV_COLS.map((c) => csvCell(d[c.k])).join(","));
+  return [header, ...body].join("\n");
+}
 
 export function normalizeApplicants(q4: Record<string, unknown>[]): Applicant[] {
   return q4.map((r) => {

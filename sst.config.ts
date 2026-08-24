@@ -292,7 +292,7 @@ export default $config({
         HOUSING_ALLOWED_EMAILS:
           "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
         INSTITUTE_ALLOWED_EMAILS:
-          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,liam.j.orourke@avemaria.edu,garrett.j.hallinan@avemaria.edu",
+          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,liam.j.orourke@avemaria.edu,garrett.j.hallinan@avemaria.edu,gabriel.f.mellino@avemaria.edu",
         MAS_ALLOWED_EMAILS:
           "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
         POINTS_ALLOWED_EMAILS:

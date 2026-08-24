@@ -27,19 +27,26 @@ import {
   ctxData,
   defaultTerm,
   emptyFilters,
+  emptyProspectFilters,
   type Applicant,
   type Filters,
   type InstitutePayload,
   type Item,
   type PaceTerm,
+  type Prospect,
+  type ProspectFilters,
   normalizeApplicants,
+  normalizeProspects,
   parseDate,
   passes,
+  passesProspect,
   priorTerm,
+  prospectsToCsv,
   STAGE5,
   STAGE5_COLOR,
   STAGE_LBL,
   termsFrom,
+  uniqProspectValues,
   uniqValues,
 } from "@/lib/reports/institute/process";
 import "@/styles/institute.css";
@@ -73,6 +80,23 @@ const COLS: Col[] = [
   { k: "url", t: "Slate", link: true },
 ];
 
+type PCol = { k: keyof Prospect; t: string; num?: boolean; link?: boolean };
+const PCOLS: PCol[] = [
+  { k: "last", t: "Last" },
+  { k: "first", t: "First" },
+  { k: "status", t: "Status" },
+  { k: "city", t: "City" },
+  { k: "state", t: "St" },
+  { k: "highschool", t: "High School" },
+  { k: "phone", t: "Phone" },
+  { k: "email", t: "Email" },
+  { k: "sat", t: "SAT", num: true },
+  { k: "gpa", t: "GPA", num: true },
+  { k: "purchasedLabel", t: "Purchased" },
+  { k: "bin", t: "Bin" },
+  { k: "url", t: "Slate", link: true },
+];
+
 export default function InstitutePage() {
   return (
     <AccessGate report="institute">
@@ -87,6 +111,9 @@ function InstituteDashboard() {
   const [F, setF] = useState<Filters | null>(null);
   const [sortK, setSortK] = useState<keyof Applicant>("last");
   const [sortDir, setSortDir] = useState(1);
+  const [PF, setPF] = useState<ProspectFilters>(emptyProspectFilters);
+  const [pSortK, setPSortK] = useState<keyof Prospect>("last");
+  const [pSortDir, setPSortDir] = useState(1);
 
   useEffect(() => {
     let alive = true;
@@ -114,6 +141,7 @@ function InstituteDashboard() {
 
   /* ---------- derived data (payload-scoped) ---------- */
   const DATA = useMemo(() => normalizeApplicants(payload?.q4 ?? []), [payload]);
+  const PROSPECTS = useMemo(() => normalizeProspects(payload?.q2 ?? []), [payload]);
   const Q3 = payload?.q3 ?? [];
   const Q5 = payload?.q5 ?? [];
   const Q1S = payload?.q1_summary ?? {};
@@ -167,6 +195,8 @@ function InstituteDashboard() {
   const toggleFilter = (key: keyof Filters, value: string) =>
     setF({ ...F, [key]: F[key] === value ? "" : value });
   const clearFilters = () => setF(emptyFilters(DEFAULT_TERM));
+  const setPFilter = (key: keyof ProspectFilters, value: string) =>
+    setPF({ ...PF, [key]: value });
 
   /* ---------- gauges + conversion funnel ---------- */
   const cur = {
@@ -395,6 +425,42 @@ function InstituteDashboard() {
     .map(([k, v]) => ({ k, v }))
     .sort((a, b) => b.v - a.v)
     .slice(0, 12);
+  const purchasedCount = Q2S.purchased ?? PROSPECTS.filter((d) => d.purchased).length;
+  const purchasedItems: Item[] = [
+    { k: "Purchased list", v: purchasedCount },
+    { k: "Not purchased", v: Math.max((Q2S.total || PROSPECTS.length) - purchasedCount, 0) },
+  ].filter((it) => it.v > 0);
+  const pRows = PROSPECTS.filter((d) => passesProspect(d, PF));
+  const onPSort = (k: keyof Prospect) => {
+    if (pSortK === k) setPSortDir((d) => d * -1);
+    else {
+      setPSortK(k);
+      setPSortDir(1);
+    }
+  };
+  const sortedProspects = [...pRows].sort((a, b) => {
+    const x = a[pSortK];
+    const y = b[pSortK];
+    if (typeof x === "boolean" || typeof y === "boolean")
+      return ((y ? 1 : 0) - (x ? 1 : 0)) * pSortDir;
+    if (x == null && y == null) return 0;
+    if (typeof x === "number" || typeof y === "number") {
+      const xn = typeof x === "number" ? x : -Infinity;
+      const yn = typeof y === "number" ? y : -Infinity;
+      return (xn - yn) * pSortDir;
+    }
+    return String(x).localeCompare(String(y)) * pSortDir;
+  });
+  const downloadProspects = () => {
+    const csv = prospectsToCsv(sortedProspects);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "institute-prospects.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   /* ---------- engagement (q5) ---------- */
   const monthCounts = new Array(12).fill(0);
@@ -820,7 +886,7 @@ function InstituteDashboard() {
         {/* ---------- AMU pipeline & prospects (separate from the calls workflow) ---------- */}
         <div className="section-title">AMU Pipeline &amp; Prospects</div>
         <div className="grid">
-          <div className="card span4">
+          <div className="card span3">
             <h3>
               AMU Undergraduate Pipeline <span className="muted">— {Q3.length}</span>
               <InfoTip
@@ -834,18 +900,44 @@ function InstituteDashboard() {
             </div>
             <Bars items={recItems} colorMap={(k) => binColor(k)} />
           </div>
-          <div className="card span4">
+          <div className="card span3">
             <h3>
               Prospect Pool <span className="muted">— {(Q2S.total || 0).toLocaleString()}</span>
               <InfoTip
                 wide
-                text="Top-of-funnel Institute prospects grouped by home state. These people have not yet entered the Institute applicant workflow."
+                text="Top-of-funnel Institute prospects grouped by home state. Click a state to filter the prospects table below. These people have not yet entered the Institute applicant workflow."
               />
             </h3>
             <div className="chint">Top-of-funnel Institute prospects by home state</div>
-            <Bars items={proItems} />
+            <Bars
+              items={proItems}
+              active={PF.state}
+              onSelect={(k) => setPFilter("state", PF.state === k ? "" : k)}
+            />
           </div>
-          <div className="card span4">
+          <div className="card span3">
+            <h3>
+              Purchased List{" "}
+              <span className="muted">— {purchasedCount.toLocaleString()}</span>
+              <InfoTip
+                wide
+                text="Prospects already flagged PurchasedList=Y in Slate. AMU did not buy a large College Board FA27 list; any smaller purchased lists are already in this prospect pool. Use the table below to filter Yes and export a trip list."
+              />
+            </h3>
+            <div className="chint">
+              Already in the prospect query — no separate College Board dump
+            </div>
+            {purchasedItems.length ? (
+              <Donut
+                items={purchasedItems}
+                center={(Q2S.total || PROSPECTS.length).toLocaleString()}
+                colorMap={(k) => (k === "Purchased list" ? COLORS.gold : COLORS.slate)}
+              />
+            ) : (
+              <div className="empty">No prospect data</div>
+            )}
+          </div>
+          <div className="card span3">
             <h3>
               Institute Applicant Bins
               <InfoTip
@@ -859,6 +951,126 @@ function InstituteDashboard() {
               Denied, …) — not the recruiting-calls workflow.
             </div>
             <Bars items={histItems} colorMap={(k) => binColor(k)} />
+          </div>
+        </div>
+
+        {/* ---------- prospects table (recruitment trips) ---------- */}
+        <div className="card tablecard">
+          <div className="thead-row">
+            <h3 style={{ margin: 0 }}>
+              Prospects <span className="muted">— {pRows.length} shown</span>
+              <InfoTip
+                wide
+                text="Institute prospect roster for recruitment trips. Filter by state or Purchased list, then download CSV. FERPA-protected — authorized staff only."
+              />
+            </h3>
+            <div className="thead-actions">
+              <button type="button" className="btn ghost" onClick={downloadProspects} disabled={!pRows.length}>
+                Download CSV
+              </button>
+              <span className="ferpa">🔒 FERPA — authorized staff only · do not share externally</span>
+            </div>
+          </div>
+          <div className="filters nested">
+            <div className="fld">
+              <label>Search</label>
+              <input
+                type="search"
+                value={PF.search}
+                placeholder="name, city, high school…"
+                onChange={(e) => setPFilter("search", e.target.value)}
+              />
+            </div>
+            <SelectFld
+              label="State"
+              value={PF.state}
+              allLabel="All states"
+              options={uniqProspectValues(PROSPECTS, "state")}
+              onChange={(v) => setPFilter("state", v)}
+            />
+            <SelectFld
+              label="Purchased list"
+              value={PF.purchased}
+              allLabel="All"
+              options={["Y", "N"]}
+              labels={{ Y: "Yes", N: "No" }}
+              onChange={(v) => setPFilter("purchased", v)}
+            />
+            <SelectFld
+              label="Status"
+              value={PF.status}
+              allLabel="All statuses"
+              options={uniqProspectValues(PROSPECTS, "status")}
+              onChange={(v) => setPFilter("status", v)}
+            />
+            <SelectFld
+              label="Recruiting bin"
+              value={PF.bin}
+              allLabel="All bins"
+              options={uniqProspectValues(PROSPECTS, "bin")}
+              onChange={(v) => setPFilter("bin", v)}
+            />
+          </div>
+          <div className="tbl-scroll">
+            <table>
+              <thead>
+                <tr>
+                  {PCOLS.map((c) => (
+                    <th key={c.k} className={c.num ? "num" : ""} onClick={() => onPSort(c.k)}>
+                      {c.t}
+                      {pSortK === c.k ? <span className="arr"> {pSortDir > 0 ? "▲" : "▼"}</span> : null}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sortedProspects.length === 0 ? (
+                  <tr>
+                    <td colSpan={PCOLS.length} className="empty">
+                      {PROSPECTS.length === 0
+                        ? "Prospect roster is empty for this pull."
+                        : "No prospects match your filters."}
+                    </td>
+                  </tr>
+                ) : (
+                  sortedProspects.map((d, i) => (
+                    <tr key={`${d.guid || d.email || d.name}-${i}`}>
+                      <td>{d.last || dash}</td>
+                      <td>{d.first || dash}</td>
+                      <td>{d.status === BLANK ? dash : d.status}</td>
+                      <td>{d.city || dash}</td>
+                      <td>{d.state === BLANK ? dash : d.state}</td>
+                      <td>{d.highschool || dash}</td>
+                      <td>{d.phone || dash}</td>
+                      <td>{d.email || dash}</td>
+                      <td className="num">{num(d.sat)}</td>
+                      <td className="num">{d.gpa != null ? d.gpa.toFixed(2) : dash}</td>
+                      <td>
+                        <span
+                          className="pill"
+                          style={{
+                            background: d.purchased ? `${COLORS.gold}1f` : `${COLORS.slate}1f`,
+                            color: d.purchased ? COLORS.gold : COLORS.slate,
+                          }}
+                        >
+                          {d.purchasedLabel}
+                        </span>
+                      </td>
+                      <td>{d.bin === BLANK ? dash : d.bin}</td>
+                      <td>
+                        {d.url ? (
+                          <a href={d.url} target="_blank" rel="noopener noreferrer">
+                            open ↗
+                          </a>
+                        ) : (
+                          dash
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 

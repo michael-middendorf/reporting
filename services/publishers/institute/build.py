@@ -153,6 +153,37 @@ def nz(v):
     return (v or "").strip()
 
 
+def is_purchased(v):
+    """Slate PurchasedList flag: Y/Yes/1/true count as purchased-list prospects."""
+    return nz(v).lower() in {"y", "yes", "1", "true"}
+
+
+# Trimmed q2 fields for the prospects table (recruitment trips). Full q2 is
+# too wide to inline, but the roster itself is the point of DST-1158.
+Q2_FIELDS = (
+    "FirstName",
+    "LastName",
+    "Status",
+    "Email",
+    "Phone",
+    "Street1",
+    "City",
+    "Region",
+    "Postal",
+    "Country",
+    "SAT",
+    "HighSchool",
+    "HighSchoolCity",
+    "HighSchoolState",
+    "MSATag",
+    "PersonGPA-Self-Reportedhighschool",
+    "PersonGUID",
+    "InstituteRecruitingBin",
+    "InstituteRecruitingColumn",
+    "PurchasedList",
+)
+
+
 def agg_q1(raw):
     """All AMU undergrad applications -> per-term summary for the context donut."""
     if not raw:
@@ -171,18 +202,30 @@ def agg_q1(raw):
 
 
 def agg_q2(raw):
-    """Institute prospect pool -> summary charts (no per-prospect rows inlined)."""
+    """Institute prospect pool -> summary charts plus purchased-list counts.
+
+    Per-prospect rows are passed separately (see prospect_rows) so recruiters
+    can filter/export the list. PurchasedList=Y people are already in this
+    pool - there is no separate College Board dump to merge.
+    """
     if not raw:
         return {}
     rows = rows_of(raw)
-    byState, byStatus, byBin, byColumn = Counter(), Counter(), Counter(), Counter()
+    byState, byStatus, byBin, byColumn, byPurchased = (
+        Counter(), Counter(), Counter(), Counter(), Counter(),
+    )
     gpas = []
     msa = 0
+    purchased = 0
     for r in rows:
         byState[nz(r.get("Region")) or "(blank)"] += 1
         byStatus[nz(r.get("Status")) or "(blank)"] += 1
         byBin[nz(r.get("InstituteRecruitingBin")) or "(none)"] += 1
         byColumn[nz(r.get("InstituteRecruitingColumn")) or "(none)"] += 1
+        flag = "Y" if is_purchased(r.get("PurchasedList")) else "N"
+        byPurchased[flag] += 1
+        if flag == "Y":
+            purchased += 1
         if nz(r.get("MSATag")):
             msa += 1
         g = nz(r.get("PersonGPA-Self-Reportedhighschool"))
@@ -195,10 +238,22 @@ def agg_q2(raw):
         "total": len(rows),
         "byState": dict(byState), "byStatus": dict(byStatus),
         "byBin": dict(byBin), "byColumn": dict(byColumn),
+        "byPurchased": dict(byPurchased),
+        "purchased": purchased,
         "msa": msa,
         "gpaAvg": round(sum(gpas) / len(gpas), 2) if gpas else None,
         "gpaCount": len(gpas),
     }
+
+
+def prospect_rows(raw):
+    """Trimmed Institute prospect roster for the dashboard table / CSV export."""
+    if not raw:
+        return []
+    out = []
+    for r in rows_of(raw):
+        out.append({k: r.get(k, "") for k in Q2_FIELDS})
+    return out
 
 
 def _pdate(s):
@@ -406,8 +461,9 @@ def enrich_scores(q4_rows, q1_raw):
 def payload(raw, ts=None):
     """Build the JSON data payload the frontend consumes.
 
-    `raw` maps each query key ("q1".."q6") to its raw JSON text (or None). The
-    big queries (q1/q2/q6) are pre-aggregated; q3/q4/q5 pass through as rows.
+    `raw` maps each query key ("q1".."q7") to its raw JSON text (or None). The
+    big queries (q1/q6) are pre-aggregated; q2 is summarized *and* inlined as a
+    trimmed roster (recruitment-trip list); q3/q4/q5 pass through as rows.
     Shared by the offline builder, the data producer, and the dashboard API.
     """
     ts = ts or datetime.datetime.now().strftime("%b %d, %Y at %-I:%M %p")
@@ -419,6 +475,7 @@ def payload(raw, ts=None):
         "q4": q4_rows,
         "q3": rows_of(raw["q3"]) if raw.get("q3") else [],
         "q5": rows_of(raw["q5"]) if raw.get("q5") else [],
+        "q2": prospect_rows(raw.get("q2")),
         "q1_summary": agg_q1(raw.get("q1")),
         "q2_summary": agg_q2(raw.get("q2")),
         "q6_summary": agg_q6(raw.get("q6")),
