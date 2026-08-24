@@ -98,6 +98,13 @@ function folderForPath(pathname: string): ReportFolder | undefined {
   );
 }
 
+/** True on a department card hub (e.g. /advancement), not on a report inside it. */
+export function isDepartmentHub(pathname: string): boolean {
+  const folder = folderForPath(pathname);
+  if (!folder || pathname !== folder.href) return false;
+  return !(folder.nav ?? []).some((item) => item.href === folder.href);
+}
+
 function titleCaseSegment(seg: string): string {
   return seg
     .split("-")

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import type { ReportId } from "@/lib/access";
 import { apiFetch, fetchMe, setBearer } from "@/lib/api";
-import { reportCrumbs, reportNavActive, type ReportNavItem } from "@/lib/report-nav";
+import { isDepartmentHub, reportCrumbs, reportNavActive, type ReportNavItem } from "@/lib/report-nav";
 
 export function AccessGate({
   report,
@@ -56,7 +56,7 @@ export function ReportTopBar({
     setBearer(null);
     window.location.href = "/";
   }
-  const showTabs = nav.length > 0 || navExtra != null;
+  const showTabs = !isDepartmentHub(pathname) && (nav.length > 0 || navExtra != null);
   return (
     <div className="rc">
       <header className="rc-header">

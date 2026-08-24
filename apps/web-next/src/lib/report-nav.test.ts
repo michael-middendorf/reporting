@@ -5,6 +5,7 @@ import {
   ASPIREDU_NAV,
   ENROLLMENT_NAV,
   POINTS_NAV,
+  isDepartmentHub,
   navForReports,
   reportCrumbs,
   reportNavActive,
@@ -135,5 +136,20 @@ describe("reportCrumbs", () => {
       { href: "/", label: "Reports" },
       { href: "/housing", label: "Housing" },
     ]);
+  });
+});
+
+describe("isDepartmentHub", () => {
+  it("hides tabs on Advancement hub but not on a report inside it", () => {
+    assert.equal(isDepartmentHub("/advancement"), true);
+    assert.equal(isDepartmentHub("/advancement/fall-appeal"), false);
+    assert.equal(isDepartmentHub("/annunciation"), false);
+  });
+
+  it("keeps tabs when the folder URL is itself a report (Enrollment, Athletics)", () => {
+    assert.equal(isDepartmentHub("/enrollment"), false);
+    assert.equal(isDepartmentHub("/enrollment/admissions"), false);
+    assert.equal(isDepartmentHub("/athletics"), false);
+    assert.equal(isDepartmentHub("/aspiredu"), false);
   });
 });
