@@ -13,13 +13,14 @@ Remote: https://github.com/colecantu904/reporting
 | `/census` | Fall census (headcount, FTE, UG profile, retention) |
 | `/housing` | Housing occupancy, floor maps, move-ins, verification |
 | `/institute` | The Institute admissions pipeline |
-| `/advancement` | Advancement folder (Overview, MGO Top Prospects, Annunciation Circle, Chapel Naming, Stained Glass) |
+| `/advancement` | Advancement folder (Overview, MGO Top Prospects, Annunciation Circle, Fall Appeal, MA Points, Chapel Naming, Stained Glass) |
 | `/advancement/overview` | Advancement Overview (fundraising, MGO goals, pipeline; this FY and last FY) |
 | `/advancement/mgo-top-prospects` | FY MGO top prospects: open gift asks by portfolio, with named donors |
+| `/advancement/fall-appeal` | Fall 2026 Appeal revenue, segmentation, and year-over-year pace |
+| `/advancement/points` | MA points, tiers, and leaderboard |
 | `/advancement/chapel-naming` | Chapel naming opportunities (Virtuous gifts + naming catalog) |
 | `/advancement/stained-glass-windows` | Named chapel stained-glass windows (rose, sanctuary, nave) with donors |
 | `/mas` | MA follow-on giving |
-| `/points` | MA points / productivity |
 | `/alumni` | Alumni coverage & opportunity |
 
 Auth is a shared magic-link gate (Resend + email allowlist). People sign in at https://reporting.avemaria.edu; there is no daily sign-in email.

@@ -1,0 +1,44 @@
+/* Fall Appeal — extends the shared report design tokens in annunciation.css. */
+
+.fa-delta-pos { color: #1E7B4B; font-weight: 600; }
+.fa-delta-neg { color: #B23A2E; font-weight: 600; }
+.fa-delta-flat { color: var(--ac-dim); font-weight: 600; }
+
+.fa-card-sub {
+  font-size: 12px;
+  color: var(--ac-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* group heading rows inside the segmentation table */
+.fa-group-row td {
+  background: var(--ac-raised);
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ac-dim);
+  font-weight: 700;
+}
+
+.fa-deferred {
+  font-size: 12px;
+  color: var(--ac-dim);
+  margin-top: 8px;
+}
+
+/* pace line chart */
+.fa-pace-box { position: relative; }
+.fa-pace-svg { width: 100%; height: auto; display: block; }
+.fa-legend {
+  display: flex;
+  gap: 18px;
+  font-size: 12px;
+  color: var(--ac-dim);
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.fa-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.fa-swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.fa-swatch-cur { background: var(--ac-gold); }
+.fa-swatch-prior { background: var(--ac-dim); }
+.fa-swatch-now { background: #B23A2E; }

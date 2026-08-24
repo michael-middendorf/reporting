@@ -5,6 +5,7 @@ import {
   ASPIREDU_NAV,
   ENROLLMENT_NAV,
   POINTS_NAV,
+  navForReports,
   reportNavActive,
   type ReportNavItem,
 } from "./report-nav";
@@ -20,15 +21,34 @@ describe("reportNavActive", () => {
     const overview = item(ADVANCEMENT_NAV, "/advancement/overview");
     const mgo = item(ADVANCEMENT_NAV, "/advancement/mgo-top-prospects");
     const ac = item(ADVANCEMENT_NAV, "/annunciation");
+    const fall = item(ADVANCEMENT_NAV, "/advancement/fall-appeal");
+    const points = item(ADVANCEMENT_NAV, "/advancement/points");
+    const method = item(ADVANCEMENT_NAV, "/advancement/points/methodology");
     const glass = item(ADVANCEMENT_NAV, "/advancement/stained-glass-windows");
     assert.equal(reportNavActive(overview, ADVANCEMENT_NAV, "/advancement/overview"), true);
     assert.equal(reportNavActive(mgo, ADVANCEMENT_NAV, "/advancement/mgo-top-prospects"), true);
     assert.equal(reportNavActive(ac, ADVANCEMENT_NAV, "/annunciation"), true);
+    assert.equal(reportNavActive(fall, ADVANCEMENT_NAV, "/advancement/fall-appeal"), true);
+    assert.equal(reportNavActive(points, ADVANCEMENT_NAV, "/advancement/points"), true);
+    assert.equal(reportNavActive(points, ADVANCEMENT_NAV, "/advancement/points/methodology"), false);
+    assert.equal(reportNavActive(method, ADVANCEMENT_NAV, "/advancement/points/methodology"), true);
     assert.equal(reportNavActive(glass, ADVANCEMENT_NAV, "/advancement/stained-glass-windows"), true);
     assert.equal(overview.report, "advancement");
+    assert.equal(fall.report, "advancement");
+    assert.equal(points.report, "points");
     assert.equal(glass.report, "chapel");
     assert.equal(reportNavActive(overview, ADVANCEMENT_NAV, "/advancement"), false);
     assert.equal(reportNavActive(overview, ADVANCEMENT_NAV, "/annunciation"), false);
+  });
+
+  it("hides MA Points tabs unless the user has the points report", () => {
+    const advancementOnly = navForReports(ADVANCEMENT_NAV, ["advancement", "chapel", "annunciation"]);
+    assert.equal(advancementOnly.some((n) => n.href === "/advancement/points"), false);
+    const pointsOnly = navForReports(ADVANCEMENT_NAV, ["points"]);
+    assert.deepEqual(
+      pointsOnly.map((n) => n.href),
+      ["/advancement/points", "/advancement/points/methodology"],
+    );
   });
 
   it("keeps Enrollment Overview exact so nested pages stay distinct", () => {
@@ -41,16 +61,16 @@ describe("reportNavActive", () => {
   });
 
   it("does not let parent Points/AspireDU tabs steal child routes", () => {
-    const dash = item(POINTS_NAV, "/points");
-    const method = item(POINTS_NAV, "/points/methodology");
+    const dash = item(POINTS_NAV, "/advancement/points");
+    const method = item(POINTS_NAV, "/advancement/points/methodology");
     const summary = item(ASPIREDU_NAV, "/aspiredu");
     const students = item(ASPIREDU_NAV, "/aspiredu/students");
     const summer = item(ASPIREDU_NAV, "/aspiredu/provisional/summer-1");
     const athletics = item(ASPIREDU_NAV, "/aspiredu/provisional/athletics");
     const springEot = item(ASPIREDU_NAV, "/aspiredu/eot/spring");
-    assert.equal(reportNavActive(dash, POINTS_NAV, "/points"), true);
-    assert.equal(reportNavActive(dash, POINTS_NAV, "/points/methodology"), false);
-    assert.equal(reportNavActive(method, POINTS_NAV, "/points/methodology"), true);
+    assert.equal(reportNavActive(dash, POINTS_NAV, "/advancement/points"), true);
+    assert.equal(reportNavActive(dash, POINTS_NAV, "/advancement/points/methodology"), false);
+    assert.equal(reportNavActive(method, POINTS_NAV, "/advancement/points/methodology"), true);
     assert.equal(reportNavActive(summary, ASPIREDU_NAV, "/aspiredu"), true);
     assert.equal(reportNavActive(summary, ASPIREDU_NAV, "/aspiredu/students"), false);
     assert.equal(reportNavActive(summary, ASPIREDU_NAV, "/aspiredu/provisional/athletics"), false);

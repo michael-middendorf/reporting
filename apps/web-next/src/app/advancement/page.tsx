@@ -31,6 +31,18 @@ const REPORTS: {
     report: "advancement",
   },
   {
+    href: "/advancement/fall-appeal",
+    title: "Fall Appeal",
+    desc: "Fall 2026 Appeal revenue, segmentation, and year-over-year pace from Virtuous.",
+    report: "advancement",
+  },
+  {
+    href: "/advancement/points",
+    title: "MA Points",
+    desc: "Activity points, tiers, and leaderboard for scoped MAs.",
+    report: "points",
+  },
+  {
     href: "/advancement/chapel-naming",
     title: "Chapel Naming Opportunities",
     desc: "Student chapel naming catalog and gifts received, from Virtuous.",

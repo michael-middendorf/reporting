@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AccessGate, ReportTopBar } from "@/components/AccessGate";
-import { POINTS_NAV } from "@/lib/report-nav";
 import { apiFetch } from "@/lib/api";
 import {
   aggregate,
@@ -285,9 +283,7 @@ export default function PointsPage() {
   }
 
   return (
-    <AccessGate report="points">
-      <div className="points-root">
-        <ReportTopBar title="MA Points" nav={POINTS_NAV} />
+    <div className="points-root">
         <main className="wrap dash">
           <header className="page-head">
             <h1>Points Dashboard</h1>
@@ -785,7 +781,6 @@ export default function PointsPage() {
             <p style={{ opacity: 0.6, marginTop: 16 }}>Refreshed {String(meta.generated_at)}</p>
           )}
         </main>
-      </div>
-    </AccessGate>
+    </div>
   );
 }

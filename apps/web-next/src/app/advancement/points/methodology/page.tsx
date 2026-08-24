@@ -1,7 +1,5 @@
 "use client";
 
-import { AccessGate, ReportTopBar } from "@/components/AccessGate";
-import { POINTS_NAV } from "@/lib/report-nav";
 import { CONFLICTS, DAY_TARGETS, DEFINITIONS, POINTS_MAP, TIERS } from "@/lib/reports/points/scoring";
 import "@/styles/points.css";
 
@@ -9,9 +7,7 @@ export default function PointsMethodologyPage() {
   const rules = Object.entries(POINTS_MAP as Record<string, { points: number; label: string; source?: string; bucket?: string }>);
 
   return (
-    <AccessGate report="points">
-      <div className="points-root">
-        <ReportTopBar title="MA Points" nav={POINTS_NAV} />
+    <div className="points-root">
         <main style={{ padding: "24px 20px 48px", maxWidth: 900, margin: "0 auto" }}>
           <h1>Methodology &amp; Scoring</h1>
           <p style={{ maxWidth: "70ch" }}>
@@ -87,7 +83,6 @@ export default function PointsMethodologyPage() {
             ))}
           </section>
         </main>
-      </div>
-    </AccessGate>
+    </div>
   );
 }

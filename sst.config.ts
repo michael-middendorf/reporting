@@ -240,6 +240,27 @@ export default $config({
       permissions: reportDataPerms,
     });
 
+    const fallAppeal = new sst.aws.Function("FallAppealData", {
+      handler: "services/publishers/fall-appeal/handler.handler",
+      runtime: "python3.12",
+      timeout: "15 minutes",
+      memory: "1024 MB",
+      link: [data],
+      python: { uv: true },
+      copyFiles: commonFiles,
+      environment: {
+        DATA_BUCKET: data.name,
+        API_KEY: virtuousApiKey.value,
+        VIRTUOUS_API_KEY: virtuousApiKey.value,
+        FALL_APPEAL_CAMPAIGN: "2026 Fall Appeal",
+        // Prior-year analog for the YoY pace comparison. Change if Advancement
+        // names a different comparison set.
+        FALL_APPEAL_PRIOR_CAMPAIGN: "2025 End of Calendar Year",
+        FALL_APPEAL_CACHE_KEY: "fall-appeal/latest.json",
+      },
+      permissions: reportDataPerms,
+    });
+
     const stainedGlassWindows = new sst.aws.Function("StainedGlassWindowsData", {
       handler: "services/publishers/stained-glass-windows/handler.handler",
       runtime: "python3.12",
@@ -448,6 +469,14 @@ export default $config({
       function: stainedGlassWindows,
     });
 
+    // Hourly is enough: appeal figures do not need 15-minute freshness, and
+    // geography does a bounded per-donor fetch. Do not `link` FallAppealData
+    // onto Web (SST Web env is at the 4KB Lambda limit).
+    new sst.aws.Cron("FallAppealRefresh", {
+      schedule: "rate(1 hour)",
+      function: fallAppeal,
+    });
+
     return {
       url: site.url,
       dataBucket: data.name,
@@ -459,6 +488,7 @@ export default $config({
       advancementOverview: advancementOverview.name,
       mgoTopProspects: mgoTopProspects.name,
       stainedGlassWindows: stainedGlassWindows.name,
+      fallAppeal: fallAppeal.name,
     };
   },
 });

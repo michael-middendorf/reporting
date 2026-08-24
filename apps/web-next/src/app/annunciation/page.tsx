@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AccessGate, ReportTopBar } from "@/components/AccessGate";
-import { ADVANCEMENT_NAV } from "@/lib/report-nav";
-import { apiFetch } from "@/lib/api";
+import { ADVANCEMENT_NAV, navForReports } from "@/lib/report-nav";
+import type { ReportId } from "@/lib/access";
+import { apiFetch, fetchMe } from "@/lib/api";
 import {
   formatRecurring,
   memberSince,
@@ -453,10 +454,19 @@ function AnnunciationInner() {
   );
 }
 
+function AdvancementBar() {
+  const [reports, setReports] = useState<ReportId[] | null>(null);
+  useEffect(() => {
+    fetchMe().then((me) => setReports(me.reports || []));
+  }, []);
+  const nav = reports ? navForReports(ADVANCEMENT_NAV, reports) : [];
+  return <ReportTopBar title="Advancement" nav={nav} />;
+}
+
 export default function AnnunciationPage() {
   return (
     <AccessGate report="annunciation">
-      <ReportTopBar title="Advancement" nav={ADVANCEMENT_NAV} />
+      <AdvancementBar />
       <AnnunciationInner />
     </AccessGate>
   );

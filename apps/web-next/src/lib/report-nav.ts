@@ -13,6 +13,9 @@ export const ADVANCEMENT_NAV: ReportNavItem[] = [
   { href: "/advancement/overview", label: "Overview", report: "advancement" },
   { href: "/advancement/mgo-top-prospects", label: "MGO Top Prospects", report: "advancement" },
   { href: "/annunciation", label: "Annunciation Circle", report: "annunciation" },
+  { href: "/advancement/fall-appeal", label: "Fall Appeal", report: "advancement" },
+  { href: "/advancement/points", label: "MA Points", report: "points", exact: true },
+  { href: "/advancement/points/methodology", label: "Points Methodology", report: "points" },
   { href: "/advancement/chapel-naming", label: "Chapel Naming", report: "chapel" },
   { href: "/advancement/stained-glass-windows", label: "Stained Glass", report: "chapel" },
 ];
@@ -25,8 +28,8 @@ export const ENROLLMENT_NAV: ReportNavItem[] = [
 ];
 
 export const POINTS_NAV: ReportNavItem[] = [
-  { href: "/points", label: "Dashboard", exact: true },
-  { href: "/points/methodology", label: "Methodology" },
+  { href: "/advancement/points", label: "Dashboard", exact: true },
+  { href: "/advancement/points/methodology", label: "Methodology" },
 ];
 
 export const ASPIREDU_NAV: ReportNavItem[] = [
@@ -36,6 +39,10 @@ export const ASPIREDU_NAV: ReportNavItem[] = [
   { href: "/aspiredu/eot/spring", label: "Spring EOT Grade Report" },
   { href: "/aspiredu/students", label: "Student follow-up" },
 ];
+
+export function navForReports(nav: ReportNavItem[], reports: ReportId[]): ReportNavItem[] {
+  return nav.filter((item) => !item.report || reports.includes(item.report));
+}
 
 export function reportNavActive(
   item: ReportNavItem,

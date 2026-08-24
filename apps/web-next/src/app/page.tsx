@@ -41,13 +41,7 @@ const REPORTS: {
     id: "advancement",
     href: "/advancement",
     title: "Advancement",
-    desc: "Annunciation Circle and other advancement reports.",
-  },
-  {
-    id: "points",
-    href: "/points",
-    title: "MA Points",
-    desc: "Activity points, tiers, and leaderboard for scoped MAs.",
+    desc: "Giving, donor, and MA points reports for University Advancement.",
   },
   {
     id: "aspiredu",
@@ -102,8 +96,11 @@ export default function HomePage() {
 
   const visible = REPORTS.filter((r) => {
     if (allowed.includes(r.id)) return true;
-    // Chapel-only users still land on the Advancement folder (filtered inside).
-    if (r.id === "advancement" && allowed.includes("chapel")) return true;
+    // Chapel-only and Points-only users still land on the Advancement folder
+    // (cards inside are filtered to what they can open).
+    if (r.id === "advancement" && (allowed.includes("chapel") || allowed.includes("points"))) {
+      return true;
+    }
     return false;
   });
 
