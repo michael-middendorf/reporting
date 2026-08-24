@@ -52,8 +52,8 @@ const REPORTS: {
   {
     id: "aspiredu",
     href: "/aspiredu",
-    title: "AspireDU Student Risk",
-    desc: "Daily risk trends and MFA-protected student-level follow-up.",
+    title: "Academic Affairs",
+    desc: "AspireDU course reports for Academic Affairs. Student rows require MFA.",
   },
 ];
 

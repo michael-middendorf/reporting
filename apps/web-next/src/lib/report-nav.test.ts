@@ -45,11 +45,18 @@ describe("reportNavActive", () => {
     const method = item(POINTS_NAV, "/points/methodology");
     const summary = item(ASPIREDU_NAV, "/aspiredu");
     const students = item(ASPIREDU_NAV, "/aspiredu/students");
+    const summer = item(ASPIREDU_NAV, "/aspiredu/provisional/summer-1");
+    const athletics = item(ASPIREDU_NAV, "/aspiredu/provisional/athletics");
     assert.equal(reportNavActive(dash, POINTS_NAV, "/points"), true);
     assert.equal(reportNavActive(dash, POINTS_NAV, "/points/methodology"), false);
     assert.equal(reportNavActive(method, POINTS_NAV, "/points/methodology"), true);
     assert.equal(reportNavActive(summary, ASPIREDU_NAV, "/aspiredu"), true);
     assert.equal(reportNavActive(summary, ASPIREDU_NAV, "/aspiredu/students"), false);
+    assert.equal(reportNavActive(summary, ASPIREDU_NAV, "/aspiredu/provisional/athletics"), false);
     assert.equal(reportNavActive(students, ASPIREDU_NAV, "/aspiredu/students"), true);
+    assert.equal(reportNavActive(summer, ASPIREDU_NAV, "/aspiredu/provisional/summer-1"), true);
+    assert.equal(reportNavActive(athletics, ASPIREDU_NAV, "/aspiredu/provisional/athletics"), true);
+    assert.equal(summer.label, "Summer 1 Athletic Provisional");
+    assert.equal(athletics.label, "Athletics Provisional");
   });
 });

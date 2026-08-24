@@ -73,7 +73,7 @@ export default function AspireduStudentsPage() {
   return (
     <AccessGate report="aspiredu">
       <div className={styles.shell}>
-        <ReportTopBar title="AspireDU Student Risk" nav={ASPIREDU_NAV} />
+        <ReportTopBar title="Academic Affairs" nav={ASPIREDU_NAV} />
         <main className={styles.content}>
           <h1>Student follow-up</h1>
           {mfa === "checking" && <p>Checking MFA session…</p>}
