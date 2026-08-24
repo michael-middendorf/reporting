@@ -73,7 +73,7 @@ export default function AspireduStudentsPage() {
   return (
     <AccessGate report="aspiredu">
       <div className={styles.shell}>
-        <ReportTopBar title="AspireDU Student Risk" nav={ASPIREDU_NAV} />
+        <ReportTopBar title="Academic Affairs" nav={ASPIREDU_NAV} />
         <main className={styles.content}>
           <h1>Student follow-up</h1>
           {mfa === "checking" && <p>Checking MFA session…</p>}
@@ -88,12 +88,7 @@ export default function AspireduStudentsPage() {
             <section className={styles.panel}>
               <div className={styles.toolbar}>
                 <input aria-label="Search student or course" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Student or course" />
-                <select aria-label="Risk band" value={riskBand} onChange={(event) => setRiskBand(event.target.value)}>
-                  <option value="">All risk bands</option>
-                  <option value="High">High</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Low">Low</option>
-                </select>
+                <input aria-label="Overall risk score" value={riskBand} onChange={(event) => setRiskBand(event.target.value)} placeholder="Overall risk (e.g. 4)" />
                 <button className={styles.button} type="button" onClick={() => search()}>Search</button>
                 <button className={`${styles.button} ${styles.secondary}`} type="button" onClick={endMfa}>End MFA session</button>
               </div>

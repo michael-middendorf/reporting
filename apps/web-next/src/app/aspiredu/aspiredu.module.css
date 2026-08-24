@@ -135,3 +135,57 @@
   color: var(--dn);
   font-weight: 700;
 }
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+  margin: 8px 0 24px;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid var(--bdr);
+  border-top: 3px solid var(--blue);
+  border-radius: 8px;
+  padding: 18px;
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.card p {
+  margin: 0;
+  color: var(--t2);
+  font-size: 14px;
+}
+
+.card span {
+  margin-top: auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--blue);
+}
+
+.meta {
+  color: var(--t2);
+  font-size: 13px;
+  margin: 0 0 12px;
+}
+
+@media (max-width: 700px) {
+  .content {
+    padding: 20px 16px 48px;
+  }
+
+  .table {
+    font-size: 12px;
+  }
+}
