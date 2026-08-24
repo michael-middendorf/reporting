@@ -318,8 +318,6 @@ export default $config({
           "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
         CENSUS_ALLOWED_EMAILS:
           "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
-        ATHLETICS_ALLOWED_EMAILS:
-          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
         HOUSING_ALLOWED_EMAILS:
           "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
         INSTITUTE_ALLOWED_EMAILS:
