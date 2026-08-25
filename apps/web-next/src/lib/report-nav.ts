@@ -33,19 +33,23 @@ export const POINTS_NAV: ReportNavItem[] = [
 ];
 
 export const ATHLETICS_RECRUITING_NAV: ReportNavItem[] = [
-  { href: "/athletics", label: "Overview", exact: true, report: "athletics" },
-  { href: "/athletics/sectors", label: "Sector Boards", report: "athletics" },
-  { href: "/athletics/applications", label: "Applications", report: "athletics" },
-  { href: "/athletics/prospects", label: "Prospects / Inquiries", report: "athletics" },
+  { href: "/athletics/master/recruiting", label: "Overview", exact: true, report: "athletics" },
+  { href: "/athletics/master/recruiting/sectors", label: "Sector Boards", report: "athletics" },
+  { href: "/athletics/master/recruiting/applications", label: "Applications", report: "athletics" },
+  { href: "/athletics/master/recruiting/prospects", label: "Prospects / Inquiries", report: "athletics" },
 ];
 
 export const ATHLETICS_CURRENT_NAV: ReportNavItem[] = [
-  { href: "/athletics/rosters", label: "Current Rosters", report: "athletics" },
+  { href: "/athletics/master/rosters", label: "Current Rosters", report: "athletics" },
 ];
 
 export const ATHLETICS_NAV: ReportNavItem[] = [
-  ...ATHLETICS_RECRUITING_NAV,
-  ...ATHLETICS_CURRENT_NAV,
+  { href: "/athletics/master", label: "Master", report: "athletics" },
+  { href: "/athletics/master/recruiting", label: "Recruiting", exact: true, report: "athletics" },
+  { href: "/athletics/master/recruiting/sectors", label: "Sector Boards", report: "athletics" },
+  { href: "/athletics/master/recruiting/applications", label: "Applications", report: "athletics" },
+  { href: "/athletics/master/recruiting/prospects", label: "Prospects / Inquiries", report: "athletics" },
+  { href: "/athletics/master/rosters", label: "Current Rosters", report: "athletics" },
 ];
 
 export const ASPIREDU_NAV: ReportNavItem[] = [
@@ -127,33 +131,8 @@ function titleCaseSegment(seg: string): string {
     .join(" ");
 }
 
-function athleticsCrumbs(pathname: string): Crumb[] {
-  const crumbs: Crumb[] = [
-    { href: "/", label: "Reports" },
-    { href: "/athletics", label: "Athletics" },
-    { href: "/athletics", label: "Master" },
-  ];
-  if (pathname === "/athletics/rosters" || pathname.startsWith("/athletics/rosters/")) {
-    crumbs.push({ href: "/athletics/rosters", label: "Current Rosters" });
-    return crumbs;
-  }
-  crumbs.push({ href: "/athletics", label: "Recruiting" });
-  if (pathname === "/athletics") return crumbs;
-  const leaf = ATHLETICS_NAV.find(
-    (item) =>
-      item.href !== "/athletics" &&
-      item.href !== "/athletics/rosters" &&
-      (pathname === item.href || pathname.startsWith(`${item.href}/`)),
-  );
-  if (leaf) crumbs.push({ href: leaf.href, label: leaf.label });
-  return crumbs;
-}
-
 /** Clickable trail: Reports / Advancement / MA Points */
 export function reportCrumbs(pathname: string): Crumb[] {
-  if (pathname === "/athletics" || pathname.startsWith("/athletics/")) {
-    return athleticsCrumbs(pathname);
-  }
   const crumbs: Crumb[] = [{ href: "/", label: "Reports" }];
   if (!pathname || pathname === "/") return crumbs;
 

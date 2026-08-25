@@ -140,35 +140,30 @@ describe("reportCrumbs", () => {
     assert.deepEqual(reportCrumbs("/athletics"), [
       { href: "/", label: "Reports" },
       { href: "/athletics", label: "Athletics" },
-      { href: "/athletics", label: "Master" },
-      { href: "/athletics", label: "Recruiting" },
     ]);
-    assert.deepEqual(reportCrumbs("/athletics/sectors"), [
+    assert.deepEqual(reportCrumbs("/athletics/master"), [
       { href: "/", label: "Reports" },
       { href: "/athletics", label: "Athletics" },
-      { href: "/athletics", label: "Master" },
-      { href: "/athletics", label: "Recruiting" },
-      { href: "/athletics/sectors", label: "Sector Boards" },
+      { href: "/athletics/master", label: "Master" },
     ]);
-    assert.deepEqual(reportCrumbs("/athletics/applications"), [
+    assert.deepEqual(reportCrumbs("/athletics/master/recruiting"), [
       { href: "/", label: "Reports" },
       { href: "/athletics", label: "Athletics" },
-      { href: "/athletics", label: "Master" },
-      { href: "/athletics", label: "Recruiting" },
-      { href: "/athletics/applications", label: "Applications" },
+      { href: "/athletics/master", label: "Master" },
+      { href: "/athletics/master/recruiting", label: "Recruiting" },
     ]);
-    assert.deepEqual(reportCrumbs("/athletics/prospects"), [
+    assert.deepEqual(reportCrumbs("/athletics/master/recruiting/sectors"), [
       { href: "/", label: "Reports" },
       { href: "/athletics", label: "Athletics" },
-      { href: "/athletics", label: "Master" },
-      { href: "/athletics", label: "Recruiting" },
-      { href: "/athletics/prospects", label: "Prospects / Inquiries" },
+      { href: "/athletics/master", label: "Master" },
+      { href: "/athletics/master/recruiting", label: "Recruiting" },
+      { href: "/athletics/master/recruiting/sectors", label: "Sector Boards" },
     ]);
-    assert.deepEqual(reportCrumbs("/athletics/rosters"), [
+    assert.deepEqual(reportCrumbs("/athletics/master/rosters"), [
       { href: "/", label: "Reports" },
       { href: "/athletics", label: "Athletics" },
-      { href: "/athletics", label: "Master" },
-      { href: "/athletics/rosters", label: "Current Rosters" },
+      { href: "/athletics/master", label: "Master" },
+      { href: "/athletics/master/rosters", label: "Current Rosters" },
     ]);
   });
 });
@@ -180,10 +175,15 @@ describe("isDepartmentHub", () => {
     assert.equal(isDepartmentHub("/annunciation"), false);
   });
 
-  it("keeps tabs when the folder URL is itself a report (Enrollment, Athletics)", () => {
+  it("keeps tabs when the folder URL is itself a report (Enrollment)", () => {
     assert.equal(isDepartmentHub("/enrollment"), false);
     assert.equal(isDepartmentHub("/enrollment/admissions"), false);
-    assert.equal(isDepartmentHub("/athletics"), false);
     assert.equal(isDepartmentHub("/aspiredu"), false);
+  });
+
+  it("hides tabs on the Athletics department hub", () => {
+    assert.equal(isDepartmentHub("/athletics"), true);
+    assert.equal(isDepartmentHub("/athletics/master"), false);
+    assert.equal(isDepartmentHub("/athletics/master/recruiting"), false);
   });
 });

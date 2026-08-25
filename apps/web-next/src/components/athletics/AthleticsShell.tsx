@@ -19,7 +19,7 @@ import {
   type FilterKey,
   type FilterState,
 } from "@/lib/reports/athletics/types";
-import { ATHLETICS_CURRENT_NAV, ATHLETICS_RECRUITING_NAV } from "@/lib/report-nav";
+import { ATHLETICS_RECRUITING_NAV } from "@/lib/report-nav";
 
 const EMPTY_FILTERS: FilterState = {
   sport: [],
@@ -68,18 +68,18 @@ const CORE_FILTERS: FilterKey[] = [
 ];
 
 function filterKeysForPath(pathname: string): FilterKey[] {
-  if (pathname.startsWith("/athletics/sectors")) {
+  if (pathname.startsWith("/athletics/master/recruiting/sectors")) {
     return CORE_FILTERS.filter((key) => key !== "sector" && key !== "stage");
   }
-  if (pathname.startsWith("/athletics/prospects")) {
+  if (pathname.startsWith("/athletics/master/recruiting/prospects")) {
     return CORE_FILTERS.filter((key) => key !== "sector" && key !== "stage" && key !== "applicationStatus");
   }
   return CORE_FILTERS;
 }
 
 function ignoredFilterKeys(pathname: string): FilterKey[] {
-  if (pathname.startsWith("/athletics/sectors")) return ["sector"];
-  if (pathname.startsWith("/athletics/prospects")) return ["sector", "stage", "applicationStatus"];
+  if (pathname.startsWith("/athletics/master/recruiting/sectors")) return ["sector"];
+  if (pathname.startsWith("/athletics/master/recruiting/prospects")) return ["sector", "stage", "applicationStatus"];
   return [];
 }
 
@@ -243,20 +243,21 @@ export function AthleticsProvider({ children }: { children: ReactNode }) {
 export function AthleticsChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { generatedAt, refresh, loading } = useAthletics();
-  const isCurrent = pathname === "/athletics/rosters" || pathname.startsWith("/athletics/rosters/");
+  const isHub = pathname === "/athletics" || pathname === "/athletics/master";
+  const isRecruiting = pathname === "/athletics/master/recruiting" || pathname.startsWith("/athletics/master/recruiting/");
   return (
     <div className="ath-root">
       <ReportTopBar
         title="Athletics"
-        nav={isCurrent ? ATHLETICS_CURRENT_NAV : ATHLETICS_RECRUITING_NAV}
+        nav={isHub || !isRecruiting ? [] : ATHLETICS_RECRUITING_NAV}
         wordmark={
           <img
             className="ath-rc-mark"
-            src="/athletics/gyrene-g.png"
-            srcSet="/athletics/gyrene-g.png 1x, /athletics/gyrene-g@2x.png 2x, /athletics/gyrene-g@3x.png 3x"
-            alt="Gyrenes"
-            width={32}
-            height={29}
+            src="/images/gyrene-g.png"
+            srcSet="/images/gyrene-g.png 1x, /images/gyrene-g@2x.png 2x, /images/gyrene-g@3x.png 3x"
+            alt=""
+            width={40}
+            height={36}
           />
         }
         actions={
@@ -267,13 +268,8 @@ export function AthleticsChrome({ children }: { children: ReactNode }) {
             <button type="button" className="rc-btn" onClick={refresh}>Refresh</button>
           </>
         }
-        navExtra={
-          <Link href={isCurrent ? "/athletics" : "/athletics/rosters"} className="rc-tab">
-            {isCurrent ? "Recruiting" : "Current Rosters"}
-          </Link>
-        }
       />
-      <AthleticsFilters />
+      {isRecruiting || pathname.startsWith("/athletics/master/rosters") ? <AthleticsFilters /> : null}
       {children}
     </div>
   );

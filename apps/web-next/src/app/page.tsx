@@ -28,8 +28,8 @@ const REPORTS: {
   {
     id: "athletics",
     href: "/athletics",
-    title: "Athletics Master",
-    desc: "Department-wide recruiting, sector boards, applications, prospects, and scholarships.",
+    title: "Athletics",
+    desc: "Gyrene recruiting, sector boards, applications, prospects, and current rosters.",
   },
   {
     id: "housing",

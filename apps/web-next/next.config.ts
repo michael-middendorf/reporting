@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
         destination: "/advancement/points/methodology",
         permanent: true,
       },
+      { source: "/athletics/sectors", destination: "/athletics/master/recruiting/sectors", permanent: true },
+      { source: "/athletics/applications", destination: "/athletics/master/recruiting/applications", permanent: true },
+      { source: "/athletics/prospects", destination: "/athletics/master/recruiting/prospects", permanent: true },
+      { source: "/athletics/rosters", destination: "/athletics/master/rosters", permanent: true },
     ];
   },
 };

@@ -63,7 +63,7 @@ export function ReportTopBar({
     <div className="rc">
       <header className="rc-header">
         <div className="rc-brand">
-          <Link href="/" className="rc-wordmark" title="All reports">
+          <Link href="/" className="rc-wordmark" title="All reports" aria-label="All reports">
             {wordmark ?? "AMU"}
           </Link>
           <span className="rc-sep" aria-hidden="true">
