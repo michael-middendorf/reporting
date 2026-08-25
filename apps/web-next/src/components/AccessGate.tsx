@@ -43,11 +43,13 @@ export function ReportTopBar({
   nav,
   actions,
   navExtra,
+  wordmark,
 }: {
   title: string;
   nav: ReportNavItem[];
   actions?: ReactNode;
   navExtra?: ReactNode;
+  wordmark?: ReactNode;
 }) {
   const pathname = usePathname() || "";
   const crumbs = reportCrumbs(pathname);
@@ -62,7 +64,7 @@ export function ReportTopBar({
       <header className="rc-header">
         <div className="rc-brand">
           <Link href="/" className="rc-wordmark" title="All reports">
-            AMU
+            {wordmark ?? "AMU"}
           </Link>
           <span className="rc-sep" aria-hidden="true">
             |
@@ -71,7 +73,7 @@ export function ReportTopBar({
             {crumbs.map((crumb, i) => {
               const last = i === crumbs.length - 1;
               return (
-                <span key={crumb.href} className="rc-crumb-item">
+                <span key={`${crumb.href}-${crumb.label}`} className="rc-crumb-item">
                   {i > 0 && (
                     <span className="rc-crumb-sep" aria-hidden="true">
                       /

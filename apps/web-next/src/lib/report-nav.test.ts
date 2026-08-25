@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   ADVANCEMENT_NAV,
   ASPIREDU_NAV,
+  ATHLETICS_NAV,
   ENROLLMENT_NAV,
   POINTS_NAV,
   isDepartmentHub,
@@ -135,6 +136,39 @@ describe("reportCrumbs", () => {
     assert.deepEqual(reportCrumbs("/housing"), [
       { href: "/", label: "Reports" },
       { href: "/housing", label: "Housing" },
+    ]);
+    assert.deepEqual(reportCrumbs("/athletics"), [
+      { href: "/", label: "Reports" },
+      { href: "/athletics", label: "Athletics" },
+      { href: "/athletics", label: "Master" },
+      { href: "/athletics", label: "Recruiting" },
+    ]);
+    assert.deepEqual(reportCrumbs("/athletics/sectors"), [
+      { href: "/", label: "Reports" },
+      { href: "/athletics", label: "Athletics" },
+      { href: "/athletics", label: "Master" },
+      { href: "/athletics", label: "Recruiting" },
+      { href: "/athletics/sectors", label: "Sector Boards" },
+    ]);
+    assert.deepEqual(reportCrumbs("/athletics/applications"), [
+      { href: "/", label: "Reports" },
+      { href: "/athletics", label: "Athletics" },
+      { href: "/athletics", label: "Master" },
+      { href: "/athletics", label: "Recruiting" },
+      { href: "/athletics/applications", label: "Applications" },
+    ]);
+    assert.deepEqual(reportCrumbs("/athletics/prospects"), [
+      { href: "/", label: "Reports" },
+      { href: "/athletics", label: "Athletics" },
+      { href: "/athletics", label: "Master" },
+      { href: "/athletics", label: "Recruiting" },
+      { href: "/athletics/prospects", label: "Prospects / Inquiries" },
+    ]);
+    assert.deepEqual(reportCrumbs("/athletics/rosters"), [
+      { href: "/", label: "Reports" },
+      { href: "/athletics", label: "Athletics" },
+      { href: "/athletics", label: "Master" },
+      { href: "/athletics/rosters", label: "Current Rosters" },
     ]);
   });
 });

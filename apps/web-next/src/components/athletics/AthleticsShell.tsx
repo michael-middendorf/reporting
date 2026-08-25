@@ -10,7 +10,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { apiFetch, fetchMe, setBearer } from "@/lib/api";
+import { ReportTopBar } from "@/components/AccessGate";
+import { apiFetch, fetchMe } from "@/lib/api";
 import { filterOptions, recordMatches, STAGE_COLORS } from "@/lib/reports/athletics/normalize";
 import {
   type AthleticsPayload,
@@ -18,6 +19,7 @@ import {
   type FilterKey,
   type FilterState,
 } from "@/lib/reports/athletics/types";
+import { ATHLETICS_CURRENT_NAV, ATHLETICS_RECRUITING_NAV } from "@/lib/report-nav";
 
 const EMPTY_FILTERS: FilterState = {
   sport: [],
@@ -53,7 +55,7 @@ const FILTER_LABELS: Record<FilterKey, string> = {
   signed: "Signed",
 };
 
-const DIMENSION_FILTERS: FilterKey[] = [
+const CORE_FILTERS: FilterKey[] = [
   "sport",
   "gender",
   "term",
@@ -61,10 +63,42 @@ const DIMENSION_FILTERS: FilterKey[] = [
   "stage",
   "athleteStatus",
   "applicationStatus",
-  "position",
   "riskRating",
   "purchasedList",
 ];
+
+function filterKeysForPath(pathname: string): FilterKey[] {
+  if (pathname.startsWith("/athletics/sectors")) {
+    return CORE_FILTERS.filter((key) => key !== "sector" && key !== "stage");
+  }
+  if (pathname.startsWith("/athletics/prospects")) {
+    return CORE_FILTERS.filter((key) => key !== "sector" && key !== "stage" && key !== "applicationStatus");
+  }
+  return CORE_FILTERS;
+}
+
+function ignoredFilterKeys(pathname: string): FilterKey[] {
+  if (pathname.startsWith("/athletics/sectors")) return ["sector"];
+  if (pathname.startsWith("/athletics/prospects")) return ["sector", "stage", "applicationStatus"];
+  return [];
+}
+
+function withPosition(keys: FilterKey[], sportSelected: boolean): FilterKey[] {
+  if (!sportSelected) return keys;
+  const sportIndex = keys.indexOf("sport");
+  if (sportIndex < 0) return keys;
+  return [...keys.slice(0, sportIndex + 1), "position", ...keys.slice(sportIndex + 1)];
+}
+
+function maskFilters(filters: FilterState, ignored: FilterKey[]): FilterState {
+  if (!ignored.length) return filters;
+  return Object.fromEntries(
+    (Object.entries(filters) as [FilterKey, string[]][]).map(([key, selected]) => [
+      key,
+      ignored.includes(key) ? [] : selected,
+    ]),
+  ) as FilterState;
+}
 
 type AthleticsContextValue = {
   applications: AthleticsRecord[];
@@ -93,6 +127,7 @@ export function useAthletics() {
 }
 
 export function AthleticsProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const [access, setAccess] = useState<"loading" | "allowed" | "denied">("loading");
   const [payload, setPayload] = useState<AthleticsPayload | null>(null);
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
@@ -131,19 +166,33 @@ export function AthleticsProvider({ children }: { children: ReactNode }) {
   const applications = useMemo(() => payload?.applications || [], [payload]);
   const prospects = useMemo(() => payload?.prospects || [], [payload]);
   const allRecords = useMemo(() => [...applications, ...prospects], [applications, prospects]);
+  const pageFilters = useMemo(
+    () => maskFilters(filters, ignoredFilterKeys(pathname)),
+    [filters, pathname],
+  );
   const filteredApplications = useMemo(
-    () => applications.filter((record) => recordMatches(record, filters)),
-    [applications, filters],
+    () => applications.filter((record) => recordMatches(record, pageFilters)),
+    [applications, pageFilters],
   );
   const filteredProspects = useMemo(
-    () => prospects.filter((record) => recordMatches(record, filters)),
-    [prospects, filters],
+    () => prospects.filter((record) => recordMatches(record, pageFilters)),
+    [prospects, pageFilters],
   );
   const filteredAll = useMemo(
-    () => allRecords.filter((record) => recordMatches(record, filters)),
-    [allRecords, filters],
+    () => allRecords.filter((record) => recordMatches(record, pageFilters)),
+    [allRecords, pageFilters],
   );
-  const options = useMemo(() => filterOptions(allRecords), [allRecords]);
+  const options = useMemo(() => {
+    const next = filterOptions(allRecords);
+    if (filters.sport.length) {
+      next.position = [...new Set(
+        allRecords
+          .filter((record) => filters.sport.includes(record.sport) && record.position)
+          .map((record) => record.position),
+      )].sort((left, right) => left.localeCompare(right));
+    }
+    return next;
+  }, [allRecords, filters.sport]);
   const activeFilterCount = Object.values(filters).reduce((total, selected) => total + selected.length, 0);
 
   const value = useMemo<AthleticsContextValue>(() => ({
@@ -157,12 +206,24 @@ export function AthleticsProvider({ children }: { children: ReactNode }) {
     filters,
     options,
     activeFilterCount,
-    setFilter: (key, item, checked) => setFilters((current) => ({
-      ...current,
-      [key]: checked
+    setFilter: (key, item, checked) => setFilters((current) => {
+      const selected = checked
         ? [...new Set([...current[key], item])]
-        : current[key].filter((candidate) => candidate !== item),
-    })),
+        : current[key].filter((candidate) => candidate !== item);
+      const next = { ...current, [key]: selected };
+      if (key === "sport") {
+        if (!next.sport.length) next.position = [];
+        else {
+          const allowed = new Set(
+            allRecords
+              .filter((record) => next.sport.includes(record.sport) && record.position)
+              .map((record) => record.position),
+          );
+          next.position = next.position.filter((position) => allowed.has(position));
+        }
+      }
+      return next;
+    }),
     clearFilters: () => setFilters(EMPTY_FILTERS),
     loading,
     error,
@@ -179,39 +240,39 @@ export function AthleticsProvider({ children }: { children: ReactNode }) {
   return <AthleticsContext.Provider value={value}>{children}</AthleticsContext.Provider>;
 }
 
-const NAV = [
-  { href: "/athletics", label: "Overview", exact: true },
-  { href: "/athletics/sectors", label: "Sector Boards" },
-  { href: "/athletics/applications", label: "Applications" },
-  { href: "/athletics/prospects", label: "Prospects / Inquiries" },
-];
-
 export function AthleticsChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { generatedAt, refresh, loading } = useAthletics();
-
-  async function logout() {
-    await apiFetch("/api/auth/logout", { method: "POST" });
-    setBearer(null);
-    window.location.href = "/login";
-  }
-
+  const isCurrent = pathname === "/athletics/rosters" || pathname.startsWith("/athletics/rosters/");
   return (
     <div className="ath-root">
-      <header className="ath-header">
-        <div className="ath-brand"><Link href="/">AMU</Link><span>/</span><strong>Athletics Master</strong></div>
-        <div className="ath-actions">
-          <span className="ath-asof">{loading ? "Loading…" : generatedAt ? `Updated ${new Date(generatedAt).toLocaleString()}` : ""}</span>
-          <button type="button" onClick={refresh}>Refresh</button>
-          <button type="button" onClick={logout}>Sign out</button>
-        </div>
-      </header>
-      <nav className="ath-nav" aria-label="Athletics Master sections">
-        {NAV.map((item) => {
-          const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
-          return <Link key={item.href} href={item.href} className={active ? "active" : ""}>{item.label}</Link>;
-        })}
-      </nav>
+      <ReportTopBar
+        title="Athletics"
+        nav={isCurrent ? ATHLETICS_CURRENT_NAV : ATHLETICS_RECRUITING_NAV}
+        wordmark={
+          <img
+            className="ath-rc-mark"
+            src="/athletics/gyrene-g.png"
+            srcSet="/athletics/gyrene-g.png 1x, /athletics/gyrene-g@2x.png 2x, /athletics/gyrene-g@3x.png 3x"
+            alt="Gyrenes"
+            width={32}
+            height={29}
+          />
+        }
+        actions={
+          <>
+            <span className="rc-meta">
+              {loading ? "Loading…" : generatedAt ? `As of ${new Date(generatedAt).toLocaleString()}` : ""}
+            </span>
+            <button type="button" className="rc-btn" onClick={refresh}>Refresh</button>
+          </>
+        }
+        navExtra={
+          <Link href={isCurrent ? "/athletics" : "/athletics/rosters"} className="rc-tab">
+            {isCurrent ? "Recruiting" : "Current Rosters"}
+          </Link>
+        }
+      />
       <AthleticsFilters />
       {children}
     </div>
@@ -219,25 +280,33 @@ export function AthleticsChrome({ children }: { children: ReactNode }) {
 }
 
 function AthleticsFilters() {
+  const pathname = usePathname();
   const { filters, options, setFilter, clearFilters, activeFilterCount } = useAthletics();
+  const visibleKeys = withPosition(filterKeysForPath(pathname), filters.sport.length > 0);
+  const chipKeys = new Set(visibleKeys);
+  const visibleActive = (Object.entries(filters) as [FilterKey, string[]][])
+    .filter(([key, selected]) => chipKeys.has(key) && selected.length);
   return (
-    <section className="ath-filter-panel" aria-label="Global Athletics filters">
+    <section className="ath-filter-panel" aria-label="Athletics filters">
       <div className="ath-filter-heading">
-        <div><strong>Global filters</strong><span>Selections apply to every page, metric, table, and export.</span></div>
+        <div>
+          <strong>Filters</strong>
+          <span>{filters.sport.length ? "Position is limited to the selected sport." : "Select a sport to filter by position."}</span>
+        </div>
         <div><button type="button" onClick={clearFilters} disabled={!activeFilterCount}>Reset all</button></div>
       </div>
       <div className="ath-filter-grid">
-        {DIMENSION_FILTERS.map((key) => (
+        {visibleKeys.map((key) => (
           <details key={key} name="athletics-filter" className="ath-filter-group">
             <summary>{FILTER_LABELS[key]}{filters[key].length ? <b>{filters[key].length}</b> : null}</summary>
             <FilterOptions filterKey={key} filters={filters} options={options} setFilter={setFilter} />
           </details>
         ))}
       </div>
-      {activeFilterCount ? (
+      {visibleActive.length ? (
         <div className="ath-active-filters" aria-label="Active filters">
           <span>Active:</span>
-          {(Object.entries(filters) as [FilterKey, string[]][]).flatMap(([key, selected]) =>
+          {visibleActive.flatMap(([key, selected]) =>
             selected.map((item) => (
               <button type="button" key={`${key}-${item}`} onClick={() => setFilter(key, item, false)} title={`Remove ${FILTER_LABELS[key]} filter`}>
                 <small>{FILTER_LABELS[key]}</small>{item}<b aria-hidden="true">×</b>
@@ -272,11 +341,11 @@ function FilterOptions({ filterKey, filters, options, setFilter }: {
   );
 }
 
-export function AthleticsPage({ title, description, children, actions }: { title: string; description: string; children: ReactNode; actions?: ReactNode }) {
+export function AthleticsPage({ title, description, children, actions }: { title: string; description?: string; children: ReactNode; actions?: ReactNode }) {
   const { loading, error } = useAthletics();
   return (
     <main className="ath-page">
-      <div className="ath-page-heading"><div><h1>{title}</h1><p>{description}</p></div>{actions}</div>
+      <div className="ath-page-heading"><div><h1>{title}</h1>{description ? <p>{description}</p> : null}</div>{actions}</div>
       {error && <div className="ath-alert ath-alert-error"><strong>Unable to load Athletics data.</strong><span>{error}</span></div>}
       {loading && <div className="ath-loading">Loading Slate data…</div>}
       {!loading && !error && children}
