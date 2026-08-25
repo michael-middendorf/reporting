@@ -29,7 +29,7 @@ const REPORTS: {
     id: "athletics",
     href: "/athletics",
     title: "Athletics",
-    desc: "Gyrene recruiting, sector boards, applications, prospects, and current rosters.",
+    desc: "Gyrene recruiting, sector boards, applications, and prospects.",
   },
   {
     id: "housing",

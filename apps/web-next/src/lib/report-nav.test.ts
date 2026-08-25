@@ -163,7 +163,7 @@ describe("reportCrumbs", () => {
       { href: "/", label: "Reports" },
       { href: "/athletics", label: "Athletics" },
       { href: "/athletics/master", label: "Master" },
-      { href: "/athletics/master/rosters", label: "Current Rosters" },
+      { href: "/athletics/master/rosters", label: "Rosters" },
     ]);
   });
 });

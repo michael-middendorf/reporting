@@ -20,6 +20,9 @@ import {
   type FilterState,
 } from "@/lib/reports/athletics/types";
 import { ATHLETICS_RECRUITING_NAV } from "@/lib/report-nav";
+import gyreneG from "@/assets/athletics/gyrene-g.png";
+import gyreneG2x from "@/assets/athletics/gyrene-g@2x.png";
+import gyreneG3x from "@/assets/athletics/gyrene-g@3x.png";
 
 const EMPTY_FILTERS: FilterState = {
   sport: [],
@@ -253,9 +256,9 @@ export function AthleticsChrome({ children }: { children: ReactNode }) {
         wordmark={
           <img
             className="ath-rc-mark"
-            src="/images/gyrene-g.png"
-            srcSet="/images/gyrene-g.png 1x, /images/gyrene-g@2x.png 2x, /images/gyrene-g@3x.png 3x"
-            alt=""
+            src={gyreneG.src}
+            srcSet={`${gyreneG.src} 1x, ${gyreneG2x.src} 2x, ${gyreneG3x.src} 3x`}
+            alt="Gyrenes"
             width={40}
             height={36}
           />

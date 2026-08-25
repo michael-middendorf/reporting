@@ -79,7 +79,6 @@ a.ath-hub-card:hover { box-shadow: 0 8px 26px rgba(10, 34, 64, .12); transform: 
 .ath-hub-card h2 { margin: 0; font-size: 16px; color: var(--ath-navy); }
 .ath-hub-card p { margin: 0; flex: 1; color: var(--ath-muted); font-size: 13px; line-height: 1.5; }
 .ath-hub-card strong { color: var(--ath-green-dark); font-size: 12px; font-weight: 700; }
-.ath-hub-card.is-soon { opacity: .72; }
 
 .ath-primary, .ath-filter-heading button {
   border: 1px solid var(--ath-line);

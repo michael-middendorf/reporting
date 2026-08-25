@@ -39,17 +39,12 @@ export const ATHLETICS_RECRUITING_NAV: ReportNavItem[] = [
   { href: "/athletics/master/recruiting/prospects", label: "Prospects / Inquiries", report: "athletics" },
 ];
 
-export const ATHLETICS_CURRENT_NAV: ReportNavItem[] = [
-  { href: "/athletics/master/rosters", label: "Current Rosters", report: "athletics" },
-];
-
 export const ATHLETICS_NAV: ReportNavItem[] = [
   { href: "/athletics/master", label: "Master", report: "athletics" },
   { href: "/athletics/master/recruiting", label: "Recruiting", exact: true, report: "athletics" },
   { href: "/athletics/master/recruiting/sectors", label: "Sector Boards", report: "athletics" },
   { href: "/athletics/master/recruiting/applications", label: "Applications", report: "athletics" },
   { href: "/athletics/master/recruiting/prospects", label: "Prospects / Inquiries", report: "athletics" },
-  { href: "/athletics/master/rosters", label: "Current Rosters", report: "athletics" },
 ];
 
 export const ASPIREDU_NAV: ReportNavItem[] = [
