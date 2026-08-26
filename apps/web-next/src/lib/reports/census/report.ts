@@ -3,6 +3,7 @@ import { CLASS_ORDER, COUNTRY_NAMES } from "./present";
 import type { CensusSnapshot, LabeledCount } from "./types";
 
 export type ReportStudent = {
+  pcid: string;
   gender: string;
   athlete: string;
   sport: string;
@@ -53,6 +54,7 @@ const NON_DS = new Set(["DUAL", "EACO", "ND"]);
 
 export function projectReportStudents(rows: CensusRawStudent[]): ReportStudent[] {
   return rows.map((r) => ({
+    pcid: (r.pcid || "").trim(),
     gender: (r.gender || "").trim(),
     athlete: (r.athlete || "").trim() || (r.sport ? "Athlete" : "Non-Athlete"),
     sport: (r.sport || "").trim(),

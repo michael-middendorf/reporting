@@ -1,4 +1,5 @@
 import type { CensusLists, CensusRawStudent, UnretainedStudent } from "./lists";
+import { buildSportRetention, type FtcaRawRow, type SportRetentionRow } from "./retention";
 import type { HousingAssignmentRow } from "./residency";
 import {
   DEFAULT_FILTERS,
@@ -34,6 +35,7 @@ const HEADER_STYLE: CellStyle = {
   fill: NAVY,
   vAlign: "center",
   hAlign: "center",
+  border: { b: { s: "medium", c: GOLD } },
 };
 const TOTAL_STYLE: CellStyle = { bold: true, size: 11, fill: TOTAL_FILL, color: NAVY };
 const NOTE: CellStyle = { italic: true, size: 10, color: "4A6A90" };
@@ -98,7 +100,12 @@ function writeCountTable(
   if (opts?.total && rows.length) {
     styleTotal(ws, r - 1, startCol, lastCol);
   }
-  if (rows.length) ws.box(headerRow, startCol, r - 1, lastCol);
+  if (rows.length) {
+    ws.box(headerRow, startCol, r - 1, lastCol);
+    for (let c = startCol; c <= lastCol; c++) {
+      ws.patch(headerRow, c, { border: { b: { s: "medium", c: GOLD } } });
+    }
+  }
   return r;
 }
 
@@ -557,7 +564,7 @@ function writeCensusReport(wb: XlsxWorkbook, data: CensusSnapshot, tables: Repor
   ws.set(p, col.p, "*Includes all declared majors, students with more than one major will be counted multiple times.", NOTE);
 }
 
-function writeAttrition(wb: XlsxWorkbook, data: CensusSnapshot) {
+function writeAttrition(wb: XlsxWorkbook, data: CensusSnapshot, sportRetention: SportRetentionRow[] = []) {
   const ws = wb.addSheet("FA25 FTCA Cohort Attrition");
   ws.gridLines = false;
   [18, 12, 16, 12, 22, 3, 24, 16, 14, 12, 16, 12, 3, 28, 16, 16].forEach((w, i) => {
@@ -659,6 +666,87 @@ function writeAttrition(wb: XlsxWorkbook, data: CensusSnapshot) {
       ]),
     { intCols: [1, 2], pctCols: [3], total: true },
   );
+  if (sportRetention.length) {
+    const sportRows: CellValue[][] = [
+      ...sportRetention.map((r) => [
+        r.sport,
+        r.roster,
+        r.notRetained,
+        r.retained,
+        r.graduated,
+        r.retentionPct,
+        r.graduatedPct,
+      ]),
+      [
+        "Total",
+        sportRetention.reduce((s, r) => s + r.roster, 0),
+        sportRetention.reduce((s, r) => s + r.notRetained, 0),
+        sportRetention.reduce((s, r) => s + r.retained, 0),
+        sportRetention.reduce((s, r) => s + r.graduated, 0),
+        "",
+        "",
+      ],
+    ];
+    writeCountTable(
+      ws,
+      36,
+      1,
+      "Athletic Retention (Fall 2025 sport)",
+      ["Team", "FA25 Roster", "# Non-Retained", "# Retained", "# Graduated", "Retention %", "Graduated %"],
+      sportRows,
+      { intCols: [1, 2, 3, 4], pctCols: [5, 6], total: true },
+    );
+  }
+}
+
+function writeFtcaRaw(wb: XlsxWorkbook, rows: FtcaRawRow[]) {
+  writeListSheet(
+    wb,
+    "F25-F26 FTCA Retention Raw Data",
+    [
+      "First",
+      "Last",
+      "Retained F25?",
+      "PCID",
+      "Fall 25 Athletic Association",
+      "Fall 25 Curriculum",
+      "Fall 25 FULL PART TIME",
+      "Fall 25 Credits",
+      "Fall 25 GPA",
+      "Fall 25 Res Comm",
+      "Fall 26 Athletic Association",
+      "Fall 26 Curriculum",
+      "Fall 26 Class",
+      "Fall 26 FULL PART TIME",
+      "Fall 26 Credits",
+      "Fall 26 GPA",
+      "Fall 26 Res Comm",
+      "Religion",
+      "Cath/Chris/Other",
+    ],
+    [14, 16, 14, 14, 22, 16, 14, 12, 12, 14, 22, 16, 12, 14, 12, 12, 14, 14, 16],
+    rows.map((r) => [
+      r.first,
+      r.last,
+      r.retained,
+      r.pcid,
+      r.fa25Sport,
+      r.fa25Curriculum,
+      r.fa25FullPart,
+      r.fa25Credits,
+      r.fa25Gpa,
+      r.fa25Residency,
+      r.fa26Sport,
+      r.fa26Curriculum,
+      r.fa26Class,
+      r.fa26FullPart,
+      r.fa26Credits,
+      r.fa26Gpa,
+      r.fa26Residency,
+      r.religion,
+      r.cathGroup,
+    ]),
+  );
 }
 
 function writeHousing(wb: XlsxWorkbook, rows: HousingAssignmentRow[]) {
@@ -722,6 +810,9 @@ function writeListSheet(
     }
   });
   ws.box(1, 1, rows.length + 1, headers.length);
+  for (let c = 1; c <= headers.length; c++) {
+    ws.patch(1, c, { border: { b: { s: "medium", c: GOLD } } });
+  }
   ws.autoFilter = `A1:${cellRef(1, headers.length)}`;
   ws.freezeRows = 1;
 }
@@ -836,16 +927,25 @@ export function censusFileName(data: CensusSnapshot, exported = new Date()): str
 export async function buildCensusWorkbook(
   data: CensusSnapshot,
   housingRows: HousingAssignmentRow[] = [],
-  lists: CensusLists = { students: [], unretained: [] },
+  lists: CensusLists = { students: [], unretained: [], prior: [], graduates: [] },
+  ftcaRaw: FtcaRawRow[] = [],
 ): Promise<Buffer> {
   const wb = new XlsxWorkbook();
   const tables = lists.students.length
     ? buildReport(filterStudents(projectReportStudents(lists.students), DEFAULT_FILTERS))
     : tablesFromSnapshot(data);
+  const sportRetention = lists.prior.length
+    ? buildSportRetention(
+        lists.prior,
+        lists.students.map((s) => s.pcid),
+        lists.graduates,
+      )
+    : [];
   writeSummary(wb, data);
   writeHistorical(wb, data);
   writeCensusReport(wb, data, tables);
-  writeAttrition(wb, data);
+  writeAttrition(wb, data, sportRetention);
+  writeFtcaRaw(wb, ftcaRaw);
   writeListSheet(
     wb,
     "FA26 Census Raw Data",

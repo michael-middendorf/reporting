@@ -10,13 +10,18 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const denied = requireReportAccess(req, "census");
   if (denied) return denied;
-  const { data, lists } = await loadCensusSnapshot();
+  const { data, lists, ftcaRaw } = await loadCensusSnapshot();
   const unretainedUg = lists.unretained.filter((s) =>
     isUgDegreeSeekingRow(s.program || "", s.collegeAttend),
   ).length;
   return NextResponse.json({
     ...data,
     reportStudents: projectReportStudents(lists.students),
+    rawStudents: lists.students,
+    unretainedStudents: lists.unretained,
+    priorStudents: lists.prior,
+    graduates: lists.graduates,
+    ftcaRaw,
     unretained: {
       n: lists.unretained.length,
       ug: unretainedUg,

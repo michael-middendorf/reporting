@@ -20,9 +20,9 @@
 .census-root * { box-sizing: border-box; }
 
 .census-root .wrap {
-  max-width: 1440px;
+  max-width: 1680px;
   margin: 0 auto;
-  padding: 22px 28px 64px;
+  padding: 22px 36px 64px;
 }
 
 .census-root .hero {
@@ -150,6 +150,7 @@
 
 .census-root .tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 0;
   border-bottom: 1px solid var(--bdr);
   margin-bottom: 18px;
@@ -364,17 +365,22 @@
 
 .census-root .sheet-grid {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(240px, 1.1fr) minmax(240px, 1.15fr) minmax(260px, 1.25fr);
-  gap: 18px 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 36px 48px;
   align-items: start;
 }
 .census-root .sheet-col {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 22px;
   min-width: 0;
+  overflow-x: auto;
+  isolation: isolate;
 }
-.census-root .sheet-table { min-width: 0; }
+.census-root .sheet-table {
+  min-width: 0;
+  overflow-x: auto;
+}
 .census-root .sheet-caption {
   display: inline-block;
   font-size: 11px;
@@ -403,7 +409,23 @@
   text-transform: none;
   letter-spacing: 0;
   font-size: 11px;
+  white-space: normal;
   border-bottom: 2px solid var(--gold);
+}
+.census-root .sheet-list {
+  overflow: auto;
+  max-height: 72vh;
+  border: 1px solid var(--navy);
+}
+.census-root .sheet-list table { width: max-content; min-width: 100%; }
+.census-root .sheet-list thead th { position: sticky; top: 0; z-index: 1; }
+.census-root .sheet-search {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 7px 10px;
+  border: 1px solid var(--bdr);
+  min-width: 240px;
+  margin-bottom: 10px;
 }
 .census-root .sheet-table tr.total td {
   background: #e8eef6;
@@ -412,7 +434,7 @@
 }
 
 @media (max-width: 1100px) {
-  .census-root .sheet-grid { grid-template-columns: 1fr 1fr; }
+  .census-root .sheet-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 900px) {
   .census-root .kpis,

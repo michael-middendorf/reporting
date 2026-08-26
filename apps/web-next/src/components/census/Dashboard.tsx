@@ -1,9 +1,18 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { CensusReport } from "@/components/census/CensusReport";
-import type { ReportStudent } from "@/lib/reports/census/report";
+import { FtcaRawSheet, RawDataSheet, SportRetentionTable, UnretainedSheet } from "@/components/census/CensusLists";
+import { FilterBar, fmtN, fmtPct } from "@/components/census/Sheet";
+import type { CensusRawStudent, UnretainedStudent } from "@/lib/reports/census/lists";
+import {
+  DEFAULT_FILTERS,
+  uniqueSorted,
+  type ReportFilters,
+  type ReportStudent,
+} from "@/lib/reports/census/report";
+import { buildSportRetention, type FtcaRawRow } from "@/lib/reports/census/retention";
 import {
   historicalSeries,
   type CensusSnapshot,
@@ -11,23 +20,20 @@ import {
 } from "@/lib/reports/census/types";
 import "@/styles/census.css";
 
-function fmtN(n: number | null | undefined): string {
-  if (n == null) return "—";
-  return n.toLocaleString();
-}
-function fmtPct(n: number | null | undefined, digits = 1): string {
-  if (n == null) return "—";
-  return `${(n * 100).toFixed(digits)}%`;
-}
 function fmtFte(n: number | null | undefined): string {
   if (n == null) return "—";
   return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
 
-type Tab = "summary" | "historical" | "ug" | "attrition";
+type Tab = "summary" | "historical" | "ug" | "attrition" | "ftca" | "raw" | "unretained";
 
 type CensusPageData = CensusSnapshot & {
   reportStudents?: ReportStudent[];
+  rawStudents?: CensusRawStudent[];
+  unretainedStudents?: UnretainedStudent[];
+  priorStudents?: CensusRawStudent[];
+  graduates?: { pcid: string; year?: string | number; term?: string }[];
+  ftcaRaw?: FtcaRawRow[];
   unretained?: { n: number; ug: number };
 };
 
@@ -35,6 +41,7 @@ export function CensusDashboard() {
   const [data, setData] = useState<CensusPageData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("summary");
+  const [filters, setFilters] = useState<ReportFilters>(DEFAULT_FILTERS);
   const [downloading, setDownloading] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -82,6 +89,23 @@ export function CensusDashboard() {
       alive = false;
     };
   }, []);
+
+  const students = data?.reportStudents || [];
+  const sports = useMemo(() => uniqueSorted(students, (s) => s.sport), [students]);
+  const majors = useMemo(
+    () => uniqueSorted(students.filter((s) => s.program === "UNDERG"), (s) => s.major),
+    [students],
+  );
+  const sportRows = useMemo(
+    () =>
+      buildSportRetention(
+        data?.priorStudents || [],
+        (data?.rawStudents || []).map((s) => s.pcid),
+        data?.graduates || [],
+        filters.excludedSports,
+      ),
+    [data?.priorStudents, data?.rawStudents, data?.graduates, filters.excludedSports],
+  );
 
   if (error) return <p style={{ padding: 24 }}>Error: {error}</p>;
   if (!data) return <p style={{ padding: 24 }}>Loading…</p>;
@@ -148,6 +172,9 @@ export function CensusDashboard() {
               ["historical", "Historical"],
               ["ug", "Census Report"],
               ["attrition", "Retention"],
+              ["ftca", "FTCA Raw"],
+              ["raw", "Census Raw"],
+              ["unretained", "All Not Retained"],
             ] as [Tab, string][]
           ).map(([id, label]) => (
             <button
@@ -163,8 +190,30 @@ export function CensusDashboard() {
 
         {tab === "summary" && <SummaryTab data={data} />}
         {tab === "historical" && <HistoricalTab data={data} />}
-        {tab === "ug" && <CensusReport data={data} students={data.reportStudents || []} />}
-        {tab === "attrition" && <AttritionTab data={data} unretained={data.unretained} />}
+        {tab === "ug" && (
+          <CensusReport
+            data={data}
+            students={data.reportStudents || []}
+            filters={filters}
+            onFilters={setFilters}
+            sports={sports}
+            majors={majors}
+          />
+        )}
+        {tab === "attrition" && (
+          <AttritionTab
+            data={data}
+            unretained={data.unretained}
+            sportRows={sportRows}
+            filters={filters}
+            onFilters={setFilters}
+            sports={sports}
+            majors={majors}
+          />
+        )}
+        {tab === "ftca" && <FtcaRawSheet rows={data.ftcaRaw || []} />}
+        {tab === "raw" && <RawDataSheet students={data.rawStudents || []} />}
+        {tab === "unretained" && <UnretainedSheet students={data.unretainedStudents || []} />}
       </div>
     </div>
   );
@@ -215,8 +264,12 @@ function SummaryTab({ data }: { data: CensusSnapshot }) {
     { label: "Graduate & Undergraduate Enrollment", c: s.totalEnrollment },
   ];
   return (
-    <div className="card">
-      <h3>Headcount / FTE</h3>
+    <div className="sheet">
+      <div className="sheet-head">
+        <h2>Summary</h2>
+        <p className="sheet-n">HEADCOUNT / FTE</p>
+      </div>
+      <div className="sheet-table">
       <table>
         <thead>
           <tr>
@@ -243,6 +296,7 @@ function SummaryTab({ data }: { data: CensusSnapshot }) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -271,8 +325,12 @@ function HistoricalTab({ data }: { data: CensusSnapshot }) {
     { label: "Graduate & Undergraduate Enrollment", key: "totalEnrollment" },
   ];
   return (
-    <div className="card">
-      <h3>Fall census history (Fall 2026 is live / draft)</h3>
+    <div className="sheet">
+      <div className="sheet-head">
+        <h2>Historical</h2>
+        <p className="sheet-n">Fall census history (Fall 2026 is live / draft)</p>
+      </div>
+      <div className="sheet-table">
       <table>
         <thead>
           <tr>
@@ -320,6 +378,7 @@ function HistoricalTab({ data }: { data: CensusSnapshot }) {
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -327,14 +386,29 @@ function HistoricalTab({ data }: { data: CensusSnapshot }) {
 function AttritionTab({
   data,
   unretained,
+  sportRows,
+  filters,
+  onFilters,
+  sports,
+  majors,
 }: {
   data: CensusSnapshot;
   unretained?: { n: number; ug: number };
+  sportRows: ReturnType<typeof buildSportRetention>;
+  filters: ReportFilters;
+  onFilters: (next: ReportFilters) => void;
+  sports: string[];
+  majors: string[];
 }) {
   const a = data.ftcaAttrition;
   const u = data.allUgRetention;
   return (
-    <>
+    <div className="sheet">
+      <div className="sheet-head">
+        <h2>Retention</h2>
+        <p className="sheet-n">Hide a sport to drop those students from the athletic retention table</p>
+      </div>
+      <FilterBar filters={filters} onChange={onFilters} sports={sports} majors={majors} />
       {unretained && unretained.n > 0 && (
         <div className="card section">
           <h3>All not retained</h3>
@@ -448,7 +522,8 @@ function AttritionTab({
         <AttritionTable title="FTCA by ethnicity" rows={a.byEthnicity} />
         <AttritionTable title="FTCA Catholic / athlete" rows={a.byCatholicAthlete} />
       </div>
-    </>
+      <SportRetentionTable rows={sportRows} />
+    </div>
   );
 }
 

@@ -1,6 +1,7 @@
 import { readResidents } from "../housing/store";
 import type { Resident } from "../housing/types";
-import { applyErezResidency, loadCensusLists, type CensusLists } from "./lists";
+import { applyErezResidency, deriveUnretained, loadCensusLists, type CensusLists } from "./lists";
+import { ayGraduatePcids, deriveFtcaRaw, toUnretainedSeed, type FtcaRawRow } from "./retention";
 import snapshot from "./snapshot.json";
 import { presentSnapshot } from "./present";
 import { housingAssignmentRows, residencyFromErez, type HousingAssignmentRow } from "./residency";
@@ -32,14 +33,29 @@ export async function loadCensusSnapshot(): Promise<{
   data: CensusSnapshot;
   housingRows: HousingAssignmentRow[];
   lists: CensusLists;
+  ftcaRaw: FtcaRawRow[];
 }> {
   const data = presentSnapshot(cloneSnapshot());
-  const lists = await loadCensusLists();
+  let lists = await loadCensusLists();
+  if (lists.prior.length && lists.students.length) {
+    const gradIds = ayGraduatePcids(lists.graduates);
+    lists = {
+      ...lists,
+      unretained: deriveUnretained(
+        toUnretainedSeed(lists.prior),
+        lists.students.map((s) => s.pcid),
+        gradIds,
+      ),
+    };
+  }
+  const ftcaRaw = lists.prior.length
+    ? deriveFtcaRaw(lists.prior, lists.students, lists.graduates)
+    : [];
   try {
     const payload = await readResidents();
     const residents = (payload?.residents || []) as Resident[];
     if (residents.length === 0) {
-      return { data, housingRows: [], lists };
+      return { data, housingRows: [], lists, ftcaRaw };
     }
     applyHousingOverlay(data, residents, {
       generated: payload?.generated ?? payload?.cached_at ?? null,
@@ -50,8 +66,9 @@ export async function loadCensusSnapshot(): Promise<{
       data,
       housingRows,
       lists: { ...lists, students: applyErezResidency(lists.students, housingRows) },
+      ftcaRaw,
     };
   } catch {
-    return { data, housingRows: [], lists };
+    return { data, housingRows: [], lists, ftcaRaw };
   }
 }

@@ -5,6 +5,8 @@ import type { HousingAssignmentRow } from "./residency";
 
 export const CENSUS_STUDENTS_KEY = "cache/census/students.json";
 export const CENSUS_UNRETAINED_KEY = "cache/census/unretained.json";
+export const CENSUS_PRIOR_KEY = "cache/census/prior.json";
+export const CENSUS_GRADUATES_KEY = "cache/census/graduates.json";
 
 export type CensusRawStudent = {
   pcid: string;
@@ -100,6 +102,8 @@ export function deriveUnretained(
 export type CensusLists = {
   students: CensusRawStudent[];
   unretained: UnretainedStudent[];
+  prior: CensusRawStudent[];
+  graduates: { pcid: string; year?: string | number; term?: string; program?: string }[];
 };
 
 type Wrapped<T> = { students?: T[]; count?: number };
@@ -135,10 +139,20 @@ export function applyErezResidency(
 export async function loadCensusLists(): Promise<CensusLists> {
   let students = await fromS3<CensusRawStudent>(CENSUS_STUDENTS_KEY);
   let unretained = await fromS3<UnretainedStudent>(CENSUS_UNRETAINED_KEY);
+  let prior = await fromS3<CensusRawStudent>(CENSUS_PRIOR_KEY);
+  let graduates = await fromS3<{ pcid: string; year?: string | number; term?: string; program?: string }>(
+    CENSUS_GRADUATES_KEY,
+  );
   const localDir = join(process.cwd(), "src/lib/reports/census/data");
   if (!students.length) students = fromFile<CensusRawStudent>(join(localDir, "students.json"));
   if (!students.length) students = fromFile<CensusRawStudent>("/tmp/census-lists/students.json");
   if (!unretained.length) unretained = fromFile<UnretainedStudent>(join(localDir, "unretained.json"));
   if (!unretained.length) unretained = fromFile<UnretainedStudent>("/tmp/census-lists/unretained.json");
-  return { students, unretained };
+  if (!prior.length) prior = fromFile<CensusRawStudent>(join(localDir, "prior.json"));
+  if (!graduates.length) {
+    graduates = fromFile<{ pcid: string; year?: string | number; term?: string; program?: string }>(
+      join(localDir, "graduates.json"),
+    );
+  }
+  return { students, unretained, prior, graduates };
 }

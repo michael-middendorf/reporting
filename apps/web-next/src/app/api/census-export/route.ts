@@ -11,8 +11,8 @@ export async function GET(req: Request) {
   const denied = requireReportAccess(req, "census");
   if (denied) return denied;
   try {
-    const { data, housingRows, lists } = await loadCensusSnapshot();
-    const buf = await buildCensusWorkbook(data, housingRows, lists);
+    const { data, housingRows, lists, ftcaRaw } = await loadCensusSnapshot();
+    const buf = await buildCensusWorkbook(data, housingRows, lists, ftcaRaw);
     const filename = censusFileName(data);
     return new NextResponse(new Uint8Array(buf), {
       status: 200,

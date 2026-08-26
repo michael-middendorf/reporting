@@ -74,6 +74,8 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
       },
     ],
     {
+      prior: [],
+      graduates: [],
       students: [
         {
           pcid: "P1",
@@ -140,12 +142,14 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
     "Historical",
     "FA26 Census Report",
     "FA25 FTCA Cohort Attrition",
+    "F25-F26 FTCA Retention Raw Data",
     "FA26 Census Raw Data",
     "All Not Retained",
     "FA26 Housing (eRez)",
     "Sources",
   ]);
   assert.match(files["xl/styles.xml"], /style="thin"/);
+  assert.match(files["xl/styles.xml"], /B8922E/);
   assert.match(files["xl/worksheets/sheet1.xml"], /Fall 2026 Census/);
   assert.match(files["xl/worksheets/sheet1.xml"], /Total Degree-Seeking/);
   assert.match(files["xl/worksheets/sheet1.xml"], /Graduate MA Students/);
