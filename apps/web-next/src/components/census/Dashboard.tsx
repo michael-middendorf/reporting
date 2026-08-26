@@ -26,8 +26,13 @@ function fmtFte(n: number | null | undefined): string {
 
 type Tab = "summary" | "historical" | "ug" | "attrition";
 
+type CensusPageData = CensusSnapshot & {
+  reportStudents?: ReportStudent[];
+  unretained?: { n: number; ug: number };
+};
+
 export function CensusDashboard() {
-  const [data, setData] = useState<(CensusSnapshot & { reportStudents?: ReportStudent[] }) | null>(null);
+  const [data, setData] = useState<CensusPageData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("summary");
   const [downloading, setDownloading] = useState(false);
@@ -62,7 +67,7 @@ export function CensusDashboard() {
     (async () => {
       try {
         const res = await apiFetch("/api/census-data");
-        const json = (await res.json()) as CensusSnapshot & { error?: string; reportStudents?: ReportStudent[] };
+        const json = (await res.json()) as CensusPageData & { error?: string };
         if (!alive) return;
         if (!res.ok) {
           setError(json.error || res.statusText || "Data unavailable");
@@ -159,7 +164,7 @@ export function CensusDashboard() {
         {tab === "summary" && <SummaryTab data={data} />}
         {tab === "historical" && <HistoricalTab data={data} />}
         {tab === "ug" && <CensusReport data={data} students={data.reportStudents || []} />}
-        {tab === "attrition" && <AttritionTab data={data} />}
+        {tab === "attrition" && <AttritionTab data={data} unretained={data.unretained} />}
       </div>
     </div>
   );
@@ -319,11 +324,38 @@ function HistoricalTab({ data }: { data: CensusSnapshot }) {
   );
 }
 
-function AttritionTab({ data }: { data: CensusSnapshot }) {
+function AttritionTab({
+  data,
+  unretained,
+}: {
+  data: CensusSnapshot;
+  unretained?: { n: number; ug: number };
+}) {
   const a = data.ftcaAttrition;
   const u = data.allUgRetention;
   return (
     <>
+      {unretained && unretained.n > 0 && (
+        <div className="card section">
+          <h3>All not retained</h3>
+          <table>
+            <tbody>
+              <tr>
+                <td>Fall 2025 census students not registered Fall 2026 and not 2025–26 graduates</td>
+                <td className="num">{fmtN(unretained.n)}</td>
+              </tr>
+              <tr className="total">
+                <td>Of those, undergraduate degree-seeking</td>
+                <td className="num">{fmtN(unretained.ug)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p className="note">
+            Registration Status is the all-student count for this term. Names are on the
+            All Not Retained sheet of the Excel draft.
+          </p>
+        </div>
+      )}
       <div className="grid-2 section">
         <div className="card">
           <h3>FA25 FTCA cohort retention</h3>

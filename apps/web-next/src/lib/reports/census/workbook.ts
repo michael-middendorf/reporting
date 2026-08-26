@@ -19,12 +19,13 @@ import {
 import { cellRef, XlsxSheet, XlsxWorkbook, type CellStyle, type CellValue } from "./xlsx";
 
 const NAVY = "1A3F6F";
+const GOLD = "B8922E";
 const PALE = "F7FAFD";
 const TOTAL_FILL = "E8EEF6";
 
-const TITLE: CellStyle = { bold: true, size: 16, color: NAVY };
-const TITLE20: CellStyle = { bold: true, size: 20, color: NAVY };
-const TITLE18: CellStyle = { bold: true, size: 18, color: NAVY };
+const TITLE: CellStyle = { bold: true, size: 16, color: NAVY, border: { b: { s: "thin", c: GOLD } } };
+const TITLE20: CellStyle = { bold: true, size: 20, color: NAVY, border: { b: { s: "thin", c: GOLD } } };
+const TITLE18: CellStyle = { bold: true, size: 18, color: NAVY, border: { b: { s: "thin", c: GOLD } } };
 const SECTION: CellStyle = { bold: true, size: 11, color: NAVY };
 const HEADER_STYLE: CellStyle = {
   bold: true,
@@ -777,6 +778,7 @@ function unretainedRow(s: UnretainedStudent): CellValue[] {
     s.classLevel,
     s.collegeAttend,
     s.incomingReturning,
+    s.program || "",
   ];
 }
 
@@ -812,7 +814,7 @@ function writeSources(
     [
       "Not retained",
       unretainedCount
-        ? `${unretainedCount.toLocaleString()} Fall 2025 degree-seeking UG not enrolled Fall 2026 and not in the 2025–26 graduate list.`
+        ? `${unretainedCount.toLocaleString()} Fall 2025 census students not in Fall 2026 registration and not among 2025–26 Fall/Spring/Summer graduates.`
         : "Unretained list is not in the census cache yet.",
     ],
     ["Still to add", data.pending.length ? data.pending.join("; ") : "None"],
@@ -901,8 +903,9 @@ export async function buildCensusWorkbook(
       "Class",
       "College_Attend",
       "Incoming/Returning",
+      "Program",
     ],
-    [14, 16, 18, 14, 12, 10, 12, 16, 10, 18, 8, 10, 12, 14, 16],
+    [14, 16, 18, 14, 12, 10, 12, 16, 10, 18, 8, 10, 12, 14, 16, 12],
     lists.unretained.map(unretainedRow),
   );
   if (housingRows.length) writeHousing(wb, housingRows);
