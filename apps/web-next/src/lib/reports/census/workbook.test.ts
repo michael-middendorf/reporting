@@ -74,5 +74,12 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   ]);
   assert.match(files["xl/worksheets/sheet1.xml"], /Fall 2026 Census/);
   assert.match(files["xl/worksheets/sheet1.xml"], /Total Degree-Seeking/);
+  assert.doesNotMatch(files["xl/styles.xml"], /vertical="middle"/);
+  assert.match(files["xl/styles.xml"], /xfId="0"/);
+  const sheet1 = files["xl/worksheets/sheet1.xml"];
+  assert.ok(
+    sheet1.indexOf("<dimension") < sheet1.indexOf("<sheetViews"),
+    "Excel requires dimension before sheetViews",
+  );
   assert.equal(censusFileName(data, new Date("2026-08-26T12:00:00Z")), "FA26_Census_DRAFT_2026-08-26.xlsx");
 });

@@ -10,15 +10,20 @@ export const runtime = "nodejs";
 export async function GET(req: Request) {
   const denied = requireReportAccess(req, "census");
   if (denied) return denied;
-  const { data, housingRows } = await loadCensusSnapshot();
-  const buf = await buildCensusWorkbook(data, housingRows);
-  const filename = censusFileName(data);
-  return new NextResponse(new Uint8Array(buf), {
-    status: 200,
-    headers: {
-      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-      "Cache-Control": "private, no-store",
-    },
-  });
+  try {
+    const { data, housingRows } = await loadCensusSnapshot();
+    const buf = await buildCensusWorkbook(data, housingRows);
+    const filename = censusFileName(data);
+    return new NextResponse(new Uint8Array(buf), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Cache-Control": "private, no-store",
+      },
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }

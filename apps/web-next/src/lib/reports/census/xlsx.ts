@@ -11,7 +11,7 @@ export type CellStyle = {
   numFmt?: "int" | "fte" | "pct";
   indent?: number;
   hAlign?: "center" | "left";
-  vAlign?: "middle";
+  vAlign?: "center" | "top" | "bottom";
   wrap?: boolean;
 };
 
@@ -129,6 +129,7 @@ function sanitizeSheetName(name: string): string {
 
 function xmlEscape(s: string): string {
   return s
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -229,6 +230,7 @@ function workbookXml(sheets: XlsxSheet[]): Buffer {
   return Buffer.from(
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
       `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
+      `<bookViews><workbookView/></bookViews>` +
       `<sheets>${sheetEls}</sheets></workbook>`,
   );
 }
@@ -269,9 +271,9 @@ function sheetXml(sheet: XlsxSheet, xfOf: (s: CellStyle) => number): string {
     rowXml.push(`<row r="${r}"${htAttr}>${cells}</row>`);
   }
 
-  const pane =
+  const paneXml =
     d.freezeRows > 0
-      ? `<pane ySplit="${d.freezeRows}" topLeftCell="A${d.freezeRows + 1}" activePane="bottomLeft" state="frozen"/>`
+      ? `<pane ySplit="${d.freezeRows}" topLeftCell="A${d.freezeRows + 1}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft"/>`
       : "";
   const grid = d.gridLines ? "" : ` showGridLines="0"`;
   const merges =
@@ -282,15 +284,17 @@ function sheetXml(sheet: XlsxSheet, xfOf: (s: CellStyle) => number): string {
           .join("")}</mergeCells>`;
   const filter = d.autoFilter ? `<autoFilter ref="${xmlEscape(d.autoFilter)}"/>` : "";
 
+  // ECMA-376 worksheet child order: dimension, sheetViews, cols, sheetData,
+  // autoFilter, mergeCells. Excel repairs the file if this is wrong.
   return (
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
     `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
-    `<sheetViews><sheetView workbookViewId="0"${grid}>${pane}</sheetView></sheetViews>` +
     `<dimension ref="A1:${cellRef(maxR, maxC)}"/>` +
+    `<sheetViews><sheetView workbookViewId="0"${grid}>${paneXml}</sheetView></sheetViews>` +
     cols +
     `<sheetData>${rowXml.join("")}</sheetData>` +
-    merges +
     filter +
+    merges +
     `</worksheet>`
   );
 }
@@ -318,7 +322,7 @@ function stylesXml(styles: CellStyle[]): string {
     `<fill><patternFill patternType="none"/></fill>`,
     `<fill><patternFill patternType="gray125"/></fill>`,
   ];
-  fonts.set("11||", 0);
+  fonts.set("11|||", 0);
 
   function fontId(s: CellStyle): number {
     const size = s.size || 11;
@@ -352,7 +356,8 @@ function stylesXml(styles: CellStyle[]): string {
 
   const xfs = styles
     .map((s) => {
-      const n = s.numFmt ? ` numFmtId="${numFmtId[s.numFmt]}" applyNumberFormat="1"` : "";
+      const nId = s.numFmt ? numFmtId[s.numFmt] : 0;
+      const n = s.numFmt ? ` applyNumberFormat="1"` : "";
       const applyFont = fontId(s) !== 0 ? ` applyFont="1"` : "";
       const applyFill = fillId(s) !== 0 ? ` applyFill="1"` : "";
       const alignParts: string[] = [];
@@ -362,7 +367,7 @@ function stylesXml(styles: CellStyle[]): string {
       if (s.wrap) alignParts.push(`wrapText="1"`);
       const align = alignParts.length ? `<alignment ${alignParts.join(" ")}/>` : "";
       const applyAlign = align ? ` applyAlignment="1"` : "";
-      return `<xf fontId="${fontId(s)}" fillId="${fillId(s)}" borderId="0"${n}${applyFont}${applyFill}${applyAlign}>${align}</xf>`;
+      return `<xf numFmtId="${nId}" fontId="${fontId(s)}" fillId="${fillId(s)}" borderId="0" xfId="0"${n}${applyFont}${applyFill}${applyAlign}>${align}</xf>`;
     })
     .join("");
 
@@ -373,8 +378,9 @@ function stylesXml(styles: CellStyle[]): string {
     `<fonts count="${fontList.length}">${fontList.join("")}</fonts>` +
     `<fills count="${fillList.length}">${fillList.join("")}</fills>` +
     `<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>` +
-    `<cellStyleXfs count="1"><xf/></cellStyleXfs>` +
+    `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
     `<cellXfs count="${styles.length}">${xfs}</cellXfs>` +
+    `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>` +
     `</styleSheet>`
   );
 }
