@@ -17,7 +17,7 @@
 .census-root * { box-sizing: border-box; }
 
 .census-root .wrap {
-  max-width: 1280px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 22px 28px 64px;
 }
@@ -223,9 +223,169 @@
   margin-bottom: 16px;
 }
 
+.census-root .sheet {
+  background: #fff;
+  border: 1px solid var(--bdr);
+  padding: 18px 18px 28px;
+}
+.census-root .sheet-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+.census-root .sheet-head h2 {
+  margin: 0;
+  font-size: 20px;
+  color: var(--navy);
+  letter-spacing: -0.02em;
+}
+.census-root .sheet-n {
+  margin: 0;
+  font-size: 12px;
+  color: var(--t2);
+  white-space: nowrap;
+}
+.census-root .filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: end;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  background: var(--pale);
+  border: 1px solid var(--bdr);
+}
+.census-root .filter-bar label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--t2);
+}
+.census-root .filter-bar select {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy);
+  border: 1px solid var(--bdr);
+  background: #fff;
+  padding: 6px 8px;
+  min-width: 140px;
+}
+.census-root .filter-menu {
+  position: relative;
+  font-size: 13px;
+}
+.census-root .filter-menu summary {
+  list-style: none;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--navy);
+  background: #fff;
+  border: 1px solid var(--bdr);
+  padding: 7px 10px;
+  min-width: 140px;
+}
+.census-root .filter-menu summary::-webkit-details-marker { display: none; }
+.census-root .filter-menu-body {
+  position: absolute;
+  z-index: 5;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: #fff;
+  border: 1px solid var(--bdr);
+  box-shadow: 0 8px 24px rgba(26, 63, 111, 0.12);
+  padding: 8px 10px;
+  max-height: 280px;
+  overflow: auto;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.census-root .filter-menu-body label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--navy);
+}
+.census-root .filter-link,
+.census-root .filter-reset {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--navy);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 4px 0;
+}
+.census-root .filter-reset { align-self: center; }
+
+.census-root .sheet-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(240px, 1.1fr) minmax(240px, 1.15fr) minmax(260px, 1.25fr);
+  gap: 18px 20px;
+  align-items: start;
+}
+.census-root .sheet-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.census-root .sheet-table { min-width: 0; }
+.census-root .sheet-caption {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--navy);
+  margin-bottom: 4px;
+}
+.census-root .sheet-table table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--navy);
+}
+.census-root .sheet-table th,
+.census-root .sheet-table td {
+  border: 1px solid #c5d4e8;
+  padding: 3px 6px;
+  font-size: 11.5px;
+}
+.census-root .sheet-table thead th {
+  background: var(--navy);
+  color: #fff;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
+}
+.census-root .sheet-table tr.total td {
+  background: #e8eef6;
+  font-weight: 800;
+  border-top: 1.5px solid var(--navy);
+}
+
+@media (max-width: 1100px) {
+  .census-root .sheet-grid { grid-template-columns: 1fr 1fr; }
+}
 @media (max-width: 900px) {
   .census-root .kpis,
   .census-root .grid-2,
-  .census-root .grid-3 { grid-template-columns: 1fr; }
+  .census-root .grid-3,
+  .census-root .sheet-grid { grid-template-columns: 1fr; }
   .census-root .wrap { padding: 16px; }
 }

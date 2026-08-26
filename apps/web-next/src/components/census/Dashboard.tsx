@@ -1,12 +1,13 @@
 "use client";
 
-import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { CensusReport } from "@/components/census/CensusReport";
+import type { ReportStudent } from "@/lib/reports/census/report";
 import {
   historicalSeries,
   type CensusSnapshot,
   type CountFte,
-  type LabeledCount,
 } from "@/lib/reports/census/types";
 import "@/styles/census.css";
 
@@ -26,7 +27,7 @@ function fmtFte(n: number | null | undefined): string {
 type Tab = "summary" | "historical" | "ug" | "attrition";
 
 export function CensusDashboard() {
-  const [data, setData] = useState<CensusSnapshot | null>(null);
+  const [data, setData] = useState<(CensusSnapshot & { reportStudents?: ReportStudent[] }) | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("summary");
   const [downloading, setDownloading] = useState(false);
@@ -61,7 +62,7 @@ export function CensusDashboard() {
     (async () => {
       try {
         const res = await apiFetch("/api/census-data");
-        const json = (await res.json()) as CensusSnapshot & { error?: string };
+        const json = (await res.json()) as CensusSnapshot & { error?: string; reportStudents?: ReportStudent[] };
         if (!alive) return;
         if (!res.ok) {
           setError(json.error || res.statusText || "Data unavailable");
@@ -89,8 +90,8 @@ export function CensusDashboard() {
             <div className="eyebrow">Institutional Research</div>
             <h1>{data.term} Census</h1>
             <p className="sub">
-              Built the same way as FA25: registration spine, joined lists, then
-              these tables. Snapshot {data.generated}
+              Summary and Historical match the census workbook. Census Report is
+              the same tables, with filters. Snapshot {data.generated}
               {data.housing
                 ? `. Housing from eRez${data.housing.session ? ` (${data.housing.session})` : ""}.`
                 : "."}
@@ -140,7 +141,7 @@ export function CensusDashboard() {
             [
               ["summary", "Summary"],
               ["historical", "Historical"],
-              ["ug", "Undergraduate"],
+              ["ug", "Census Report"],
               ["attrition", "Retention"],
             ] as [Tab, string][]
           ).map(([id, label]) => (
@@ -157,7 +158,7 @@ export function CensusDashboard() {
 
         {tab === "summary" && <SummaryTab data={data} />}
         {tab === "historical" && <HistoricalTab data={data} />}
-        {tab === "ug" && <UgTab data={data} />}
+        {tab === "ug" && <CensusReport data={data} students={data.reportStudents || []} />}
         {tab === "attrition" && <AttritionTab data={data} />}
       </div>
     </div>
@@ -290,179 +291,6 @@ function HistoricalTab({ data }: { data: CensusSnapshot }) {
         </tbody>
       </table>
     </div>
-  );
-}
-
-function CountTable({
-  title,
-  rows,
-  extra,
-  extraHeader,
-  note,
-}: {
-  title: string;
-  rows: LabeledCount[];
-  extra?: (row: LabeledCount) => ReactNode;
-  extraHeader?: string;
-  note?: string;
-}) {
-  const total = rows.reduce((s, r) => s + r.n, 0);
-  return (
-    <div className="card">
-      <h3>{title}</h3>
-      <table>
-        <thead>
-          <tr>
-            <th></th>
-            <th className="num">Students</th>
-            <th className="num">%</th>
-            {extra && <th className="num">{extraHeader}</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.label}>
-              <td>{r.label}</td>
-              <td className="num">{fmtN(r.n)}</td>
-              <td className="num">{fmtPct(r.pct ?? (total ? r.n / total : 0))}</td>
-              {extra && extra(r)}
-            </tr>
-          ))}
-          <tr className="total">
-            <td>Total</td>
-            <td className="num">{fmtN(total)}</td>
-            <td className="num"></td>
-            {extra && <td></td>}
-          </tr>
-        </tbody>
-      </table>
-      {note && <p className="note">{note}</p>}
-    </div>
-  );
-}
-
-function UgTab({ data }: { data: CensusSnapshot }) {
-  const u = data.ug;
-  return (
-    <>
-      <div className="grid-2 section">
-        <CountTable title="States" rows={u.states} />
-        <CountTable title="Countries (F1 / international)" rows={u.countries} />
-      </div>
-      <div className="grid-3 section">
-        <CountTable title="Gender" rows={u.gender} />
-        <CountTable title="Religion" rows={u.religion} />
-        <CountTable title="Athlete / non-athlete" rows={u.athlete} />
-      </div>
-      <div className="grid-2 section">
-        <div className="card">
-          <h3>Class level</h3>
-          <table>
-            <thead>
-              <tr>
-                <th></th>
-                <th className="num">Students</th>
-                <th className="num">Full time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {u.classLevel.map((r) => (
-                <tr key={r.label}>
-                  <td>{r.label}</td>
-                  <td className="num">{fmtN(r.n)}</td>
-                  <td className="num">{fmtN(r.fullTime)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <CountTable
-          title="Sports"
-          rows={u.sports}
-          extraHeader="% of all"
-          extra={(r) => (
-            <td className="num">{fmtPct(r.pctOfAll)}</td>
-          )}
-        />
-      </div>
-      <div className="grid-3 section">
-        <CountTable title="Incoming athlete mix" rows={u.incomingAthlete} />
-        <CountTable
-          title={data.housing ? "Residency (eRez)" : "Residency (housing pending)"}
-          rows={u.residency}
-          note={
-            data.housing
-              ? `${data.housing.ugMatched.toLocaleString()} UG matched in eRez · ${data.housing.unassigned.toLocaleString()} unassigned. Other is Middle Brook / unmapped buildings.`
-              : undefined
-          }
-        />
-        <CountTable title={`Honors (${fmtN(u.honorsN)})`} rows={u.honorsByClass} />
-      </div>
-      <div className="grid-3 section">
-        <CountTable title="Athletic religion" rows={u.athleticReligion} />
-        <CountTable title="Florida athlete mix" rows={u.floridaAthlete} />
-        <CountTable title="Florida Catholic" rows={u.floridaCatholic} />
-      </div>
-      <div className="grid-2 section">
-        <CountTable title="Non-Florida Catholic / athlete" rows={u.nonFloridaCatholicAthlete} />
-        <div className="card">
-          <h3>UG by gender / incoming / load</h3>
-          <table>
-            <thead>
-              <tr>
-                <th></th>
-                <th className="num">Full</th>
-                <th className="num">Half</th>
-                <th className="num">Less</th>
-                <th className="num">Other (THRE)</th>
-                <th className="num">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {u.genderLoad.map((g) => (
-                <tr key={`${g.gender}-${g.incomingReturning}`}>
-                  <td>
-                    {g.gender} {g.incomingReturning}
-                  </td>
-                  <td className="num">{fmtN(g.full)}</td>
-                  <td className="num">{fmtN(g.half)}</td>
-                  <td className="num">{fmtN(g.less)}</td>
-                  <td className="num">{fmtN(g.other)}</td>
-                  <td className="num">{fmtN(g.total)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div className="card section">
-        <h3>Majors by class</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Major</th>
-              <th className="num">Fr</th>
-              <th className="num">So</th>
-              <th className="num">Jr</th>
-              <th className="num">Sr</th>
-              <th className="num">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {u.majors.map((m) => (
-              <tr key={m.label}>
-                <td>{m.label}</td>
-                <td className="num">{fmtN(m.freshman)}</td>
-                <td className="num">{fmtN(m.sophomore)}</td>
-                <td className="num">{fmtN(m.junior)}</td>
-                <td className="num">{fmtN(m.senior)}</td>
-                <td className="num">{fmtN(m.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </>
   );
 }
 

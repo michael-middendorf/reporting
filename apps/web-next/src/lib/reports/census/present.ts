@@ -1,6 +1,6 @@
 import type { AttritionRow, CensusSnapshot, LabeledCount } from "./types";
 
-const COUNTRY_NAMES: Record<string, string> = {
+export const COUNTRY_NAMES: Record<string, string> = {
   CAN: "Canada",
   GERMAN: "Germany",
   BRAZIL: "Brazil",
@@ -25,7 +25,7 @@ const ETHNICITY_NAMES: Record<string, string> = {
   AMINDI: "American Indian",
 };
 
-const CLASS_ORDER = ["Freshman", "Sophomore", "Junior", "Senior"];
+export const CLASS_ORDER = ["Freshman", "Sophomore", "Junior", "Senior"];
 
 const GPA_ORDER = ["<1.0", "1.0 - 1.9", "2.0 - 2.49", "2.5 - 2.99", "3.0 - 3.49", "3.5 - 4.0"];
 
