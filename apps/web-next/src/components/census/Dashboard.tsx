@@ -90,8 +90,8 @@ export function CensusDashboard() {
             <div className="eyebrow">Institutional Research</div>
             <h1>{data.term} Census</h1>
             <p className="sub">
-              Summary and Historical match the census workbook. Census Report is
-              the same tables, with filters. Snapshot {data.generated}
+              Laid out like the Fall 2025 census workbook. Census Report adds
+              filters on top of those tables. Snapshot {data.generated}
               {data.housing
                 ? `. Housing from eRez${data.housing.session ? ` (${data.housing.session})` : ""}.`
                 : "."}
@@ -186,25 +186,28 @@ function HcFte({ c }: { c: CountFte }) {
 
 function SummaryTab({ data }: { data: CensusSnapshot }) {
   const s = data.summary;
-  const rows: { label: string; c: CountFte; indent?: boolean }[] = [
-    { label: "Undergraduate, new students admitted", c: s.newStudents },
+  const year = data.historical.years[0] ?? 2026;
+  const rows: { label: string; c?: CountFte; indent?: boolean; section?: boolean }[] = [
+    { label: "Degree-Seeking", section: true },
+    { label: `Undergraduate, New Students Admitted FALL ${year}`, c: s.newStudents },
     { label: "FTCA", c: s.ftca, indent: true },
     { label: "TRAN", c: s.tran, indent: true },
     { label: "READ", c: s.read, indent: true },
     { label: "SECB", c: s.secb, indent: true },
     { label: "Lux Mundi", c: s.luxMundiUg, indent: true },
-    { label: "Returning students", c: s.returning },
-    { label: "Total degree-seeking", c: s.degreeSeeking },
-    { label: "High school dual enrollment", c: s.dualEnrollment },
-    { label: "Non-degree / personal enrichment", c: s.nonDegree },
-    { label: "Total undergraduate enrollment", c: s.totalUndergraduate },
-    { label: "Graduate MA", c: s.gradMa },
-    { label: "Graduate PhD", c: s.gradPhd },
-    { label: "Graduate MBA", c: s.gradMba },
+    { label: "Returning Students", c: s.returning },
+    { label: "Total Degree-Seeking", c: s.degreeSeeking },
+    { label: "High School Dual Enrollment", c: s.dualEnrollment },
+    { label: "Non-Degree-Seeking / Personal Enrichment", c: s.nonDegree },
+    { label: "Lux Mundi Non-Degree-Seeking / Personal Enrichment", c: s.luxMundiUg },
+    { label: "TOTAL UNDERGRADUATE ENROLLMENT", c: s.totalUndergraduate },
+    { label: "Graduate MA Students", c: s.gradMa },
+    { label: "Graduate PhD Students", c: s.gradPhd },
+    { label: "Graduate MBA Students", c: s.gradMba },
     { label: "Graduate MEdCl", c: s.gradMedcl },
-    { label: "Lux Mundi (graduate)", c: s.luxMundiGrad },
-    { label: "Total graduate enrollment", c: s.totalGraduate },
-    { label: "Graduate & undergraduate enrollment", c: s.totalEnrollment },
+    { label: "Graduate MA Theo (Online) - Lux Mundi", c: s.luxMundiGrad },
+    { label: "TOTAL GRADUATE ENROLLMENT", c: s.totalGraduate },
+    { label: "Graduate & Undergraduate Enrollment", c: s.totalEnrollment },
   ];
   return (
     <div className="card">
@@ -213,15 +216,24 @@ function SummaryTab({ data }: { data: CensusSnapshot }) {
         <thead>
           <tr>
             <th></th>
-            <th className="num">Headcount</th>
+            <th className="num">HEADCOUNT</th>
             <th className="num">FTE</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.label} className={r.label.startsWith("Total") ? "total" : r.indent ? "indent" : ""}>
+            <tr
+              key={r.label}
+              className={
+                r.label.startsWith("TOTAL") || r.label.startsWith("Total") || r.label.startsWith("Graduate &")
+                  ? "total"
+                  : r.indent
+                    ? "indent"
+                    : ""
+              }
+            >
               <td>{r.label}</td>
-              <HcFte c={r.c} />
+              {r.c ? <HcFte c={r.c} /> : <><td></td><td></td></>}
             </tr>
           ))}
         </tbody>
@@ -232,40 +244,44 @@ function SummaryTab({ data }: { data: CensusSnapshot }) {
 
 function HistoricalTab({ data }: { data: CensusSnapshot }) {
   const years = data.historical.years;
-  const lines: { label: string; key: string }[] = [
-    { label: "New students", key: "newStudents" },
-    { label: "FTCA", key: "ftca" },
-    { label: "TRAN", key: "tran" },
-    { label: "READ", key: "read" },
-    { label: "SECB", key: "secb" },
-    { label: "Returning", key: "returning" },
-    { label: "Degree-seeking UG", key: "degreeSeeking" },
-    { label: "Dual enrollment", key: "dualEnrollment" },
-    { label: "Total undergraduate", key: "totalUndergraduate" },
-    { label: "Graduate MA", key: "gradMa" },
-    { label: "Graduate PhD", key: "gradPhd" },
-    { label: "Graduate MBA", key: "gradMba" },
+  const lines: { label: string; key?: string; indent?: boolean }[] = [
+    { label: "Degree-Seeking" },
+    { label: "Undergraduate, New Students Admitted", key: "newStudents" },
+    { label: "FTCA", key: "ftca", indent: true },
+    { label: "TRAN", key: "tran", indent: true },
+    { label: "READ", key: "read", indent: true },
+    { label: "SECB", key: "secb", indent: true },
+    { label: "Lux Mundi", key: "luxMundiUg", indent: true },
+    { label: "Returning Students", key: "returning" },
+    { label: "Total Degree-Seeking", key: "degreeSeeking" },
+    { label: "High School Dual Enrollment", key: "dualEnrollment" },
+    { label: "Non-Degree-Seeking / Personal Enrichment", key: "nonDegree" },
+    { label: "TOTAL UNDERGRADUATE ENROLLMENT", key: "totalUndergraduate" },
+    { label: "Graduate MA Students", key: "gradMa" },
+    { label: "Graduate PhD Students", key: "gradPhd" },
+    { label: "Graduate MBA Students", key: "gradMba" },
     { label: "Graduate MEdCl", key: "gradMedcl" },
-    { label: "Total graduate", key: "totalGraduate" },
-    { label: "All enrollment", key: "totalEnrollment" },
+    { label: "Graduate MA Theo (Online) - Lux Mundi", key: "luxMundiGrad" },
+    { label: "TOTAL GRADUATE ENROLLMENT", key: "totalGraduate" },
+    { label: "Graduate & Undergraduate Enrollment", key: "totalEnrollment" },
   ];
   return (
     <div className="card">
-      <h3>Fall census history (FA26 is live / draft)</h3>
+      <h3>Fall census history (Fall 2026 is live / draft)</h3>
       <table>
         <thead>
           <tr>
             <th rowSpan={2}></th>
             {years.map((y) => (
               <th key={y} className="num" colSpan={2}>
-                FA{String(y).slice(2)}
+                Fall {y}
               </th>
             ))}
           </tr>
           <tr>
             {years.map((y) => (
               <Fragment key={y}>
-                <th className="num">HC</th>
+                <th className="num">HEADCOUNT</th>
                 <th className="num">FTE</th>
               </Fragment>
             ))}
@@ -273,16 +289,25 @@ function HistoricalTab({ data }: { data: CensusSnapshot }) {
         </thead>
         <tbody>
           {lines.map((line) => {
-            const series = historicalSeries(data.historical, line.key);
+            const series = line.key ? historicalSeries(data.historical, line.key) : { hc: [], fte: [] };
             const hc = series.hc || [];
             const fte = series.fte || [];
             return (
-              <tr key={line.key} className={line.label.startsWith("Total") || line.label.startsWith("All") ? "total" : ""}>
+              <tr
+                key={line.label}
+                className={
+                  line.label.startsWith("TOTAL") || line.label.startsWith("Total") || line.label.startsWith("Graduate &")
+                    ? "total"
+                    : line.indent
+                      ? "indent"
+                      : ""
+                }
+              >
                 <td>{line.label}</td>
                 {years.map((_, i) => (
                   <Fragment key={i}>
-                    <td className="num">{hc[i] == null ? "—" : fmtN(hc[i])}</td>
-                    <td className="num">{fte[i] == null ? "—" : fmtFte(fte[i])}</td>
+                    <td className="num">{!line.key || hc[i] == null ? (line.key ? "—" : "") : fmtN(hc[i])}</td>
+                    <td className="num">{!line.key || fte[i] == null ? (line.key ? "—" : "") : fmtFte(fte[i])}</td>
                   </Fragment>
                 ))}
               </tr>

@@ -12,6 +12,16 @@ function draft(): CensusSnapshot {
   return presentSnapshot(structuredClone(snapshot) as CensusSnapshot);
 }
 
+test("sports are A–Z on the presented snapshot, like the FA25 sheet", () => {
+  const data = draft();
+  const labels = data.ug.sports.map((r) => r.label);
+  assert.deepEqual(labels, [...labels].sort((a, b) => a.localeCompare(b)));
+  assert.deepEqual(
+    data.ug.athlete.map((r) => r.label),
+    ["Athlete", "Non-Athlete"],
+  );
+});
+
 test("states are A–Z like last year's census report, International last", () => {
   const data = draft();
   const labels = data.ug.states.map((r) => r.label);
@@ -138,6 +148,14 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(files["xl/styles.xml"], /style="thin"/);
   assert.match(files["xl/worksheets/sheet1.xml"], /Fall 2026 Census/);
   assert.match(files["xl/worksheets/sheet1.xml"], /Total Degree-Seeking/);
+  assert.match(files["xl/worksheets/sheet1.xml"], /Graduate MA Students/);
+  const reportXml = files["xl/worksheets/sheet3.xml"];
+  assert.match(reportXml, /Undergraduate Statistics/);
+  assert.match(reportXml, /Incoming/);
+  assert.match(reportXml, /Student Residency/);
+  assert.match(reportXml, /FA26 Majors/);
+  assert.match(reportXml, /Other\(THRE\)/);
+  assert.match(reportXml, /Row Labels/);
   assert.doesNotMatch(files["xl/styles.xml"], /vertical="middle"/);
   assert.match(files["xl/styles.xml"], /xfId="0"/);
   const sheet1 = files["xl/worksheets/sheet1.xml"];

@@ -1,6 +1,6 @@
 import type { CensusRawStudent } from "./lists";
 import { CLASS_ORDER, COUNTRY_NAMES } from "./present";
-import type { LabeledCount } from "./types";
+import type { CensusSnapshot, LabeledCount } from "./types";
 
 export type ReportStudent = {
   gender: string;
@@ -21,6 +21,7 @@ export type ReportStudent = {
   honors: boolean;
   citizenship: string;
   visa: string;
+  appDecision: string;
 };
 
 export type ReportFilters = {
@@ -70,6 +71,7 @@ export function projectReportStudents(rows: CensusRawStudent[]): ReportStudent[]
     honors: Boolean((r.honors || "").trim()) && (r.honors || "").trim() !== "-",
     citizenship: (r.citizenship || "").trim().toUpperCase(),
     visa: (r.visa || "").trim().toUpperCase(),
+    appDecision: (r.appDecision || "").trim() || "Not listed",
   }));
 }
 
@@ -120,10 +122,21 @@ function counts(rows: ReportStudent[], pick: (s: ReportStudent) => string, blank
     if (!label) continue;
     map.set(label, (map.get(label) || 0) + 1);
   }
-  const total = rows.length;
+  const total = [...map.values()].reduce((s, n) => s + n, 0);
   return [...map.entries()]
     .map(([label, n]) => ({ label, n, pct: total ? n / total : 0 }))
     .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
+}
+
+function namedOrder(rows: LabeledCount[], order: string[]): LabeledCount[] {
+  return [...rows].sort((a, b) => {
+    const ai = order.indexOf(a.label);
+    const bi = order.indexOf(b.label);
+    if (ai === -1 && bi === -1) return a.label.localeCompare(b.label);
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
 }
 
 function alphaStates(rows: LabeledCount[]): LabeledCount[] {
@@ -163,6 +176,7 @@ export type ReportTables = {
   classLevel: LabeledCount[];
   sports: LabeledCount[];
   residency: LabeledCount[];
+  appDecisions: LabeledCount[];
   honorsByClass: LabeledCount[];
   honorsN: number;
   athleticReligion: LabeledCount[];
@@ -214,6 +228,8 @@ export function buildReport(rows: ReportStudent[]): ReportTables {
     .map((r) => ({
       ...r,
       fullTime: rows.filter((s) => (s.classLevel || "—") === r.label && s.fullPart === "FULL").length,
+      incoming: rows.filter((s) => (s.classLevel || "—") === r.label && s.incomingReturning === "Incoming").length,
+      pct: n ? r.n / n : 0,
     }))
     .sort((a, b) => classRank(a.label) - classRank(b.label));
 
@@ -224,7 +240,21 @@ export function buildReport(rows: ReportStudent[]): ReportTables {
       pctOfAthletes: athletes.length ? r.n / athletes.length : 0,
       pctOfAll: n ? r.n / n : 0,
     }))
-    .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  const resLabels = ["Commuter", "Other", "Resident", "Study Abroad", "Unassigned"];
+  const residency: LabeledCount[] = resLabels
+    .map((label) => {
+      const subset = rows.filter((s) => (s.residency || "Unassigned") === label);
+      return {
+        label,
+        n: subset.length,
+        pct: n ? subset.length / n : 0,
+        male: subset.filter((s) => s.gender === "Male").length,
+        female: subset.filter((s) => s.gender === "Female").length,
+      };
+    })
+    .filter((r) => r.n > 0);
 
   const loadMap = new Map<string, { gender: string; incomingReturning: string; full: number; half: number; less: number; other: number; total: number }>();
   for (const s of rows) {
@@ -254,19 +284,26 @@ export function buildReport(rows: ReportStudent[]): ReportTables {
     universe: n,
     states,
     countries,
-    gender: counts(rows, (s) => s.gender || "—").sort((a, b) => a.label.localeCompare(b.label)),
+    gender: namedOrder(counts(rows, (s) => s.gender || "—"), ["Female", "Male"]),
     religion: counts(rows, (s) => s.cathGroup || s.religion || "Other"),
-    athlete: counts(rows, (s) => s.athlete || "Non-Athlete"),
-    incomingAthlete: counts(incoming, (s) => s.athlete || "Non-Athlete"),
+    athlete: namedOrder(counts(rows, (s) => s.athlete || "Non-Athlete"), ["Athlete", "Non-Athlete"]),
+    incomingAthlete: namedOrder(counts(incoming, (s) => s.athlete || "Non-Athlete"), ["Athlete", "Non-Athlete"]),
     classLevel,
     sports,
-    residency: counts(rows, (s) => s.residency || "Unassigned").sort((a, b) => a.label.localeCompare(b.label)),
+    residency,
+    appDecisions: counts(rows, (s) => s.appDecision),
     honorsByClass: counts(honors, (s) => s.classLevel || "—").sort((a, b) => classRank(a.label) - classRank(b.label)),
     honorsN: honors.length,
     athleticReligion: counts(athletes, (s) => s.cathGroup || s.religion || "Other"),
-    floridaAthlete: counts(florida, (s) => s.athlete || "Non-Athlete"),
-    floridaCatholic: counts(florida, (s) => (/cathol/i.test(s.cathGroup || s.religion) ? "Catholic" : "Non-Catholic")),
-    nonFloridaCatholicAthlete: counts(nonFlCath, (s) => s.athlete || "Non-Athlete"),
+    floridaAthlete: namedOrder(counts(florida, (s) => s.athlete || "Non-Athlete"), ["Athlete", "Non-Athlete"]),
+    floridaCatholic: namedOrder(
+      counts(florida, (s) => (/cathol/i.test(s.cathGroup || s.religion) ? "Catholic" : "Non-Catholic")),
+      ["Catholic", "Non-Catholic"],
+    ),
+    nonFloridaCatholicAthlete: namedOrder(
+      counts(nonFlCath, (s) => s.athlete || "Non-Athlete"),
+      ["Athlete", "Non-Athlete"],
+    ),
     genderLoad: [...loadMap.values()].sort((a, b) => a.gender.localeCompare(b.gender) || a.incomingReturning.localeCompare(b.incomingReturning)),
     majors: [...majorMap.values()].sort((a, b) => a.label.localeCompare(b.label)),
   };
@@ -281,3 +318,31 @@ export function filtersActive(f: ReportFilters): boolean {
     f.degree !== "ug"
   );
 }
+
+/** Snapshot tables in the same shape the Census Report page uses. */
+export function tablesFromSnapshot(data: CensusSnapshot): ReportTables {
+  return {
+    n: data.ug.n,
+    universe: data.ug.n,
+    states: data.ug.states,
+    countries: data.ug.countries,
+    gender: data.ug.gender,
+    religion: data.ug.religion,
+    athlete: data.ug.athlete,
+    incomingAthlete: data.ug.incomingAthlete,
+    classLevel: data.ug.classLevel,
+    sports: data.ug.sports,
+    residency: data.ug.residency,
+    appDecisions: [],
+    honorsByClass: data.ug.honorsByClass,
+    honorsN: data.ug.honorsN,
+    athleticReligion: data.ug.athleticReligion,
+    floridaAthlete: data.ug.floridaAthlete,
+    floridaCatholic: data.ug.floridaCatholic,
+    nonFloridaCatholicAthlete: data.ug.nonFloridaCatholicAthlete,
+    genderLoad: data.ug.genderLoad,
+    majors: data.ug.majors,
+  };
+}
+
+

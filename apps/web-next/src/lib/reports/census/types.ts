@@ -5,6 +5,9 @@ export type LabeledCount = {
   n: number;
   pct?: number;
   fullTime?: number;
+  incoming?: number;
+  male?: number;
+  female?: number;
   pctOfAthletes?: number;
   pctOfAll?: number;
 };

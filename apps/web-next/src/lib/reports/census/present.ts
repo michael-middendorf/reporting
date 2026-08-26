@@ -87,6 +87,21 @@ export function presentSnapshot(data: CensusSnapshot): CensusSnapshot {
   );
   data.ug.classLevel = sortClass(data.ug.classLevel);
   data.ug.honorsByClass = sortClass(data.ug.honorsByClass);
+  data.ug.sports = [...data.ug.sports].sort((a, b) => a.label.localeCompare(b.label));
+  data.ug.gender = [...data.ug.gender].sort((a, b) => a.label.localeCompare(b.label));
+  const athleteOrder = ["Athlete", "Non-Athlete"];
+  const sortAthlete = (rows: LabeledCount[]) =>
+    [...rows].sort((a, b) => athleteOrder.indexOf(a.label) - athleteOrder.indexOf(b.label));
+  data.ug.athlete = sortAthlete(data.ug.athlete);
+  data.ug.incomingAthlete = sortAthlete(data.ug.incomingAthlete);
+  data.ug.floridaAthlete = sortAthlete(data.ug.floridaAthlete);
+  data.ug.nonFloridaCatholicAthlete = sortAthlete(data.ug.nonFloridaCatholicAthlete);
+  const resOrder = ["Commuter", "Other", "Resident", "Study Abroad", "Unassigned"];
+  data.ug.residency = [...data.ug.residency].sort((a, b) => {
+    const ai = resOrder.indexOf(a.label);
+    const bi = resOrder.indexOf(b.label);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
   data.ftcaAttrition.byState = sortStatesAlpha(data.ftcaAttrition.byState);
   data.ftcaAttrition.byEthnicity = data.ftcaAttrition.byEthnicity.map((r) => ({
     ...r,

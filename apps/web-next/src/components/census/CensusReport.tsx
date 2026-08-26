@@ -166,6 +166,18 @@ export function CensusReport({
   const nonFl = tables?.nonFloridaCatholicAthlete ?? u.nonFloridaCatholicAthlete;
   const genderLoad = tables?.genderLoad ?? u.genderLoad;
   const majorRows = tables?.majors ?? u.majors;
+  const appDecisions = tables?.appDecisions ?? [];
+  const majorTotal = majorRows.reduce((s, m) => s + m.total, 0);
+  const a = data.ftcaAttrition;
+  const ret = data.allUgRetention;
+  const fa = `FA${String(data.historical.years[0] ?? 2026).slice(2)}`;
+  const loadTotal = {
+    full: genderLoad.reduce((s, g) => s + g.full, 0),
+    half: genderLoad.reduce((s, g) => s + g.half, 0),
+    less: genderLoad.reduce((s, g) => s + g.less, 0),
+    other: genderLoad.reduce((s, g) => s + g.other, 0),
+    total: genderLoad.reduce((s, g) => s + g.total, 0),
+  };
 
   return (
     <div className="sheet">
@@ -229,112 +241,169 @@ export function CensusReport({
       <div className="sheet-grid">
         <div className="sheet-col">
           <SheetTable title="States" headers={["States", "Students", "Percentage"]} rows={countRows(states, 2)} />
+          <SheetTable title="Florida" headers={["Florida", "Students", "Percentage"]} rows={countRows(floridaAthlete)} />
+          <SheetTable title="Florida" headers={["Florida", "Students", "Percentage"]} rows={countRows(floridaCatholic)} />
+          <SheetTable
+            title="UG by Gender"
+            headers={["Row Labels", "Full", "Half", "Less", "Other(THRE)", "Total"]}
+            rows={[
+              ...genderLoad.flatMap((g, i, arr) => {
+                const first = i === 0 || arr[i - 1].gender !== g.gender;
+                const line: (string | number)[][] = [];
+                if (first) line.push([g.gender === "Female" ? "F" : g.gender === "Male" ? "M" : g.gender, "", "", "", "", ""]);
+                line.push([g.incomingReturning, fmtN(g.full), fmtN(g.half), fmtN(g.less), fmtN(g.other), fmtN(g.total)]);
+                return line;
+              }),
+              ["Total", fmtN(loadTotal.full), fmtN(loadTotal.half), fmtN(loadTotal.less), fmtN(loadTotal.other), fmtN(loadTotal.total)],
+            ]}
+          />
         </div>
         <div className="sheet-col">
           <SheetTable
-            title="Countries (F1 / international)"
+            title="Country"
             headers={["Country", "Students", "Percentage"]}
             rows={countRows(countries, 1)}
-            note={countries.length ? `*${countries.length} countries of F1 / international students` : undefined}
+            note={countries.length ? `*${countries.length} Countries of F1 Visa Holders` : undefined}
           />
-          <SheetTable title="Religion" headers={["Religion", "Students", "Percentage"]} rows={countRows(religion)} />
+          <SheetTable title="All Students" headers={["Religion", "Students", "Percentage"]} rows={countRows(religion)} />
           <SheetTable
-            title="All students — Athlete / Non-Athlete"
-            headers={["Athlete / Non-Athlete", "Students", "Percentage"]}
+            title="All UG Students"
+            headers={["Athlete/Non-Athlete", "Students", "Percentage"]}
             rows={countRows(athlete)}
           />
           <SheetTable
-            title="Incoming students — Athlete / Non-Athlete"
-            headers={["Athlete / Non-Athlete", "Students", "Percentage"]}
+            title="Incoming Students"
+            headers={["Athlete/Non-Athlete", "Students", "Percentage"]}
             rows={countRows(incomingAthlete)}
           />
+          {appDecisions.length > 0 && (
+            <SheetTable
+              title="Application Decisions"
+              headers={["Type", "Students", "Percentage"]}
+              rows={countRows(appDecisions)}
+            />
+          )}
           <SheetTable
-            title="Athletic religious association"
+            title="Athletic Religious Association"
             headers={["Religion", "Students", "Percentage"]}
             rows={countRows(athleticReligion)}
+          />
+          <SheetTable
+            title="Non-Florida & Catholic"
+            headers={["Non-Florida & Catholic", "Students", "Percentage"]}
+            rows={countRows(nonFl)}
+          />
+          <SheetTable
+            title="Honors Program"
+            headers={["Honors Program", "Students", "Percentage"]}
+            rows={countRows(honorsByClass)}
+            note={`${fmtN(honorsN)} honors students`}
           />
         </div>
         <div className="sheet-col">
           <SheetTable title="Gender" headers={["Gender", "Students", "Percentage"]} rows={countRows(gender)} />
           <SheetTable
             title="Sport"
-            headers={["Sport", "Students", "% of athletes", "% of all"]}
+            headers={["Sport", "Students", "% of Student Athletes", "% of All Students"]}
             rows={[
               ...sportsRows.map((r) => [
                 r.label,
                 fmtN(r.n),
-                fmtPct(r.pctOfAthletes ?? (sportsRows.reduce((s, x) => s + x.n, 0) ? r.n / sportsRows.reduce((s, x) => s + x.n, 0) : 0)),
-                fmtPct(r.pctOfAll),
+                fmtPct(r.pctOfAthletes, 2),
+                fmtPct(r.pctOfAll, 2),
               ]),
               ["Total", fmtN(sportsRows.reduce((s, r) => s + r.n, 0)), "", ""],
             ]}
           />
-          <SheetTable
-            title="Florida — Athlete / Non-Athlete"
-            headers={["Florida", "Students", "Percentage"]}
-            rows={countRows(floridaAthlete)}
-          />
-          <SheetTable
-            title="Florida — Catholic / Non-Catholic"
-            headers={["Florida", "Students", "Percentage"]}
-            rows={countRows(floridaCatholic)}
-          />
-          <SheetTable
-            title="Non-Florida & Catholic — Athlete / Non-Athlete"
-            headers={["", "Students", "Percentage"]}
-            rows={countRows(nonFl)}
-          />
-          <SheetTable
-            title="UG by gender / incoming / load"
-            headers={["", "Full", "Half", "Less", "Other (THRE)", "Total"]}
-            rows={genderLoad.map((g) => [
-              `${g.gender} ${g.incomingReturning}`,
-              fmtN(g.full),
-              fmtN(g.half),
-              fmtN(g.less),
-              fmtN(g.other),
-              fmtN(g.total),
-            ])}
-          />
         </div>
         <div className="sheet-col">
           <SheetTable
-            title="Class level"
-            headers={["Class Level", "Students", "Full Time"]}
+            title="Class Level"
+            headers={["Class Level", "Students", "Full Time", "Incoming", "Percentage"]}
             rows={[
-              ...classLevel.map((r) => [r.label, fmtN(r.n), fmtN(r.fullTime)]),
+              ...classLevel.map((r) => [r.label, fmtN(r.n), fmtN(r.fullTime), fmtN(r.incoming), fmtPct(r.pct)]),
               [
                 "Total",
                 fmtN(classLevel.reduce((s, r) => s + r.n, 0)),
                 fmtN(classLevel.reduce((s, r) => s + (r.fullTime ?? 0), 0)),
+                fmtN(classLevel.reduce((s, r) => s + (r.incoming ?? 0), 0)),
+                "",
               ],
             ]}
           />
           <SheetTable
-            title="Student residency"
-            headers={["Student Residency", "Total", "Percentage"]}
-            rows={countRows(residency)}
-            note={data.housing ? "eRez halls / commuter / study abroad. Unassigned are not in housing." : "Housing pending"}
-          />
-          <SheetTable
-            title={`Honors program (${fmtN(honorsN)})`}
-            headers={["Class", "Students", "Percentage"]}
-            rows={countRows(honorsByClass)}
-          />
-          <SheetTable
-            title="Majors by class"
-            headers={["Major", "Fr", "So", "Jr", "Sr", "Total"]}
+            title="Student Residency"
+            headers={["Student Residency", "Total", "Percentage", "Male", "Female"]}
             rows={[
-              ...majorRows.map((m) => [m.label, fmtN(m.freshman), fmtN(m.sophomore), fmtN(m.junior), fmtN(m.senior), fmtN(m.total)]),
+              ...residency.map((r) => [r.label, fmtN(r.n), fmtPct(r.pct), fmtN(r.male), fmtN(r.female)]),
               [
                 "Total",
+                fmtN(residency.reduce((s, r) => s + r.n, 0)),
+                "",
+                fmtN(residency.reduce((s, r) => s + (r.male ?? 0), 0)),
+                fmtN(residency.reduce((s, r) => s + (r.female ?? 0), 0)),
+              ],
+            ]}
+            note={data.housing ? "*No UG in Middlebrooke" : "Housing pending"}
+          />
+          <SheetTable
+            title="Graduation"
+            headers={["Graduation", "All", "Athletes", "Non-Athletes"]}
+            rows={[["Graduated Fall, Spring, Summer", fmtN(ret.graduates), "—", "—"]]}
+          />
+          <SheetTable
+            title="Fall 2025 FTCA Retention Rate"
+            headers={["Fall 2025 FTCA Retention Rate", ""]}
+            rows={[
+              ["Fall 2025 FTCA Cohort", fmtN(a.cohort)],
+              ["Fall 2025 Cohort Enrolled for Fall 2026", fmtN(a.enrolledThisFall)],
+              ["Retention Rate F25-F26", fmtPct(a.retentionRate)],
+            ]}
+          />
+          <SheetTable
+            title="Historical FTCA Retention Rate"
+            headers={["Historical FTCA Retention Rate", "Rate"]}
+            rows={data.historicalFtcaRetention.map((r) => [r.label, fmtPct(r.rate)])}
+          />
+          <SheetTable
+            title="Fall 2025 All UG Retention Rate"
+            headers={["Fall 2025 All UG Retention Rate", "All"]}
+            rows={[
+              ["Fall 2025 All UG Retention Rate", fmtN(ret.priorUg)],
+              ["Fall 2025 All UG Enrolled for Fall 2026", fmtN(ret.enrolledThisFall)],
+              ["Minus Fall, Spring, Summer Graduates", fmtN(ret.graduates)],
+              ["All Student Retention Rate F25-F26", fmtPct(ret.retentionRate)],
+            ]}
+          />
+          <SheetTable
+            title="Historical All UG Retention Rate"
+            headers={["Historical All UG Retention Rate", "Rate"]}
+            rows={data.historicalAllUgRetention.map((r) => [r.label, fmtPct(r.rate)])}
+          />
+          <SheetTable
+            title={`${fa} Majors`}
+            headers={[`${fa} Majors`, "Freshman", "Sophomore", "Junior", "Senior", "Total", "Percentage All Majors"]}
+            rows={[
+              ...majorRows.map((m) => [
+                m.label,
+                fmtN(m.freshman),
+                fmtN(m.sophomore),
+                fmtN(m.junior),
+                fmtN(m.senior),
+                fmtN(m.total),
+                fmtPct(majorTotal ? m.total / majorTotal : 0),
+              ]),
+              [
+                "Totals",
                 fmtN(majorRows.reduce((s, m) => s + m.freshman, 0)),
                 fmtN(majorRows.reduce((s, m) => s + m.sophomore, 0)),
                 fmtN(majorRows.reduce((s, m) => s + m.junior, 0)),
                 fmtN(majorRows.reduce((s, m) => s + m.senior, 0)),
-                fmtN(majorRows.reduce((s, m) => s + m.total, 0)),
+                fmtN(majorTotal),
+                "",
               ],
             ]}
+            note="*Includes all declared majors, students with more than one major will be counted multiple times."
           />
         </div>
       </div>

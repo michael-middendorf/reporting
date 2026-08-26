@@ -95,6 +95,51 @@ test("gender, athlete, and major filters stack", () => {
   assert.equal(filtered[0].sport, "Softball");
 });
 
+test("class level includes incoming; residency splits male/female", () => {
+  const rows = set([
+    raw({ gender: "Female", classLevel: "Freshman", incomingReturning: "Incoming", residency: "Resident" }),
+    raw({ gender: "Male", classLevel: "Senior", incomingReturning: "Returning", residency: "Commuter", fullPart: "FULL" }),
+  ]);
+  const rpt = buildReport(filterStudents(rows, DEFAULT_FILTERS));
+  const fr = rpt.classLevel.find((r) => r.label === "Freshman");
+  assert.equal(fr?.incoming, 1);
+  const res = rpt.residency.find((r) => r.label === "Resident");
+  assert.equal(res?.female, 1);
+  assert.equal(res?.male, 0);
+});
+
+test("country percentages are of international students, like the FA25 sheet", () => {
+  const rows = set([
+    raw({ pcid: "1", citizenship: "" }),
+    raw({ pcid: "2", citizenship: "CAN" }),
+    raw({ pcid: "3", citizenship: "CAN" }),
+    raw({ pcid: "4", citizenship: "SPAIN" }),
+  ]);
+  const rpt = buildReport(filterStudents(rows, DEFAULT_FILTERS));
+  const canada = rpt.countries.find((r) => r.label === "Canada");
+  assert.equal(canada?.n, 2);
+  assert.equal(canada?.pct, 2 / 3);
+});
+
+test("sports are A–Z; athlete tables list Athlete before Non-Athlete", () => {
+  const rows = set([
+    raw({ pcid: "1", athlete: "Athlete", sport: "Volleyball" }),
+    raw({ pcid: "2", athlete: "Athlete", sport: "Football" }),
+    raw({ pcid: "3", athlete: "Non-Athlete", sport: "" }),
+    raw({ pcid: "4", athlete: "Non-Athlete", sport: "" }),
+    raw({ pcid: "5", athlete: "Non-Athlete", sport: "" }),
+  ]);
+  const rpt = buildReport(filterStudents(rows, DEFAULT_FILTERS));
+  assert.deepEqual(
+    rpt.sports.map((r) => r.label),
+    ["Football", "Volleyball"],
+  );
+  assert.deepEqual(
+    rpt.athlete.map((r) => r.label),
+    ["Athlete", "Non-Athlete"],
+  );
+});
+
 test("B.A. vs B.S. degree type", () => {
   const rows = set([
     raw({ degree: "BARTS" }),
