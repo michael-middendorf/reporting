@@ -51,6 +51,17 @@ export type AttritionRow = {
   shareOfNotRetained: number;
 };
 
+export type HistoricalSeries = { hc?: (number | null)[]; fte?: (number | null)[] };
+
+export type CensusHousing = {
+  source: "erez";
+  generated: string | null;
+  session: string | null;
+  erezCount: number;
+  ugMatched: number;
+  unassigned: number;
+};
+
 export type CensusSnapshot = {
   term: string;
   generated: string;
@@ -71,8 +82,9 @@ export type CensusSnapshot = {
   summary: CensusSummary;
   historical: {
     years: number[];
-    [k: string]: unknown;
+    [k: string]: HistoricalSeries | number[] | undefined;
   };
+  housing?: CensusHousing;
   ug: {
     n: number;
     states: LabeledCount[];
@@ -148,3 +160,19 @@ export function isDegreeSeekingUg(row: {
   if (degree === "HSDE" || degree === "PENRIC" || degree === "NONDEG") return false;
   return true;
 }
+
+export function historicalSeries(
+  historical: CensusSnapshot["historical"],
+  key: string,
+): HistoricalSeries {
+  const v = historical[key];
+  if (v && typeof v === "object" && !Array.isArray(v)) return v as HistoricalSeries;
+  return {};
+}
+
+export function fullTimeUg(data: CensusSnapshot): number {
+  return data.ug.classLevel.reduce((s, r) => s + (r.fullTime ?? 0), 0);
+}
+
+export const HOUSING_PENDING =
+  "Housing / residency (Ireland tagged Study Abroad only)";

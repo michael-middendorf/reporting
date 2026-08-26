@@ -10,7 +10,7 @@ Remote: https://github.com/colecantu904/reporting
 |-------|--------|
 | `/` | Hub |
 | `/enrollment` | Admissions enrollment dashboard |
-| `/census` | Fall census (headcount, FTE, UG profile, and retention) |
+| `/census` | Fall census (headcount, FTE, UG profile, retention, eRez residency; Excel draft download) |
 | `/athletics` | Athletics Master recruiting, sector, application, and prospect dashboards |
 | `/housing` | Housing occupancy, floor maps, move-ins, verification |
 | `/institute` | The Institute admissions pipeline |

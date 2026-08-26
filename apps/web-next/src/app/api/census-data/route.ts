@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { loadCensusSnapshot } from "@/lib/reports/census/overlay";
 import { requireReportAccess } from "@/lib/s3-proxy";
-import snapshot from "@/lib/reports/census/snapshot.json";
 
 export const dynamic = "force-dynamic";
 
@@ -8,5 +8,6 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const denied = requireReportAccess(req, "census");
   if (denied) return denied;
-  return NextResponse.json(snapshot);
+  const { data } = await loadCensusSnapshot();
+  return NextResponse.json(data);
 }

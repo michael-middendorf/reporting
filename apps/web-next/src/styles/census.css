@@ -46,6 +46,33 @@
   color: var(--t2);
   font-size: 13px;
 }
+.census-root .hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.census-root .download {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: var(--navy);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.census-root .download:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+.census-root .export-error {
+  color: #9b2c2c;
+  font-size: 13px;
+  margin: -8px 0 16px;
+}
 .census-root .draft-pill {
   font-size: 11px;
   font-weight: 800;
@@ -56,6 +83,11 @@
   border: 1px solid #e6d08a;
   padding: 4px 10px;
   border-radius: 999px;
+}
+.census-root .note {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--t2);
 }
 
 .census-root .pending {
@@ -183,6 +215,7 @@
 }
 .census-root td.num,
 .census-root th.num { text-align: right; }
+.census-root thead th { white-space: nowrap; }
 .census-root tr.total td { font-weight: 700; border-top: 1px solid var(--bdr); }
 .census-root .indent td:first-child { padding-left: 22px; color: var(--t2); }
 

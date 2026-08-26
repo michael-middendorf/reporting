@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { apiFetch } from "@/lib/api";
-import type { CensusSnapshot, CountFte, LabeledCount } from "@/lib/reports/census/types";
+import {
+  historicalSeries,
+  type CensusSnapshot,
+  type CountFte,
+  type LabeledCount,
+} from "@/lib/reports/census/types";
 import "@/styles/census.css";
 
 function fmtN(n: number | null | undefined): string {
@@ -24,6 +29,32 @@ export function CensusDashboard() {
   const [data, setData] = useState<CensusSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("summary");
+  const [downloading, setDownloading] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  async function downloadDraft() {
+    setExportError(null);
+    setDownloading(true);
+    try {
+      const res = await apiFetch("/api/census-export");
+      if (!res.ok) {
+        const json = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(json.error || res.statusText || "Export failed");
+      }
+      const blob = await res.blob();
+      const match = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") || "");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = match?.[1] || "FA26_Census_DRAFT.xlsx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   useEffect(() => {
     let alive = true;
@@ -59,11 +90,20 @@ export function CensusDashboard() {
             <h1>{data.term} Census</h1>
             <p className="sub">
               Built the same way as FA25: registration spine, joined lists, then
-              these tables. Snapshot {data.generated}.
+              these tables. Snapshot {data.generated}
+              {data.housing
+                ? `. Housing from eRez${data.housing.session ? ` (${data.housing.session})` : ""}.`
+                : "."}
             </p>
           </div>
-          <span className="draft-pill">{data.status}</span>
+          <div className="hero-actions">
+            <button type="button" className="download" onClick={downloadDraft} disabled={downloading}>
+              {downloading ? "Building Excel…" : "Download Excel draft"}
+            </button>
+            <span className="draft-pill">{data.status}</span>
+          </div>
         </div>
+        {exportError && <p className="export-error">Excel export failed: {exportError}</p>}
 
         {data.pending.length > 0 && (
           <div className="pending">
@@ -81,7 +121,11 @@ export function CensusDashboard() {
           <Kpi label="All students" value={fmtN(k.allStudents)} />
           <Kpi label="UG degree-seeking" value={fmtN(k.ugStudents)} />
           <Kpi label="Foreign countries" value={fmtN(k.foreignCountries)} />
-          <Kpi label="UG on campus" value={fmtPct(k.ugOnCampusPct)} hint="Needs housing list" />
+          <Kpi
+            label="UG on campus"
+            value={fmtPct(k.ugOnCampusPct)}
+            hint={data.housing ? "eRez residents / UG" : "Needs housing list"}
+          />
           <Kpi label="Incoming avg HS GPA" value={k.incomingHsGpa?.toFixed(2) ?? "—"} hint="Needs Slate scores" />
           <Kpi label="% Catholic" value={fmtPct(k.pctCatholic, 0)} />
           <Kpi
@@ -144,10 +188,10 @@ function SummaryTab({ data }: { data: CensusSnapshot }) {
   const rows: { label: string; c: CountFte; indent?: boolean }[] = [
     { label: "Undergraduate, new students admitted", c: s.newStudents },
     { label: "FTCA", c: s.ftca, indent: true },
-    { label: "Transfer", c: s.tran, indent: true },
-    { label: "Re-admit", c: s.read, indent: true },
-    { label: "Second bachelor's", c: s.secb, indent: true },
-    { label: "Lux Mundi (UG)", c: s.luxMundiUg, indent: true },
+    { label: "TRAN", c: s.tran, indent: true },
+    { label: "READ", c: s.read, indent: true },
+    { label: "SECB", c: s.secb, indent: true },
+    { label: "Lux Mundi", c: s.luxMundiUg, indent: true },
     { label: "Returning students", c: s.returning },
     { label: "Total degree-seeking", c: s.degreeSeeking },
     { label: "High school dual enrollment", c: s.dualEnrollment },
@@ -186,17 +230,13 @@ function SummaryTab({ data }: { data: CensusSnapshot }) {
 }
 
 function HistoricalTab({ data }: { data: CensusSnapshot }) {
-  const h = data.historical as {
-    years: number[];
-    [k: string]: { hc?: (number | null)[]; fte?: (number | null)[] } | number[] | undefined;
-  };
-  const years = h.years;
+  const years = data.historical.years;
   const lines: { label: string; key: string }[] = [
     { label: "New students", key: "newStudents" },
     { label: "FTCA", key: "ftca" },
-    { label: "Transfer", key: "tran" },
-    { label: "Re-admit", key: "read" },
-    { label: "Second bachelor's", key: "secb" },
+    { label: "TRAN", key: "tran" },
+    { label: "READ", key: "read" },
+    { label: "SECB", key: "secb" },
     { label: "Returning", key: "returning" },
     { label: "Degree-seeking UG", key: "degreeSeeking" },
     { label: "Dual enrollment", key: "dualEnrollment" },
@@ -214,25 +254,35 @@ function HistoricalTab({ data }: { data: CensusSnapshot }) {
       <table>
         <thead>
           <tr>
-            <th></th>
+            <th rowSpan={2}></th>
             {years.map((y) => (
-              <th key={y} className="num">
-                FA{String(y).slice(2)} HC
+              <th key={y} className="num" colSpan={2}>
+                FA{String(y).slice(2)}
               </th>
+            ))}
+          </tr>
+          <tr>
+            {years.map((y) => (
+              <Fragment key={y}>
+                <th className="num">HC</th>
+                <th className="num">FTE</th>
+              </Fragment>
             ))}
           </tr>
         </thead>
         <tbody>
           {lines.map((line) => {
-            const series = h[line.key] as { hc?: (number | null)[] } | undefined;
-            const hc = series?.hc || [];
+            const series = historicalSeries(data.historical, line.key);
+            const hc = series.hc || [];
+            const fte = series.fte || [];
             return (
               <tr key={line.key} className={line.label.startsWith("Total") || line.label.startsWith("All") ? "total" : ""}>
                 <td>{line.label}</td>
                 {years.map((_, i) => (
-                  <td key={i} className="num">
-                    {hc[i] == null ? "—" : fmtN(hc[i])}
-                  </td>
+                  <Fragment key={i}>
+                    <td className="num">{hc[i] == null ? "—" : fmtN(hc[i])}</td>
+                    <td className="num">{fte[i] == null ? "—" : fmtFte(fte[i])}</td>
+                  </Fragment>
                 ))}
               </tr>
             );
@@ -247,10 +297,14 @@ function CountTable({
   title,
   rows,
   extra,
+  extraHeader,
+  note,
 }: {
   title: string;
   rows: LabeledCount[];
   extra?: (row: LabeledCount) => ReactNode;
+  extraHeader?: string;
+  note?: string;
 }) {
   const total = rows.reduce((s, r) => s + r.n, 0);
   return (
@@ -262,7 +316,7 @@ function CountTable({
             <th></th>
             <th className="num">Students</th>
             <th className="num">%</th>
-            {extra && <th className="num"></th>}
+            {extra && <th className="num">{extraHeader}</th>}
           </tr>
         </thead>
         <tbody>
@@ -282,6 +336,7 @@ function CountTable({
           </tr>
         </tbody>
       </table>
+      {note && <p className="note">{note}</p>}
     </div>
   );
 }
@@ -324,6 +379,7 @@ function UgTab({ data }: { data: CensusSnapshot }) {
         <CountTable
           title="Sports"
           rows={u.sports}
+          extraHeader="% of all"
           extra={(r) => (
             <td className="num">{fmtPct(r.pctOfAll)}</td>
           )}
@@ -331,8 +387,53 @@ function UgTab({ data }: { data: CensusSnapshot }) {
       </div>
       <div className="grid-3 section">
         <CountTable title="Incoming athlete mix" rows={u.incomingAthlete} />
-        <CountTable title="Residency (housing pending)" rows={u.residency} />
+        <CountTable
+          title={data.housing ? "Residency (eRez)" : "Residency (housing pending)"}
+          rows={u.residency}
+          note={
+            data.housing
+              ? `${data.housing.ugMatched.toLocaleString()} UG matched in eRez · ${data.housing.unassigned.toLocaleString()} unassigned. Other is Middle Brook / unmapped buildings.`
+              : undefined
+          }
+        />
         <CountTable title={`Honors (${fmtN(u.honorsN)})`} rows={u.honorsByClass} />
+      </div>
+      <div className="grid-3 section">
+        <CountTable title="Athletic religion" rows={u.athleticReligion} />
+        <CountTable title="Florida athlete mix" rows={u.floridaAthlete} />
+        <CountTable title="Florida Catholic" rows={u.floridaCatholic} />
+      </div>
+      <div className="grid-2 section">
+        <CountTable title="Non-Florida Catholic / athlete" rows={u.nonFloridaCatholicAthlete} />
+        <div className="card">
+          <h3>UG by gender / incoming / load</h3>
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                <th className="num">Full</th>
+                <th className="num">Half</th>
+                <th className="num">Less</th>
+                <th className="num">Other (THRE)</th>
+                <th className="num">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {u.genderLoad.map((g) => (
+                <tr key={`${g.gender}-${g.incomingReturning}`}>
+                  <td>
+                    {g.gender} {g.incomingReturning}
+                  </td>
+                  <td className="num">{fmtN(g.full)}</td>
+                  <td className="num">{fmtN(g.half)}</td>
+                  <td className="num">{fmtN(g.less)}</td>
+                  <td className="num">{fmtN(g.other)}</td>
+                  <td className="num">{fmtN(g.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
       <div className="card section">
         <h3>Majors by class</h3>
@@ -457,6 +558,10 @@ function AttritionTab({ data }: { data: CensusSnapshot }) {
       <div className="grid-2 section">
         <AttritionTable title="FTCA athlete / non-athlete" rows={a.byAthlete} />
         <AttritionTable title="FTCA by AMU GPA" rows={a.byGpa} />
+      </div>
+      <div className="grid-2 section">
+        <AttritionTable title="FTCA by ethnicity" rows={a.byEthnicity} />
+        <AttritionTable title="FTCA Catholic / athlete" rows={a.byCatholicAthlete} />
       </div>
     </>
   );
