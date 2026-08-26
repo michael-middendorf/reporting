@@ -4,7 +4,7 @@ import {
   normPcid,
   type CensusRawStudent,
   type UnretainedStudent,
-} from "./lists";
+} from "./lists-core";
 
 export type GraduateRecord = {
   pcid: string;

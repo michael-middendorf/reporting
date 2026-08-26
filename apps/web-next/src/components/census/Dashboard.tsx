@@ -5,7 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { CensusReport } from "@/components/census/CensusReport";
 import { FtcaRawSheet, RawDataSheet, SportRetentionTable, UnretainedSheet } from "@/components/census/CensusLists";
 import { FilterBar, fmtN, fmtPct } from "@/components/census/Sheet";
-import type { CensusRawStudent, UnretainedStudent } from "@/lib/reports/census/lists";
+import type { CensusRawStudent, UnretainedStudent } from "@/lib/reports/census/lists-core";
 import {
   DEFAULT_FILTERS,
   uniqueSorted,

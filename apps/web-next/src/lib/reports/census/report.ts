@@ -1,4 +1,4 @@
-import type { CensusRawStudent } from "./lists";
+import type { CensusRawStudent } from "./lists-core";
 import { CLASS_ORDER, COUNTRY_NAMES } from "./present";
 import type { CensusSnapshot, LabeledCount } from "./types";
 

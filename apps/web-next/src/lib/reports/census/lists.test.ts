@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  applyErezResidency,
   deriveUnretained,
   isInterveningGraduate,
   isUgDegreeSeekingRow,
   type CensusRawStudent,
   type UnretainedStudent,
-} from "./lists";
+} from "./lists-core";
+import { applyErezResidency } from "./lists";
 
 test("eRez residency overwrites blank registration housing", () => {
   const students: CensusRawStudent[] = [

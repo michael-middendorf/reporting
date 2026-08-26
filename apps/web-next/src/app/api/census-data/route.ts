@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isUgDegreeSeekingRow } from "@/lib/reports/census/lists";
+import { isUgDegreeSeekingRow } from "@/lib/reports/census/lists-core";
 import { loadCensusSnapshot } from "@/lib/reports/census/overlay";
 import { projectReportStudents } from "@/lib/reports/census/report";
 import { requireReportAccess } from "@/lib/s3-proxy";

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { SheetTable, fmtN } from "@/components/census/Sheet";
-import type { CensusRawStudent, UnretainedStudent } from "@/lib/reports/census/lists";
+import type { CensusRawStudent, UnretainedStudent } from "@/lib/reports/census/lists-core";
 import type { FtcaRawRow, SportRetentionRow } from "@/lib/reports/census/retention";
 
 function haystack(row: Record<string, unknown>): string {
