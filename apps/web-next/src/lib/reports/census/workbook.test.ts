@@ -47,20 +47,81 @@ test("eRez overlay fills residency and drops the housing pending line", () => {
 
 test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   const data = draft();
-  const buf = await buildCensusWorkbook(data, [
+  const buf = await buildCensusWorkbook(
+    data,
+    [
+      {
+        pcid: "P1",
+        name: "Test Student",
+        email: "test@avemaria.edu",
+        building: "JPII",
+        room: "101",
+        priceType: "UGDP",
+        residency: "Resident",
+        classStatus: "Freshman",
+        studentType: "Incoming",
+        includedInCensus: true,
+      },
+    ],
     {
-      pcid: "P1",
-      name: "Test Student",
-      email: "test@avemaria.edu",
-      building: "JPII",
-      room: "101",
-      priceType: "UGDP",
-      residency: "Resident",
-      classStatus: "Freshman",
-      studentType: "Incoming",
-      includedInCensus: true,
+      students: [
+        {
+          pcid: "P1",
+          first: "Test",
+          last: "Student",
+          incomingReturning: "Incoming",
+          state: "FL",
+          religion: "Catholic",
+          cathGroup: "Catholic",
+          ethnicity: "WHITE",
+          gender: "Female",
+          program: "UNDERG",
+          collegeAttend: "FTCA",
+          curriculum: "BIOLOG",
+          curriculumName: "Biology",
+          classLevel: "Freshman",
+          fullPart: "FULL",
+          city: "Naples",
+          credits: 15,
+          gpa: "",
+          earnedCredits: 0,
+          residency: "Resident",
+          sport: "",
+          athlete: "Non-Athlete",
+          honors: "",
+          fsp: "",
+          household: "",
+          institute: "",
+          marines: "",
+          appDecision: "ACCT",
+          session: "01",
+          degree: "BARTS",
+          email: "test@avemaria.edu",
+          citizenship: "",
+          visa: "",
+        },
+      ],
+      unretained: [
+        {
+          pcid: "P2",
+          first: "Left",
+          last: "Campus",
+          retention: "Not Retained",
+          gpa: 2.1,
+          fsp: "-",
+          household: "-",
+          marines: "-",
+          honors: "-",
+          sport: "Football",
+          state: "FL",
+          gender: "Male",
+          classLevel: "Freshman",
+          collegeAttend: "FTCA",
+          incomingReturning: "Incoming",
+        },
+      ],
     },
-  ]);
+  );
   assert.equal(buf.subarray(0, 2).toString(), "PK");
   const files = unzipEntries(buf);
   const names = [...files["xl/workbook.xml"].matchAll(/name="([^"]+)"/g)].map((m) => m[1]);
@@ -69,9 +130,12 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
     "Historical",
     "FA26 Census Report",
     "FA25 FTCA Cohort Attrition",
+    "FA26 Census Raw Data",
+    "All Not Retained",
     "FA26 Housing (eRez)",
     "Sources",
   ]);
+  assert.match(files["xl/styles.xml"], /style="thin"/);
   assert.match(files["xl/worksheets/sheet1.xml"], /Fall 2026 Census/);
   assert.match(files["xl/worksheets/sheet1.xml"], /Total Degree-Seeking/);
   assert.doesNotMatch(files["xl/styles.xml"], /vertical="middle"/);

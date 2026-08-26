@@ -1,3 +1,4 @@
+import type { CensusLists, CensusRawStudent, UnretainedStudent } from "./lists";
 import type { HousingAssignmentRow } from "./residency";
 import {
   fullTimeUg,
@@ -10,18 +11,26 @@ import {
 import { cellRef, XlsxSheet, XlsxWorkbook, type CellStyle, type CellValue } from "./xlsx";
 
 const NAVY = "1A3F6F";
-const HEADER = "DDEBF7";
-const TOTAL = "F4F7FB";
+const PALE = "F7FAFD";
+const TOTAL_FILL = "E8EEF6";
 
 const TITLE: CellStyle = { bold: true, size: 16, color: NAVY };
 const TITLE20: CellStyle = { bold: true, size: 20, color: NAVY };
 const TITLE18: CellStyle = { bold: true, size: 18, color: NAVY };
 const SECTION: CellStyle = { bold: true, size: 11, color: NAVY };
-const HEADER_STYLE: CellStyle = { bold: true, size: 10, color: NAVY, fill: HEADER, vAlign: "center" };
-const TOTAL_STYLE: CellStyle = { bold: true, size: 11, fill: TOTAL };
-const NOTE: CellStyle = { italic: true, size: 10 };
-const LABEL_BOLD: CellStyle = { bold: true, size: 12 };
+const HEADER_STYLE: CellStyle = {
+  bold: true,
+  size: 10,
+  color: "FFFFFF",
+  fill: NAVY,
+  vAlign: "center",
+  hAlign: "center",
+};
+const TOTAL_STYLE: CellStyle = { bold: true, size: 11, fill: TOTAL_FILL, color: NAVY };
+const NOTE: CellStyle = { italic: true, size: 10, color: "4A6A90" };
+const LABEL_BOLD: CellStyle = { bold: true, size: 12, color: NAVY };
 const INDENT: CellStyle = { indent: 1 };
+const STRIPE: CellStyle = { fill: PALE };
 
 function fallLabel(year: number): string {
   return `Fall ${year}`;
@@ -33,7 +42,7 @@ function faLabel(year: number): string {
 
 function writeHeaders(ws: XlsxSheet, row: number, col: number, headers: string[]) {
   headers.forEach((h, i) => {
-    ws.set(row, col + i, h, { ...HEADER_STYLE, hAlign: "center" });
+    ws.set(row, col + i, h, HEADER_STYLE);
   });
 }
 
@@ -63,15 +72,20 @@ function writeCountTable(
   ws.set(startRow, startCol, title, SECTION);
   writeHeaders(ws, startRow + 1, startCol, headers);
   let r = startRow + 2;
-  for (const row of rows) {
+  const lastCol = startCol + headers.length - 1;
+  for (const [i, row] of rows.entries()) {
     writeRow(ws, r, startCol, row);
+    if (i % 2 === 1) {
+      for (let c = startCol; c <= lastCol; c++) ws.patch(r, c, STRIPE);
+    }
     for (const c of opts?.intCols || []) applyFmt(ws, r, startCol + c, "int");
     for (const c of opts?.pctCols || []) applyFmt(ws, r, startCol + c, "pct");
     r += 1;
   }
   if (opts?.total && rows.length) {
-    styleTotal(ws, r - 1, startCol, startCol + headers.length - 1);
+    styleTotal(ws, r - 1, startCol, lastCol);
   }
+  if (rows.length) ws.box(startRow + 1, startCol, r - 1, lastCol);
   return r;
 }
 
@@ -168,6 +182,9 @@ function writeSummary(wb: XlsxWorkbook, data: CensusSnapshot) {
       }
     }
   });
+  ws.patch(2, 1, HEADER_STYLE);
+  ws.patch(2, 2, HEADER_STYLE);
+  ws.box(2, 1, 2 + rows.length, 4);
 }
 
 function writeHistorical(wb: XlsxWorkbook, data: CensusSnapshot) {
@@ -229,6 +246,12 @@ function writeHistorical(wb: XlsxWorkbook, data: CensusSnapshot) {
     });
     if (line.total) styleTotal(ws, r, 1, 2 + years.length * 2);
   });
+  const lastCol = 2 + years.length * 2;
+  ws.patch(1, 1, { fill: NAVY });
+  ws.patch(1, 2, { fill: NAVY });
+  ws.patch(2, 1, HEADER_STYLE);
+  ws.patch(2, 2, HEADER_STYLE);
+  ws.box(1, 1, 2 + lines.length, lastCol);
 }
 
 function writeCensusReport(wb: XlsxWorkbook, data: CensusSnapshot) {
@@ -620,15 +643,107 @@ function writeHousing(wb: XlsxWorkbook, rows: HousingAssignmentRow[]) {
       row.studentType,
       row.includedInCensus ? "Y" : "N",
     ]);
+    if (i % 2 === 1) {
+      for (let c = 1; c <= headers.length; c++) ws.patch(i + 2, c, STRIPE);
+    }
   });
+  if (sorted.length) ws.box(1, 1, sorted.length + 1, headers.length);
   ws.autoFilter = `A1:${cellRef(1, headers.length)}`;
   ws.freezeRows = 1;
 }
 
-function writeSources(wb: XlsxWorkbook, data: CensusSnapshot, housingCount: number) {
+function writeListSheet(
+  wb: XlsxWorkbook,
+  name: string,
+  headers: string[],
+  widths: number[],
+  rows: CellValue[][],
+) {
+  const ws = wb.addSheet(name);
+  ws.gridLines = false;
+  writeHeaders(ws, 1, 1, headers);
+  widths.forEach((w, i) => ws.width(i + 1, w));
+  if (!rows.length) {
+    ws.set(2, 1, "No student-level rows published yet.");
+    return;
+  }
+  rows.forEach((row, i) => {
+    writeRow(ws, i + 2, 1, row);
+    if (i % 2 === 1) {
+      for (let c = 1; c <= headers.length; c++) ws.patch(i + 2, c, STRIPE);
+    }
+  });
+  ws.box(1, 1, rows.length + 1, headers.length);
+  ws.autoFilter = `A1:${cellRef(1, headers.length)}`;
+  ws.freezeRows = 1;
+}
+
+function rawRow(s: CensusRawStudent): CellValue[] {
+  return [
+    s.pcid,
+    s.first,
+    s.last,
+    s.incomingReturning,
+    s.state,
+    s.religion,
+    s.cathGroup,
+    s.ethnicity,
+    s.gender,
+    s.program,
+    s.collegeAttend,
+    s.curriculum,
+    s.curriculumName,
+    s.classLevel,
+    s.fullPart,
+    s.city,
+    s.credits,
+    s.gpa,
+    s.earnedCredits,
+    s.residency,
+    s.sport,
+    s.athlete,
+    s.honors,
+    s.fsp,
+    s.household,
+    s.institute,
+    s.marines,
+    s.appDecision,
+    s.degree,
+    s.email,
+  ];
+}
+
+function unretainedRow(s: UnretainedStudent): CellValue[] {
+  return [
+    s.pcid,
+    s.first,
+    s.last,
+    s.retention,
+    s.gpa,
+    s.fsp,
+    s.household,
+    s.marines,
+    s.honors,
+    s.sport,
+    s.state,
+    s.gender,
+    s.classLevel,
+    s.collegeAttend,
+    s.incomingReturning,
+  ];
+}
+
+function writeSources(
+  wb: XlsxWorkbook,
+  data: CensusSnapshot,
+  housingCount: number,
+  rawCount: number,
+  unretainedCount: number,
+) {
   const ws = wb.addSheet("Sources");
+  ws.gridLines = false;
   ws.width(1, 28);
-  ws.width(2, 80);
+  ws.width(2, 88);
   ws.set(1, 1, "Census draft sources", TITLE);
   const rows: [string, string][] = [
     ["Term", data.term],
@@ -642,16 +757,25 @@ function writeSources(wb: XlsxWorkbook, data: CensusSnapshot, housingCount: numb
         : "eRez housing cache not available; residency is still pending.",
     ],
     [
-      "Not in this file",
-      "Student-level registration raw data, FTCA retention raw data, and All Not Retained lists stay off the dashboard (same as the live census page). Tables on Summary / Historical / Census Report / Attrition match the FA25 workbook layout.",
+      "Raw data",
+      rawCount
+        ? `${rawCount.toLocaleString()} students on FA26 Census Raw Data (registration spine; residency filled from eRez when matched).`
+        : "Student-level FA26 file is not in the census cache yet.",
+    ],
+    [
+      "Not retained",
+      unretainedCount
+        ? `${unretainedCount.toLocaleString()} Fall 2025 degree-seeking UG not enrolled Fall 2026 and not in the 2025–26 graduate list.`
+        : "Unretained list is not in the census cache yet.",
     ],
     ["Still to add", data.pending.length ? data.pending.join("; ") : "None"],
   ];
   rows.forEach((row, i) => {
-    ws.set(i + 3, 1, row[0], { bold: true });
+    ws.set(i + 3, 1, row[0], { bold: true, color: NAVY, fill: PALE });
     ws.set(i + 3, 2, row[1], { wrap: true });
-    ws.height(i + 3, 32);
+    ws.height(i + 3, 36);
   });
+  ws.box(3, 1, 2 + rows.length, 2);
 }
 
 export function censusFileName(data: CensusSnapshot, exported = new Date()): string {
@@ -663,13 +787,75 @@ export function censusFileName(data: CensusSnapshot, exported = new Date()): str
 export async function buildCensusWorkbook(
   data: CensusSnapshot,
   housingRows: HousingAssignmentRow[] = [],
+  lists: CensusLists = { students: [], unretained: [] },
 ): Promise<Buffer> {
   const wb = new XlsxWorkbook();
   writeSummary(wb, data);
   writeHistorical(wb, data);
   writeCensusReport(wb, data);
   writeAttrition(wb, data);
+  writeListSheet(
+    wb,
+    "FA26 Census Raw Data",
+    [
+      "PCID",
+      "First_Name",
+      "Last_Name",
+      "Incoming/Returning",
+      "State",
+      "Religion",
+      "Cath/Chris/Other",
+      "Ethnicity",
+      "Gender",
+      "Program",
+      "College_Attend",
+      "Curriculum",
+      "Curriculum Name",
+      "Class_Level",
+      "Full_Part",
+      "City",
+      "Credits",
+      "Cumulative GPA",
+      "Cumulative Earned Credits",
+      "Resident / Commuter",
+      "Athletic Assoc. (Athlet.)",
+      "Athlete/Non-Athlete",
+      "Honors",
+      "FSP",
+      "Household",
+      "Institute",
+      "Mary's Marines",
+      "Application Decision",
+      "Degree",
+      "Email",
+    ],
+    [14, 16, 18, 16, 8, 16, 14, 12, 10, 12, 14, 12, 22, 12, 10, 16, 10, 12, 14, 16, 22, 16, 10, 10, 12, 12, 14, 16, 10, 32],
+    lists.students.map(rawRow),
+  );
+  writeListSheet(
+    wb,
+    "All Not Retained",
+    [
+      "PCID",
+      "First",
+      "Last",
+      "Retention",
+      "Final GPA",
+      "FSP",
+      "Household",
+      "Mary's Marines",
+      "Honors",
+      "Sport",
+      "State",
+      "Gender",
+      "Class",
+      "College_Attend",
+      "Incoming/Returning",
+    ],
+    [14, 16, 18, 14, 12, 10, 12, 16, 10, 18, 8, 10, 12, 14, 16],
+    lists.unretained.map(unretainedRow),
+  );
   if (housingRows.length) writeHousing(wb, housingRows);
-  writeSources(wb, data, housingRows.length);
+  writeSources(wb, data, housingRows.length, lists.students.length, lists.unretained.length);
   return wb.writeBuffer();
 }

@@ -2,6 +2,17 @@ import { crc32, deflateRawSync, inflateRawSync } from "node:zlib";
 
 export type CellValue = string | number | null | undefined;
 
+export type BorderStyle = "thin" | "medium";
+
+export type BorderSide = { s: BorderStyle; c: string };
+
+export type CellBorder = {
+  t?: BorderSide;
+  r?: BorderSide;
+  b?: BorderSide;
+  l?: BorderSide;
+};
+
 export type CellStyle = {
   bold?: boolean;
   italic?: boolean;
@@ -13,6 +24,7 @@ export type CellStyle = {
   hAlign?: "center" | "left";
   vAlign?: "center" | "top" | "bottom";
   wrap?: boolean;
+  border?: CellBorder;
 };
 
 type StoredCell = { value: string | number; style: CellStyle };
@@ -71,7 +83,29 @@ export class XlsxSheet {
       this.cells.set(key(row, col), { value: "", style: { ...style } });
       return;
     }
-    prev.style = { ...prev.style, ...style };
+    prev.style = {
+      ...prev.style,
+      ...style,
+      border: style.border ? { ...prev.style.border, ...style.border } : prev.style.border,
+    };
+  }
+
+  /** Navy outline + light inner grid around a table (header row through last data row). */
+  box(r1: number, c1: number, r2: number, c2: number) {
+    const thin: BorderSide = { s: "thin", c: "C5D4E8" };
+    const med: BorderSide = { s: "medium", c: "1A3F6F" };
+    for (let r = r1; r <= r2; r++) {
+      for (let c = c1; c <= c2; c++) {
+        this.patch(r, c, {
+          border: {
+            t: r === r1 ? med : thin,
+            b: r === r2 ? med : thin,
+            l: c === c1 ? med : thin,
+            r: c === c2 ? med : thin,
+          },
+        });
+      }
+    }
   }
 
   /** Used when packing. */
@@ -136,7 +170,12 @@ function xmlEscape(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function sideKey(side?: BorderSide): string {
+  return side ? `${side.s}:${side.c}` : "";
+}
+
 function styleKey(s: CellStyle): string {
+  const b = s.border;
   return [
     s.bold ? "b" : "",
     s.italic ? "i" : "",
@@ -148,6 +187,7 @@ function styleKey(s: CellStyle): string {
     s.hAlign || "",
     s.vAlign || "",
     s.wrap ? "w" : "",
+    b ? [sideKey(b.t), sideKey(b.r), sideKey(b.b), sideKey(b.l)].join("/") : "",
   ].join("|");
 }
 
@@ -322,7 +362,30 @@ function stylesXml(styles: CellStyle[]): string {
     `<fill><patternFill patternType="none"/></fill>`,
     `<fill><patternFill patternType="gray125"/></fill>`,
   ];
+  const borderList: string[] = [
+    `<border><left/><right/><top/><bottom/><diagonal/></border>`,
+  ];
+  const borderIndex = new Map<string, number>([["", 0]]);
   fonts.set("11|||", 0);
+
+  function edgeXml(name: string, side?: BorderSide): string {
+    if (!side) return `<${name}/>`;
+    return `<${name} style="${side.s}"><color rgb="FF${side.c}"/></${name}>`;
+  }
+
+  function borderId(s: CellStyle): number {
+    const b = s.border;
+    if (!b) return 0;
+    const k = [sideKey(b.t), sideKey(b.r), sideKey(b.b), sideKey(b.l)].join("/");
+    const hit = borderIndex.get(k);
+    if (hit != null) return hit;
+    const id = borderList.length;
+    borderList.push(
+      `<border>${edgeXml("left", b.l)}${edgeXml("right", b.r)}${edgeXml("top", b.t)}${edgeXml("bottom", b.b)}<diagonal/></border>`,
+    );
+    borderIndex.set(k, id);
+    return id;
+  }
 
   function fontId(s: CellStyle): number {
     const size = s.size || 11;
@@ -360,6 +423,8 @@ function stylesXml(styles: CellStyle[]): string {
       const n = s.numFmt ? ` applyNumberFormat="1"` : "";
       const applyFont = fontId(s) !== 0 ? ` applyFont="1"` : "";
       const applyFill = fillId(s) !== 0 ? ` applyFill="1"` : "";
+      const bId = borderId(s);
+      const applyBorder = bId !== 0 ? ` applyBorder="1"` : "";
       const alignParts: string[] = [];
       if (s.hAlign) alignParts.push(`horizontal="${s.hAlign}"`);
       if (s.vAlign) alignParts.push(`vertical="${s.vAlign}"`);
@@ -367,7 +432,7 @@ function stylesXml(styles: CellStyle[]): string {
       if (s.wrap) alignParts.push(`wrapText="1"`);
       const align = alignParts.length ? `<alignment ${alignParts.join(" ")}/>` : "";
       const applyAlign = align ? ` applyAlignment="1"` : "";
-      return `<xf numFmtId="${nId}" fontId="${fontId(s)}" fillId="${fillId(s)}" borderId="0" xfId="0"${n}${applyFont}${applyFill}${applyAlign}>${align}</xf>`;
+      return `<xf numFmtId="${nId}" fontId="${fontId(s)}" fillId="${fillId(s)}" borderId="${bId}" xfId="0"${n}${applyFont}${applyFill}${applyBorder}${applyAlign}>${align}</xf>`;
     })
     .join("");
 
@@ -377,7 +442,7 @@ function stylesXml(styles: CellStyle[]): string {
     `<numFmts count="${Object.keys(NUM_FMTS).length}">${numFmts}</numFmts>` +
     `<fonts count="${fontList.length}">${fontList.join("")}</fonts>` +
     `<fills count="${fillList.length}">${fillList.join("")}</fills>` +
-    `<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>` +
+    `<borders count="${borderList.length}">${borderList.join("")}</borders>` +
     `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
     `<cellXfs count="${styles.length}">${xfs}</cellXfs>` +
     `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>` +

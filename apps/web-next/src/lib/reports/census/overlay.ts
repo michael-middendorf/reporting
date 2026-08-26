@@ -1,5 +1,6 @@
 import { readResidents } from "../housing/store";
 import type { Resident } from "../housing/types";
+import { applyErezResidency, loadCensusLists, type CensusLists } from "./lists";
 import snapshot from "./snapshot.json";
 import { presentSnapshot } from "./present";
 import { housingAssignmentRows, residencyFromErez, type HousingAssignmentRow } from "./residency";
@@ -30,20 +31,27 @@ export function applyHousingOverlay(
 export async function loadCensusSnapshot(): Promise<{
   data: CensusSnapshot;
   housingRows: HousingAssignmentRow[];
+  lists: CensusLists;
 }> {
   const data = presentSnapshot(cloneSnapshot());
+  const lists = await loadCensusLists();
   try {
     const payload = await readResidents();
     const residents = (payload?.residents || []) as Resident[];
     if (residents.length === 0) {
-      return { data, housingRows: [] };
+      return { data, housingRows: [], lists };
     }
     applyHousingOverlay(data, residents, {
       generated: payload?.generated ?? payload?.cached_at ?? null,
       session: payload?.session ?? null,
     });
-    return { data, housingRows: housingAssignmentRows(residents) };
+    const housingRows = housingAssignmentRows(residents);
+    return {
+      data,
+      housingRows,
+      lists: { ...lists, students: applyErezResidency(lists.students, housingRows) },
+    };
   } catch {
-    return { data, housingRows: [] };
+    return { data, housingRows: [], lists };
   }
 }

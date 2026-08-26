@@ -40,6 +40,7 @@ infra/cdk.out/
 *.swp
 
 # Report data / PII
+apps/web-next/src/lib/reports/census/data/*.json
 **/data/**/*.json
 **/data/**/*.csv
 **/data/**/*.jsonl
