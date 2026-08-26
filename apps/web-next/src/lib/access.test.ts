@@ -85,16 +85,41 @@ describe("full Advancement grants", () => {
       assert.equal(canAccessReport(email, "chapel"), true, email);
       assert.equal(canAccessReport(email, "annunciation"), true, email);
       assert.equal(canAccessReport(email, "enrollment"), false, email);
-      const reports = reportsForEmail(email);
-      assert.deepEqual(reports, ["advancement", "chapel", "annunciation"], email);
     }
   });
 
-  it("does not promote them to admins or other folders", () => {
-    for (const email of people) {
+  it("gives Leslie MA Points in addition to Advancement", () => {
+    const leslie = "Leslie.Sonnen@avemaria.edu";
+    assert.equal(canAccessReport(leslie, "points"), true);
+    assert.deepEqual(reportsForEmail(leslie), [
+      "advancement",
+      "chapel",
+      "points",
+      "annunciation",
+    ]);
+  });
+
+  it("does not promote Julie or Jim to MA Points or other folders", () => {
+    for (const email of [
+      "Julie.Musselman@avemaria.edu",
+      "Jim.Thomas@avemaria.edu",
+    ]) {
       assert.equal(canAccessReport(email, "points"), false, email);
       assert.equal(canAccessReport(email, "housing"), false, email);
       assert.equal(canAccessReport(email, "census"), false, email);
+      assert.deepEqual(
+        reportsForEmail(email),
+        ["advancement", "chapel", "annunciation"],
+        email,
+      );
     }
+  });
+
+  it("does not promote Leslie to housing, census, or other folders", () => {
+    const leslie = "Leslie.Sonnen@avemaria.edu";
+    assert.equal(canAccessReport(leslie, "housing"), false);
+    assert.equal(canAccessReport(leslie, "census"), false);
+    assert.equal(canAccessReport(leslie, "enrollment"), false);
+    assert.equal(canAccessReport(leslie, "athletics"), false);
   });
 });
