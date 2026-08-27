@@ -22,7 +22,7 @@ test("dual enrollment and non-degree are not degree-seeking UG", () => {
 test("FA26 draft snapshot has the registration spine totals", () => {
   assert.equal(snapshot.term, "Fall 2026");
   assert.equal(snapshot.status, "draft");
-  assert.equal(snapshot.kpis.allStudents, 1629);
+  assert.equal(snapshot.kpis.allStudents, 1628);
   assert.equal(snapshot.summary.ftca.headcount, 398);
   assert.equal(snapshot.summary.degreeSeeking.headcount, 1400);
   assert.ok(snapshot.pending.length > 0);

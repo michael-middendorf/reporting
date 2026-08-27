@@ -13,6 +13,7 @@ import {
 import snapshot from "./snapshot.json";
 import { presentSnapshot } from "./present";
 import { housingAssignmentRows, residencyFromErez, type HousingAssignmentRow } from "./residency";
+import { applyRegistrationTotals } from "./from-lists";
 import { HOUSING_PENDING, type CensusSnapshot } from "./types";
 
 function cloneSnapshot(): CensusSnapshot {
@@ -45,6 +46,7 @@ export async function loadCensusSnapshot(): Promise<{
 }> {
   const data = presentSnapshot(cloneSnapshot());
   let lists = await loadCensusLists();
+  if (lists.students.length) applyRegistrationTotals(data, lists.students);
   if (lists.prior.length && lists.students.length) {
     const gradIds = ayGraduatePcids(lists.graduates);
     lists = {

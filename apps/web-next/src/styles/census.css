@@ -117,7 +117,7 @@
 
 .census-root .kpis {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 18px;
 }
@@ -146,6 +146,20 @@
   font-size: 11px;
   color: var(--t3);
   margin-top: 2px;
+}
+.census-root .kpi .def {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--t2);
+}
+.census-root .row-def {
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--t2);
+  max-width: 52rem;
 }
 
 .census-root .tabs {

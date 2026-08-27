@@ -13,6 +13,7 @@ import {
   type ReportStudent,
 } from "@/lib/reports/census/report";
 import { buildSportRetention, type FtcaRawRow } from "@/lib/reports/census/retention";
+import { KPI_DEFS, SUMMARY_DEFS } from "@/lib/reports/census/from-lists";
 import {
   historicalSeries,
   type CensusSnapshot,
@@ -119,8 +120,9 @@ export function CensusDashboard() {
             <div className="eyebrow">Institutional Research</div>
             <h1>{data.term} Census</h1>
             <p className="sub">
-              Laid out like the Fall 2025 census workbook. Census Report adds
-              filters on top of those tables. Snapshot {data.generated}
+              Laid out like the Fall 2025 census workbook. Headcounts come from
+              Fall 2026 Registration Status. Census Report adds filters on top
+              of those tables. Snapshot {data.generated}
               {data.housing
                 ? `. Housing from eRez${data.housing.session ? ` (${data.housing.session})` : ""}.`
                 : "."}
@@ -147,21 +149,26 @@ export function CensusDashboard() {
         )}
 
         <div className="kpis">
-          <Kpi label="States" value={fmtN(k.states)} />
-          <Kpi label="All students" value={fmtN(k.allStudents)} />
-          <Kpi label="UG degree-seeking" value={fmtN(k.ugStudents)} />
-          <Kpi label="Foreign countries" value={fmtN(k.foreignCountries)} />
+          <Kpi label="States" value={fmtN(k.states)} def={KPI_DEFS.states} />
+          <Kpi label="All students" value={fmtN(k.allStudents)} def={KPI_DEFS.allStudents} />
+          <Kpi label="UG degree-seeking" value={fmtN(k.ugStudents)} def={KPI_DEFS.ugStudents} />
+          <Kpi label="Foreign countries" value={fmtN(k.foreignCountries)} def={KPI_DEFS.foreignCountries} />
           <Kpi
             label="UG on campus"
             value={fmtPct(k.ugOnCampusPct)}
-            hint={data.housing ? "eRez residents / UG" : "Needs housing list"}
+            def={KPI_DEFS.ugOnCampus}
+            hint={data.housing ? undefined : "Needs eRez housing list"}
           />
-          <Kpi label="Incoming avg HS GPA" value={k.incomingHsGpa?.toFixed(2) ?? "—"} hint="Needs Slate scores" />
-          <Kpi label="% Catholic" value={fmtPct(k.pctCatholic, 0)} />
+          <Kpi
+            label="Incoming avg HS GPA"
+            value={k.incomingHsGpa?.toFixed(2) ?? "—"}
+            def={KPI_DEFS.incomingHsGpa}
+          />
+          <Kpi label="% Catholic" value={fmtPct(k.pctCatholic, 0)} def={KPI_DEFS.pctCatholic} />
           <Kpi
             label="Avg CLT / ACT / SAT"
             value={`${k.avgClt ?? "—"}  /  ${k.avgAct ?? "—"}  /  ${k.avgSat ?? "—"}`}
-            hint="Needs Slate scores"
+            def={KPI_DEFS.testScores}
           />
         </div>
 
@@ -219,14 +226,32 @@ export function CensusDashboard() {
   );
 }
 
-function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Kpi({
+  label,
+  value,
+  hint,
+  def,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  def?: string;
+}) {
   return (
     <div className="kpi">
       <div className="lbl">{label}</div>
       <div className="val">{value}</div>
+      {def && <p className="def">{def}</p>}
       {hint && <div className="hint">{hint}</div>}
     </div>
   );
+}
+
+function summaryDef(label: string): string | undefined {
+  if (label.startsWith("Undergraduate, New Students Admitted")) {
+    return SUMMARY_DEFS["Undergraduate, New Students Admitted"];
+  }
+  return SUMMARY_DEFS[label];
 }
 
 function HcFte({ c }: { c: CountFte }) {
@@ -267,7 +292,7 @@ function SummaryTab({ data }: { data: CensusSnapshot }) {
     <div className="sheet">
       <div className="sheet-head">
         <h2>Summary</h2>
-        <p className="sheet-n">HEADCOUNT / FTE</p>
+        <p className="sheet-n">HEADCOUNT / FTE — each row says exactly who Registration Status is counting</p>
       </div>
       <div className="sheet-table">
       <table>
@@ -290,7 +315,10 @@ function SummaryTab({ data }: { data: CensusSnapshot }) {
                     : ""
               }
             >
-              <td>{r.label}</td>
+              <td>
+                {r.label}
+                {summaryDef(r.label) ? <div className="row-def">{summaryDef(r.label)}</div> : null}
+              </td>
               {r.c ? <HcFte c={r.c} /> : <><td></td><td></td></>}
             </tr>
           ))}

@@ -1277,6 +1277,10 @@ function writeSources(
         : "eRez housing cache not available; residency is still pending.",
     ],
     [
+      "Registration",
+      "Fall 2026 Registration Status-26.xlsx. All students = every PCID on that file. UG degree-seeking = Program UNDERG and College Attend not DUAL, EACO, or ND. Incoming = not on the Fall 2025 census.",
+    ],
+    [
       "Raw data",
       rawCount
         ? `${rawCount.toLocaleString()} students on FA26 Census Raw Data (registration spine; residency filled from eRez when matched).`

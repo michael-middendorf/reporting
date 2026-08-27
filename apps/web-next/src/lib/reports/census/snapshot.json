@@ -1,6 +1,6 @@
 {
   "term": "Fall 2026",
-  "generated": "2026-08-21",
+  "generated": "2026-08-27",
   "status": "draft",
   "pending": [
     "Housing / residency (Ireland tagged Study Abroad only)",
@@ -9,29 +9,29 @@
     "Incoming SAT / ACT / CLT / HS GPA"
   ],
   "kpis": {
-    "states": 49,
-    "allStudents": 1629,
+    "states": 50,
+    "allStudents": 1628,
     "ugStudents": 1400,
     "foreignCountries": 13,
     "ugOnCampusPct": null,
     "incomingHsGpa": null,
-    "pctCatholic": 0.9371,
+    "pctCatholic": 0.9364,
     "avgClt": null,
     "avgAct": null,
     "avgSat": null
   },
   "summary": {
     "newStudents": {
-      "headcount": 485,
-      "fte": 479.2
+      "headcount": 487,
+      "fte": 479.8
     },
     "ftca": {
       "headcount": 398,
-      "fte": 396.0
+      "fte": 395.0
     },
     "tran": {
-      "headcount": 78,
-      "fte": 76.0
+      "headcount": 80,
+      "fte": 77.3
     },
     "read": {
       "headcount": 2,
@@ -46,15 +46,15 @@
       "fte": 0
     },
     "returning": {
-      "headcount": 915,
-      "fte": 876.2
+      "headcount": 913,
+      "fte": 875.5
     },
     "degreeSeeking": {
       "headcount": 1400,
-      "fte": 1355.5
+      "fte": 1355.3
     },
     "dualEnrollment": {
-      "headcount": 68,
+      "headcount": 70,
       "fte": 0.0
     },
     "nonDegree": {
@@ -62,12 +62,12 @@
       "fte": 1.0
     },
     "totalUndergraduate": {
-      "headcount": 1474,
-      "fte": 1356.5
+      "headcount": 1476,
+      "fte": 1356.3
     },
     "gradMa": {
-      "headcount": 51,
-      "fte": 32.5
+      "headcount": 41,
+      "fte": 28.3
     },
     "gradPhd": {
       "headcount": 21,
@@ -78,20 +78,20 @@
       "fte": 42.0
     },
     "gradMedcl": {
-      "headcount": 32,
-      "fte": 28.0
+      "headcount": 31,
+      "fte": 27.5
     },
     "luxMundiGrad": {
-      "headcount": 10,
-      "fte": 4.0
+      "headcount": 8,
+      "fte": 3.3
     },
     "totalGraduate": {
-      "headcount": 155,
-      "fte": 122.5
+      "headcount": 152,
+      "fte": 121.0
     },
     "totalEnrollment": {
-      "headcount": 1629,
-      "fte": 1479.0
+      "headcount": 1628,
+      "fte": 1477.3
     },
     "notes": {
       "newCollegeAttendBlank": 4
@@ -109,7 +109,7 @@
     ],
     "newStudents": {
       "hc": [
-        485,
+        487,
         487,
         426,
         403,
@@ -118,7 +118,7 @@
         366
       ],
       "fte": [
-        479.2,
+        479.8,
         486,
         425,
         402,
@@ -138,7 +138,7 @@
         291
       ],
       "fte": [
-        396.0,
+        395.0,
         398,
         365,
         318,
@@ -149,7 +149,7 @@
     },
     "tran": {
       "hc": [
-        78,
+        80,
         77,
         56,
         82,
@@ -158,7 +158,7 @@
         63
       ],
       "fte": [
-        76.0,
+        77.3,
         77,
         55,
         82,
@@ -229,7 +229,7 @@
     },
     "returning": {
       "hc": [
-        915,
+        913,
         858,
         872,
         826,
@@ -238,7 +238,7 @@
         717
       ],
       "fte": [
-        876.2,
+        875.5,
         847,
         867,
         822,
@@ -258,7 +258,7 @@
         1083
       ],
       "fte": [
-        1355.5,
+        1355.3,
         null,
         1292,
         1224,
@@ -269,7 +269,7 @@
     },
     "dualEnrollment": {
       "hc": [
-        68,
+        70,
         22,
         23,
         15,
@@ -291,7 +291,7 @@
     },
     "totalUndergraduate": {
       "hc": [
-        1474,
+        1476,
         1371,
         1326,
         1250,
@@ -302,7 +302,7 @@
     },
     "gradMa": {
       "hc": [
-        51,
+        41,
         20,
         26,
         24,
@@ -311,7 +311,7 @@
         19
       ],
       "fte": [
-        32.5,
+        28.3,
         null,
         21,
         20,
@@ -362,7 +362,7 @@
     },
     "gradMedcl": {
       "hc": [
-        32,
+        31,
         null,
         18,
         9,
@@ -371,7 +371,7 @@
         47
       ],
       "fte": [
-        28.0,
+        27.5,
         null,
         17,
         9,
@@ -382,7 +382,7 @@
     },
     "totalGraduate": {
       "hc": [
-        155,
+        152,
         130,
         122,
         85,
@@ -391,7 +391,7 @@
         null
       ],
       "fte": [
-        122.5,
+        121.0,
         81,
         104,
         77,
@@ -402,7 +402,7 @@
     },
     "totalEnrollment": {
       "hc": [
-        1629,
+        1628,
         1503,
         1448,
         1335,

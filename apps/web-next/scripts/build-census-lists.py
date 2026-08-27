@@ -15,7 +15,7 @@ DOWNLOADS = Path("/Users/regina.m.pirolli/Downloads")
 CENSUS_DIR = Path("/Users/regina.m.pirolli/Documents/PERSONAL Census Files")
 DATA = Path(__file__).resolve().parents[1] / "src/lib/reports/census/data"
 
-REGISTRATION = DOWNLOADS / "Registration Status-24.xlsx"
+REGISTRATION = DOWNLOADS / "Registration Status-26.xlsx"
 EOT_FILES = [DOWNLOADS / "End Of Term-6.xlsx", DOWNLOADS / "End Of Term-7.xlsx"]
 HONORS = DOWNLOADS / "Association Honors-3.xlsx"
 PRIOR = CENSUS_DIR / "Fall 2025 Census Final 9.23.25.xlsx"
