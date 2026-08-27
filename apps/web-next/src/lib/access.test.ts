@@ -56,6 +56,25 @@ describe("institute-only grant", () => {
   });
 });
 
+describe("athletics-only grant", () => {
+  const ERIC = "Eric.Vanheusen@avemaria.edu";
+
+  it("lets Eric sign in and open only Athletics Master", () => {
+    assert.equal(canLogin(ERIC), true);
+    assert.equal(canAccessReport(ERIC, "athletics"), true);
+    assert.equal(canAccessReport(ERIC, "enrollment"), false);
+    assert.equal(canAccessReport(ERIC, "census"), false);
+    assert.equal(canAccessReport(ERIC, "housing"), false);
+    assert.equal(canAccessReport(ERIC, "institute"), false);
+    assert.equal(canAccessReport(ERIC, "advancement"), false);
+    assert.equal(canAccessReport(ERIC, "chapel"), false);
+    assert.equal(canAccessReport(ERIC, "points"), false);
+    assert.equal(canAccessReport(ERIC, "annunciation"), false);
+    assert.equal(canAccessReport(ERIC, "aspiredu"), false);
+    assert.deepEqual(reportsForEmail(ERIC), ["athletics"]);
+  });
+});
+
 describe("Fall Appeal viewers", () => {
   const people = [
     "cassandra.l.bournos@avemaria.edu",

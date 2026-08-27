@@ -47,7 +47,7 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
   census:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
   athletics:
-    "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
+    "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu,eric.vanheusen@avemaria.edu",
   housing:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,susan.gallagher@avemaria.edu,mark.middendorf@avemaria.edu",
   institute:
