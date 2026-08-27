@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
+import { SportRetentionTable } from "@/components/census/CensusLists";
 import { FilterBar, SheetTable, fmtN, fmtPct } from "@/components/census/Sheet";
+import type { SportRetentionRow } from "@/lib/reports/census/retention";
 import {
   DEFAULT_FILTERS,
   buildReport,
@@ -27,6 +29,7 @@ export function CensusReport({
   onFilters,
   sports,
   majors,
+  sportRows = [],
 }: {
   data: CensusSnapshot;
   students: ReportStudent[];
@@ -34,6 +37,7 @@ export function CensusReport({
   onFilters: (next: ReportFilters) => void;
   sports: string[];
   majors: string[];
+  sportRows?: SportRetentionRow[];
 }) {
   const filtered = useMemo(() => filterStudents(students, filters), [students, filters]);
   const live = useMemo(() => (students.length ? buildReport(filtered) : null), [students, filtered]);
@@ -113,6 +117,15 @@ export function CensusReport({
               ["Total", fmtN(loadTotal.full), fmtN(loadTotal.half), fmtN(loadTotal.less), fmtN(loadTotal.other), fmtN(loadTotal.total)],
             ]}
           />
+          {sportRows.length ? (
+            <SportRetentionTable rows={sportRows} />
+          ) : (
+            <SheetTable
+              title="Athletic Retention (Fall 2025 sport)"
+              headers={["Team", "FA25 Roster", "# Non-Retained", "# Retained", "# Graduated", "Retention %", "Graduated %"]}
+              rows={[["Needs data", "", "", "", "", "", ""]]}
+            />
+          )}
         </div>
         <div className="sheet-col">
           <SheetTable
@@ -132,13 +145,15 @@ export function CensusReport({
             headers={["Athlete/Non-Athlete", "Students", "Percentage"]}
             rows={countRows(incomingAthlete)}
           />
-          {appDecisions.length > 0 && (
-            <SheetTable
-              title="Application Decisions"
-              headers={["Type", "Students", "Percentage"]}
-              rows={countRows(appDecisions)}
-            />
-          )}
+          <SheetTable
+            title="Application Decisions"
+            headers={["Type", "Students", "Percentage"]}
+            rows={
+              appDecisions.filter((r) => r.label && r.label !== "Not listed").length
+                ? countRows(appDecisions.filter((r) => r.label !== "Not listed"))
+                : [["Needs data", "", ""]]
+            }
+          />
           <SheetTable
             title="Athletic Religious Association"
             headers={["Religion", "Students", "Percentage"]}

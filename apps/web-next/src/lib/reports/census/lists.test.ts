@@ -34,6 +34,8 @@ test("eRez residency overwrites blank registration housing", () => {
       residency: "",
       sport: "",
       athlete: "",
+      athleticType: "",
+      rosterStatus: "",
       honors: "",
       fsp: "",
       household: "",

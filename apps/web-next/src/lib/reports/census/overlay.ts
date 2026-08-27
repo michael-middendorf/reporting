@@ -1,7 +1,15 @@
 import { readResidents } from "../housing/store";
 import type { Resident } from "../housing/types";
 import { applyErezResidency, deriveUnretained, loadCensusLists, type CensusLists } from "./lists";
-import { ayGraduatePcids, deriveFtcaRaw, toUnretainedSeed, type FtcaRawRow } from "./retention";
+import {
+  ayGraduatePcids,
+  buildAllUgSplit,
+  buildFtcaAttritionFromPrior,
+  collectGpa,
+  deriveFtcaRaw,
+  toUnretainedSeed,
+  type FtcaRawRow,
+} from "./retention";
 import snapshot from "./snapshot.json";
 import { presentSnapshot } from "./present";
 import { housingAssignmentRows, residencyFromErez, type HousingAssignmentRow } from "./residency";
@@ -46,6 +54,18 @@ export async function loadCensusSnapshot(): Promise<{
         lists.students.map((s) => s.pcid),
         gradIds,
       ),
+    };
+    const gpa = collectGpa(lists);
+    const currentIds = lists.students.map((s) => s.pcid);
+    data.ftcaAttrition = buildFtcaAttritionFromPrior(lists.prior, currentIds, lists.graduates, gpa);
+    const ug = buildAllUgSplit(lists.prior, currentIds, lists.graduates);
+    data.allUgRetention = {
+      priorUg: ug.all.students,
+      graduates: ug.all.graduated,
+      pool: ug.all.students - ug.all.graduated,
+      enrolledThisFall: ug.all.enrolled,
+      notRetained: ug.all.notRetained,
+      retentionRate: ug.all.retentionPct ?? 0,
     };
   }
   const ftcaRaw = lists.prior.length

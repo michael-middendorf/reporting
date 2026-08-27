@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { CensusReport } from "@/components/census/CensusReport";
-import { FtcaRawSheet, RawDataSheet, SportRetentionTable, UnretainedSheet } from "@/components/census/CensusLists";
+import { FtcaRawSheet, RawDataSheet, UnretainedSheet } from "@/components/census/CensusLists";
 import { FilterBar, fmtN, fmtPct } from "@/components/census/Sheet";
 import type { CensusRawStudent, UnretainedStudent } from "@/lib/reports/census/lists-core";
 import {
@@ -198,13 +198,13 @@ export function CensusDashboard() {
             onFilters={setFilters}
             sports={sports}
             majors={majors}
+            sportRows={sportRows}
           />
         )}
         {tab === "attrition" && (
           <AttritionTab
             data={data}
             unretained={data.unretained}
-            sportRows={sportRows}
             filters={filters}
             onFilters={setFilters}
             sports={sports}
@@ -386,7 +386,6 @@ function HistoricalTab({ data }: { data: CensusSnapshot }) {
 function AttritionTab({
   data,
   unretained,
-  sportRows,
   filters,
   onFilters,
   sports,
@@ -394,7 +393,6 @@ function AttritionTab({
 }: {
   data: CensusSnapshot;
   unretained?: { n: number; ug: number };
-  sportRows: ReturnType<typeof buildSportRetention>;
   filters: ReportFilters;
   onFilters: (next: ReportFilters) => void;
   sports: string[];
@@ -406,7 +404,7 @@ function AttritionTab({
     <div className="sheet">
       <div className="sheet-head">
         <h2>Retention</h2>
-        <p className="sheet-n">Hide a sport to drop those students from the athletic retention table</p>
+        <p className="sheet-n">Fall 2025 Incoming + FTCA only. Athletic retention is on the Census Report sheet; hide a sport there to drop it from that table.</p>
       </div>
       <FilterBar filters={filters} onChange={onFilters} sports={sports} majors={majors} />
       {unretained && unretained.n > 0 && (
@@ -522,7 +520,6 @@ function AttritionTab({
         <AttritionTable title="FTCA by ethnicity" rows={a.byEthnicity} />
         <AttritionTable title="FTCA Catholic / athlete" rows={a.byCatholicAthlete} />
       </div>
-      <SportRetentionTable rows={sportRows} />
     </div>
   );
 }

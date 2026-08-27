@@ -33,6 +33,8 @@ function raw(partial: Partial<CensusRawStudent>): CensusRawStudent {
     residency: "Resident",
     sport: "",
     athlete: "Non-Athlete",
+    athleticType: "",
+    rosterStatus: "",
     honors: "",
     fsp: "",
     household: "",

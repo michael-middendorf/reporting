@@ -100,6 +100,8 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
           residency: "Resident",
           sport: "",
           athlete: "Non-Athlete",
+          athleticType: "",
+          rosterStatus: "",
           honors: "",
           fsp: "",
           household: "",
@@ -160,6 +162,23 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(reportXml, /FA26 Majors/);
   assert.match(reportXml, /Other\(THRE\)/);
   assert.match(reportXml, /Row Labels/);
+  assert.match(reportXml, /Athletic Retention/);
+  assert.match(reportXml, /Application Decisions Retention/);
+  assert.match(reportXml, /Residence Type/);
+  assert.match(reportXml, /Association Retention/);
+  assert.match(reportXml, /Needs data/);
+  const attritionXml = files["xl/worksheets/sheet4.xml"];
+  assert.doesNotMatch(attritionXml, /Athletic Retention/);
+  assert.match(attritionXml, /Incoming FTCA/);
+  assert.match(attritionXml, /HS GPA Ranges/);
+  assert.match(attritionXml, /Needs data/);
+  const ftcaRawXml = files["xl/worksheets/sheet5.xml"];
+  assert.match(ftcaRawXml, /DOB \(Needs data\)/);
+  assert.match(ftcaRawXml, /HS GPA \(Needs data\)/);
+  const rawXml = files["xl/worksheets/sheet6.xml"];
+  assert.match(rawXml, /Application Decision/);
+  assert.match(rawXml, /Citizenship/);
+  assert.match(rawXml, /HS GPA/);
   assert.doesNotMatch(files["xl/styles.xml"], /vertical="middle"/);
   assert.match(files["xl/styles.xml"], /xfId="0"/);
   const sheet1 = files["xl/worksheets/sheet1.xml"];

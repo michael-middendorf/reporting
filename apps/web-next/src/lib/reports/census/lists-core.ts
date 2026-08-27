@@ -23,6 +23,8 @@ export type CensusRawStudent = {
   residency: string;
   sport: string;
   athlete: string;
+  athleticType: string;
+  rosterStatus: string;
   honors: string;
   fsp: string;
   household: string;
@@ -34,6 +36,8 @@ export type CensusRawStudent = {
   email: string;
   citizenship: string;
   visa: string;
+  dob?: string;
+  hsGpa?: number | string;
 };
 
 export type UnretainedStudent = {

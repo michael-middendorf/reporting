@@ -115,7 +115,7 @@ export function FtcaRawSheet({ rows }: { rows: FtcaRawRow[] }) {
     <div className="sheet">
       <div className="sheet-head">
         <h2>F25–F26 FTCA Retention Raw Data</h2>
-        <p className="sheet-n">{fmtN(rows.length)} Fall 2025 FTCA students</p>
+        <p className="sheet-n">{fmtN(rows.length)} Fall 2025 Incoming + FTCA students</p>
       </div>
       {!rows.length ? (
         <p className="note">FTCA cohort file is not published yet (needs Fall 2025 census raw).</p>

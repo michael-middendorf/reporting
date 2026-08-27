@@ -1,5 +1,21 @@
 import type { CensusLists, CensusRawStudent, UnretainedStudent } from "./lists";
-import { buildSportRetention, type FtcaRawRow, type SportRetentionRow } from "./retention";
+import { isUgDegreeSeekingRow } from "./lists-core";
+import {
+  athleteOf,
+  buildAllUgSplit,
+  buildAssociationRetention,
+  buildCrosstab,
+  buildCrosstab2On,
+  buildFtcaAttritionFromPrior,
+  buildFtcaExtras,
+  buildSportRetention,
+  catholicOf,
+  collectGpa,
+  whiteOf,
+  type CrosstabRow,
+  type FtcaRawRow,
+  type SportRetentionRow,
+} from "./retention";
 import type { HousingAssignmentRow } from "./residency";
 import {
   DEFAULT_FILTERS,
@@ -23,6 +39,7 @@ const NAVY = "1A3F6F";
 const GOLD = "B8922E";
 const PALE = "F7FAFD";
 const TOTAL_FILL = "E8EEF6";
+const NEEDS_DATA = "Needs data";
 
 const TITLE: CellStyle = { bold: true, size: 16, color: NAVY, border: { b: { s: "thin", c: GOLD } } };
 const TITLE20: CellStyle = { bold: true, size: 20, color: NAVY, border: { b: { s: "thin", c: GOLD } } };
@@ -39,6 +56,7 @@ const HEADER_STYLE: CellStyle = {
 };
 const TOTAL_STYLE: CellStyle = { bold: true, size: 11, fill: TOTAL_FILL, color: NAVY };
 const NOTE: CellStyle = { italic: true, size: 10, color: "4A6A90" };
+const NEEDS_STYLE: CellStyle = { italic: true, size: 10, color: GOLD };
 const LABEL_BOLD: CellStyle = { bold: true, size: 12, color: NAVY };
 const INDENT: CellStyle = { indent: 1 };
 const STRIPE: CellStyle = { fill: PALE };
@@ -71,6 +89,12 @@ function styleTotal(ws: XlsxSheet, row: number, from: number, to: number) {
   for (let c = from; c <= to; c++) ws.patch(row, c, TOTAL_STYLE);
 }
 
+function needsPlaceholder(colCount: number): CellValue[][] {
+  const row: CellValue[] = Array.from({ length: colCount }, () => "");
+  row[0] = NEEDS_DATA;
+  return [row];
+}
+
 function writeCountTable(
   ws: XlsxSheet,
   startRow: number,
@@ -80,6 +104,8 @@ function writeCountTable(
   rows: CellValue[][],
   opts?: { pctCols?: number[]; intCols?: number[]; total?: boolean },
 ): number {
+  const body = rows.length ? rows : needsPlaceholder(headers.length);
+  const empty = !rows.length;
   let headerRow = startRow;
   if (title) {
     ws.set(startRow, startCol, title, SECTION);
@@ -88,25 +114,35 @@ function writeCountTable(
   writeHeaders(ws, headerRow, startCol, headers);
   let r = headerRow + 1;
   const lastCol = startCol + headers.length - 1;
-  for (const [i, row] of rows.entries()) {
+  for (const [i, row] of body.entries()) {
     writeRow(ws, r, startCol, row);
-    if (i % 2 === 1) {
+    if (empty || row[0] === NEEDS_DATA) {
+      for (let c = startCol; c <= lastCol; c++) ws.patch(r, c, NEEDS_STYLE);
+    } else if (i % 2 === 1) {
       for (let c = startCol; c <= lastCol; c++) ws.patch(r, c, STRIPE);
     }
-    for (const c of opts?.intCols || []) applyFmt(ws, r, startCol + c, "int");
-    for (const c of opts?.pctCols || []) applyFmt(ws, r, startCol + c, "pct");
+    if (!empty) {
+      for (const c of opts?.intCols || []) applyFmt(ws, r, startCol + c, "int");
+      for (const c of opts?.pctCols || []) applyFmt(ws, r, startCol + c, "pct");
+    }
     r += 1;
   }
   if (opts?.total && rows.length) {
     styleTotal(ws, r - 1, startCol, lastCol);
   }
-  if (rows.length) {
-    ws.box(headerRow, startCol, r - 1, lastCol);
-    for (let c = startCol; c <= lastCol; c++) {
-      ws.patch(headerRow, c, { border: { b: { s: "medium", c: GOLD } } });
-    }
+  ws.box(headerRow, startCol, r - 1, lastCol);
+  for (let c = startCol; c <= lastCol; c++) {
+    ws.patch(headerRow, c, { border: { b: { s: "medium", c: GOLD } } });
   }
   return r;
+}
+
+function crosstabCells(rows: CrosstabRow[], twoLabels = false): CellValue[][] {
+  if (!rows.length) return [];
+  if (twoLabels) {
+    return rows.map((r) => [r.label, r.label2 || "", r.students, r.notRetained, r.retentionPct]);
+  }
+  return rows.map((r) => [r.label, r.students, r.notRetained, r.retentionPct]);
 }
 
 function labeledRows(rows: LabeledCount[], withTotal = true): CellValue[][] {
@@ -282,6 +318,9 @@ function writeGenderLoad(
   rows: ReportTables["genderLoad"],
 ): number {
   const headers = ["Row Labels", "Full", "Half", "Less", "Other(THRE)", "Total"];
+  if (!rows.length) {
+    return writeCountTable(ws, startRow, startCol, "UG by Gender", headers, []);
+  }
   ws.set(startRow, startCol, "UG by Gender", SECTION);
   writeHeaders(ws, startRow + 1, startCol, headers);
   let r = startRow + 2;
@@ -312,22 +351,39 @@ function writeGenderLoad(
   return r + 1;
 }
 
-function writeCensusReport(wb: XlsxWorkbook, data: CensusSnapshot, tables: ReportTables) {
+function realAppDecisions(rows: LabeledCount[]): LabeledCount[] {
+  return rows.filter((r) => r.label && r.label !== "Not listed");
+}
+
+type ReportExtras = {
+  hasPrior: boolean;
+  sportRetention: SportRetentionRow[];
+  appDecisionRetention: CrosstabRow[];
+  catholicAthlete: CrosstabRow[];
+  athleteGender: CrosstabRow[];
+  athleteEthnicity: CrosstabRow[];
+  residenceGender: CrosstabRow[];
+  association: CrosstabRow[];
+  ugSplit: ReturnType<typeof buildAllUgSplit>;
+};
+
+function writeCensusReport(wb: XlsxWorkbook, data: CensusSnapshot, tables: ReportTables, extra: ReportExtras) {
   const year = data.historical.years[0] ?? 2026;
   const fa = faLabel(year);
   const ws = wb.addSheet(`${fa} Census Report`);
   ws.gridLines = false;
-  [6, 16, 12, 12, 3, 28, 12, 12, 3, 22, 14, 18, 16, 3, 3, 42, 14, 14, 14, 12, 12, 22].forEach((w, i) => {
+  [6, 22, 14, 14, 14, 28, 14, 14, 16, 22, 16, 16, 16, 14, 3, 42, 14, 14, 14, 16, 14, 22].forEach((w, i) => {
     ws.width(i + 1, w);
   });
 
-  ws.merge(1, 1, 1, 20);
+  ws.merge(1, 1, 1, 21);
   ws.set(1, 1, `${data.term} Census Report - Undergraduate Statistics`, TITLE20);
   ws.height(1, 26);
 
   const t = tables;
   const n = t.n;
   const col = { b: 2, f: 6, j: 10, p: 16 };
+  const ug = extra.ugSplit;
 
   let b = writeCountTable(ws, 3, col.b, "", ["States", "Students", "Percentage"], labeledRows(t.states), {
     intCols: [1],
@@ -350,7 +406,7 @@ function writeCensusReport(wb: XlsxWorkbook, data: CensusSnapshot, tables: Repor
     pctCols: [2],
     total: true,
   });
-  ws.set(f, col.f, `*${t.countries.length} Countries of F1 Visa Holders`, NOTE);
+  ws.set(f, col.f, t.countries.length ? `*${t.countries.length} Countries of F1 Visa Holders` : NEEDS_DATA, NOTE);
   f += 2;
   f = writeCountTable(ws, f, col.f, "All Students", ["Religion", "Students", "Percentage"], labeledRows(t.religion), {
     intCols: [1],
@@ -375,17 +431,15 @@ function writeCensusReport(wb: XlsxWorkbook, data: CensusSnapshot, tables: Repor
     labeledRows(t.incomingAthlete),
     { intCols: [1], pctCols: [2], total: true },
   );
-  if (t.appDecisions.length) {
-    f = writeCountTable(
-      ws,
-      f + 2,
-      col.f,
-      "Application Decisions",
-      ["Type", "Students", "Percentage"],
-      labeledRows(t.appDecisions),
-      { intCols: [1], pctCols: [2], total: true },
-    );
-  }
+  f = writeCountTable(
+    ws,
+    f + 2,
+    col.f,
+    "Application Decisions",
+    ["Type", "Students", "Percentage"],
+    realAppDecisions(t.appDecisions).length ? labeledRows(realAppDecisions(t.appDecisions)) : [],
+    { intCols: [1], pctCols: [2], total: true },
+  );
   f = writeCountTable(
     ws,
     f + 2,
@@ -413,19 +467,19 @@ function writeCensusReport(wb: XlsxWorkbook, data: CensusSnapshot, tables: Repor
     labeledRows(t.honorsByClass),
     { intCols: [1], pctCols: [2], total: true },
   );
-  // FA25 puts UG by Gender under States/Florida once column F is clear (Other(THRE) lives in F).
-  writeGenderLoad(ws, Math.max(b, f) + 2, col.b, t.genderLoad);
 
   let j = writeCountTable(ws, 3, col.j, "", ["Gender", "Students", "Percentage"], labeledRows(t.gender), {
     intCols: [1],
     pctCols: [2],
     total: true,
   });
-  const sportRows: CellValue[][] = [
-    ...t.sports.map((r) => [r.label, r.n, r.pctOfAthletes ?? null, r.pctOfAll ?? null]),
-    ["Total", t.sports.reduce((s, r) => s + r.n, 0), "", ""],
-  ];
-  writeCountTable(
+  const sportRows: CellValue[][] = t.sports.length
+    ? [
+        ...t.sports.map((r) => [r.label, r.n, r.pctOfAthletes ?? null, r.pctOfAll ?? null]),
+        ["Total", t.sports.reduce((s, r) => s + r.n, 0), "", ""],
+      ]
+    : [];
+  j = writeCountTable(
     ws,
     j + 2,
     col.j,
@@ -434,17 +488,68 @@ function writeCensusReport(wb: XlsxWorkbook, data: CensusSnapshot, tables: Repor
     sportRows,
     { intCols: [1], pctCols: [2, 3], total: true },
   );
+  j = writeCountTable(
+    ws,
+    j + 2,
+    col.j,
+    "Application Decisions Retention",
+    ["Type", "Students", "# Non-Retained", "Retention %"],
+    crosstabCells(extra.appDecisionRetention),
+    { intCols: [1, 2], pctCols: [3], total: false },
+  );
+  j = writeCountTable(
+    ws,
+    j + 2,
+    col.j,
+    "Catholic/Non-Catholic",
+    ["Catholic/Non-Catholic", "Athlete/Non-Athlete", "Students", "# Non-Retained", "Retention %"],
+    crosstabCells(extra.catholicAthlete, true),
+    { intCols: [2, 3], pctCols: [4] },
+  );
+  j = writeCountTable(
+    ws,
+    j + 2,
+    col.j,
+    "Athlete/Non-Athlete",
+    ["Athlete/Non-Athlete", "Gender", "Students", "# Non-Retained", "Retention %"],
+    crosstabCells(extra.athleteGender, true),
+    { intCols: [2, 3], pctCols: [4] },
+  );
+  j = writeCountTable(
+    ws,
+    j + 2,
+    col.j,
+    "Athlete/Non-Athlete",
+    ["Athlete/Non-Athlete", "Ethnicity", "Students", "# Non-Retained", "Retention %"],
+    extra.athleteEthnicity.length
+      ? extra.athleteEthnicity.map((r) => [r.label, r.label2 || "", r.students, r.notRetained, r.retentionPct])
+      : [],
+    { intCols: [2, 3], pctCols: [4] },
+  );
+  j = writeCountTable(
+    ws,
+    j + 2,
+    col.j,
+    "Residence Type",
+    ["Residence Type", "Gender", "Students", "# Non-Retained", "Retention %"],
+    crosstabCells(extra.residenceGender, true),
+    { intCols: [2, 3], pctCols: [4] },
+  );
+  ws.set(j, col.j, "*Discounting Study Abroad, Online, and Middlebrooke Students", NOTE);
+  j += 1;
 
-  const classRows: CellValue[][] = [
-    ...t.classLevel.map((r) => [r.label, r.n, r.fullTime ?? "", r.incoming ?? "", n ? r.n / n : null]),
-    [
-      "Total",
-      t.classLevel.reduce((s, r) => s + r.n, 0),
-      t.classLevel.reduce((s, r) => s + (r.fullTime ?? 0), 0),
-      t.classLevel.reduce((s, r) => s + (r.incoming ?? 0), 0),
-      "",
-    ],
-  ];
+  const classRows: CellValue[][] = t.classLevel.length
+    ? [
+        ...t.classLevel.map((r) => [r.label, r.n, r.fullTime ?? "", r.incoming ?? "", n ? r.n / n : null]),
+        [
+          "Total",
+          t.classLevel.reduce((s, r) => s + r.n, 0),
+          t.classLevel.reduce((s, r) => s + (r.fullTime ?? 0), 0),
+          t.classLevel.reduce((s, r) => s + (r.incoming ?? 0), 0),
+          "",
+        ],
+      ]
+    : [];
   let p = writeCountTable(
     ws,
     3,
@@ -456,16 +561,18 @@ function writeCensusReport(wb: XlsxWorkbook, data: CensusSnapshot, tables: Repor
   );
 
   const resHasGender = t.residency.some((r) => r.male != null || r.female != null);
-  const resRows: CellValue[][] = [
-    ...t.residency.map((r) => [r.label, r.n, r.pct ?? null, r.male ?? "", r.female ?? ""]),
-    [
-      "Total",
-      t.residency.reduce((s, r) => s + r.n, 0),
-      "",
-      resHasGender ? t.residency.reduce((s, r) => s + (r.male ?? 0), 0) : "",
-      resHasGender ? t.residency.reduce((s, r) => s + (r.female ?? 0), 0) : "",
-    ],
-  ];
+  const resRows: CellValue[][] = t.residency.length
+    ? [
+        ...t.residency.map((r) => [r.label, r.n, r.pct ?? null, r.male ?? "", r.female ?? ""]),
+        [
+          "Total",
+          t.residency.reduce((s, r) => s + r.n, 0),
+          "",
+          resHasGender ? t.residency.reduce((s, r) => s + (r.male ?? 0), 0) : "",
+          resHasGender ? t.residency.reduce((s, r) => s + (r.female ?? 0), 0) : "",
+        ],
+      ]
+    : [];
   p = writeCountTable(
     ws,
     p + 2,
@@ -475,7 +582,7 @@ function writeCensusReport(wb: XlsxWorkbook, data: CensusSnapshot, tables: Repor
     resRows,
     { intCols: [1, 3, 4], pctCols: [2], total: true },
   );
-  ws.set(p, col.p, data.housing ? "*No UG in Middlebrooke" : "Housing pending", NOTE);
+  ws.set(p, col.p, data.housing ? "*No UG in Middlebrooke" : "Housing pending — Needs data", NOTE);
   p += 2;
 
   p = writeCountTable(
@@ -484,9 +591,30 @@ function writeCensusReport(wb: XlsxWorkbook, data: CensusSnapshot, tables: Repor
     col.p,
     "Graduation",
     ["Graduation", "All", "Athletes", "Non-Athletes"],
-    [["Graduated Fall, Spring, Summer", data.allUgRetention.graduates, "", ""]],
-    { intCols: [1] },
+    extra.hasPrior
+      ? [
+          [
+            "Graduated Fall, Spring, Summer",
+            ug.all.graduated,
+            ug.athletes.graduated,
+            ug.nonAthletes.graduated,
+          ],
+          [
+            "Percentage",
+            "",
+            ug.all.graduated ? ug.athletes.graduated / ug.all.graduated : "",
+            ug.all.graduated ? ug.nonAthletes.graduated / ug.all.graduated : "",
+          ],
+        ]
+      : [
+          ["Graduated Fall, Spring, Summer", data.allUgRetention.graduates, NEEDS_DATA, NEEDS_DATA],
+          ["Percentage", "", NEEDS_DATA, NEEDS_DATA],
+        ],
+    { intCols: [1, 2, 3] },
   );
+  applyFmt(ws, p - 1, col.p + 2, "pct");
+  applyFmt(ws, p - 1, col.p + 3, "pct");
+
   p = writeCountTable(
     ws,
     p + 2,
@@ -494,7 +622,7 @@ function writeCensusReport(wb: XlsxWorkbook, data: CensusSnapshot, tables: Repor
     "Fall 2025 FTCA Retention Rate",
     ["Fall 2025 FTCA Retention Rate", ""],
     [
-      ["Fall 2025 FTCA Cohort", data.ftcaAttrition.cohort],
+      ["Fall 2025 FTCA Cohort (Incoming + FTCA)", data.ftcaAttrition.cohort],
       ["Fall 2025 Cohort Enrolled for Fall 2026", data.ftcaAttrition.enrolledThisFall],
       ["Retention Rate F25-F26", data.ftcaAttrition.retentionRate],
     ],
@@ -508,26 +636,51 @@ function writeCensusReport(wb: XlsxWorkbook, data: CensusSnapshot, tables: Repor
     col.p,
     "Historical FTCA Retention Rate",
     ["Historical FTCA Retention Rate", "Rate"],
-    data.historicalFtcaRetention.map((r) => [r.label, r.rate]),
+    data.historicalFtcaRetention.length
+      ? data.historicalFtcaRetention.map((r) => [r.label, r.rate])
+      : [],
     { pctCols: [1] },
   );
 
-  const lastAllUg = writeCountTable(
+  p = writeCountTable(
     ws,
     p + 2,
     col.p,
     "Fall 2025 All UG Retention Rate",
-    ["Fall 2025 All UG Retention Rate", "All"],
-    [
-      ["Fall 2025 All UG Retention Rate", data.allUgRetention.priorUg],
-      ["Fall 2025 All UG Enrolled for Fall 2026", data.allUgRetention.enrolledThisFall],
-      ["Minus Fall, Spring, Summer Graduates", data.allUgRetention.graduates],
-      ["All Student Retention Rate F25-F26", data.allUgRetention.retentionRate],
-    ],
-    { intCols: [1] },
+    ["Fall 2025 All UG Retention Rate", "All", "Athletes", "Non-Athletes"],
+    extra.hasPrior
+      ? [
+          ["Fall 2025 All UG Retention Rate", ug.all.students, ug.athletes.students, ug.nonAthletes.students],
+          [
+            "Fall 2025 All UG Enrolled for Fall 2026",
+            ug.all.enrolled,
+            ug.athletes.enrolled,
+            ug.nonAthletes.enrolled,
+          ],
+          [
+            "Minus Fall, Spring, Summer Graduates",
+            ug.all.graduated,
+            ug.athletes.graduated,
+            ug.nonAthletes.graduated,
+          ],
+          [
+            "All Student Retention Rate F25-F26",
+            ug.all.retentionPct,
+            ug.athletes.retentionPct,
+            ug.nonAthletes.retentionPct,
+          ],
+        ]
+      : [
+          ["Fall 2025 All UG Retention Rate", data.allUgRetention.priorUg, NEEDS_DATA, NEEDS_DATA],
+          ["Fall 2025 All UG Enrolled for Fall 2026", data.allUgRetention.enrolledThisFall, NEEDS_DATA, NEEDS_DATA],
+          ["Minus Fall, Spring, Summer Graduates", data.allUgRetention.graduates, NEEDS_DATA, NEEDS_DATA],
+          ["All Student Retention Rate F25-F26", data.allUgRetention.retentionRate, NEEDS_DATA, NEEDS_DATA],
+        ],
+    { intCols: [1, 2, 3] },
   );
-  applyFmt(ws, lastAllUg - 1, col.p + 1, "pct");
-  p = lastAllUg;
+  applyFmt(ws, p - 1, col.p + 1, "pct");
+  applyFmt(ws, p - 1, col.p + 2, "pct");
+  applyFmt(ws, p - 1, col.p + 3, "pct");
 
   p = writeCountTable(
     ws,
@@ -535,23 +688,35 @@ function writeCensusReport(wb: XlsxWorkbook, data: CensusSnapshot, tables: Repor
     col.p,
     "Historical All UG Retention Rate",
     ["Historical All UG Retention Rate", "Rate"],
-    data.historicalAllUgRetention.map((r) => [r.label, r.rate]),
+    data.historicalAllUgRetention.length
+      ? data.historicalAllUgRetention.map((r) => [r.label, r.rate])
+      : [],
     { pctCols: [1] },
   );
 
   const majorTotal = t.majors.reduce((s, m) => s + m.total, 0);
-  const majorRows: CellValue[][] = [
-    ...t.majors.map((m) => [m.label, m.freshman, m.sophomore, m.junior, m.senior, m.total, majorTotal ? m.total / majorTotal : null]),
-    [
-      "Totals",
-      t.majors.reduce((s, m) => s + m.freshman, 0),
-      t.majors.reduce((s, m) => s + m.sophomore, 0),
-      t.majors.reduce((s, m) => s + m.junior, 0),
-      t.majors.reduce((s, m) => s + m.senior, 0),
-      majorTotal,
-      "",
-    ],
-  ];
+  const majorRows: CellValue[][] = t.majors.length
+    ? [
+        ...t.majors.map((m) => [
+          m.label,
+          m.freshman,
+          m.sophomore,
+          m.junior,
+          m.senior,
+          m.total,
+          majorTotal ? m.total / majorTotal : null,
+        ]),
+        [
+          "Totals",
+          t.majors.reduce((s, m) => s + m.freshman, 0),
+          t.majors.reduce((s, m) => s + m.sophomore, 0),
+          t.majors.reduce((s, m) => s + m.junior, 0),
+          t.majors.reduce((s, m) => s + m.senior, 0),
+          majorTotal,
+          "",
+        ],
+      ]
+    : [];
   p = writeCountTable(
     ws,
     p + 2,
@@ -562,141 +727,259 @@ function writeCensusReport(wb: XlsxWorkbook, data: CensusSnapshot, tables: Repor
     { intCols: [1, 2, 3, 4, 5], pctCols: [6], total: true },
   );
   ws.set(p, col.p, "*Includes all declared majors, students with more than one major will be counted multiple times.", NOTE);
+  p += 2;
+
+  p = writeCountTable(
+    ws,
+    p,
+    col.p,
+    "F25-F26 Additional Association Retention",
+    ["Association", "Gender", "Students", "Graduated", "# Non-Retained", "Retention %"],
+    extra.association.length
+      ? extra.association.map((r) => [r.label, r.label2 || "", r.students, r.graduated, r.notRetained, r.retentionPct])
+      : [],
+    { intCols: [2, 3, 4], pctCols: [5] },
+  );
+  ws.set(p, col.p, "*Mary's Marines / FSP / Households: Needs data if the association column is blank on the raw sheet.", NOTE);
+
+  // Gender load spans B–G (overlaps F). Athletic retention spans B–K (overlaps F and J).
+  const genderEnd = writeGenderLoad(ws, Math.max(b, f) + 2, col.b, t.genderLoad);
+  const sportRetentionRows: CellValue[][] = extra.sportRetention.length
+    ? [
+        ...extra.sportRetention.map((r) => [
+          r.sport,
+          r.roster,
+          r.notRetained,
+          r.retained,
+          r.graduated,
+          r.retentionPct,
+          r.graduatedPct,
+          r.retainedAvgGpa,
+          r.notRetainedAvgGpa,
+          r.notRetained3plus,
+        ]),
+        [
+          "Total",
+          extra.sportRetention.reduce((s, r) => s + r.roster, 0),
+          extra.sportRetention.reduce((s, r) => s + r.notRetained, 0),
+          extra.sportRetention.reduce((s, r) => s + r.retained, 0),
+          extra.sportRetention.reduce((s, r) => s + r.graduated, 0),
+          "",
+          "",
+          "",
+          "",
+          extra.sportRetention.reduce((s, r) => s + r.notRetained3plus, 0),
+        ],
+      ]
+    : [];
+  writeCountTable(
+    ws,
+    Math.max(genderEnd, j) + 2,
+    col.b,
+    "Athletic Retention",
+    [
+      "Team",
+      "FA25 Roster #",
+      "# Non-Retained",
+      "# Retained",
+      "# Graduated",
+      "Retention %",
+      "Graduated %",
+      "Retained Avg. GPA",
+      "Non-Retained Avg. GPA",
+      "Non-Retained 3.0+ GPA",
+    ],
+    sportRetentionRows,
+    { intCols: [1, 2, 3, 4, 9], pctCols: [5, 6], total: true },
+  );
 }
 
-function writeAttrition(wb: XlsxWorkbook, data: CensusSnapshot, sportRetention: SportRetentionRow[] = []) {
+function attritionWithTotal(
+  rows: AttritionRow[],
+  rate: number,
+  cols: "full" | "short" | "gpa" | "sport",
+): CellValue[][] {
+  if (!rows.length) return [];
+  const body: CellValue[][] =
+    cols === "full"
+      ? rows.map((r) => [r.label, r.students, r.notRetained, r.retainedPct, r.shareOfNotRetained])
+      : cols === "sport"
+        ? rows.map((r) => [r.label, r.students, r.notRetained, r.shareOfNotRetained, r.retainedPct])
+        : cols === "gpa"
+          ? rows.map((r) => [r.label, r.students, r.notRetained, r.retainedPct])
+          : rows.map((r) => [r.label, r.students, r.notRetained, r.retainedPct]);
+  const students = rows.reduce((s, r) => s + r.students, 0);
+  const notRetained = rows.reduce((s, r) => s + r.notRetained, 0);
+  if (cols === "full") body.push(["Total", students, notRetained, rate, students ? 1 : null]);
+  else if (cols === "sport") body.push(["Total", students, notRetained, "", rate]);
+  else body.push(["Total", students, notRetained, rate]);
+  return body;
+}
+
+function writeAttrition(
+  wb: XlsxWorkbook,
+  data: CensusSnapshot,
+  extras: ReturnType<typeof buildFtcaExtras>,
+) {
   const ws = wb.addSheet("FA25 FTCA Cohort Attrition");
   ws.gridLines = false;
-  [18, 12, 16, 12, 22, 3, 24, 16, 14, 12, 16, 12, 3, 28, 16, 16].forEach((w, i) => {
+  [18, 12, 16, 12, 16, 3, 24, 18, 14, 14, 14, 14, 3, 22, 12, 14, 14, 3, 3, 22, 16, 14, 14].forEach((w, i) => {
     ws.width(i + 1, w);
   });
-  ws.set(1, 1, "Fall 2025 Cohort Attrition", TITLE18);
+  ws.set(1, 1, "Fall 2025 Incoming FTCA Cohort Attrition", TITLE18);
+  ws.set(2, 1, "Cohort = listed as Incoming and FTCA on the Fall 2025 census. Athletic retention is on the Census Report sheet.", NOTE);
 
   const a = data.ftcaAttrition;
-  writeCountTable(
+  const colA = 1;
+  const colG = 7;
+  const colN = 14;
+  const colT = 20;
+
+  let aRow = writeCountTable(
     ws,
-    3,
-    1,
+    4,
+    colA,
     "States",
     ["States", "Students", "# Non-Retained", "% Retained", "% of All Non-Retained"],
-    attritionRows(a.byState),
+    attritionWithTotal(a.byState, a.retentionRate, "full"),
     { intCols: [1, 2], pctCols: [3, 4], total: true },
   );
-  writeCountTable(
+  aRow = writeCountTable(
     ws,
-    3,
-    7,
+    aRow + 2,
+    colA,
+    "Male - Florida",
+    ["Catholic/Non-Catholic", "Athlete/Non-Athlete", "Students", "# Non-Retained", "% Retained"],
+    crosstabCells(extras.byMaleFlorida, true),
+    { intCols: [2, 3], pctCols: [4] },
+  );
+
+  let gRow = writeCountTable(
+    ws,
+    4,
+    colG,
     "Athlete",
     ["Athlete", "Students", "# Non-Retained", "% Retained"],
-    a.byAthlete
-      .map((r) => [r.label, r.students, r.notRetained, r.retainedPct])
-      .concat([
-        [
-          "Total",
-          a.byAthlete.reduce((sum, r) => sum + r.students, 0),
-          a.byAthlete.reduce((sum, r) => sum + r.notRetained, 0),
-          a.retentionRate,
-        ],
-      ]),
+    attritionWithTotal(a.byAthlete, a.retentionRate, "short"),
     { intCols: [1, 2], pctCols: [3], total: true },
   );
-  writeCountTable(
+  gRow = writeCountTable(
     ws,
-    10,
-    7,
+    gRow + 2,
+    colG,
     "Sport Primary",
     ["Sport Primary", "Students", "Non-Retained", "% of All Non-Retained", "% Retained"],
-    a.bySport
-      .map((r) => [r.label, r.students, r.notRetained, r.shareOfNotRetained, r.retainedPct])
-      .concat([
-        [
-          "Total",
-          a.bySport.reduce((sum, r) => sum + r.students, 0),
-          a.bySport.reduce((sum, r) => sum + r.notRetained, 0),
-          "",
-          "",
-        ],
-      ]),
+    attritionWithTotal(a.bySport, a.retentionRate, "sport"),
     { intCols: [1, 2], pctCols: [3, 4], total: true },
   );
-  writeCountTable(
+  gRow = writeCountTable(
     ws,
-    3,
-    14,
-    "AMU GPA Ranges",
-    ["AMU GPA Ranges", "Students", "# Non-Retained"],
-    a.byGpa
-      .map((r) => [r.label, r.students, r.notRetained])
-      .concat([["Total", a.byGpa.reduce((sum, r) => sum + r.students, 0), a.byGpa.reduce((sum, r) => sum + r.notRetained, 0)]]),
-    { intCols: [1, 2], total: true },
+    gRow + 2,
+    colG,
+    "Catholic/Non-Catholic",
+    ["Catholic/Non-Catholic", "Athlete/Non-Athlete", "Students", "# Non-Retained", "% Retained"],
+    a.byCatholicAthlete.length
+      ? a.byCatholicAthlete.map((r) => {
+          const [cath, ath] = r.label.split(" / ");
+          return [cath || r.label, ath || "", r.students, r.notRetained, r.retainedPct];
+        })
+      : [],
+    { intCols: [2, 3], pctCols: [4] },
+  );
+  gRow = writeCountTable(
+    ws,
+    gRow + 2,
+    colG,
+    "Athlete",
+    ["Athlete", "Gender", "Students", "# Non-Retained", "% Retained"],
+    crosstabCells(extras.byAthleteGender, true),
+    { intCols: [2, 3], pctCols: [4] },
   );
   writeCountTable(
     ws,
-    16,
-    14,
+    gRow + 2,
+    colG,
+    "Ethnicity",
+    ["Ethnicity", "Athlete/Non-Athlete", "Students", "# Non-Retained", "% Retained"],
+    crosstabCells(extras.byEthnicityAthlete, true),
+    { intCols: [2, 3], pctCols: [4] },
+  );
+
+  let nRow = writeCountTable(
+    ws,
+    4,
+    colN,
     "Ethnicity",
     ["Ethnicity", "Students", "# Non-Retained", "% Retained"],
-    a.byEthnicity
-      .map((r) => [r.label, r.students, r.notRetained, r.retainedPct])
-      .concat([
-        [
-          "Total",
-          a.byEthnicity.reduce((sum, r) => sum + r.students, 0),
-          a.byEthnicity.reduce((sum, r) => sum + r.notRetained, 0),
-          a.retentionRate,
-        ],
-      ]),
+    attritionWithTotal(a.byEthnicity, a.retentionRate, "short"),
     { intCols: [1, 2], pctCols: [3], total: true },
+  );
+  nRow = writeCountTable(
+    ws,
+    nRow + 2,
+    colN,
+    "Resident / Commuter",
+    ["Resident / Commuter", "Gender", "Students", "# Non-Retained", "% Retained"],
+    crosstabCells(extras.byResidencyGender, true),
+    { intCols: [2, 3], pctCols: [4] },
+  );
+  nRow = writeCountTable(
+    ws,
+    nRow + 2,
+    colN,
+    "HS GPA Ranges",
+    ["HS GPA Ranges", "Students", "# Non-Retained", "% Retained"],
+    [],
+    { intCols: [1, 2], pctCols: [3] },
   );
   writeCountTable(
     ws,
-    36,
-    7,
-    "Catholic / Athlete",
-    ["Catholic / Athlete", "Students", "# Non-Retained", "% Retained"],
-    a.byCatholicAthlete
-      .map((r) => [r.label, r.students, r.notRetained, r.retainedPct])
-      .concat([
-        [
-          "Total",
-          a.byCatholicAthlete.reduce((sum, r) => sum + r.students, 0),
-          a.byCatholicAthlete.reduce((sum, r) => sum + r.notRetained, 0),
-          a.retentionRate,
-        ],
-      ]),
+    nRow + 2,
+    colN,
+    "Application Decision",
+    ["Application Decision", "Students", "# Non-Retained", "% Retained"],
+    extras.byAppDecision.every((r) => r.label === "Not listed")
+      ? []
+      : crosstabCells(extras.byAppDecision),
+    { intCols: [1, 2], pctCols: [3] },
+  );
+
+  let tRow = writeCountTable(
+    ws,
+    4,
+    colT,
+    "AMU GPA Ranges",
+    ["AMU GPA Ranges", "Students", "# Non-Retained", "% Retained"],
+    attritionWithTotal(a.byGpa, a.retentionRate, "gpa"),
     { intCols: [1, 2], pctCols: [3], total: true },
   );
-  if (sportRetention.length) {
-    const sportRows: CellValue[][] = [
-      ...sportRetention.map((r) => [
-        r.sport,
-        r.roster,
-        r.notRetained,
-        r.retained,
-        r.graduated,
-        r.retentionPct,
-        r.graduatedPct,
-      ]),
-      [
-        "Total",
-        sportRetention.reduce((s, r) => s + r.roster, 0),
-        sportRetention.reduce((s, r) => s + r.notRetained, 0),
-        sportRetention.reduce((s, r) => s + r.retained, 0),
-        sportRetention.reduce((s, r) => s + r.graduated, 0),
-        "",
-        "",
-      ],
-    ];
-    writeCountTable(
-      ws,
-      36,
-      1,
-      "Athletic Retention (Fall 2025 sport)",
-      ["Team", "FA25 Roster", "# Non-Retained", "# Retained", "# Graduated", "Retention %", "Graduated %"],
-      sportRows,
-      { intCols: [1, 2, 3, 4], pctCols: [5, 6], total: true },
-    );
-  }
+  tRow = writeCountTable(
+    ws,
+    tRow + 2,
+    colT,
+    "HS GPA Ranges (Athletes)",
+    ["HS GPA Ranges", "Students", "# Non-Retained", "% Retained"],
+    [],
+    { intCols: [1, 2], pctCols: [3] },
+  );
+  tRow = writeCountTable(
+    ws,
+    tRow + 2,
+    colT,
+    "HS GPA 2.9-3.49",
+    ["HS GPA Ranges", "Students", "# Non-Retained", "% Retained"],
+    [],
+    { intCols: [1, 2], pctCols: [3] },
+  );
+  writeCountTable(
+    ws,
+    tRow + 2,
+    colT,
+    "HS GPA 2.9-3.49 Athletes",
+    ["HS GPA Ranges", "Students", "# Non-Retained", "% Retained"],
+    [],
+    { intCols: [1, 2], pctCols: [3] },
+  );
 }
 
 function writeFtcaRaw(wb: XlsxWorkbook, rows: FtcaRawRow[]) {
@@ -708,6 +991,10 @@ function writeFtcaRaw(wb: XlsxWorkbook, rows: FtcaRawRow[]) {
       "Last",
       "Retained F25?",
       "PCID",
+      "FTCA",
+      "Religious Affiliation",
+      "Catholic, Christian, Other",
+      "Catholic Non-Catholic",
       "Fall 25 Athletic Association",
       "Fall 25 Curriculum",
       "Fall 25 FULL PART TIME",
@@ -721,15 +1008,24 @@ function writeFtcaRaw(wb: XlsxWorkbook, rows: FtcaRawRow[]) {
       "Fall 26 Credits",
       "Fall 26 GPA",
       "Fall 26 Res Comm",
-      "Religion",
-      "Cath/Chris/Other",
+      "DOB",
+      "Gender",
+      "Ethnicity",
+      "HS GPA",
+      "City",
+      "State",
+      "PCID",
     ],
-    [14, 16, 14, 14, 22, 16, 14, 12, 12, 14, 22, 16, 12, 14, 12, 12, 14, 14, 16],
+    [14, 16, 14, 14, 10, 18, 18, 16, 22, 16, 14, 12, 12, 14, 22, 16, 12, 14, 12, 12, 14, 14, 10, 12, 10, 14, 8, 14],
     rows.map((r) => [
       r.first,
       r.last,
       r.retained,
       r.pcid,
+      r.ftca,
+      r.religion,
+      r.cathGroup,
+      r.catholicNonCatholic,
       r.fa25Sport,
       r.fa25Curriculum,
       r.fa25FullPart,
@@ -743,8 +1039,13 @@ function writeFtcaRaw(wb: XlsxWorkbook, rows: FtcaRawRow[]) {
       r.fa26Credits,
       r.fa26Gpa,
       r.fa26Residency,
-      r.religion,
-      r.cathGroup,
+      r.dob,
+      r.gender,
+      r.ethnicity,
+      r.hsGpa,
+      r.city,
+      r.state,
+      r.pcid,
     ]),
   );
 }
@@ -788,6 +1089,13 @@ function writeHousing(wb: XlsxWorkbook, rows: HousingAssignmentRow[]) {
   ws.freezeRows = 1;
 }
 
+function emptyCol(rows: CellValue[][], col: number): boolean {
+  return rows.every((row) => {
+    const v = row[col];
+    return v == null || v === "";
+  });
+}
+
 function writeListSheet(
   wb: XlsxWorkbook,
   name: string,
@@ -797,17 +1105,25 @@ function writeListSheet(
 ) {
   const ws = wb.addSheet(name);
   ws.gridLines = false;
-  writeHeaders(ws, 1, 1, headers);
   widths.forEach((w, i) => ws.width(i + 1, w));
+  const missing = headers.map((_, c) => emptyCol(rows, c));
+  const labeled = headers.map((h, c) => (missing[c] ? `${h} (Needs data)` : h));
+  writeHeaders(ws, 1, 1, labeled);
   if (!rows.length) {
-    ws.set(2, 1, "No student-level rows published yet.");
+    ws.set(2, 1, "Needs data — no student-level rows published yet.", NEEDS_STYLE);
+    for (let c = 2; c <= headers.length; c++) ws.set(2, c, NEEDS_DATA, NEEDS_STYLE);
+    ws.box(1, 1, 2, headers.length);
     return;
   }
   rows.forEach((row, i) => {
-    writeRow(ws, i + 2, 1, row);
+    const filled = row.map((v, c) => (missing[c] && (v == null || v === "") ? NEEDS_DATA : v ?? ""));
+    writeRow(ws, i + 2, 1, filled);
     if (i % 2 === 1) {
       for (let c = 1; c <= headers.length; c++) ws.patch(i + 2, c, STRIPE);
     }
+    missing.forEach((isMissing, c) => {
+      if (isMissing) ws.patch(i + 2, c + 1, NEEDS_STYLE);
+    });
   });
   ws.box(1, 1, rows.length + 1, headers.length);
   for (let c = 1; c <= headers.length; c++) {
@@ -816,6 +1132,45 @@ function writeListSheet(
   ws.autoFilter = `A1:${cellRef(1, headers.length)}`;
   ws.freezeRows = 1;
 }
+
+const CENSUS_RAW_HEADERS = [
+  "PCID",
+  "First_Name",
+  "Last_Name",
+  "Incoming/Returning",
+  "State",
+  "Religion",
+  "Cath/Chris/Other",
+  "Ethnicity",
+  "Gender",
+  "Program",
+  "College_Attend",
+  "Curriculum",
+  "Curriculum Name",
+  "Class_Level",
+  "Full_Part",
+  "City",
+  "Credits",
+  "Cumulative GPA",
+  "Cumulative Earned Credits",
+  "Resident / Commuter",
+  "Athletic Assoc. (Athlet.)",
+  "Athlete/Non-Athlete",
+  "Athletic Type",
+  "Roster Status",
+  "Honors",
+  "FSP",
+  "Household",
+  "Institute",
+  "Mary's Marines",
+  "Application Decision",
+  "Degree",
+  "Email",
+  "Citizenship",
+  "Visa",
+  "DOB",
+  "HS GPA",
+];
 
 function rawRow(s: CensusRawStudent): CellValue[] {
   return [
@@ -841,6 +1196,8 @@ function rawRow(s: CensusRawStudent): CellValue[] {
     s.residency,
     s.sport,
     s.athlete,
+    s.athleticType || "",
+    s.rosterStatus || "",
     s.honors,
     s.fsp,
     s.household,
@@ -849,8 +1206,31 @@ function rawRow(s: CensusRawStudent): CellValue[] {
     s.appDecision,
     s.degree,
     s.email,
+    s.citizenship,
+    s.visa,
+    s.dob || "",
+    s.hsGpa ?? "",
   ];
 }
+
+const UNRETAINED_HEADERS = [
+  "PCID",
+  "First",
+  "Last",
+  "Retention",
+  "Final GPA",
+  "FSP",
+  "Household",
+  "Mary's Marines",
+  "Honors",
+  "Sport",
+  "State",
+  "Gender",
+  "Class",
+  "College_Attend",
+  "Incoming/Returning",
+  "Program",
+];
 
 function unretainedRow(s: UnretainedStudent): CellValue[] {
   return [
@@ -934,77 +1314,107 @@ export async function buildCensusWorkbook(
   const tables = lists.students.length
     ? buildReport(filterStudents(projectReportStudents(lists.students), DEFAULT_FILTERS))
     : tablesFromSnapshot(data);
-  const sportRetention = lists.prior.length
-    ? buildSportRetention(
-        lists.prior,
-        lists.students.map((s) => s.pcid),
-        lists.graduates,
-      )
-    : [];
+  const currentIds = lists.students.map((s) => s.pcid);
+  const gpa = collectGpa(lists);
+  if (lists.prior.length) {
+    data.ftcaAttrition = buildFtcaAttritionFromPrior(lists.prior, currentIds, lists.graduates, gpa);
+    const ug = buildAllUgSplit(lists.prior, currentIds, lists.graduates);
+    data.allUgRetention = {
+      priorUg: ug.all.students,
+      graduates: ug.all.graduated,
+      pool: ug.all.students - ug.all.graduated,
+      enrolledThisFall: ug.all.enrolled,
+      notRetained: ug.all.notRetained,
+      retentionRate: ug.all.retentionPct ?? 0,
+    };
+  }
+  const extra: ReportExtras = {
+    hasPrior: lists.prior.length > 0,
+    sportRetention: lists.prior.length
+      ? buildSportRetention(lists.prior, currentIds, lists.graduates, [], gpa)
+      : [],
+    appDecisionRetention: lists.prior.length
+      ? buildCrosstab(lists.prior, currentIds, lists.graduates, (s) => s.appDecision || "Not listed").filter(
+          (r) => r.label !== "Not listed",
+        )
+      : [],
+    catholicAthlete: lists.prior.length
+      ? buildCrosstab2On(
+          lists.prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend)),
+          currentIds,
+          lists.graduates,
+          catholicOf,
+          athleteOf,
+        )
+      : [],
+    athleteGender: lists.prior.length
+      ? buildCrosstab2On(
+          lists.prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend)),
+          currentIds,
+          lists.graduates,
+          athleteOf,
+          (s) => s.gender || "—",
+        )
+      : [],
+    athleteEthnicity: lists.prior.length
+      ? buildCrosstab2On(
+          lists.prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend)),
+          currentIds,
+          lists.graduates,
+          athleteOf,
+          whiteOf,
+        )
+      : [],
+    residenceGender: lists.prior.length
+      ? buildCrosstab2On(
+          lists.prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend)),
+          currentIds,
+          lists.graduates,
+          (s) => s.residency || "Not listed",
+          (s) => s.gender || "—",
+        )
+      : [],
+    association: lists.prior.length ? buildAssociationRetention(lists.prior, currentIds, lists.graduates) : [],
+    ugSplit: lists.prior.length
+      ? buildAllUgSplit(lists.prior, currentIds, lists.graduates)
+      : {
+          all: {
+            students: data.allUgRetention.priorUg,
+            enrolled: data.allUgRetention.enrolledThisFall,
+            graduated: data.allUgRetention.graduates,
+            notRetained: data.allUgRetention.notRetained,
+            retentionPct: data.allUgRetention.retentionRate,
+          },
+          athletes: { students: 0, enrolled: 0, graduated: 0, notRetained: 0, retentionPct: null },
+          nonAthletes: { students: 0, enrolled: 0, graduated: 0, notRetained: 0, retentionPct: null },
+        },
+  };
+  const ftcaExtras = lists.prior.length
+    ? buildFtcaExtras(lists.prior, currentIds, lists.graduates)
+    : {
+        byAthleteGender: [],
+        byEthnicityAthlete: [],
+        byResidencyGender: [],
+        byAppDecision: [],
+        byMaleFlorida: [],
+      };
+
   writeSummary(wb, data);
   writeHistorical(wb, data);
-  writeCensusReport(wb, data, tables);
-  writeAttrition(wb, data, sportRetention);
+  writeCensusReport(wb, data, tables, extra);
+  writeAttrition(wb, data, ftcaExtras);
   writeFtcaRaw(wb, ftcaRaw);
   writeListSheet(
     wb,
     "FA26 Census Raw Data",
-    [
-      "PCID",
-      "First_Name",
-      "Last_Name",
-      "Incoming/Returning",
-      "State",
-      "Religion",
-      "Cath/Chris/Other",
-      "Ethnicity",
-      "Gender",
-      "Program",
-      "College_Attend",
-      "Curriculum",
-      "Curriculum Name",
-      "Class_Level",
-      "Full_Part",
-      "City",
-      "Credits",
-      "Cumulative GPA",
-      "Cumulative Earned Credits",
-      "Resident / Commuter",
-      "Athletic Assoc. (Athlet.)",
-      "Athlete/Non-Athlete",
-      "Honors",
-      "FSP",
-      "Household",
-      "Institute",
-      "Mary's Marines",
-      "Application Decision",
-      "Degree",
-      "Email",
-    ],
-    [14, 16, 18, 16, 8, 16, 14, 12, 10, 12, 14, 12, 22, 12, 10, 16, 10, 12, 14, 16, 22, 16, 10, 10, 12, 12, 14, 16, 10, 32],
+    CENSUS_RAW_HEADERS,
+    [14, 16, 18, 16, 8, 16, 14, 12, 10, 12, 14, 12, 22, 12, 10, 16, 10, 12, 14, 16, 16, 22, 16, 16, 22, 10, 10, 12, 12, 14, 16, 10, 32, 12, 12, 10],
     lists.students.map(rawRow),
   );
   writeListSheet(
     wb,
     "All Not Retained",
-    [
-      "PCID",
-      "First",
-      "Last",
-      "Retention",
-      "Final GPA",
-      "FSP",
-      "Household",
-      "Mary's Marines",
-      "Honors",
-      "Sport",
-      "State",
-      "Gender",
-      "Class",
-      "College_Attend",
-      "Incoming/Returning",
-      "Program",
-    ],
+    UNRETAINED_HEADERS,
     [14, 16, 18, 14, 12, 10, 12, 16, 10, 18, 8, 10, 12, 14, 16, 12],
     lists.unretained.map(unretainedRow),
   );

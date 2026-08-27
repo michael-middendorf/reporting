@@ -16,7 +16,7 @@ export const COUNTRY_NAMES: Record<string, string> = {
   UK: "United Kingdom",
 };
 
-const ETHNICITY_NAMES: Record<string, string> = {
+export const ETHNICITY_NAMES: Record<string, string> = {
   WHITE: "White",
   HISPAN: "Hispanic",
   ASIAN: "Asian",
@@ -27,7 +27,7 @@ const ETHNICITY_NAMES: Record<string, string> = {
 
 export const CLASS_ORDER = ["Freshman", "Sophomore", "Junior", "Senior"];
 
-const GPA_ORDER = ["<1.0", "1.0 - 1.9", "2.0 - 2.49", "2.5 - 2.99", "3.0 - 3.49", "3.5 - 4.0"];
+export const GPA_ORDER = ["<1.0", "1.0 - 1.9", "2.0 - 2.49", "2.5 - 2.99", "3.0 - 3.49", "3.5 - 4.0"];
 
 function prettyBlank(label: string, fallback: string): string {
   const t = (label || "").trim();

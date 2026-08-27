@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { CensusRawStudent } from "./lists";
-import { buildSportRetention, deriveFtcaRaw } from "./retention";
+import { buildFtcaAttritionFromPrior, buildSportRetention, deriveFtcaRaw, isFtcaIncoming } from "./retention";
 
 function prior(partial: Partial<CensusRawStudent>): CensusRawStudent {
   return {
     pcid: "P1",
     first: "A",
     last: "B",
-    incomingReturning: "Returning",
+    incomingReturning: "Incoming",
     state: "FL",
     religion: "Catholic",
     cathGroup: "Catholic",
@@ -27,6 +27,8 @@ function prior(partial: Partial<CensusRawStudent>): CensusRawStudent {
     residency: "Resident",
     sport: "Football",
     athlete: "Athlete",
+    athleticType: "Varsity",
+    rosterStatus: "Roster - Athlete",
     honors: "",
     fsp: "",
     household: "",
@@ -70,6 +72,39 @@ test("sport retention charges leavers to their Fall 2025 sport", () => {
   const vb = rows.find((r) => r.sport === "Volleyball");
   assert.equal(vb?.graduated, 1);
   assert.equal(vb?.notRetained, 0);
+});
+
+test("FTCA raw keeps Incoming+FTCA only, not returning FTCA", () => {
+  const rows = deriveFtcaRaw(
+    [
+      prior({ pcid: "P1", incomingReturning: "Incoming", collegeAttend: "FTCA" }),
+      prior({ pcid: "P2", incomingReturning: "Returning", collegeAttend: "FTCA" }),
+      prior({ pcid: "P3", incomingReturning: "Incoming", collegeAttend: "TRAN" }),
+    ],
+    [],
+    [],
+  );
+  assert.deepEqual(
+    rows.map((r) => r.pcid),
+    ["P1"],
+  );
+  assert.equal(isFtcaIncoming(prior({ incomingReturning: "Incoming", collegeAttend: "FTCA" })), true);
+  assert.equal(isFtcaIncoming(prior({ incomingReturning: "Returning", collegeAttend: "FTCA" })), false);
+});
+
+test("FTCA attrition cohort is Incoming+FTCA", () => {
+  const a = buildFtcaAttritionFromPrior(
+    [
+      prior({ pcid: "P1", incomingReturning: "Incoming", collegeAttend: "FTCA" }),
+      prior({ pcid: "P2", incomingReturning: "Returning", collegeAttend: "FTCA" }),
+      prior({ pcid: "P3", incomingReturning: "Incoming", collegeAttend: "TRAN" }),
+    ],
+    ["P1"],
+    [],
+  );
+  assert.equal(a.cohort, 1);
+  assert.equal(a.enrolledThisFall, 1);
+  assert.equal(a.notRetained, 0);
 });
 
 test("hiding a sport drops it from retention totals", () => {
