@@ -1,6 +1,12 @@
 import { readResidents } from "../housing/store";
 import type { Resident } from "../housing/types";
-import { applyErezResidency, deriveUnretained, loadCensusLists, type CensusLists } from "./lists";
+import {
+  applyErezResidency,
+  deriveUnretained,
+  loadCensusLists,
+  markIrelandReturning,
+  type CensusLists,
+} from "./lists";
 import {
   ayGraduatePcids,
   buildAllUgSplit,
@@ -46,7 +52,25 @@ export async function loadCensusSnapshot(): Promise<{
 }> {
   const data = presentSnapshot(cloneSnapshot());
   let lists = await loadCensusLists();
-  if (lists.students.length) applyRegistrationTotals(data, lists.students);
+  let housingRows: HousingAssignmentRow[] = [];
+  try {
+    const payload = await readResidents();
+    const residents = (payload?.residents || []) as Resident[];
+    if (residents.length) {
+      housingRows = housingAssignmentRows(residents);
+      lists = { ...lists, students: applyErezResidency(lists.students, housingRows) };
+      applyHousingOverlay(data, residents, {
+        generated: payload?.generated ?? payload?.cached_at ?? null,
+        session: payload?.session ?? null,
+      });
+    }
+  } catch {
+    housingRows = [];
+  }
+  if (lists.students.length) {
+    lists = { ...lists, students: markIrelandReturning(lists.students, housingRows) };
+    applyRegistrationTotals(data, lists.students);
+  }
   if (lists.prior.length && lists.students.length) {
     const gradIds = ayGraduatePcids(lists.graduates);
     lists = {
@@ -73,24 +97,5 @@ export async function loadCensusSnapshot(): Promise<{
   const ftcaRaw = lists.prior.length
     ? deriveFtcaRaw(lists.prior, lists.students, lists.graduates)
     : [];
-  try {
-    const payload = await readResidents();
-    const residents = (payload?.residents || []) as Resident[];
-    if (residents.length === 0) {
-      return { data, housingRows: [], lists, ftcaRaw };
-    }
-    applyHousingOverlay(data, residents, {
-      generated: payload?.generated ?? payload?.cached_at ?? null,
-      session: payload?.session ?? null,
-    });
-    const housingRows = housingAssignmentRows(residents);
-    return {
-      data,
-      housingRows,
-      lists: { ...lists, students: applyErezResidency(lists.students, housingRows) },
-      ftcaRaw,
-    };
-  } catch {
-    return { data, housingRows: [], lists, ftcaRaw };
-  }
+  return { data, housingRows, lists, ftcaRaw };
 }

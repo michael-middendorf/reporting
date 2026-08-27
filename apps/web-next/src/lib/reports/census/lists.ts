@@ -36,17 +36,54 @@ async function fromS3<T>(key: string): Promise<T[]> {
   }
 }
 
+function isIrelandHousing(h: HousingAssignmentRow): boolean {
+  const b = (h.building || "").trim().toUpperCase();
+  const p = (h.priceType || "").trim().toUpperCase();
+  return b === "CIARA" || b === "MALAC" || p === "ISTA";
+}
+
+/**
+ * Ireland (Ciara / Malachy) for now: Returning, Resident, and sport Ireland
+ * when they do not already have a team. Session 03Ireland without an Ireland
+ * house is Returning only.
+ */
+export function markIrelandReturning(
+  students: CensusRawStudent[],
+  housing: HousingAssignmentRow[] = [],
+): CensusRawStudent[] {
+  const ireland = new Set(
+    housing.filter(isIrelandHousing).map((h) => (h.pcid || "").trim().toUpperCase()).filter(Boolean),
+  );
+  return students.map((s) => {
+    const id = (s.pcid || "").trim().toUpperCase();
+    const sess = (s.session || "").toLowerCase();
+    const inIrelandHouse = ireland.has(id);
+    if (!inIrelandHouse && !sess.includes("ireland")) return s;
+    const sport = (s.sport || "").trim();
+    const irelandSport = inIrelandHouse && !sport;
+    return {
+      ...s,
+      incomingReturning: "Returning",
+      residency: inIrelandHouse ? "Resident" : s.residency,
+      sport: irelandSport ? "Ireland" : s.sport,
+      athlete: irelandSport || s.athlete === "Athlete" ? "Athlete" : s.athlete,
+    };
+  });
+}
+
 export function applyErezResidency(
   students: CensusRawStudent[],
   housing: HousingAssignmentRow[],
 ): CensusRawStudent[] {
-  if (!housing.length) return students;
+  if (!housing.length) return markIrelandReturning(students);
   const byPcid = new Map(housing.map((h) => [h.pcid.toUpperCase(), h]));
-  return students.map((s) => {
+  const withResidency = students.map((s) => {
     const hit = byPcid.get((s.pcid || "").toUpperCase());
     if (!hit) return s;
-    return { ...s, residency: hit.residency };
+    const residency = isIrelandHousing(hit) ? "Resident" : hit.residency;
+    return { ...s, residency };
   });
+  return markIrelandReturning(withResidency, housing);
 }
 
 export async function loadCensusLists(): Promise<import("./lists-core").CensusLists> {

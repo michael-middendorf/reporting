@@ -291,6 +291,26 @@ def load_graduates(path: Path) -> list[dict]:
     return out
 
 
+def load_ireland_pcids() -> set[str]:
+    """eRez CIARA/MALAC assignments. Temporary: count these as Returning."""
+    path = Path("/tmp/residents.json")
+    if not path.exists():
+        return set()
+    try:
+        payload = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return set()
+    out: set[str] = set()
+    for r in payload.get("residents") or []:
+        b = str(r.get("building") or "").strip().upper()
+        p = str(r.get("price_type") or "").strip().upper()
+        if b in {"CIARA", "MALAC"} or p == "ISTA":
+            pid = pcid_of(r.get("pcid"))
+            if pid.startswith("P"):
+                out.add(pid)
+    return out
+
+
 def load_prior(path: Path) -> list[dict]:
     from openpyxl import load_workbook as lw
 
@@ -360,6 +380,7 @@ def main() -> None:
         if s["pcid"] in eot:
             s["gpa"] = eot[s["pcid"]]
     prior_ids = {norm(s["pcid"]) for s in prior}
+    ireland_ids = load_ireland_pcids()
     graduates = load_graduates(GRADUATES)
     grad_ids = {norm(g["pcid"]) for g in graduates}
     registered_ids = {norm(s["pcid"]) for s in registered_rows}
@@ -375,7 +396,12 @@ def main() -> None:
             cath = rel
         slate_row = slate.get(pid, {})
         sport = slate_row.get("sport") or ""
-        athlete = slate_row.get("athlete") or "Non-Athlete"
+        in_ireland = norm(pid) in ireland_ids
+        if in_ireland and not sport:
+            sport = "Ireland"
+        athlete = slate_row.get("athlete") or ("Athlete" if sport == "Ireland" else "Non-Athlete")
+        if sport == "Ireland":
+            athlete = "Athlete"
         honors_val = "Hons" if pid in honors else ""
         gpa = eot.get(pid, r["gpa"])
         students.append(
@@ -383,7 +409,13 @@ def main() -> None:
                 "pcid": pid,
                 "first": r["first"],
                 "last": r["last"],
-                "incomingReturning": "Returning" if norm(pid) in prior_ids else "Incoming",
+                "incomingReturning": (
+                    "Returning"
+                    if norm(pid) in prior_ids
+                    or in_ireland
+                    or "ireland" in str(r.get("session") or "").lower()
+                    else "Incoming"
+                ),
                 "state": r["state"],
                 "religion": rel or "-",
                 "cathGroup": cath or "-",
@@ -399,7 +431,7 @@ def main() -> None:
                 "credits": r["credits"],
                 "gpa": gpa if gpa not in (None, "") else "",
                 "earnedCredits": "",
-                "residency": "",
+                "residency": "Resident" if in_ireland else "",
                 "sport": sport,
                 "athlete": athlete,
                 "athleticType": slate_row.get("athleticType") or "",
@@ -479,9 +511,21 @@ def main() -> None:
     n_ath = sum(1 for s in students if s["athlete"] == "Athlete")
     n_hons = sum(1 for s in students if s["honors"] == "Hons")
     n_gpa = sum(1 for s in unretained if s["gpa"] not in ("-", "", None))
+    n_ire = sum(
+        1
+        for s in students
+        if norm(s["pcid"]) in ireland_ids or "ireland" in str(s.get("session") or "").lower()
+    )
+    n_ire_ret = sum(
+        1
+        for s in students
+        if (norm(s["pcid"]) in ireland_ids or "ireland" in str(s.get("session") or "").lower())
+        and s["incomingReturning"] == "Returning"
+    )
     print(
         f"students {len(students)} (athletes {n_ath}, honors {n_hons})\n"
         f"unretained {len(unretained)} UG-DS {len(ug)} with EOT GPA {n_gpa}\n"
+        f"ireland {n_ire} returning {n_ire_ret}\n"
         f"slate sports {sum(1 for v in slate.values() if v.get('sport'))}\n"
         f"honors file {len(honors)} eot gpas {len(eot)}"
     )

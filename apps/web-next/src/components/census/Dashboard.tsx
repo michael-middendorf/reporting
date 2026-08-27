@@ -152,11 +152,12 @@ export function CensusDashboard() {
           <Kpi label="States" value={fmtN(k.states)} def={KPI_DEFS.states} />
           <Kpi label="All students" value={fmtN(k.allStudents)} def={KPI_DEFS.allStudents} />
           <Kpi label="UG degree-seeking" value={fmtN(k.ugStudents)} def={KPI_DEFS.ugStudents} />
-          <Kpi label="Foreign countries" value={fmtN(k.foreignCountries)} def={KPI_DEFS.foreignCountries} />
+          <Kpi label="Foreign countries" value={fmtN(k.foreignCountries)} def={KPI_DEFS.foreignCountries} flip />
           <Kpi
             label="UG on campus"
             value={fmtPct(k.ugOnCampusPct)}
             def={KPI_DEFS.ugOnCampus}
+            flip
             hint={data.housing ? undefined : "Needs eRez housing list"}
           />
           <Kpi
@@ -169,6 +170,7 @@ export function CensusDashboard() {
             label="Avg CLT / ACT / SAT"
             value={`${k.avgClt ?? "—"}  /  ${k.avgAct ?? "—"}  /  ${k.avgSat ?? "—"}`}
             def={KPI_DEFS.testScores}
+            flip
           />
         </div>
 
@@ -226,22 +228,39 @@ export function CensusDashboard() {
   );
 }
 
+function InfoTip({ text, flip }: { text: string; flip?: boolean }) {
+  return (
+    <span
+      className={`info${flip ? " flip" : ""}`}
+      tabIndex={0}
+      aria-label={text}
+      onClick={(e) => e.stopPropagation()}
+    >
+      i<span className="info-tip">{text}</span>
+    </span>
+  );
+}
+
 function Kpi({
   label,
   value,
   hint,
   def,
+  flip,
 }: {
   label: string;
   value: string;
   hint?: string;
   def?: string;
+  flip?: boolean;
 }) {
   return (
     <div className="kpi">
-      <div className="lbl">{label}</div>
+      <div className="lbl">
+        {label}
+        {def ? <InfoTip text={def} flip={flip} /> : null}
+      </div>
       <div className="val">{value}</div>
-      {def && <p className="def">{def}</p>}
       {hint && <div className="hint">{hint}</div>}
     </div>
   );
@@ -292,9 +311,9 @@ function SummaryTab({ data }: { data: CensusSnapshot }) {
     <div className="sheet">
       <div className="sheet-head">
         <h2>Summary</h2>
-        <p className="sheet-n">HEADCOUNT / FTE — each row says exactly who Registration Status is counting</p>
+        <p className="sheet-n">HEADCOUNT / FTE</p>
       </div>
-      <div className="sheet-table">
+      <div className="sheet-table sheet-table-tips">
       <table>
         <thead>
           <tr>
@@ -316,8 +335,10 @@ function SummaryTab({ data }: { data: CensusSnapshot }) {
               }
             >
               <td>
-                {r.label}
-                {summaryDef(r.label) ? <div className="row-def">{summaryDef(r.label)}</div> : null}
+                <span className="row-label">
+                  {r.label}
+                  {summaryDef(r.label) ? <InfoTip text={summaryDef(r.label) || ""} /> : null}
+                </span>
               </td>
               {r.c ? <HcFte c={r.c} /> : <><td></td><td></td></>}
             </tr>

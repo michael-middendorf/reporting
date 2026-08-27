@@ -117,11 +117,13 @@
 
 .census-root .kpis {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 18px;
 }
 .census-root .kpi {
+  position: relative;
+  overflow: visible;
   background: var(--card);
   border: 1px solid var(--bdr);
   border-top: 2px solid var(--gold-line);
@@ -129,6 +131,9 @@
   padding: 14px 16px;
 }
 .census-root .kpi .lbl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -147,19 +152,60 @@
   color: var(--t3);
   margin-top: 2px;
 }
-.census-root .kpi .def {
-  margin: 8px 0 0;
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--t2);
+.census-root .row-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
-.census-root .row-def {
-  margin-top: 3px;
+.census-root .info {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--pale);
+  color: var(--t2);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: help;
+  flex-shrink: 0;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.census-root .info-tip {
+  display: none;
+  position: absolute;
+  top: 18px;
+  left: 0;
+  z-index: 40;
+  width: 260px;
+  background: var(--navy);
+  color: #fff;
   font-size: 11px;
   font-weight: 500;
-  line-height: 1.35;
-  color: var(--t2);
-  max-width: 52rem;
+  line-height: 1.4;
+  letter-spacing: normal;
+  text-transform: none;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  box-shadow: 0 8px 22px rgba(26, 63, 111, 0.22);
+}
+.census-root .info.flip .info-tip {
+  left: auto;
+  right: 0;
+}
+.census-root .info:hover,
+.census-root .info:focus {
+  z-index: 8;
+  outline: none;
+}
+.census-root .info:hover .info-tip,
+.census-root .info:focus .info-tip {
+  display: block;
 }
 
 .census-root .tabs {
@@ -394,6 +440,9 @@
 .census-root .sheet-table {
   min-width: 0;
   overflow-x: auto;
+}
+.census-root .sheet-table-tips {
+  overflow: visible;
 }
 .census-root .sheet-caption {
   display: inline-block;

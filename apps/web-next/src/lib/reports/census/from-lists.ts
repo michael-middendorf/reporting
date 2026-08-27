@@ -122,6 +122,8 @@ export function applyRegistrationTotals(data: CensusSnapshot, students: CensusRa
   data.kpis.states = stateLabels.size;
   data.kpis.pctCatholic = ugds.length ? catholic / ugds.length : null;
   if (tables.countries.length) data.kpis.foreignCountries = tables.countries.length;
+  const onCampus = tables.residency.find((r) => r.label === "Resident");
+  if (tables.n) data.kpis.ugOnCampusPct = (onCampus?.n ?? 0) / tables.n;
   for (const key of Object.keys(summary) as (keyof CensusSummary)[]) {
     patchYear0(data, key, summary[key]);
   }
@@ -137,7 +139,8 @@ export const KPI_DEFS: Record<string, string> = {
     "Registration Status rows with Program = UNDERG and College Attend not DUAL, EACO, or ND (B.A. and B.S.). Default Census Report view.",
   foreignCountries:
     "Distinct non-US citizenships among registered students. Registration Status does not include citizenship, so this stays Needs data until that field is on the file.",
-  ugOnCampus: "eRezLife residents divided by UG degree-seeking headcount.",
+  ugOnCampus:
+    "UG degree-seeking with residency Resident, including Ireland (Ciara / Malachy) counted as residential for now.",
   incomingHsGpa: "Mean high school GPA for incoming UG. Needs a Slate / HS GPA file.",
   pctCatholic: "UG degree-seeking students whose religion is Catholic or Eastern Rite Catholic, from Registration Status Religion.",
   testScores: "Mean CLT / ACT / SAT for incoming UG. Needs a Slate scores file.",
@@ -151,7 +154,8 @@ export const SUMMARY_DEFS: Record<string, string> = {
   READ: "Incoming UG degree-seeking with College Attend = READ (readmit).",
   SECB: "Incoming UG degree-seeking with College Attend = SECB (second bachelor's).",
   "Lux Mundi": "UG degree-seeking with Session 01LuxMundi. Breakout; also in Incoming / Returning.",
-  "Returning Students": "UG degree-seeking who were already on the Fall 2025 census.",
+  "Returning Students":
+    "UG degree-seeking who were already on the Fall 2025 census. Ireland (Ciara / Malachy) is counted as Returning for now, even if they were not on last fall's census.",
   "Total Degree-Seeking": "Program = UNDERG and College Attend not DUAL, EACO, or ND. Incoming + Returning.",
   "High School Dual Enrollment": "College Attend = DUAL or Degree = HSDE.",
   "Non-Degree-Seeking / Personal Enrichment":
