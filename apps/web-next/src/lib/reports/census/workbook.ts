@@ -1287,6 +1287,10 @@ function writeSources(
         : "Student-level FA26 file is not in the census cache yet.",
     ],
     [
+      "Graduates",
+      "PowerCampus Graduated - All (Graduated %2D All-13.xlsx). Intervening year is Fall 2025, Spring 2026, and Summer 2026.",
+    ],
+    [
       "Not retained",
       unretainedCount
         ? `${unretainedCount.toLocaleString()} Fall 2025 census students not in Fall 2026 registration and not among 2025–26 Fall/Spring/Summer graduates.`

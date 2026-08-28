@@ -19,7 +19,7 @@ REGISTRATION = DOWNLOADS / "Registration Status-26.xlsx"
 EOT_FILES = [DOWNLOADS / "End Of Term-6.xlsx", DOWNLOADS / "End Of Term-7.xlsx"]
 HONORS = DOWNLOADS / "Association Honors-3.xlsx"
 PRIOR = CENSUS_DIR / "Fall 2025 Census Final 9.23.25.xlsx"
-GRADUATES = CENSUS_DIR / "FA26 Census" / "FA26_graduates_2025_2026.xlsx"
+GRADUATES = DOWNLOADS / "Graduated %2D All-13.xlsx"
 SLATE_ATHLETES = Path("/tmp/slate-athletes.json")
 EXISTING_STUDENTS = DATA / "students.json"
 
@@ -270,24 +270,31 @@ def load_graduates(path: Path) -> list[dict]:
 
     wb = lw(path, data_only=True)
     ws = wb.active
-    rows = ws.iter_rows(values_only=True)
-    header = header_map(next(rows))
+    header = None
     out = []
-    for row in rows:
-        pid = pcid_of(row[header["PCID"]])
+    for row in ws.iter_rows(values_only=True):
+        if header is None:
+            first = str(row[0] or "").strip() if row else ""
+            if first == "PCID":
+                header = header_map(row)
+            continue
+        pid = pcid_of(row[header["PCID"]] if header["PCID"] < len(row) else "")
         if not pid:
             continue
         year, term = row[header["Graduation Year"]], row[header["Graduation Term"]]
         if is_ay_grad(year, term):
+            prog_i = header.get("Graduation Program")
             out.append(
                 {
                     "pcid": pid,
                     "year": year,
                     "term": term,
-                    "program": str(row[header["Graduation Program"]] or "").strip(),
+                    "program": str(row[prog_i] or "").strip() if prog_i is not None else "",
                 }
             )
     wb.close()
+    if header is None:
+        raise RuntimeError(f"No PCID header in {path}")
     return out
 
 

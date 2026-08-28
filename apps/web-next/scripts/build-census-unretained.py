@@ -14,7 +14,7 @@ from openpyxl import load_workbook
 CENSUS_DIR = Path("/Users/regina.m.pirolli/Documents/PERSONAL Census Files")
 PRIOR = CENSUS_DIR / "Fall 2025 Census Final 9.23.25.xlsx"
 REGISTRATION = Path("/Users/regina.m.pirolli/Downloads/Registration Status-23.xlsx")
-GRADUATES = CENSUS_DIR / "FA26 Census" / "FA26_graduates_2025_2026.xlsx"
+GRADUATES = Path("/Users/regina.m.pirolli/Downloads/Graduated %2D All-13.xlsx")
 DATA = Path(__file__).resolve().parents[1] / "src/lib/reports/census/data"
 OUT = DATA / "unretained.json"
 PRIOR_OUT = DATA / "prior.json"
@@ -67,22 +67,27 @@ def load_registration_ids(path: Path) -> set[str]:
 def load_graduates(path: Path) -> list[dict]:
     wb = load_workbook(path, data_only=True)
     ws = wb.active
-    rows = ws.iter_rows(values_only=True)
-    header = header_map(next(rows))
+    header = None
     out = []
-    for row in rows:
+    for row in ws.iter_rows(values_only=True):
+        if header is None:
+            first = str(row[0] or "").strip() if row else ""
+            if first == "PCID":
+                header = header_map(row)
+            continue
         pcid = str(row[header["PCID"]] or "").strip()
         if not pcid:
             continue
         year = row[header["Graduation Year"]]
         term = row[header["Graduation Term"]]
         if is_ay_grad(year, term):
+            prog_i = header.get("Graduation Program")
             out.append(
                 {
                     "pcid": pcid,
                     "year": year,
                     "term": term,
-                    "program": str(row[header["Graduation Program"]] or "").strip(),
+                    "program": str(row[prog_i] or "").strip() if prog_i is not None else "",
                 }
             )
     wb.close()
