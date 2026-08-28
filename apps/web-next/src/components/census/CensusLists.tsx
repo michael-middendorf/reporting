@@ -22,6 +22,8 @@ export function RawDataSheet({ students }: { students: CensusRawStudent[] }) {
       s.incomingReturning,
       s.state,
       s.program,
+      s.degree || "—",
+      s.session || "—",
       s.collegeAttend,
       s.classLevel,
       s.fullPart,
@@ -34,7 +36,7 @@ export function RawDataSheet({ students }: { students: CensusRawStudent[] }) {
     <div className="sheet">
       <div className="sheet-head">
         <h2>FA26 Census Raw Data</h2>
-        <p className="sheet-n">{fmtN(students.length)} students from registration</p>
+        <p className="sheet-n">{fmtN(students.length)} students from registration (undergraduate and graduate)</p>
       </div>
       {!students.length ? (
         <p className="note">Student list is not published yet. After aws login, run publish-census-lists.sh.</p>
@@ -44,7 +46,7 @@ export function RawDataSheet({ students }: { students: CensusRawStudent[] }) {
           <SheetTable
             title=""
             scroll
-            headers={["PCID", "First", "Last", "In/Ret", "State", "Program", "College", "Class", "Load", "Sport", "Residency", "Gender"]}
+            headers={["PCID", "First", "Last", "In/Ret", "State", "Program", "Degree", "Session", "College", "Class", "Load", "Sport", "Residency", "Gender"]}
             rows={rows}
           />
         </>

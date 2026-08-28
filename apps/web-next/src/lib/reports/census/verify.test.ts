@@ -103,6 +103,28 @@ test("unretained seniors and unretained-but-housed are flagged", () => {
   assert.ok(rows.some((r) => r.issue === "Unretained but still housed"));
 });
 
+test("UG plus Lux Mundi MA on the same PCID is flagged", () => {
+  const rows = buildVerifyList(
+    [
+      raw({ pcid: "P9", first: "Dual", last: "Student", program: "UNDERG", degree: "BARTS", session: "01" }),
+      raw({
+        pcid: "P9",
+        first: "Dual",
+        last: "Student",
+        program: "GRAD",
+        degree: "MARTS",
+        session: "01LuxMundi",
+        fullPart: "HALF",
+        credits: 8,
+      }),
+    ],
+    [],
+    [],
+    [],
+  );
+  assert.equal(rows.filter((r) => r.issue === "UG and graduate programs").length, 1);
+});
+
 test("intervening graduate still on registration is flagged", () => {
   const rows = buildVerifyList(
     [raw({ pcid: "P4", first: "Grad", last: "StillHere" })],

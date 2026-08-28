@@ -4,6 +4,7 @@ import {
   DEFAULT_FILTERS,
   buildReport,
   filterCensusRaw,
+  filtersForCensusRaw,
   filterStudents,
   projectReportStudents,
   type ReportStudent,
@@ -68,6 +69,19 @@ test("default degree filter is UG degree-seeking, dual enrollment is out", () =>
   assert.equal(filterStudents(rows, { ...DEFAULT_FILTERS, degree: "dual" }).length, 1);
 });
 
+test("census raw includes graduate rows when the default degree filter is UG", () => {
+  const rows = [
+    raw({ pcid: "1", program: "UNDERG", collegeAttend: "FTCA", degree: "BARTS" }),
+    raw({ pcid: "2", program: "GRAD", collegeAttend: "GRAD", degree: "MARTS" }),
+  ];
+  const ugOnly = filterCensusRaw(rows, DEFAULT_FILTERS);
+  assert.equal(ugOnly.length, 1);
+  assert.equal(ugOnly[0]?.pcid, "1");
+  const rawList = filterCensusRaw(rows, filtersForCensusRaw(DEFAULT_FILTERS));
+  assert.equal(rawList.length, 2);
+  assert.ok(rawList.some((s) => s.program === "GRAD"));
+});
+
 test("filterCensusRaw drops hidden sports from the raw list", () => {
   const rows = [
     raw({ pcid: "1", athlete: "Athlete", sport: "Football", gender: "Male" }),
@@ -76,6 +90,35 @@ test("filterCensusRaw drops hidden sports from the raw list", () => {
   const out = filterCensusRaw(rows, { ...DEFAULT_FILTERS, excludedSports: ["Football"] });
   assert.equal(out.length, 1);
   assert.equal(out[0]?.pcid, "2");
+});
+
+test("including a sport keeps only those students", () => {
+  const rows = set([
+    raw({ pcid: "1", athlete: "Athlete", sport: "Football", gender: "Male" }),
+    raw({ pcid: "2", athlete: "Athlete", sport: "Volleyball", gender: "Female" }),
+    raw({ pcid: "3", athlete: "Non-Athlete", sport: "" }),
+  ]);
+  const filtered = filterStudents(rows, { ...DEFAULT_FILTERS, includedSports: ["Volleyball"] });
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0]?.sport, "Volleyball");
+  const rpt = buildReport(filtered);
+  assert.equal(rpt.n, 1);
+  assert.deepEqual(rpt.sports.map((s) => s.label), ["Volleyball"]);
+});
+
+test("include and hide sports stack; hide wins on overlap", () => {
+  const rows = set([
+    raw({ pcid: "1", athlete: "Athlete", sport: "Football" }),
+    raw({ pcid: "2", athlete: "Athlete", sport: "Volleyball" }),
+    raw({ pcid: "3", athlete: "Athlete", sport: "Ireland" }),
+  ]);
+  const filtered = filterStudents(rows, {
+    ...DEFAULT_FILTERS,
+    includedSports: ["Football", "Volleyball"],
+    excludedSports: ["Football"],
+  });
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0]?.sport, "Volleyball");
 });
 
 test("excluding a sport removes those students from every table", () => {

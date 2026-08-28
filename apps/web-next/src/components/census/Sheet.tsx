@@ -147,11 +147,30 @@ export function FilterBar({
         </select>
       </label>
       <MultiFilter
-        label="Hide sports from counts"
-        emptyLabel="Show all sports"
+        label="Sports"
+        emptyLabel="All sports"
+        options={sports}
+        selected={filters.includedSports}
+        onChange={(includedSports) =>
+          onChange({
+            ...filters,
+            includedSports,
+            excludedSports: filters.excludedSports.filter((s) => !includedSports.includes(s)),
+          })
+        }
+      />
+      <MultiFilter
+        label="Hide sports"
+        emptyLabel="Don't hide any"
         options={sports}
         selected={filters.excludedSports}
-        onChange={(excludedSports) => set("excludedSports", excludedSports)}
+        onChange={(excludedSports) =>
+          onChange({
+            ...filters,
+            excludedSports,
+            includedSports: filters.includedSports.filter((s) => !excludedSports.includes(s)),
+          })
+        }
       />
       <MultiFilter
         label="Majors"

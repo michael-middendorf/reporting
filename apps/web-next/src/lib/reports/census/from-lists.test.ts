@@ -67,3 +67,24 @@ test("all-student total is every registration row; UG DS excludes dual", () => {
   assert.equal(sum.gradMa.headcount, 0, "Lux Mundi MA is not also in the MA line");
   assert.equal(sum.totalUndergraduate.headcount, 4);
 });
+
+test("a student in UG and Lux Mundi MA counts in both, once in all-student headcount", () => {
+  const rows = [
+    s({ pcid: "P9", program: "UNDERG", collegeAttend: "FTCA", degree: "BARTS", session: "01", incomingReturning: "Incoming" }),
+    s({
+      pcid: "P9",
+      program: "GRAD",
+      collegeAttend: "GRAD",
+      degree: "MARTS",
+      session: "01LuxMundi",
+      incomingReturning: "Incoming",
+      fullPart: "HALF",
+    }),
+  ];
+  const sum = summaryFromStudents(rows);
+  assert.equal(sum.degreeSeeking.headcount, 1);
+  assert.equal(sum.luxMundiGrad.headcount, 1);
+  assert.equal(sum.totalGraduate.headcount, 1);
+  assert.equal(sum.totalUndergraduate.headcount, 1);
+  assert.equal(sum.totalEnrollment.headcount, 1);
+});

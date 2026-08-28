@@ -15,6 +15,22 @@ function hcFte(rows: CensusRawStudent[]): CountFte {
   };
 }
 
+export function uniqueStudentCount(rows: CensusRawStudent[]): number {
+  return uniqueStudents(rows).length;
+}
+
+function uniqueStudents(rows: CensusRawStudent[]): CensusRawStudent[] {
+  const seen = new Set<string>();
+  const out: CensusRawStudent[] = [];
+  for (const s of rows) {
+    const id = (s.pcid || "").trim().toUpperCase();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(s);
+  }
+  return out;
+}
+
 function isIncoming(s: CensusRawStudent): boolean {
   return (s.incomingReturning || "").trim().toLowerCase().startsWith("incoming");
 }
@@ -81,7 +97,10 @@ export function summaryFromStudents(students: CensusRawStudent[]): CensusSummary
     gradMedcl: hcFte(grads.filter((s) => degree(s) === "MEDCL" && !isLuxMundi(s))),
     luxMundiGrad: hcFte(luxGrad),
     totalGraduate: hcFte(grads),
-    totalEnrollment: hcFte(students),
+    totalEnrollment: {
+      headcount: uniqueStudentCount(students),
+      fte: hcFte(students).fte,
+    },
   };
 }
 

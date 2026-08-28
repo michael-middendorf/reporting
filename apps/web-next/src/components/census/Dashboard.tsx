@@ -11,6 +11,7 @@ import {
   DEFAULT_FILTERS,
   buildReport,
   filterCensusRaw,
+  filtersForCensusRaw,
   filterStudents,
   filterUnretained,
   uniqueSorted,
@@ -23,7 +24,7 @@ import {
   buildSportRetention,
   type FtcaRawRow,
 } from "@/lib/reports/census/retention";
-import { KPI_DEFS, SUMMARY_DEFS, summaryFromStudents } from "@/lib/reports/census/from-lists";
+import { KPI_DEFS, SUMMARY_DEFS, summaryFromStudents, uniqueStudentCount } from "@/lib/reports/census/from-lists";
 import { buildVerifyList } from "@/lib/reports/census/verify";
 import type { HousingAssignmentRow } from "@/lib/reports/census/residency";
 import {
@@ -111,7 +112,7 @@ export function CensusDashboard() {
     () => uniqueSorted(students.filter((s) => s.program === "UNDERG"), (s) => s.major),
     [students],
   );
-  const peopleFilters = useMemo(() => ({ ...filters, degree: "all" as const }), [filters]);
+  const peopleFilters = useMemo(() => filtersForCensusRaw(filters), [filters]);
   const filteredAll = useMemo(() => filterCensusRaw(rawStudents, peopleFilters), [rawStudents, peopleFilters]);
   const filteredRaw = useMemo(() => filterCensusRaw(rawStudents, filters), [rawStudents, filters]);
   const filteredReport = useMemo(() => filterStudents(students, filters), [students, filters]);
@@ -177,7 +178,7 @@ export function CensusDashboard() {
   const tables = filteredReport.length ? buildReport(filteredReport) : null;
   const k = {
     ...data.kpis,
-    allStudents: rawStudents.length ? filteredAll.length : data.kpis.allStudents,
+    allStudents: rawStudents.length ? uniqueStudentCount(filteredAll) : data.kpis.allStudents,
     ugStudents: liveSummary?.degreeSeeking.headcount ?? data.kpis.ugStudents,
     states: tables ? tables.states.filter((r) => r.label !== "International").length : data.kpis.states,
     pctCatholic: tables
@@ -306,7 +307,7 @@ export function CensusDashboard() {
           />
         )}
         {tab === "ftca" && <FtcaRawSheet rows={filteredFtca} />}
-        {tab === "raw" && <RawDataSheet students={filteredRaw} />}
+        {tab === "raw" && <RawDataSheet students={filteredAll} />}
         {tab === "unretained" && <UnretainedSheet students={filteredUnretained} />}
         {tab === "verify" && <VerifySheet rows={verifyRows} />}
       </div>

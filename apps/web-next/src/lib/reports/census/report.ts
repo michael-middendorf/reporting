@@ -28,6 +28,7 @@ export type ReportStudent = {
 export type ReportFilters = {
   gender: "all" | "Female" | "Male";
   athlete: "all" | "Athlete" | "Non-Athlete";
+  includedSports: string[];
   excludedSports: string[];
   majors: string[];
   degree: "ug" | "all" | "BA" | "BS" | "grad" | "dual";
@@ -36,10 +37,16 @@ export type ReportFilters = {
 export const DEFAULT_FILTERS: ReportFilters = {
   gender: "all",
   athlete: "all",
+  includedSports: [],
   excludedSports: [],
   majors: [],
   degree: "ug",
 };
+
+/** Census Raw is the registration spine (UG, graduate, dual, non-degree). Other filters still apply. */
+export function filtersForCensusRaw(f: ReportFilters): ReportFilters {
+  return { ...f, degree: "all" };
+}
 
 export const DEGREE_OPTIONS: { id: ReportFilters["degree"]; label: string }[] = [
   { id: "ug", label: "UG degree-seeking" },
@@ -133,13 +140,16 @@ export function filterUnretained(rows: UnretainedStudent[], f: ReportFilters): U
 }
 
 export function filterStudents(rows: ReportStudent[], f: ReportFilters): ReportStudent[] {
+  const included = new Set(f.includedSports.map((s) => s.toLowerCase()));
   const excluded = new Set(f.excludedSports.map((s) => s.toLowerCase()));
   const majors = new Set(f.majors);
   return rows.filter((s) => {
     if (!matchesDegree(s, f.degree)) return false;
     if (f.gender !== "all" && s.gender !== f.gender) return false;
     if (f.athlete !== "all" && s.athlete !== f.athlete) return false;
-    if (excluded.size && s.sport && excluded.has(s.sport.toLowerCase())) return false;
+    const sport = (s.sport || "").toLowerCase();
+    if (included.size && (!sport || !included.has(sport))) return false;
+    if (excluded.size && sport && excluded.has(sport)) return false;
     if (majors.size && !majors.has(s.major)) return false;
     return true;
   });
@@ -347,6 +357,7 @@ export function filtersActive(f: ReportFilters): boolean {
   return (
     f.gender !== "all" ||
     f.athlete !== "all" ||
+    f.includedSports.length > 0 ||
     f.excludedSports.length > 0 ||
     f.majors.length > 0 ||
     f.degree !== "ug"

@@ -232,6 +232,12 @@ def apply_residency_overlay(registered_rows: list[dict], extra: dict[str, dict])
     for pid, overlay in extra.items():
         if pid in by_reg:
             row = by_reg[pid]
+            exist_prog = str(row.get("program") or "").strip().upper()
+            new_prog = str(overlay.get("program") or "").strip().upper()
+            # Same person, different program (UG + Lux Mundi MA) — keep both rows.
+            if new_prog and exist_prog and new_prog != exist_prog:
+                registered_rows.append(overlay)
+                continue
             for key in (
                 "session",
                 "program",

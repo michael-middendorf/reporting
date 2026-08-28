@@ -47,6 +47,27 @@ export function buildVerifyList(
     graduates.filter((g) => isInterveningGraduate(g.year, g.term)).map((g) => normPcid(g.pcid)),
   );
   const rows: VerifyRow[] = [];
+  const programsByPcid = new Map<string, CensusRawStudent[]>();
+  for (const s of students) {
+    const id = normPcid(s.pcid);
+    const list = programsByPcid.get(id) || [];
+    list.push(s);
+    programsByPcid.set(id, list);
+  }
+  for (const group of programsByPcid.values()) {
+    const progs = new Set(group.map((s) => (s.program || "").toUpperCase()).filter(Boolean));
+    if (progs.has("UNDERG") && progs.has("GRAD")) {
+      const s = group[0]!;
+      rows.push({
+        issue: "UG and graduate programs",
+        why: "On Registration Status as undergraduate and also on a graduate/Lux Mundi session. Counted in both UG and graduate totals; all-student headcount is once.",
+        pcid: s.pcid,
+        first: s.first,
+        last: s.last,
+        detail: group.map((g) => `${g.session || "—"} ${g.program} ${g.degree} ${g.fullPart} ${g.credits} cr`).join(" · "),
+      });
+    }
+  }
 
   for (const s of students) {
     const id = normPcid(s.pcid);
@@ -132,6 +153,7 @@ export function buildVerifyList(
     "Housed, not registered",
     "Unretained but still housed",
     "Graduate still registered",
+    "UG and graduate programs",
   ];
   return rows.sort((a, b) => {
     const ai = order.indexOf(a.issue);

@@ -1147,6 +1147,7 @@ const CENSUS_RAW_HEADERS = [
   "Ethnicity",
   "Gender",
   "Program",
+  "Session",
   "College_Attend",
   "Curriculum",
   "Curriculum Name",
@@ -1187,6 +1188,7 @@ function rawRow(s: CensusRawStudent): CellValue[] {
     s.ethnicity,
     s.gender,
     s.program,
+    s.session || "",
     s.collegeAttend,
     s.curriculum,
     s.curriculumName,
@@ -1419,7 +1421,7 @@ export async function buildCensusWorkbook(
     wb,
     "FA26 Census Raw Data",
     CENSUS_RAW_HEADERS,
-    [14, 16, 18, 16, 8, 16, 14, 12, 10, 12, 14, 12, 22, 12, 10, 16, 10, 12, 14, 16, 16, 22, 16, 16, 22, 10, 10, 12, 12, 14, 16, 10, 32, 12, 12, 10],
+    [14, 16, 18, 16, 8, 16, 14, 12, 10, 12, 14, 14, 12, 22, 12, 10, 16, 10, 12, 14, 16, 16, 22, 16, 16, 22, 10, 10, 12, 12, 14, 16, 10, 32, 12, 12, 10],
     lists.students.map(rawRow),
   );
   writeListSheet(

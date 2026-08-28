@@ -114,6 +114,43 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
           citizenship: "",
           visa: "",
         },
+        {
+          pcid: "P3",
+          first: "Grad",
+          last: "Student",
+          incomingReturning: "Incoming",
+          state: "PA",
+          religion: "Catholic",
+          cathGroup: "Catholic",
+          ethnicity: "WHITE",
+          gender: "Male",
+          program: "GRAD",
+          collegeAttend: "GRAD",
+          curriculum: "MATHEO",
+          curriculumName: "M.A. in Theology",
+          classLevel: "",
+          fullPart: "HALF",
+          city: "Erie",
+          credits: 8,
+          gpa: "",
+          earnedCredits: 0,
+          residency: "Commuter",
+          sport: "",
+          athlete: "Non-Athlete",
+          athleticType: "",
+          rosterStatus: "",
+          honors: "",
+          fsp: "",
+          household: "",
+          institute: "",
+          marines: "",
+          appDecision: "",
+          session: "01LuxMundi",
+          degree: "MARTS",
+          email: "grad@avemaria.edu",
+          citizenship: "",
+          visa: "",
+        },
       ],
       unretained: [
         {
@@ -180,6 +217,9 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(rawXml, /Application Decision/);
   assert.match(rawXml, /Citizenship/);
   assert.match(rawXml, /HS GPA/);
+  assert.match(rawXml, /GRAD/);
+  assert.match(rawXml, /MARTS/);
+  assert.match(rawXml, /01LuxMundi/);
   assert.doesNotMatch(files["xl/styles.xml"], /vertical="middle"/);
   assert.match(files["xl/styles.xml"], /xfId="0"/);
   const sheet1 = files["xl/worksheets/sheet1.xml"];
