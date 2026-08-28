@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { SportRetentionTable } from "@/components/census/CensusLists";
-import { FilterBar, SheetTable, fmtN, fmtPct } from "@/components/census/Sheet";
+import { SheetTable, fmtN, fmtPct } from "@/components/census/Sheet";
 import type { SportRetentionRow } from "@/lib/reports/census/retention";
 import {
   DEFAULT_FILTERS,
@@ -26,17 +26,11 @@ export function CensusReport({
   data,
   students,
   filters,
-  onFilters,
-  sports,
-  majors,
   sportRows = [],
 }: {
   data: CensusSnapshot;
   students: ReportStudent[];
   filters: ReportFilters;
-  onFilters: (next: ReportFilters) => void;
-  sports: string[];
-  majors: string[];
   sportRows?: SportRetentionRow[];
 }) {
   const filtered = useMemo(() => filterStudents(students, filters), [students, filters]);
@@ -95,8 +89,6 @@ export function CensusReport({
           {students.length ? "" : " · snapshot totals (student list not loaded)"}
         </p>
       </div>
-
-      <FilterBar filters={filters} onChange={onFilters} sports={sports} majors={majors} />
 
       <div className="sheet-grid">
         <div className="sheet-col">

@@ -34,6 +34,7 @@ export type HousingAssignmentRow = {
   classStatus: string;
   studentType: string;
   includedInCensus: boolean;
+  session?: string;
 };
 
 export function isLikelyUgResident(r: {
@@ -76,6 +77,7 @@ export function housingAssignmentRows(residents: Resident[]): HousingAssignmentR
     classStatus: r.class_status || "",
     studentType: r.student_type || "",
     includedInCensus: isLikelyUgResident(r),
+    session: r.session || "",
   }));
 }
 

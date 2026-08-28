@@ -16,6 +16,10 @@ CENSUS_DIR = Path("/Users/regina.m.pirolli/Documents/PERSONAL Census Files")
 DATA = Path(__file__).resolve().parents[1] / "src/lib/reports/census/data"
 
 REGISTRATION = DOWNLOADS / "Registration Status-26.xlsx"
+RESIDENCY_OVERLAYS = [
+    DOWNLOADS / "Registration Status w Residency-2.xlsx",
+    DOWNLOADS / "Registration Status w Residency-3.xlsx",
+]
 EOT_FILES = [DOWNLOADS / "End Of Term-6.xlsx", DOWNLOADS / "End Of Term-7.xlsx"]
 HONORS = DOWNLOADS / "Association Honors-3.xlsx"
 PRIOR = CENSUS_DIR / "Fall 2025 Census Final 9.23.25.xlsx"
@@ -180,6 +184,79 @@ def load_registration(path: Path) -> list[dict]:
             }
         )
     return out
+
+
+def load_residency_overlay(path: Path) -> dict[str, dict]:
+    """Session/residency extract (Ireland or Lux Mundi). Merge onto the main spine."""
+    if not path.exists():
+        return {}
+    out: dict[str, dict] = {}
+    for header, row in iter_sheet_rows(path):
+        def col(name, default=""):
+            i = header.get(name)
+            return row[i] if i is not None else default
+
+        pid = pcid_of(col("ID") or col("PCID"))
+        if not pid.startswith("P"):
+            continue
+        out[norm(pid)] = {
+            "pcid": pid,
+            "first": dash(col("First Name")),
+            "last": dash(col("Last Name")),
+            "session": dash(col("Session")),
+            "program": dash(col("Program")),
+            "degree": dash(col("Degree")),
+            "curriculum": dash(col("Curriculum")),
+            "collegeAttend": dash(col("College Attend")),
+            "classRaw": dash(col("Class")),
+            "fullPart": dash(col("Full Part Time")),
+            "credits": col("Credits") if col("Credits") not in (None, "") else "",
+            "gpa": col("Cumulative GPA") if col("Cumulative GPA") not in (None, "") else "",
+            "genderRaw": dash(col("Gender")),
+            "ethnicity": dash(col("Ethnicity")) or "-",
+            "religionRaw": dash(col("Religion")),
+            "city": dash(col("City")),
+            "state": dash(col("State")),
+            "email": dash(col("Email")),
+            "resComm": dash(col("Res Comm")).upper(),
+            "marines": "",
+            "fsp": "",
+            "household": "",
+            "institute": "",
+        }
+    return out
+
+
+def apply_residency_overlay(registered_rows: list[dict], extra: dict[str, dict]) -> None:
+    by_reg = {norm(r["pcid"]): r for r in registered_rows}
+    for pid, overlay in extra.items():
+        if pid in by_reg:
+            row = by_reg[pid]
+            for key in (
+                "session",
+                "program",
+                "degree",
+                "curriculum",
+                "classRaw",
+                "fullPart",
+                "credits",
+                "gpa",
+                "genderRaw",
+                "ethnicity",
+                "city",
+                "state",
+                "email",
+            ):
+                val = overlay.get(key)
+                if val not in (None, ""):
+                    row[key] = val
+            if overlay.get("collegeAttend"):
+                row["collegeAttend"] = overlay["collegeAttend"]
+            if overlay.get("resComm"):
+                row["resComm"] = overlay["resComm"]
+        else:
+            registered_rows.append(overlay)
+            by_reg[pid] = overlay
 
 
 def load_eot_gpa(paths: list[Path]) -> dict[str, float]:
@@ -379,6 +456,10 @@ def load_prior(path: Path) -> list[dict]:
 def main() -> None:
     cmap = load_curriculum_map()
     registered_rows = load_registration(REGISTRATION)
+    residency_overlay: dict[str, dict] = {}
+    for path in RESIDENCY_OVERLAYS:
+        residency_overlay.update(load_residency_overlay(path))
+    apply_residency_overlay(registered_rows, residency_overlay)
     eot = load_eot_gpa(EOT_FILES)
     honors = load_honors(HONORS)
     slate = load_slate_sports(SLATE_ATHLETES)
@@ -387,7 +468,9 @@ def main() -> None:
         if s["pcid"] in eot:
             s["gpa"] = eot[s["pcid"]]
     prior_ids = {norm(s["pcid"]) for s in prior}
-    ireland_ids = load_ireland_pcids()
+    ireland_ids = load_ireland_pcids() | {
+        pid for pid, row in residency_overlay.items() if "ireland" in str(row.get("session") or "").lower()
+    }
     graduates = load_graduates(GRADUATES)
     grad_ids = {norm(g["pcid"]) for g in graduates}
     registered_ids = {norm(s["pcid"]) for s in registered_rows}
@@ -403,12 +486,19 @@ def main() -> None:
             cath = rel
         slate_row = slate.get(pid, {})
         sport = slate_row.get("sport") or ""
-        in_ireland = norm(pid) in ireland_ids
+        in_ireland = norm(pid) in ireland_ids or "ireland" in str(r.get("session") or "").lower()
         if in_ireland and not sport:
             sport = "Ireland"
         athlete = slate_row.get("athlete") or ("Athlete" if sport == "Ireland" else "Non-Athlete")
         if sport == "Ireland":
             athlete = "Athlete"
+        res_comm = str(r.get("resComm") or "").upper()
+        if res_comm == "C":
+            residency = "Commuter"
+        elif in_ireland:
+            residency = "Resident"
+        else:
+            residency = ""
         honors_val = "Hons" if pid in honors else ""
         gpa = eot.get(pid, r["gpa"])
         students.append(
@@ -438,7 +528,7 @@ def main() -> None:
                 "credits": r["credits"],
                 "gpa": gpa if gpa not in (None, "") else "",
                 "earnedCredits": "",
-                "residency": "Resident" if in_ireland else "",
+                "residency": residency,
                 "sport": sport,
                 "athlete": athlete,
                 "athleticType": slate_row.get("athleticType") or "",

@@ -17,6 +17,7 @@ import {
   type SportRetentionRow,
 } from "./retention";
 import type { HousingAssignmentRow } from "./residency";
+import { buildVerifyList } from "./verify";
 import {
   DEFAULT_FILTERS,
   buildReport,
@@ -197,6 +198,7 @@ function writeSummary(wb: XlsxWorkbook, data: CensusSnapshot) {
     { label: "SECB", c: s.secb, indent: true },
     { label: "Lux Mundi", c: s.luxMundiUg, indent: true },
     { label: "Returning Students", c: s.returning },
+    { label: "Ireland", c: s.ireland, indent: true },
     {
       label: "Total Degree-Seeking",
       c: s.degreeSeeking,
@@ -270,6 +272,7 @@ function writeHistorical(wb: XlsxWorkbook, data: CensusSnapshot) {
     { label: "SECB", key: "secb", indent: true },
     { label: "Lux Mundi", key: "luxMundiUg", indent: true },
     { label: "Returning Students", key: "returning" },
+    { label: "Ireland", key: "ireland", indent: true },
     { label: "Total Degree-Seeking", key: "degreeSeeking", total: true },
     { label: "" },
     { label: "High School Dual Enrollment", key: "dualEnrollment" },
@@ -1278,7 +1281,7 @@ function writeSources(
     ],
     [
       "Registration",
-      "Fall 2026 Registration Status-26.xlsx. All students = every PCID on that file. UG degree-seeking = Program UNDERG and College Attend not DUAL, EACO, or ND. Incoming = not on the Fall 2025 census.",
+      "Fall 2026 Registration Status-26.xlsx plus Registration Status w Residency-2.xlsx (Ireland) and Residency-3.xlsx (Lux Mundi). Ireland and Lux Mundi stay in the main totals, with separate Summary lines.",
     ],
     [
       "Raw data",
@@ -1425,6 +1428,20 @@ export async function buildCensusWorkbook(
     UNRETAINED_HEADERS,
     [14, 16, 18, 14, 12, 10, 12, 16, 10, 18, 8, 10, 12, 14, 16, 12],
     lists.unretained.map(unretainedRow),
+  );
+  writeListSheet(
+    wb,
+    "Verify (temporary)",
+    ["Issue", "PCID", "First", "Last", "Why", "Detail"],
+    [28, 14, 14, 16, 52, 42],
+    buildVerifyList(lists.students, lists.unretained, lists.graduates, housingRows).map((r) => [
+      r.issue,
+      r.pcid,
+      r.first,
+      r.last,
+      r.why,
+      r.detail,
+    ]),
   );
   if (housingRows.length) writeHousing(wb, housingRows);
   writeSources(wb, data, housingRows.length, lists.students.length, lists.unretained.length);

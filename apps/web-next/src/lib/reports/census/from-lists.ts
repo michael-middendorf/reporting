@@ -47,6 +47,10 @@ function isUgDs(s: CensusRawStudent): boolean {
   return isUgDegreeSeekingRow(s.program, s.collegeAttend) && !NON_DS_DEGREE.has(degree(s));
 }
 
+export function isIrelandStudent(s: CensusRawStudent): boolean {
+  return (s.session || "").toLowerCase().includes("ireland") || (s.sport || "").trim().toLowerCase() === "ireland";
+}
+
 export function summaryFromStudents(students: CensusRawStudent[]): CensusSummary {
   const ugds = students.filter(isUgDs);
   const incoming = ugds.filter(isIncoming);
@@ -66,6 +70,7 @@ export function summaryFromStudents(students: CensusRawStudent[]): CensusSummary
     secb: hcFte(byCollege("SECB")),
     luxMundiUg: hcFte(ugds.filter(isLuxMundi)),
     returning: hcFte(returning),
+    ireland: hcFte(ugds.filter(isIrelandStudent)),
     degreeSeeking: hcFte(ugds),
     dualEnrollment: hcFte(dual),
     nonDegree: hcFte(nonDegree),
@@ -136,7 +141,9 @@ export const KPI_DEFS: Record<string, string> = {
   allStudents:
     "Every person on Fall 2026 Registration Status (Registration Status-26.xlsx). One row per PCID. Undergraduate, graduate, dual enrollment, and non-degree — no program filter.",
   ugStudents:
-    "Registration Status rows with Program = UNDERG and College Attend not DUAL, EACO, or ND (B.A. and B.S.). Default Census Report view.",
+    "Registration Status rows with Program = UNDERG and College Attend not DUAL, EACO, or ND (B.A. and B.S.). Default Census Report view. Ireland is included.",
+  ireland:
+    "UG degree-seeking on Fall 2026 session 03Ireland (Registration Status with Residency). Also counted in Returning and Total Degree-Seeking.",
   foreignCountries:
     "Distinct non-US citizenships among registered students. Registration Status does not include citizenship, so this stays Needs data until that field is on the file.",
   ugOnCampus:
@@ -155,7 +162,9 @@ export const SUMMARY_DEFS: Record<string, string> = {
   SECB: "Incoming UG degree-seeking with College Attend = SECB (second bachelor's).",
   "Lux Mundi": "UG degree-seeking with Session 01LuxMundi. Breakout; also in Incoming / Returning.",
   "Returning Students":
-    "UG degree-seeking who were already on the Fall 2025 census. Ireland (Ciara / Malachy) is counted as Returning for now, even if they were not on last fall's census.",
+    "UG degree-seeking who were already on the Fall 2025 census. Ireland students are included here.",
+  Ireland:
+    "UG degree-seeking on session 03Ireland or sport Ireland (Registration Status with Residency). Breakout only — also in Returning, Total Degree-Seeking, and all undergraduate counts.",
   "Total Degree-Seeking": "Program = UNDERG and College Attend not DUAL, EACO, or ND. Incoming + Returning.",
   "High School Dual Enrollment": "College Attend = DUAL or Degree = HSDE.",
   "Non-Degree-Seeking / Personal Enrichment":

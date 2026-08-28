@@ -147,6 +147,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
     "F25-F26 FTCA Retention Raw Data",
     "FA26 Census Raw Data",
     "All Not Retained",
+    "Verify (temporary)",
     "FA26 Housing (eRez)",
     "Sources",
   ]);

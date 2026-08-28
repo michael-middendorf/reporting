@@ -3,17 +3,29 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { CensusReport } from "@/components/census/CensusReport";
-import { FtcaRawSheet, RawDataSheet, UnretainedSheet } from "@/components/census/CensusLists";
+import { FtcaRawSheet, RawDataSheet, UnretainedSheet, VerifySheet } from "@/components/census/CensusLists";
 import { FilterBar, fmtN, fmtPct } from "@/components/census/Sheet";
 import type { CensusRawStudent, UnretainedStudent } from "@/lib/reports/census/lists-core";
+import { isUgDegreeSeekingRow } from "@/lib/reports/census/lists-core";
 import {
   DEFAULT_FILTERS,
+  buildReport,
+  filterCensusRaw,
+  filterStudents,
+  filterUnretained,
   uniqueSorted,
   type ReportFilters,
   type ReportStudent,
 } from "@/lib/reports/census/report";
-import { buildSportRetention, type FtcaRawRow } from "@/lib/reports/census/retention";
-import { KPI_DEFS, SUMMARY_DEFS } from "@/lib/reports/census/from-lists";
+import {
+  buildAllUgSplit,
+  buildFtcaAttritionFromPrior,
+  buildSportRetention,
+  type FtcaRawRow,
+} from "@/lib/reports/census/retention";
+import { KPI_DEFS, SUMMARY_DEFS, summaryFromStudents } from "@/lib/reports/census/from-lists";
+import { buildVerifyList } from "@/lib/reports/census/verify";
+import type { HousingAssignmentRow } from "@/lib/reports/census/residency";
 import {
   historicalSeries,
   type CensusSnapshot,
@@ -26,14 +38,15 @@ function fmtFte(n: number | null | undefined): string {
   return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
 
-type Tab = "summary" | "historical" | "ug" | "attrition" | "ftca" | "raw" | "unretained";
+type Tab = "summary" | "historical" | "ug" | "attrition" | "ftca" | "raw" | "unretained" | "verify";
 
 type CensusPageData = CensusSnapshot & {
   reportStudents?: ReportStudent[];
   rawStudents?: CensusRawStudent[];
   unretainedStudents?: UnretainedStudent[];
   priorStudents?: CensusRawStudent[];
-  graduates?: { pcid: string; year?: string | number; term?: string }[];
+  graduates?: { pcid: string; year?: string | number; term?: string; program?: string }[];
+  housingRows?: HousingAssignmentRow[];
   ftcaRaw?: FtcaRawRow[];
   unretained?: { n: number; ug: number };
 };
@@ -92,26 +105,94 @@ export function CensusDashboard() {
   }, []);
 
   const students = data?.reportStudents || [];
+  const rawStudents = data?.rawStudents || [];
   const sports = useMemo(() => uniqueSorted(students, (s) => s.sport), [students]);
   const majors = useMemo(
     () => uniqueSorted(students.filter((s) => s.program === "UNDERG"), (s) => s.major),
     [students],
   );
+  const peopleFilters = useMemo(() => ({ ...filters, degree: "all" as const }), [filters]);
+  const filteredAll = useMemo(() => filterCensusRaw(rawStudents, peopleFilters), [rawStudents, peopleFilters]);
+  const filteredRaw = useMemo(() => filterCensusRaw(rawStudents, filters), [rawStudents, filters]);
+  const filteredReport = useMemo(() => filterStudents(students, filters), [students, filters]);
+  const filteredUnretained = useMemo(
+    () => filterUnretained(data?.unretainedStudents || [], filters),
+    [data?.unretainedStudents, filters],
+  );
+  const filteredPrior = useMemo(
+    () => filterCensusRaw(data?.priorStudents || [], filters),
+    [data?.priorStudents, filters],
+  );
+  const filteredFtca = useMemo(() => {
+    const keep = new Set(filteredPrior.map((s) => s.pcid.toUpperCase()));
+    return (data?.ftcaRaw || []).filter((r) => keep.has((r.pcid || "").toUpperCase()));
+  }, [data?.ftcaRaw, filteredPrior]);
   const sportRows = useMemo(
     () =>
       buildSportRetention(
-        data?.priorStudents || [],
-        (data?.rawStudents || []).map((s) => s.pcid),
+        filteredPrior,
+        filteredRaw.map((s) => s.pcid),
         data?.graduates || [],
         filters.excludedSports,
       ),
-    [data?.priorStudents, data?.rawStudents, data?.graduates, filters.excludedSports],
+    [filteredPrior, filteredRaw, data?.graduates, filters.excludedSports],
   );
+  const verifyRows = useMemo(
+    () =>
+      buildVerifyList(
+        filteredRaw,
+        filteredUnretained,
+        data?.graduates || [],
+        data?.housingRows || [],
+      ),
+    [filteredRaw, filteredUnretained, data?.graduates, data?.housingRows],
+  );
+  const liveSummary = useMemo(
+    () => (rawStudents.length ? summaryFromStudents(filteredAll) : data?.summary),
+    [filteredAll, rawStudents.length, data?.summary],
+  );
+  const liveFtca = useMemo(
+    () =>
+      filteredPrior.length
+        ? buildFtcaAttritionFromPrior(filteredPrior, filteredRaw.map((s) => s.pcid), data?.graduates || [])
+        : data?.ftcaAttrition,
+    [filteredPrior, filteredRaw, data?.graduates, data?.ftcaAttrition],
+  );
+  const liveAllUg = useMemo(() => {
+    if (!filteredPrior.length) return data?.allUgRetention;
+    const ug = buildAllUgSplit(filteredPrior, filteredRaw.map((s) => s.pcid), data?.graduates || []);
+    return {
+      priorUg: ug.all.students,
+      graduates: ug.all.graduated,
+      pool: ug.all.students - ug.all.graduated,
+      enrolledThisFall: ug.all.enrolled,
+      notRetained: ug.all.notRetained,
+      retentionRate: ug.all.retentionPct ?? 0,
+    };
+  }, [filteredPrior, filteredRaw, data?.graduates, data?.allUgRetention]);
 
   if (error) return <p style={{ padding: 24 }}>Error: {error}</p>;
   if (!data) return <p style={{ padding: 24 }}>Loading…</p>;
 
-  const k = data.kpis;
+  const tables = filteredReport.length ? buildReport(filteredReport) : null;
+  const k = {
+    ...data.kpis,
+    allStudents: rawStudents.length ? filteredAll.length : data.kpis.allStudents,
+    ugStudents: liveSummary?.degreeSeeking.headcount ?? data.kpis.ugStudents,
+    states: tables ? tables.states.filter((r) => r.label !== "International").length : data.kpis.states,
+    pctCatholic: tables
+      ? tables.religion.filter((r) => /cathol/i.test(r.label)).reduce((s, r) => s + r.n, 0) / (tables.n || 1)
+      : data.kpis.pctCatholic,
+    ugOnCampusPct: tables
+      ? (tables.residency.find((r) => r.label === "Resident")?.n ?? 0) / (tables.n || 1)
+      : data.kpis.ugOnCampusPct,
+  };
+  const summaryData = {
+    ...data,
+    summary: liveSummary || data.summary,
+    ftcaAttrition: liveFtca || data.ftcaAttrition,
+    allUgRetention: liveAllUg || data.allUgRetention,
+  };
   return (
     <div className="census-root">
       <div className="wrap">
@@ -121,8 +202,8 @@ export function CensusDashboard() {
             <h1>{data.term} Census</h1>
             <p className="sub">
               Laid out like the Fall 2025 census workbook. Headcounts come from
-              Fall 2026 Registration Status. Census Report adds filters on top
-              of those tables. Snapshot {data.generated}
+              Fall 2026 Registration Status. Filters apply to every sheet.
+              Snapshot {data.generated}
               {data.housing
                 ? `. Housing from eRez${data.housing.session ? ` (${data.housing.session})` : ""}.`
                 : "."}
@@ -152,6 +233,11 @@ export function CensusDashboard() {
           <Kpi label="States" value={fmtN(k.states)} def={KPI_DEFS.states} />
           <Kpi label="All students" value={fmtN(k.allStudents)} def={KPI_DEFS.allStudents} />
           <Kpi label="UG degree-seeking" value={fmtN(k.ugStudents)} def={KPI_DEFS.ugStudents} />
+          <Kpi
+            label="Ireland"
+            value={fmtN(liveSummary?.ireland.headcount ?? data.summary.ireland.headcount)}
+            def={KPI_DEFS.ireland}
+          />
           <Kpi label="Foreign countries" value={fmtN(k.foreignCountries)} def={KPI_DEFS.foreignCountries} flip />
           <Kpi
             label="UG on campus"
@@ -174,6 +260,8 @@ export function CensusDashboard() {
           />
         </div>
 
+        <FilterBar filters={filters} onChange={setFilters} sports={sports} majors={majors} />
+
         <div className="tabs">
           {(
             [
@@ -184,6 +272,7 @@ export function CensusDashboard() {
               ["ftca", "FTCA Raw"],
               ["raw", "Census Raw"],
               ["unretained", "All Not Retained"],
+              ["verify", "Verify"],
             ] as [Tab, string][]
           ).map(([id, label]) => (
             <button
@@ -197,32 +286,29 @@ export function CensusDashboard() {
           ))}
         </div>
 
-        {tab === "summary" && <SummaryTab data={data} />}
+        {tab === "summary" && <SummaryTab data={summaryData} />}
         {tab === "historical" && <HistoricalTab data={data} />}
         {tab === "ug" && (
           <CensusReport
-            data={data}
-            students={data.reportStudents || []}
+            data={summaryData}
+            students={filteredReport}
             filters={filters}
-            onFilters={setFilters}
-            sports={sports}
-            majors={majors}
             sportRows={sportRows}
           />
         )}
         {tab === "attrition" && (
           <AttritionTab
-            data={data}
-            unretained={data.unretained}
-            filters={filters}
-            onFilters={setFilters}
-            sports={sports}
-            majors={majors}
+            data={summaryData}
+            unretained={{
+              n: filteredUnretained.length,
+              ug: filteredUnretained.filter((s) => isUgDegreeSeekingRow(s.program || "", s.collegeAttend)).length,
+            }}
           />
         )}
-        {tab === "ftca" && <FtcaRawSheet rows={data.ftcaRaw || []} />}
-        {tab === "raw" && <RawDataSheet students={data.rawStudents || []} />}
-        {tab === "unretained" && <UnretainedSheet students={data.unretainedStudents || []} />}
+        {tab === "ftca" && <FtcaRawSheet rows={filteredFtca} />}
+        {tab === "raw" && <RawDataSheet students={filteredRaw} />}
+        {tab === "unretained" && <UnretainedSheet students={filteredUnretained} />}
+        {tab === "verify" && <VerifySheet rows={verifyRows} />}
       </div>
     </div>
   );
@@ -294,6 +380,7 @@ function SummaryTab({ data }: { data: CensusSnapshot }) {
     { label: "SECB", c: s.secb, indent: true },
     { label: "Lux Mundi", c: s.luxMundiUg, indent: true },
     { label: "Returning Students", c: s.returning },
+    { label: "Ireland", c: s.ireland, indent: true },
     { label: "Total Degree-Seeking", c: s.degreeSeeking },
     { label: "High School Dual Enrollment", c: s.dualEnrollment },
     { label: "Non-Degree-Seeking / Personal Enrichment", c: s.nonDegree },
@@ -361,6 +448,7 @@ function HistoricalTab({ data }: { data: CensusSnapshot }) {
     { label: "SECB", key: "secb", indent: true },
     { label: "Lux Mundi", key: "luxMundiUg", indent: true },
     { label: "Returning Students", key: "returning" },
+    { label: "Ireland", key: "ireland", indent: true },
     { label: "Total Degree-Seeking", key: "degreeSeeking" },
     { label: "High School Dual Enrollment", key: "dualEnrollment" },
     { label: "Non-Degree-Seeking / Personal Enrichment", key: "nonDegree" },
@@ -377,7 +465,7 @@ function HistoricalTab({ data }: { data: CensusSnapshot }) {
     <div className="sheet">
       <div className="sheet-head">
         <h2>Historical</h2>
-        <p className="sheet-n">Fall census history (Fall 2026 is live / draft)</p>
+        <p className="sheet-n">Fall census history (Fall 2026 is live / draft). Prior years are not filtered.</p>
       </div>
       <div className="sheet-table">
       <table>
@@ -435,17 +523,9 @@ function HistoricalTab({ data }: { data: CensusSnapshot }) {
 function AttritionTab({
   data,
   unretained,
-  filters,
-  onFilters,
-  sports,
-  majors,
 }: {
   data: CensusSnapshot;
   unretained?: { n: number; ug: number };
-  filters: ReportFilters;
-  onFilters: (next: ReportFilters) => void;
-  sports: string[];
-  majors: string[];
 }) {
   const a = data.ftcaAttrition;
   const u = data.allUgRetention;
@@ -453,9 +533,8 @@ function AttritionTab({
     <div className="sheet">
       <div className="sheet-head">
         <h2>Retention</h2>
-        <p className="sheet-n">Fall 2025 Incoming + FTCA only. Athletic retention is on the Census Report sheet; hide a sport there to drop it from that table.</p>
+        <p className="sheet-n">Fall 2025 Incoming + FTCA only. Athletic retention is on the Census Report sheet. Filters at the top apply here too.</p>
       </div>
-      <FilterBar filters={filters} onChange={onFilters} sports={sports} majors={majors} />
       {unretained && unretained.n > 0 && (
         <div className="card section">
           <h3>All not retained</h3>

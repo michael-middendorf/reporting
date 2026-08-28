@@ -1,4 +1,4 @@
-import type { CensusRawStudent } from "./lists-core";
+import type { CensusRawStudent, UnretainedStudent } from "./lists-core";
 import { CLASS_ORDER, COUNTRY_NAMES } from "./present";
 import type { CensusSnapshot, LabeledCount } from "./types";
 
@@ -98,6 +98,38 @@ export function matchesDegree(s: ReportStudent, degree: ReportFilters["degree"])
     default:
       return true;
   }
+}
+
+export function filterCensusRaw(rows: CensusRawStudent[], f: ReportFilters): CensusRawStudent[] {
+  const keep = new Set(filterStudents(projectReportStudents(rows), f).map((s) => s.pcid.toUpperCase()));
+  return rows.filter((s) => keep.has((s.pcid || "").toUpperCase()));
+}
+
+export function filterUnretained(rows: UnretainedStudent[], f: ReportFilters): UnretainedStudent[] {
+  const projected: ReportStudent[] = rows.map((s) => ({
+    pcid: s.pcid,
+    gender: s.gender,
+    athlete: s.sport && s.sport !== "-" ? "Athlete" : "Non-Athlete",
+    sport: s.sport && s.sport !== "-" ? s.sport : "",
+    major: "",
+    degree: "",
+    program: (s.program || "").toUpperCase(),
+    collegeAttend: (s.collegeAttend || "").toUpperCase(),
+    classLevel: s.classLevel,
+    fullPart: "",
+    incomingReturning: s.incomingReturning,
+    state: s.state,
+    religion: "",
+    cathGroup: "",
+    ethnicity: "",
+    residency: "",
+    honors: Boolean(s.honors) && s.honors !== "-",
+    citizenship: "",
+    visa: "",
+    appDecision: "",
+  }));
+  const keep = new Set(filterStudents(projected, { ...f, majors: [] }).map((s) => s.pcid.toUpperCase()));
+  return rows.filter((s) => keep.has((s.pcid || "").toUpperCase()));
 }
 
 export function filterStudents(rows: ReportStudent[], f: ReportFilters): ReportStudent[] {

@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const denied = requireReportAccess(req, "census");
   if (denied) return denied;
-  const { data, lists, ftcaRaw } = await loadCensusSnapshot();
+  const { data, lists, ftcaRaw, housingRows } = await loadCensusSnapshot();
   const unretainedUg = lists.unretained.filter((s) =>
     isUgDegreeSeekingRow(s.program || "", s.collegeAttend),
   ).length;
@@ -21,6 +21,7 @@ export async function GET(req: Request) {
     unretainedStudents: lists.unretained,
     priorStudents: lists.prior,
     graduates: lists.graduates,
+    housingRows,
     ftcaRaw,
     unretained: {
       n: lists.unretained.length,

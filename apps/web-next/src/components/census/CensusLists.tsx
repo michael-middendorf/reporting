@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { SheetTable, fmtN } from "@/components/census/Sheet";
 import type { CensusRawStudent, UnretainedStudent } from "@/lib/reports/census/lists-core";
 import type { FtcaRawRow, SportRetentionRow } from "@/lib/reports/census/retention";
+import type { VerifyRow } from "@/lib/reports/census/verify";
 
 function haystack(row: Record<string, unknown>): string {
   return Object.values(row).join(" ").toLowerCase();
@@ -126,6 +127,52 @@ export function FtcaRawSheet({ rows }: { rows: FtcaRawRow[] }) {
             title=""
             scroll
             headers={["First", "Last", "Retained F25?", "PCID", "FA25 Sport", "FA25 Curriculum", "FA26 Sport", "FA26 Class", "FA26 Curriculum"]}
+            rows={shown}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+export function VerifySheet({ rows }: { rows: VerifyRow[] }) {
+  const [q, setQ] = useState("");
+  const shown = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const list = needle
+      ? rows.filter((s) => haystack(s as unknown as Record<string, unknown>).includes(needle))
+      : rows;
+    return list.map((s) => [s.issue, s.pcid, s.first, s.last, s.why, s.detail]);
+  }, [rows, q]);
+  const byIssue = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of rows) m.set(r.issue, (m.get(r.issue) || 0) + 1);
+    return [...m.entries()];
+  }, [rows]);
+  return (
+    <div className="sheet">
+      <div className="sheet-head">
+        <h2>Verify (temporary)</h2>
+        <p className="sheet-n">
+          {fmtN(rows.length)} mismatches to check — Ireland session vs housing, unretained seniors, housed but not registered
+        </p>
+      </div>
+      <p className="note">
+        Temporary review list. These people may be coded wrong; they are not removed from census counts until you
+        confirm.
+      </p>
+      {byIssue.length > 0 && (
+        <p className="note">{byIssue.map(([issue, n]) => `${issue}: ${n}`).join(" · ")}</p>
+      )}
+      {!rows.length ? (
+        <p className="note">No mismatch rows with the current lists.</p>
+      ) : (
+        <>
+          <input className="sheet-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search issue, name, PCID…" />
+          <SheetTable
+            title=""
+            scroll
+            headers={["Issue", "PCID", "First", "Last", "Why", "Detail"]}
             rows={shown}
           />
         </>

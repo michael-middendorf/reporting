@@ -49,6 +49,10 @@
       "headcount": 913,
       "fte": 875.5
     },
+    "ireland": {
+      "headcount": 91,
+      "fte": 84.0
+    },
     "degreeSeeking": {
       "headcount": 1400,
       "fte": 1355.3
@@ -245,6 +249,26 @@
         792,
         732,
         711
+      ]
+    },
+    "ireland": {
+      "hc": [
+        91,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "fte": [
+        84.5,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
       ]
     },
     "degreeSeeking": {

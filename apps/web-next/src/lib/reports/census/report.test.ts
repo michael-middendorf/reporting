@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   DEFAULT_FILTERS,
   buildReport,
+  filterCensusRaw,
   filterStudents,
   projectReportStudents,
   type ReportStudent,
@@ -65,6 +66,16 @@ test("default degree filter is UG degree-seeking, dual enrollment is out", () =>
   assert.equal(filterStudents(rows, { ...DEFAULT_FILTERS, degree: "all" }).length, 3);
   assert.equal(filterStudents(rows, { ...DEFAULT_FILTERS, degree: "grad" }).length, 1);
   assert.equal(filterStudents(rows, { ...DEFAULT_FILTERS, degree: "dual" }).length, 1);
+});
+
+test("filterCensusRaw drops hidden sports from the raw list", () => {
+  const rows = [
+    raw({ pcid: "1", athlete: "Athlete", sport: "Football", gender: "Male" }),
+    raw({ pcid: "2", athlete: "Athlete", sport: "Ireland", gender: "Female" }),
+  ];
+  const out = filterCensusRaw(rows, { ...DEFAULT_FILTERS, excludedSports: ["Football"] });
+  assert.equal(out.length, 1);
+  assert.equal(out[0]?.pcid, "2");
 });
 
 test("excluding a sport removes those students from every table", () => {

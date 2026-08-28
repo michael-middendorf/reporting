@@ -341,10 +341,13 @@
   gap: 10px 14px;
   align-items: end;
   padding: 10px 12px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   background: var(--pale);
   border: 1px solid var(--bdr);
   border-left: 3px solid var(--gold-line);
+  position: sticky;
+  top: 0;
+  z-index: 5;
 }
 .census-root .filter-bar label {
   display: flex;

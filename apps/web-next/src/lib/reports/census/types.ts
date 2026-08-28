@@ -20,6 +20,7 @@ export type CensusSummary = {
   secb: CountFte;
   luxMundiUg: CountFte;
   returning: CountFte;
+  ireland: CountFte;
   degreeSeeking: CountFte;
   dualEnrollment: CountFte;
   nonDegree: CountFte;
