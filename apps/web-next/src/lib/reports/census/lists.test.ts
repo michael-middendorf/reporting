@@ -58,7 +58,7 @@ test("eRez residency overwrites blank registration housing", () => {
       building: "JPII",
       room: "101",
       priceType: "UGDP",
-      residency: "Resident",
+      residency: "On Campus",
       classStatus: "Freshman",
       studentType: "Incoming",
       includedInCensus: true,

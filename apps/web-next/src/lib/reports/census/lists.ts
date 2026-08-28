@@ -2,7 +2,11 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { readJsonObject } from "../housing/store";
 import type { HousingAssignmentRow } from "./residency";
-import type { CensusRawStudent, UnretainedStudent } from "./lists-core";
+import {
+  dropNonCensusSports,
+  type CensusRawStudent,
+  type UnretainedStudent,
+} from "./lists-core";
 
 export {
   deriveUnretained,
@@ -88,9 +92,7 @@ export function applyErezResidency(
       ? "Mont Mallary"
       : isIrelandHousing(hit)
         ? "Ireland"
-        : hit.residency === "Resident"
-          ? "On Campus"
-          : hit.residency;
+        : hit.residency;
     return { ...s, residency };
   });
   return markIrelandReturning(withResidency, housing);
