@@ -51,6 +51,7 @@ export type UnretainedStudent = {
   marines: string;
   honors: string;
   sport: string;
+  religion?: string;
   state: string;
   gender: string;
   classLevel: string;
@@ -81,6 +82,18 @@ export function isInterveningGraduate(year: string | number | null | undefined, 
 
 export function isUgDegreeSeekingRow(program: string, collegeAttend: string): boolean {
   return (program || "").trim().toUpperCase() === "UNDERG" && !NON_DS.has((collegeAttend || "").trim().toUpperCase());
+}
+
+/** Pickleball is not a census sport for FA26 (club; dropped from NAIA athlete counts). */
+export function isDroppedCensusSport(sport: string): boolean {
+  return (sport || "").toLowerCase().includes("pickleball");
+}
+
+export function dropNonCensusSports(students: CensusRawStudent[]): CensusRawStudent[] {
+  return students.map((s) => {
+    if (!isDroppedCensusSport(s.sport || "")) return s;
+    return { ...s, sport: "", athlete: "Non-Athlete", athleticType: "", rosterStatus: "" };
+  });
 }
 
 /**

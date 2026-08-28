@@ -76,7 +76,7 @@ export function projectReportStudents(rows: CensusRawStudent[]): ReportStudent[]
     religion: (r.religion || "").trim(),
     cathGroup: (r.cathGroup || "").trim() || (r.religion || "").trim(),
     ethnicity: (r.ethnicity || "").trim(),
-    residency: (r.residency || "").trim(),
+    residency: (r.residency || "").trim() === "Resident" ? "On Campus" : (r.residency || "").trim(),
     honors: Boolean((r.honors || "").trim()) && (r.honors || "").trim() !== "-",
     citizenship: (r.citizenship || "").trim().toUpperCase(),
     visa: (r.visa || "").trim().toUpperCase(),
@@ -286,7 +286,7 @@ export function buildReport(rows: ReportStudent[]): ReportTables {
     }))
     .sort((a, b) => a.label.localeCompare(b.label));
 
-  const resLabels = ["Commuter", "Other", "Resident", "Study Abroad", "Unassigned"];
+  const resLabels = ["Commuter", "On Campus", "Ireland", "Mont Mallary", "Other", "Study Abroad", "Unassigned"];
   const residency: LabeledCount[] = resLabels
     .map((label) => {
       const subset = rows.filter((s) => (s.residency || "Unassigned") === label);

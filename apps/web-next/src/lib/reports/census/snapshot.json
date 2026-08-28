@@ -99,6 +99,22 @@
     },
     "notes": {
       "newCollegeAttendBlank": 4
+    },
+    "onCampus": {
+      "headcount": 0,
+      "fte": 0
+    },
+    "montMallary": {
+      "headcount": 0,
+      "fte": 0
+    },
+    "chesterton": {
+      "headcount": 0,
+      "fte": 0
+    },
+    "chestertonDual": {
+      "headcount": 0,
+      "fte": 0
     }
   },
   "historical": {
@@ -432,6 +448,86 @@
         1335,
         1311,
         1303,
+        null
+      ]
+    },
+    "onCampus": {
+      "hc": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "fte": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    "montMallary": {
+      "hc": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "fte": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    "chesterton": {
+      "hc": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "fte": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    "chestertonDual": {
+      "hc": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "fte": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
         null
       ]
     }

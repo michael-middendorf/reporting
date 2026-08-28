@@ -159,7 +159,7 @@ test("class level includes incoming; residency splits male/female", () => {
   const rpt = buildReport(filterStudents(rows, DEFAULT_FILTERS));
   const fr = rpt.classLevel.find((r) => r.label === "Freshman");
   assert.equal(fr?.incoming, 1);
-  const res = rpt.residency.find((r) => r.label === "Resident");
+  const res = rpt.residency.find((r) => r.label === "On Campus");
   assert.equal(res?.female, 1);
   assert.equal(res?.male, 0);
 });

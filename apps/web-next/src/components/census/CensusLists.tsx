@@ -21,6 +21,8 @@ export function RawDataSheet({ students }: { students: CensusRawStudent[] }) {
       s.last,
       s.incomingReturning,
       s.state,
+      s.religion || "—",
+      s.cathGroup || "—",
       s.program,
       s.degree || "—",
       s.session || "—",
@@ -28,6 +30,8 @@ export function RawDataSheet({ students }: { students: CensusRawStudent[] }) {
       s.classLevel,
       s.fullPart,
       s.sport || "—",
+      s.institute || "—",
+      s.honors || "—",
       s.residency,
       s.gender,
     ]);
@@ -46,7 +50,7 @@ export function RawDataSheet({ students }: { students: CensusRawStudent[] }) {
           <SheetTable
             title=""
             scroll
-            headers={["PCID", "First", "Last", "In/Ret", "State", "Program", "Degree", "Session", "College", "Class", "Load", "Sport", "Residency", "Gender"]}
+            headers={["PCID", "First", "Last", "In/Ret", "State", "Religion", "Cath/Chris/Other", "Program", "Degree", "Session", "College", "Class", "Load", "Sport", "Institute", "Honors", "Residency", "Gender"]}
             rows={rows}
           />
         </>
@@ -71,6 +75,7 @@ export function UnretainedSheet({ students }: { students: UnretainedStudent[] })
       s.collegeAttend,
       s.classLevel,
       s.gender,
+      s.religion || "—",
       s.state,
     ]);
   }, [students, q]);
@@ -88,7 +93,7 @@ export function UnretainedSheet({ students }: { students: UnretainedStudent[] })
           <SheetTable
             title=""
             scroll
-            headers={["PCID", "First", "Last", "Retention", "GPA", "FA25 Sport", "Program", "College", "Class", "Gender", "State"]}
+            headers={["PCID", "First", "Last", "Retention", "GPA", "FA25 Sport", "Program", "College", "Class", "Gender", "Religion", "State"]}
             rows={rows}
           />
         </>
@@ -107,6 +112,8 @@ export function FtcaRawSheet({ rows }: { rows: FtcaRawRow[] }) {
       s.last,
       s.retained,
       s.pcid,
+      s.religion || "—",
+      s.cathGroup || "—",
       s.fa25Sport || "—",
       s.fa25Curriculum,
       s.fa26Sport || "—",
@@ -128,7 +135,7 @@ export function FtcaRawSheet({ rows }: { rows: FtcaRawRow[] }) {
           <SheetTable
             title=""
             scroll
-            headers={["First", "Last", "Retained F25?", "PCID", "FA25 Sport", "FA25 Curriculum", "FA26 Sport", "FA26 Class", "FA26 Curriculum"]}
+            headers={["First", "Last", "Retained F25?", "PCID", "Religion", "Cath/Chris/Other", "FA25 Sport", "FA25 Curriculum", "FA26 Sport", "FA26 Class", "FA26 Curriculum"]}
             rows={shown}
           />
         </>

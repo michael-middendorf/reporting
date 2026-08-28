@@ -22,6 +22,7 @@ RESIDENCY_OVERLAYS = [
 ]
 EOT_FILES = [DOWNLOADS / "End Of Term-6.xlsx", DOWNLOADS / "End Of Term-7.xlsx"]
 HONORS = DOWNLOADS / "Association Honors-3.xlsx"
+SCHOLARS = DOWNLOADS / "Scholars Fall 2026.xlsx"
 PRIOR = CENSUS_DIR / "Fall 2025 Census Final 9.23.25.xlsx"
 GRADUATES = DOWNLOADS / "Graduated %2D All-13.xlsx"
 SLATE_ATHLETES = Path("/tmp/slate-athletes.json")
@@ -62,7 +63,6 @@ GENDERED_SPORT = {
     "track and field": ("XC/Track-Men", "XC/Track-Women"),
     "cross country": ("XC/Track-Men", "XC/Track-Women"),
     "xc/track": ("XC/Track-Men", "XC/Track-Women"),
-    "pickleball": ("Pickleball-Men", "Pickleball-Women"),
     "lacrosse": ("Lacrosse-Men", "Lacrosse-Women"),
 }
 
@@ -302,12 +302,49 @@ def load_honors(path: Path) -> set[str]:
     return ids
 
 
+def load_institute_scholars(path: Path) -> tuple[set[str], set[tuple[str, str]], list[tuple[str, str, str]]]:
+    """Y1/Y2/Y3 scholar roster. FA25 Institute column used Scholar / Associate."""
+    emails: set[str] = set()
+    names: set[tuple[str, str]] = set()
+    rows: list[tuple[str, str, str]] = []
+    if not path.exists():
+        return emails, names, rows
+    wb = load_workbook(path, data_only=True, read_only=True)
+    for sheet_name in wb.sheetnames:
+        header = None
+        for row in wb[sheet_name].iter_rows(values_only=True):
+            if header is None:
+                keys = [str(c or "").strip() for c in (row or ())]
+                if "Email" in keys and ("First" in keys or "Last" in keys):
+                    header = header_map(row)
+                continue
+            if not row or not any(c not in (None, "") for c in row):
+                continue
+
+            def col(name: str) -> str:
+                i = header.get(name)
+                return dash(row[i]) if i is not None and i < len(row) else ""
+
+            email = col("Email").lower()
+            first = col("First")
+            last = col("Last")
+            if email:
+                emails.add(email)
+            if first and last:
+                names.add((first.lower(), last.lower()))
+            rows.append((first, last, email))
+    wb.close()
+    return emails, names, rows
+
+
 def census_sport(team: str, gender: str) -> str:
     t = (team or "").split(",")[0].strip()
     if not t:
         return ""
     low = t.lower()
     if low in {"athletics", "athlete", "n/a", "none"}:
+        return ""
+    if "pickleball" in low:
         return ""
     if low in {"marching band", "band"}:
         return "Band"
@@ -339,6 +376,9 @@ def load_slate_sports(path: Path) -> dict[str, dict]:
         team = (r.get("AthletePrimaryTeam") or r.get("Sport") or "").strip() if current else ""
         sport = census_sport(team, gender) if current else ""
         on_team = status.startswith("Roster - Athlete") or (status == "Roster - Athletic Associated" and bool(sport))
+        if "pickleball" in (team or "").lower():
+            sport = ""
+            on_team = False
         out[pid] = {
             "sport": sport,
             "athlete": "Athlete" if on_team else "Non-Athlete",
@@ -468,6 +508,7 @@ def main() -> None:
     apply_residency_overlay(registered_rows, residency_overlay)
     eot = load_eot_gpa(EOT_FILES)
     honors = load_honors(HONORS)
+    scholar_emails, scholar_names, scholar_rows = load_institute_scholars(SCHOLARS)
     slate = load_slate_sports(SLATE_ATHLETES)
     prior = load_prior(PRIOR)
     for s in prior:
@@ -498,15 +539,26 @@ def main() -> None:
         athlete = slate_row.get("athlete") or ("Athlete" if sport == "Ireland" else "Non-Athlete")
         if sport == "Ireland":
             athlete = "Athlete"
+        sess_key = str(r.get("session") or "").lower().replace(" ", "")
+        in_mallary = "03mm" in sess_key or "mallary" in sess_key
         res_comm = str(r.get("resComm") or "").upper()
-        if res_comm == "C":
-            residency = "Commuter"
+        if in_mallary:
+            residency = "Mont Mallary"
         elif in_ireland:
-            residency = "Resident"
+            residency = "Ireland"
+        elif res_comm == "C":
+            residency = "Commuter"
+        elif res_comm == "R":
+            residency = "On Campus"
         else:
             residency = ""
         honors_val = "Hons" if pid in honors else ""
         gpa = eot.get(pid, r["gpa"])
+        institute = r.get("institute") or ""
+        email = (r.get("email") or "").strip()
+        namekey = ((r.get("first") or "").strip().lower(), (r.get("last") or "").strip().lower())
+        if email.lower() in scholar_emails or namekey in scholar_names:
+            institute = "Scholar"
         students.append(
             {
                 "pcid": pid,
@@ -542,7 +594,7 @@ def main() -> None:
                 "honors": honors_val,
                 "fsp": r.get("fsp") or "",
                 "household": r.get("household") or "",
-                "institute": r.get("institute") or "",
+                "institute": institute,
                 "marines": r.get("marines") or "",
                 "appDecision": "",
                 "session": r["session"],
@@ -573,6 +625,7 @@ def main() -> None:
                 "marines": s.get("marines") or "-",
                 "honors": honors_val or "-",
                 "sport": s.get("sport") or "-",
+                "religion": s.get("religion") or "-",
                 "state": s.get("state") or "-",
                 "gender": s.get("gender") or "-",
                 "classLevel": s.get("classLevel") or "-",
@@ -613,6 +666,15 @@ def main() -> None:
     )
     n_ath = sum(1 for s in students if s["athlete"] == "Athlete")
     n_hons = sum(1 for s in students if s["honors"] == "Hons")
+    n_sch = sum(1 for s in students if s["institute"] == "Scholar")
+    matched_emails = {(s.get("email") or "").strip().lower() for s in students}
+    matched_names = {((s.get("first") or "").strip().lower(), (s.get("last") or "").strip().lower()) for s in students}
+    unmatched_scholars = [
+        f"{first} {last} <{email}>"
+        for first, last, email in scholar_rows
+        if email not in matched_emails and (first.lower(), last.lower()) not in matched_names
+    ]
+    unmatched_scholars = list(dict.fromkeys(unmatched_scholars))
     n_gpa = sum(1 for s in unretained if s["gpa"] not in ("-", "", None))
     n_ire = sum(
         1
@@ -626,12 +688,14 @@ def main() -> None:
         and s["incomingReturning"] == "Returning"
     )
     print(
-        f"students {len(students)} (athletes {n_ath}, honors {n_hons})\n"
+        f"students {len(students)} (athletes {n_ath}, honors {n_hons}, scholars {n_sch})\n"
         f"unretained {len(unretained)} UG-DS {len(ug)} with EOT GPA {n_gpa}\n"
         f"ireland {n_ire} returning {n_ire_ret}\n"
         f"slate sports {sum(1 for v in slate.values() if v.get('sport'))}\n"
-        f"honors file {len(honors)} eot gpas {len(eot)}"
+        f"honors file {len(honors)} eot gpas {len(eot)} scholar roster {len(scholar_emails)} unmatched {len(unmatched_scholars)}"
     )
+    if unmatched_scholars:
+        print("unmatched scholars:", "; ".join(unmatched_scholars))
 
 
 if __name__ == "__main__":

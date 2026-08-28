@@ -107,6 +107,16 @@ test("FTCA attrition cohort is Incoming+FTCA", () => {
   assert.equal(a.notRetained, 0);
 });
 
+test("pickleball is omitted from sport retention", () => {
+  const rows = buildSportRetention(
+    [prior({ pcid: "P1", sport: "Pickleball-Men" }), prior({ pcid: "P2", sport: "Football" })],
+    [],
+    [],
+  );
+  assert.equal(rows.some((r) => /pickle/i.test(r.sport)), false);
+  assert.equal(rows[0]?.sport, "Football");
+});
+
 test("hiding a sport drops it from retention totals", () => {
   const rows = buildSportRetention(
     [prior({ pcid: "P1", sport: "Football" }), prior({ pcid: "P2", sport: "Volleyball" })],

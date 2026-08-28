@@ -6,6 +6,8 @@ import type { CensusRawStudent, UnretainedStudent } from "./lists-core";
 
 export {
   deriveUnretained,
+  dropNonCensusSports,
+  isDroppedCensusSport,
   isInterveningGraduate,
   isUgDegreeSeekingRow,
   normPcid,
@@ -64,7 +66,7 @@ export function markIrelandReturning(
     return {
       ...s,
       incomingReturning: "Returning",
-      residency: inIrelandHouse ? "Resident" : s.residency,
+      residency: inIrelandHouse || sess.includes("ireland") ? "Ireland" : s.residency,
       sport: irelandSport ? "Ireland" : s.sport,
       athlete: irelandSport || s.athlete === "Athlete" ? "Athlete" : s.athlete,
     };
@@ -80,7 +82,15 @@ export function applyErezResidency(
   const withResidency = students.map((s) => {
     const hit = byPcid.get((s.pcid || "").toUpperCase());
     if (!hit) return s;
-    const residency = isIrelandHousing(hit) ? "Resident" : hit.residency;
+    const sess = (s.session || "").toLowerCase().replace(/\s+/g, "");
+    const mallary = sess.includes("03mm") || sess.includes("mallary");
+    const residency = mallary
+      ? "Mont Mallary"
+      : isIrelandHousing(hit)
+        ? "Ireland"
+        : hit.residency === "Resident"
+          ? "On Campus"
+          : hit.residency;
     return { ...s, residency };
   });
   return markIrelandReturning(withResidency, housing);
@@ -104,5 +114,5 @@ export async function loadCensusLists(): Promise<import("./lists-core").CensusLi
       join(localDir, "graduates.json"),
     );
   }
-  return { students, unretained, prior, graduates };
+  return { students: dropNonCensusSports(students), unretained, prior, graduates };
 }

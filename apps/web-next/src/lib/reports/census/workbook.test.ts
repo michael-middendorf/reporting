@@ -47,7 +47,7 @@ test("eRez overlay fills residency and drops the housing pending line", () => {
     { pcid: "2", building: "Commuter", price_type: "NODM" },
   ] as Resident[]);
   assert.equal(data.housing?.source, "erez");
-  assert.ok(data.ug.residency.some((r) => r.label === "Resident"));
+  assert.ok(data.ug.residency.some((r) => r.label === "On Campus" || r.label === "Ireland"));
   assert.ok(data.kpis.ugOnCampusPct != null);
   assert.equal(
     data.pending.some((p) => /housing/i.test(p)),
@@ -105,7 +105,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
           honors: "",
           fsp: "",
           household: "",
-          institute: "",
+          institute: "Scholar",
           marines: "",
           appDecision: "ACCT",
           session: "01",
@@ -213,13 +213,19 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   const ftcaRawXml = files["xl/worksheets/sheet5.xml"];
   assert.match(ftcaRawXml, /DOB \(Needs data\)/);
   assert.match(ftcaRawXml, /HS GPA \(Needs data\)/);
+  assert.match(ftcaRawXml, /Religious Affiliation/);
   const rawXml = files["xl/worksheets/sheet6.xml"];
+  assert.match(rawXml, /Religion/);
   assert.match(rawXml, /Application Decision/);
   assert.match(rawXml, /Citizenship/);
   assert.match(rawXml, /HS GPA/);
   assert.match(rawXml, /GRAD/);
   assert.match(rawXml, /MARTS/);
   assert.match(rawXml, /01LuxMundi/);
+  assert.match(rawXml, /Institute/);
+  assert.match(rawXml, /Scholar/);
+  const unretainedXml = files["xl/worksheets/sheet7.xml"];
+  assert.match(unretainedXml, /Religion/);
   assert.doesNotMatch(files["xl/styles.xml"], /vertical="middle"/);
   assert.match(files["xl/styles.xml"], /xfId="0"/);
   const sheet1 = files["xl/worksheets/sheet1.xml"];

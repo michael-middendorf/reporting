@@ -172,6 +172,27 @@ export function FilterBar({
           })
         }
       />
+      {(() => {
+        const withoutFootball = filters.excludedSports.some((s) => s.toLowerCase() === "football");
+        return (
+          <button
+            type="button"
+            className={withoutFootball ? "filter-chip on" : "filter-chip"}
+            onClick={() => {
+              const next = withoutFootball
+                ? filters.excludedSports.filter((s) => s.toLowerCase() !== "football")
+                : [...filters.excludedSports.filter((s) => s.toLowerCase() !== "football"), "Football"];
+              onChange({
+                ...filters,
+                includedSports: filters.includedSports.filter((s) => s.toLowerCase() !== "football"),
+                excludedSports: next,
+              });
+            }}
+          >
+            W/O football
+          </button>
+        );
+      })()}
       <MultiFilter
         label="Majors"
         emptyLabel="All majors"

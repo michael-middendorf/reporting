@@ -11,8 +11,10 @@ import type { CensusHousing, LabeledCount } from "./types";
 
 export const CENSUS_RESIDENCY_ORDER = [
   "Commuter",
+  "On Campus",
+  "Ireland",
+  "Mont Mallary",
   "Other",
-  "Resident",
   "Study Abroad",
   "Unassigned",
 ] as const;
@@ -50,18 +52,19 @@ export function isLikelyUgResident(r: {
   return true;
 }
 
-/** FA25 census buckets: Resident / Commuter / Study Abroad / Other. */
-export function censusResidencyOf(r: { building?: string; price_type?: string }): Exclude<
+/** Campus buckets: On Campus (halls), Ireland, Mont Mallary, Commuter, Study Abroad, Other. */
+export function censusResidencyOf(r: { building?: string; price_type?: string; session?: string }): Exclude<
   CensusResidencyBucket,
   "Unassigned"
 > {
   const building = (r.building || "").trim();
+  const sess = (r.session || "").toLowerCase().replace(/\s+/g, "");
   const price = priceTypeOf(r);
-  if (isIreland(building) || isRome(r) || isCommuterAbroad(r) || price === EREZ_PRICE.IRELAND) {
-    return "Study Abroad";
-  }
+  if (sess.includes("03mm") || sess.includes("mallary")) return "Mont Mallary";
+  if (isIreland(building) || price === EREZ_PRICE.IRELAND) return "Ireland";
+  if (isRome(r) || isCommuterAbroad(r)) return "Study Abroad";
   if (building === "Commuter" || price === EREZ_PRICE.COMMUTER) return "Commuter";
-  if (CAMPUS_HALLS.has(building) || price === EREZ_PRICE.HALL) return "Resident";
+  if (CAMPUS_HALLS.has(building) || price === EREZ_PRICE.HALL) return "On Campus";
   return "Other";
 }
 
@@ -91,8 +94,10 @@ export function residencyFromErez(
 } {
   const counts: Record<CensusResidencyBucket, number> = {
     Commuter: 0,
+    "On Campus": 0,
+    Ireland: 0,
+    "Mont Mallary": 0,
     Other: 0,
-    Resident: 0,
     "Study Abroad": 0,
     Unassigned: 0,
   };
@@ -114,7 +119,7 @@ export function residencyFromErez(
   );
   return {
     rows,
-    ugOnCampusPct: denom ? counts.Resident / denom : null,
+    ugOnCampusPct: denom ? counts["On Campus"] / denom : null,
     housing: {
       source: "erez",
       generated: null,

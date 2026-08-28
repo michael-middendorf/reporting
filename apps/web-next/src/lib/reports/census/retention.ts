@@ -1,4 +1,5 @@
 import {
+  isDroppedCensusSport,
   isInterveningGraduate,
   isUgDegreeSeekingRow,
   normPcid,
@@ -146,6 +147,7 @@ function blank(v: string | number | null | undefined): string {
 
 function sportOf(s: { sport?: string }): string {
   const t = blank(s.sport);
+  if (isDroppedCensusSport(t)) return "";
   return t;
 }
 
@@ -543,6 +545,7 @@ export function toUnretainedSeed(prior: CensusRawStudent[]): UnretainedStudent[]
     marines: s.marines,
     honors: s.honors,
     sport: s.sport,
+    religion: s.religion,
     state: s.state,
     gender: s.gender,
     classLevel: s.classLevel,

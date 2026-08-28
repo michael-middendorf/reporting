@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   deriveUnretained,
+  dropNonCensusSports,
   isInterveningGraduate,
   isUgDegreeSeekingRow,
   type CensusRawStudent,
@@ -63,7 +64,7 @@ test("eRez residency overwrites blank registration housing", () => {
       includedInCensus: true,
     },
   ]);
-  assert.equal(out[0].residency, "Resident");
+  assert.equal(out[0].residency, "On Campus");
 });
 
 test("Ireland housing and 03Ireland session count as Returning for now", () => {
@@ -158,13 +159,13 @@ test("Ireland housing and 03Ireland session count as Returning for now", () => {
     },
   ]);
   assert.equal(out[0].incomingReturning, "Returning");
-  assert.equal(out[0].residency, "Resident");
+  assert.equal(out[0].residency, "Ireland");
   assert.equal(out[0].sport, "Ireland");
   assert.equal(out[0].athlete, "Athlete");
   assert.equal(out[1].incomingReturning, "Returning");
 });
 
-test("Ireland keeps an existing sport and still counts as Resident", () => {
+test("Ireland keeps an existing sport and still counts as Ireland campus", () => {
   const students: CensusRawStudent[] = [
     {
       pcid: "P2",
@@ -218,9 +219,20 @@ test("Ireland keeps an existing sport and still counts as Resident", () => {
       includedInCensus: true,
     },
   ]);
-  assert.equal(out[0].residency, "Resident");
+  assert.equal(out[0].residency, "Ireland");
   assert.equal(out[0].sport, "Rugby-Men");
   assert.equal(out[0].incomingReturning, "Returning");
+});
+
+test("pickleball is dropped as a census sport", () => {
+  const out = dropNonCensusSports([
+    { pcid: "P1", sport: "Pickleball-Men", athlete: "Athlete", athleticType: "Club", rosterStatus: "Roster - Athlete" } as CensusRawStudent,
+    { pcid: "P2", sport: "Football", athlete: "Athlete", athleticType: "Varsity", rosterStatus: "Roster - Athlete" } as CensusRawStudent,
+  ]);
+  assert.equal(out[0]?.sport, "");
+  assert.equal(out[0]?.athlete, "Non-Athlete");
+  assert.equal(out[1]?.sport, "Football");
+  assert.equal(out[1]?.athlete, "Athlete");
 });
 
 function prior(pcid: string, extra: Partial<UnretainedStudent> = {}): UnretainedStudent {

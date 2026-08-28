@@ -4,10 +4,11 @@ import type { Resident } from "../housing/types";
 import { censusResidencyOf, isLikelyUgResident, residencyFromErez } from "./residency";
 
 test("eRez price types map to FA25 residency buckets", () => {
-  assert.equal(censusResidencyOf({ building: "JPII", price_type: "UGDP" }), "Resident");
+  assert.equal(censusResidencyOf({ building: "JPII", price_type: "UGDP" }), "On Campus");
   assert.equal(censusResidencyOf({ building: "Commuter", price_type: "NODM" }), "Commuter");
-  assert.equal(censusResidencyOf({ building: "CIARA", price_type: "ISTA" }), "Study Abroad");
-  assert.equal(censusResidencyOf({ building: "MALAC", price_type: "ISTA" }), "Study Abroad");
+  assert.equal(censusResidencyOf({ building: "CIARA", price_type: "ISTA" }), "Ireland");
+  assert.equal(censusResidencyOf({ building: "MALAC", price_type: "ISTA" }), "Ireland");
+  assert.equal(censusResidencyOf({ session: "03MM" }), "Mont Mallary");
   assert.equal(censusResidencyOf({ building: "", price_type: "RSTA" }), "Study Abroad");
   assert.equal(censusResidencyOf({ building: "", price_type: "CSTA" }), "Study Abroad");
   assert.equal(censusResidencyOf({ building: "MBK", price_type: "M2FU" }), "Other");
@@ -34,8 +35,8 @@ test("unassigned UG are the census headcount not found in eRez", () => {
     result.rows.map((r) => [r.label, r.n]),
     [
       ["Commuter", 1],
-      ["Resident", 1],
-      ["Study Abroad", 1],
+      ["On Campus", 1],
+      ["Ireland", 1],
       ["Unassigned", 2],
     ],
   );

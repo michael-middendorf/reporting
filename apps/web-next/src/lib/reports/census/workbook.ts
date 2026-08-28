@@ -199,6 +199,8 @@ function writeSummary(wb: XlsxWorkbook, data: CensusSnapshot) {
     { label: "Lux Mundi", c: s.luxMundiUg, indent: true },
     { label: "Returning Students", c: s.returning },
     { label: "Ireland", c: s.ireland, indent: true },
+    { label: "On Campus", c: s.onCampus, indent: true },
+    { label: "Mont Mallary", c: s.montMallary, indent: true },
     {
       label: "Total Degree-Seeking",
       c: s.degreeSeeking,
@@ -207,6 +209,8 @@ function writeSummary(wb: XlsxWorkbook, data: CensusSnapshot) {
     },
     { label: "" },
     { label: "High School Dual Enrollment", c: s.dualEnrollment },
+    { label: "Chesterton DE", c: s.chestertonDual, indent: true },
+    { label: "Chesterton", c: s.chesterton, indent: true },
     { label: "Non-Degree-Seeking / Personal Enrichment", c: s.nonDegree },
     { label: "Lux Mundi Non-Degree-Seeking / Personal Enrichment", c: s.luxMundiUg },
     { label: "" },
@@ -273,9 +277,13 @@ function writeHistorical(wb: XlsxWorkbook, data: CensusSnapshot) {
     { label: "Lux Mundi", key: "luxMundiUg", indent: true },
     { label: "Returning Students", key: "returning" },
     { label: "Ireland", key: "ireland", indent: true },
+    { label: "On Campus", key: "onCampus", indent: true },
+    { label: "Mont Mallary", key: "montMallary", indent: true },
     { label: "Total Degree-Seeking", key: "degreeSeeking", total: true },
     { label: "" },
     { label: "High School Dual Enrollment", key: "dualEnrollment" },
+    { label: "Chesterton DE", key: "chestertonDual", indent: true },
+    { label: "Chesterton", key: "chesterton", indent: true },
     { label: "Non-Degree-Seeking / Personal Enrichment", key: "nonDegree" },
     { label: "" },
     { label: "TOTAL UNDERGRADUATE ENROLLMENT", key: "totalUndergraduate", total: true },
@@ -1229,6 +1237,7 @@ const UNRETAINED_HEADERS = [
   "Mary's Marines",
   "Honors",
   "Sport",
+  "Religion",
   "State",
   "Gender",
   "Class",
@@ -1249,6 +1258,7 @@ function unretainedRow(s: UnretainedStudent): CellValue[] {
     s.marines,
     s.honors,
     s.sport,
+    s.religion || "",
     s.state,
     s.gender,
     s.classLevel,
@@ -1284,6 +1294,10 @@ function writeSources(
     [
       "Registration",
       "Fall 2026 Registration Status-26.xlsx plus Registration Status w Residency-2.xlsx (Ireland) and Residency-3.xlsx (Lux Mundi). Ireland and Lux Mundi stay in the main totals, with separate Summary lines.",
+    ],
+    [
+      "Institute scholars",
+      "Scholars Fall 2026.xlsx (Y1/Y2/Y3). Matched to Registration Status by email. Institute column is Scholar, same as FA25 Census Raw Data.",
     ],
     [
       "Raw data",
@@ -1428,7 +1442,7 @@ export async function buildCensusWorkbook(
     wb,
     "All Not Retained",
     UNRETAINED_HEADERS,
-    [14, 16, 18, 14, 12, 10, 12, 16, 10, 18, 8, 10, 12, 14, 16, 12],
+    [14, 16, 18, 14, 12, 10, 12, 16, 10, 18, 16, 8, 10, 12, 14, 16, 12],
     lists.unretained.map(unretainedRow),
   );
   writeListSheet(

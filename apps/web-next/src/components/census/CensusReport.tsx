@@ -207,7 +207,11 @@ export function CensusReport({
                 fmtN(residency.reduce((s, r) => s + (r.female ?? 0), 0)),
               ],
             ]}
-            note={data.housing ? "*No UG in Middlebrooke" : "Housing pending"}
+            note={
+              data.housing
+                ? "On Campus = halls. Ireland and Mont Mallary (03MM) are separate. Middlebrooke is not On Campus."
+                : "Housing pending"
+            }
           />
           <SheetTable
             title="Graduation"

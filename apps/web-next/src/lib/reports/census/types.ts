@@ -21,8 +21,12 @@ export type CensusSummary = {
   luxMundiUg: CountFte;
   returning: CountFte;
   ireland: CountFte;
+  onCampus: CountFte;
+  montMallary: CountFte;
   degreeSeeking: CountFte;
   dualEnrollment: CountFte;
+  chesterton: CountFte;
+  chestertonDual: CountFte;
   nonDegree: CountFte;
   totalUndergraduate: CountFte;
   gradMa: CountFte;
@@ -150,6 +154,15 @@ export function fteFromStatus(fullPart: string | null | undefined): number {
     default:
       return 0;
   }
+}
+
+/** When Full/Part is blank (typical for dual enrollment), FTE is credits / 12, capped at 1. */
+export function fteFromStudent(fullPart: string | null | undefined, credits?: number | string | null): number {
+  const fromStatus = fteFromStatus(fullPart);
+  if (fromStatus) return fromStatus;
+  const cr = Number(credits);
+  if (Number.isFinite(cr) && cr > 0) return Math.min(cr / 12, 1);
+  return 0;
 }
 
 export function isDegreeSeekingUg(row: {

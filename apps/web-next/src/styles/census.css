@@ -425,6 +425,22 @@
   padding: 4px 0;
 }
 .census-root .filter-reset { align-self: center; }
+.census-root .filter-chip {
+  align-self: center;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--navy);
+  background: #fff;
+  border: 1px solid var(--bdr);
+  padding: 7px 10px;
+  cursor: pointer;
+}
+.census-root .filter-chip.on {
+  background: var(--navy);
+  color: #fff;
+  border-color: var(--navy);
+}
 
 .census-root .sheet-grid {
   display: grid;

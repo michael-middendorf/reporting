@@ -1,6 +1,6 @@
 import { isUgDegreeSeekingRow, type CensusRawStudent } from "./lists-core";
 import { DEFAULT_FILTERS, buildReport, filterStudents, projectReportStudents } from "./report";
-import { fteFromStatus, type CensusSnapshot, type CensusSummary, type CountFte } from "./types";
+import { fteFromStudent, type CensusSnapshot, type CensusSummary, type CountFte } from "./types";
 
 const NON_DS_DEGREE = new Set(["HSDE", "PENRIC", "NONDEG"]);
 
@@ -11,7 +11,7 @@ function round1(n: number): number {
 function hcFte(rows: CensusRawStudent[]): CountFte {
   return {
     headcount: rows.length,
-    fte: round1(rows.reduce((s, r) => s + fteFromStatus(String(r.fullPart || "")), 0)),
+    fte: round1(rows.reduce((s, r) => s + fteFromStudent(String(r.fullPart || ""), r.credits), 0)),
   };
 }
 
@@ -67,6 +67,22 @@ export function isIrelandStudent(s: CensusRawStudent): boolean {
   return (s.session || "").toLowerCase().includes("ireland") || (s.sport || "").trim().toLowerCase() === "ireland";
 }
 
+export function isMallaryStudent(s: CensusRawStudent): boolean {
+  const sess = (s.session || "").toLowerCase().replace(/\s+/g, "");
+  return sess.includes("03mm") || sess.includes("mallary") || sess.includes("montmallary");
+}
+
+export function isChesterton(s: CensusRawStudent): boolean {
+  const blob = `${s.session || ""} ${s.curriculum || ""} ${s.curriculumName || ""} ${s.collegeAttend || ""}`.toLowerCase();
+  return blob.includes("chesterton");
+}
+
+function isOnCampus(s: CensusRawStudent): boolean {
+  if (isIrelandStudent(s) || isMallaryStudent(s)) return false;
+  const r = (s.residency || "").trim().toLowerCase();
+  return r === "on campus" || r === "resident";
+}
+
 export function summaryFromStudents(students: CensusRawStudent[]): CensusSummary {
   const ugds = students.filter(isUgDs);
   const incoming = ugds.filter(isIncoming);
@@ -87,8 +103,12 @@ export function summaryFromStudents(students: CensusRawStudent[]): CensusSummary
     luxMundiUg: hcFte(ugds.filter(isLuxMundi)),
     returning: hcFte(returning),
     ireland: hcFte(ugds.filter(isIrelandStudent)),
+    onCampus: hcFte(ugds.filter(isOnCampus)),
+    montMallary: hcFte(ugds.filter(isMallaryStudent)),
     degreeSeeking: hcFte(ugds),
     dualEnrollment: hcFte(dual),
+    chesterton: hcFte(students.filter((s) => isChesterton(s) && !isDual(s))),
+    chestertonDual: hcFte(dual.filter(isChesterton)),
     nonDegree: hcFte(nonDegree),
     totalUndergraduate: hcFte(ug),
     gradMa: hcFte(byDeg("MARTS")),
@@ -146,7 +166,7 @@ export function applyRegistrationTotals(data: CensusSnapshot, students: CensusRa
   data.kpis.states = stateLabels.size;
   data.kpis.pctCatholic = ugds.length ? catholic / ugds.length : null;
   if (tables.countries.length) data.kpis.foreignCountries = tables.countries.length;
-  const onCampus = tables.residency.find((r) => r.label === "Resident");
+  const onCampus = tables.residency.find((r) => r.label === "On Campus" || r.label === "Resident");
   if (tables.n) data.kpis.ugOnCampusPct = (onCampus?.n ?? 0) / tables.n;
   for (const key of Object.keys(summary) as (keyof CensusSummary)[]) {
     patchYear0(data, key, summary[key]);
@@ -166,7 +186,7 @@ export const KPI_DEFS: Record<string, string> = {
   foreignCountries:
     "Distinct non-US citizenships among registered students. Registration Status does not include citizenship, so this stays Needs data until that field is on the file.",
   ugOnCampus:
-    "UG degree-seeking with residency Resident, including Ireland (Ciara / Malachy) counted as residential for now.",
+    "UG degree-seeking in campus halls (On Campus). Ireland and Mont Mallary (session 03MM) are not On Campus.",
   incomingHsGpa: "Mean high school GPA for incoming UG. Needs a Slate / HS GPA file.",
   pctCatholic: "UG degree-seeking students whose religion is Catholic or Eastern Rite Catholic, from Registration Status Religion.",
   testScores: "Mean CLT / ACT / SAT for incoming UG. Needs a Slate scores file.",
@@ -183,9 +203,14 @@ export const SUMMARY_DEFS: Record<string, string> = {
   "Returning Students":
     "UG degree-seeking who were already on the Fall 2025 census. Ireland students are included here.",
   Ireland:
-    "UG degree-seeking on session 03Ireland or sport Ireland (Registration Status with Residency). Breakout only — also in Returning, Total Degree-Seeking, and all undergraduate counts.",
+    "UG degree-seeking on session 03Ireland or sport Ireland (Registration Status with Residency). Breakout only — also in Returning and Total Degree-Seeking. Not On Campus.",
+  "On Campus": "UG degree-seeking in residence halls. Residential = On Campus. Ireland and Mont Mallary are separate.",
+  "Mont Mallary": "UG degree-seeking on session 03MM (Mont Mallary campus). Separate from On Campus and Ireland. Not the -0.118 SQL figure.",
   "Total Degree-Seeking": "Program = UNDERG and College Attend not DUAL, EACO, or ND. Incoming + Returning.",
-  "High School Dual Enrollment": "College Attend = DUAL or Degree = HSDE.",
+  "High School Dual Enrollment":
+    "College Attend = DUAL or Degree = HSDE only. About 70 this fall. Early College (EACO) and Chesterton students who are not DUAL are not in this line. FTE is credits/12 when Full/Part is blank.",
+  Chesterton: "Chesterton students who are not dual enrollment (not College Attend DUAL / Degree HSDE).",
+  "Chesterton DE": "Chesterton students who are dual enrollment (DUAL / HSDE).",
   "Non-Degree-Seeking / Personal Enrichment":
     "Everyone who is not UG degree-seeking, not dual enrollment, and not Program = GRAD (ND / PENRIC / NONDEG / EACO).",
   "Lux Mundi Non-Degree-Seeking / Personal Enrichment": "Non-degree rows with Session 01LuxMundi.",

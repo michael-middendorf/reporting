@@ -185,7 +185,7 @@ export function CensusDashboard() {
       ? tables.religion.filter((r) => /cathol/i.test(r.label)).reduce((s, r) => s + r.n, 0) / (tables.n || 1)
       : data.kpis.pctCatholic,
     ugOnCampusPct: tables
-      ? (tables.residency.find((r) => r.label === "Resident")?.n ?? 0) / (tables.n || 1)
+      ? (tables.residency.find((r) => r.label === "On Campus" || r.label === "Resident")?.n ?? 0) / (tables.n || 1)
       : data.kpis.ugOnCampusPct,
   };
   const summaryData = {
@@ -382,8 +382,12 @@ function SummaryTab({ data }: { data: CensusSnapshot }) {
     { label: "Lux Mundi", c: s.luxMundiUg, indent: true },
     { label: "Returning Students", c: s.returning },
     { label: "Ireland", c: s.ireland, indent: true },
+    { label: "On Campus", c: s.onCampus, indent: true },
+    { label: "Mont Mallary", c: s.montMallary, indent: true },
     { label: "Total Degree-Seeking", c: s.degreeSeeking },
     { label: "High School Dual Enrollment", c: s.dualEnrollment },
+    { label: "Chesterton DE", c: s.chestertonDual, indent: true },
+    { label: "Chesterton", c: s.chesterton, indent: true },
     { label: "Non-Degree-Seeking / Personal Enrichment", c: s.nonDegree },
     { label: "Lux Mundi Non-Degree-Seeking / Personal Enrichment", c: s.luxMundiUg },
     { label: "TOTAL UNDERGRADUATE ENROLLMENT", c: s.totalUndergraduate },
@@ -450,8 +454,12 @@ function HistoricalTab({ data }: { data: CensusSnapshot }) {
     { label: "Lux Mundi", key: "luxMundiUg", indent: true },
     { label: "Returning Students", key: "returning" },
     { label: "Ireland", key: "ireland", indent: true },
+    { label: "On Campus", key: "onCampus", indent: true },
+    { label: "Mont Mallary", key: "montMallary", indent: true },
     { label: "Total Degree-Seeking", key: "degreeSeeking" },
     { label: "High School Dual Enrollment", key: "dualEnrollment" },
+    { label: "Chesterton DE", key: "chestertonDual", indent: true },
+    { label: "Chesterton", key: "chesterton", indent: true },
     { label: "Non-Degree-Seeking / Personal Enrichment", key: "nonDegree" },
     { label: "TOTAL UNDERGRADUATE ENROLLMENT", key: "totalUndergraduate" },
     { label: "Graduate MA Students", key: "gradMa" },
