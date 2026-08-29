@@ -23,6 +23,7 @@ There is no daily sign-in email and no unsolicited magic-link blast. People book
 - Each report also has its own CSV allowlist: `ENROLLMENT_ALLOWED_EMAILS`, `CENSUS_ALLOWED_EMAILS`, `ATHLETICS_ALLOWED_EMAILS`, `HOUSING_ALLOWED_EMAILS`, `INSTITUTE_ALLOWED_EMAILS`, `MAS_ALLOWED_EMAILS`, `POINTS_ALLOWED_EMAILS`, `ALUMNI_ALLOWED_EMAILS`, `ADVANCEMENT_ALLOWED_EMAILS`, `CHAPEL_ALLOWED_EMAILS`, `ANNUNCIATION_ALLOWED_EMAILS`, and `MUSIC_ALLOWED_EMAILS`.
 - `chapel` is Chapel Naming + Stained Glass only. Advancement grants include chapel. Do not put chapel-only people on `ADVANCEMENT_ALLOWED_EMAILS`.
 - `music` is the Music Prospect & Award Board only. Trenton O'Neil is granted in `apps/web-next/src/lib/access.ts`. Do not put him on Enrollment or any other report list. The board has no CSV/Excel download.
+- Music workflow toggles save to S3 immediately. If `MUSIC_SLATE_IMPORT_URL` is set, the same PATCH POSTs an update-only Source Format payload (`app_guid` + four music fields). Do not point that URL at the Undergrad Application ingest format. Do not add `MUSIC_SLATE_IMPORT_URL` to the ECS task secret map until the key exists in `amu-reporting/production/runtime`.
 - An email must be in at least one report list to receive a magic link. Add it to the specific report lists it should access; add it to every report list for full reporting access.
 - `ADMIN_EMAILS` in `apps/web-next/src/lib/access.ts` are source-controlled, full-access administrators. Do not add a normal report user there.
 

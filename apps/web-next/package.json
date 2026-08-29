@@ -16,7 +16,7 @@
     "test:stained-glass-windows": "npx tsx --test src/lib/reports/stained-glass-windows/shape.test.ts",
     "test:fall-appeal": "npx tsx --test src/lib/reports/fall-appeal/shape.test.ts",
     "test:access": "npx tsx --test src/lib/access.test.ts src/lib/report-nav.test.ts",
-    "test:music": "npx tsx --test src/lib/reports/music/join.test.ts"
+    "test:music": "npx tsx --test src/lib/reports/music/join.test.ts src/lib/reports/music/slate-payload.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1105.0",

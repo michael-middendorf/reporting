@@ -49,6 +49,7 @@ export type MusicBoardPayload = {
 
 export type WorkflowInput = {
   applicationId: string;
+  personId?: string;
   auditionReview?: AuditionReview;
   programAcceptance?: ProgramAcceptance;
   musicAward?: string;

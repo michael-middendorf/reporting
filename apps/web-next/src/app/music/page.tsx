@@ -63,22 +63,33 @@ function Board() {
     });
   }, [data, cycle, q]);
 
-  async function patchRow(applicationId: string, body: Partial<WorkflowState>) {
-    setSaving(applicationId);
+  async function patchRow(row: MusicRow, body: Partial<WorkflowState>) {
+    setSaving(row.applicationId);
     try {
       const res = await apiFetch("/api/music-workflow", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ applicationId, ...body }),
+        body: JSON.stringify({
+          applicationId: row.applicationId,
+          personId: row.personId,
+          ...body,
+        }),
       });
-      const json = (await res.json()) as { workflow?: WorkflowState; error?: string };
+      const json = (await res.json()) as {
+        workflow?: WorkflowState;
+        error?: string;
+        slate?: { ok: boolean; skipped: boolean };
+      };
       if (!res.ok || !json.workflow) throw new Error(json.error || `Error ${res.status}`);
+      if (json.slate && !json.slate.ok && !json.slate.skipped) {
+        setError("Saved on the board. Slate import did not land. Retry the toggle.");
+      }
       setData((prev) => {
         if (!prev) return prev;
         return {
           ...prev,
-          rows: prev.rows.map((row) =>
-            row.applicationId === applicationId ? { ...row, workflow: json.workflow! } : row,
+          rows: prev.rows.map((r) =>
+            r.applicationId === row.applicationId ? { ...r, workflow: json.workflow! } : r,
           ),
         };
       });
@@ -175,7 +186,7 @@ function StudentRow({
 }: {
   row: MusicRow;
   disabled: boolean;
-  onPatch: (applicationId: string, body: Partial<WorkflowState>) => void;
+  onPatch: (row: MusicRow, body: Partial<WorkflowState>) => void;
 }) {
   const intent = [row.major && `Major: ${row.major}`, row.minor && `Minor: ${row.minor}`]
     .filter(Boolean)
@@ -215,7 +226,7 @@ function StudentRow({
           value={row.workflow.auditionReview}
           disabled={disabled}
           onChange={(e) =>
-            onPatch(row.applicationId, { auditionReview: e.target.value as AuditionReview })
+            onPatch(row, { auditionReview: e.target.value as AuditionReview })
           }
         >
           <option value="none">None</option>
@@ -229,7 +240,7 @@ function StudentRow({
           value={row.workflow.programAcceptance}
           disabled={disabled}
           onChange={(e) =>
-            onPatch(row.applicationId, {
+            onPatch(row, {
               programAcceptance: e.target.value as ProgramAcceptance,
             })
           }
@@ -247,7 +258,7 @@ function StudentRow({
           disabled={disabled}
           onBlur={(e) => {
             if (e.target.value !== row.workflow.musicAward) {
-              onPatch(row.applicationId, { musicAward: e.target.value });
+              onPatch(row, { musicAward: e.target.value });
             }
           }}
         />
@@ -257,7 +268,7 @@ function StudentRow({
           type="checkbox"
           checked={row.workflow.loiSigned}
           disabled={disabled}
-          onChange={(e) => onPatch(row.applicationId, { loiSigned: e.target.checked })}
+          onChange={(e) => onPatch(row, { loiSigned: e.target.checked })}
           aria-label={`LOI signed for ${row.last}`}
         />
         {row.loiFromSlate ? <span className={styles.muted}> Slate LOIA</span> : null}
