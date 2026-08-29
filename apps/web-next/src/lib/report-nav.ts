@@ -98,6 +98,7 @@ export const REPORT_FOLDERS: ReportFolder[] = [
   { href: "/institute", label: "The Institute", match: ["/institute"] },
   { href: "/housing", label: "Housing", match: ["/housing"] },
   { href: "/census", label: "Census", match: ["/census"] },
+  { href: "/music", label: "Music", match: ["/music"] },
 ];
 
 const EXTRA_LEAVES: Crumb[] = [

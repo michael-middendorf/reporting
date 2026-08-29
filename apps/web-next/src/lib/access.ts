@@ -12,6 +12,7 @@ export const REPORT_IDS = [
   "points",
   "annunciation",
   "aspiredu",
+  "music",
 ] as const;
 
 export type ReportId = (typeof REPORT_IDS)[number];
@@ -63,6 +64,8 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu,susan.gallagher@avemaria.edu,mark.middendorf@avemaria.edu,leslie.sonnen@avemaria.edu,julie.musselman@avemaria.edu,jim.thomas@avemaria.edu",
   aspiredu:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
+  // Music Prospect & Award Board only. Do not add Trenton to any other list.
+  music: "trenton.oneil@avemaria.edu",
 };
 
 const ENV_KEYS: Record<ReportId, string> = {
@@ -76,6 +79,7 @@ const ENV_KEYS: Record<ReportId, string> = {
   points: "POINTS_ALLOWED_EMAILS",
   annunciation: "ANNUNCIATION_ALLOWED_EMAILS",
   aspiredu: "ASPIREDU_ALLOWED_EMAILS",
+  music: "MUSIC_ALLOWED_EMAILS",
 };
 
 export function parseEmailCsv(csv: string): Set<string> {
