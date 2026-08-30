@@ -52,28 +52,16 @@ describe("institute-only grant", () => {
     assert.equal(canAccessReport(GABRIEL, "annunciation"), false);
     assert.equal(canAccessReport(GABRIEL, "aspiredu"), false);
     assert.equal(canAccessReport(GABRIEL, "athletics"), false);
-    assert.equal(canAccessReport(GABRIEL, "music"), false);
     assert.deepEqual(reportsForEmail(GABRIEL), ["institute"]);
   });
 });
 
-describe("music-only grant", () => {
+describe("music board moved to hub", () => {
   const TRENTON = "Trenton.Oneil@avemaria.edu";
 
-  it("lets Trenton sign in and open only the Music board", () => {
-    assert.equal(canLogin(TRENTON), true);
-    assert.equal(canAccessReport(TRENTON, "music"), true);
-    assert.equal(canAccessReport(TRENTON, "enrollment"), false);
-    assert.equal(canAccessReport(TRENTON, "census"), false);
-    assert.equal(canAccessReport(TRENTON, "athletics"), false);
-    assert.equal(canAccessReport(TRENTON, "housing"), false);
-    assert.equal(canAccessReport(TRENTON, "institute"), false);
-    assert.equal(canAccessReport(TRENTON, "advancement"), false);
-    assert.equal(canAccessReport(TRENTON, "chapel"), false);
-    assert.equal(canAccessReport(TRENTON, "points"), false);
-    assert.equal(canAccessReport(TRENTON, "annunciation"), false);
-    assert.equal(canAccessReport(TRENTON, "aspiredu"), false);
-    assert.deepEqual(reportsForEmail(TRENTON), ["music"]);
+  it("does not let Trenton sign in to reporting", () => {
+    assert.equal(canLogin(TRENTON), false);
+    assert.deepEqual(reportsForEmail(TRENTON), []);
   });
 });
 
@@ -92,7 +80,6 @@ describe("athletics-only grant", () => {
     assert.equal(canAccessReport(ERIC, "points"), false);
     assert.equal(canAccessReport(ERIC, "annunciation"), false);
     assert.equal(canAccessReport(ERIC, "aspiredu"), false);
-    assert.equal(canAccessReport(ERIC, "music"), false);
     assert.deepEqual(reportsForEmail(ERIC), ["athletics"]);
   });
 });

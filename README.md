@@ -23,7 +23,8 @@ Remote: https://github.com/colecantu904/reporting
 | `/advancement/stained-glass-windows` | Named chapel stained-glass windows (rose, sanctuary, nave) with donors |
 | `/mas` | MA follow-on giving |
 | `/alumni` | Alumni coverage & opportunity |
-| `/music` | Music Prospect & Award Board (Music majors from the Slate admissions extract, AME, workflow). No file export. |
+
+`/music` is not a reporting product. It 308s to https://hub.avemaria.edu/music.
 
 Auth is a shared magic-link gate (Resend + email allowlist). People sign in at https://reporting.avemaria.edu; there is no daily sign-in email.
 

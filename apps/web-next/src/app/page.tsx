@@ -55,12 +55,6 @@ const REPORTS: {
     title: "Academic Affairs",
     desc: "AspireDU course reports for Academic Affairs. Student rows require MFA.",
   },
-  {
-    id: "music",
-    href: "/music",
-    title: "Music",
-    desc: "Music prospect and award board: majors, minors, AME, auditions, and LOI.",
-  },
 ];
 
 export default function HomePage() {

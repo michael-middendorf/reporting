@@ -20,10 +20,9 @@ There is no daily sign-in email and no unsolicited magic-link blast. People book
 
 - The runtime configuration is the AWS Secrets Manager secret `amu-reporting/production/runtime` in `us-east-2`.
 - `ALLOWED_EMAILS` must contain every person who may complete a magic-link sign-in.
-- Each report also has its own CSV allowlist: `ENROLLMENT_ALLOWED_EMAILS`, `CENSUS_ALLOWED_EMAILS`, `ATHLETICS_ALLOWED_EMAILS`, `HOUSING_ALLOWED_EMAILS`, `INSTITUTE_ALLOWED_EMAILS`, `MAS_ALLOWED_EMAILS`, `POINTS_ALLOWED_EMAILS`, `ALUMNI_ALLOWED_EMAILS`, `ADVANCEMENT_ALLOWED_EMAILS`, `CHAPEL_ALLOWED_EMAILS`, `ANNUNCIATION_ALLOWED_EMAILS`, and `MUSIC_ALLOWED_EMAILS`.
+- Each report also has its own CSV allowlist: `ENROLLMENT_ALLOWED_EMAILS`, `CENSUS_ALLOWED_EMAILS`, `ATHLETICS_ALLOWED_EMAILS`, `HOUSING_ALLOWED_EMAILS`, `INSTITUTE_ALLOWED_EMAILS`, `MAS_ALLOWED_EMAILS`, `POINTS_ALLOWED_EMAILS`, `ALUMNI_ALLOWED_EMAILS`, `ADVANCEMENT_ALLOWED_EMAILS`, `CHAPEL_ALLOWED_EMAILS`, and `ANNUNCIATION_ALLOWED_EMAILS`.
 - `chapel` is Chapel Naming + Stained Glass only. Advancement grants include chapel. Do not put chapel-only people on `ADVANCEMENT_ALLOWED_EMAILS`.
-- `music` is the Music Prospect & Award Board only. Trenton O'Neil is granted in `apps/web-next/src/lib/access.ts`. Do not put him on Enrollment or any other report list. The board has no CSV/Excel download.
-- Music workflow toggles save to S3 immediately. If `MUSIC_SLATE_IMPORT_URL` is set, the same PATCH POSTs an update-only Source Format payload (`app_guid` + four music fields) with `SLATE_USERNAME` / `SLATE_PASSWORD` (portal-service). Do not point that URL at the Undergrad Application ingest format. Those three keys now exist on `amu-reporting/production/runtime` and in the ECS task secret map. Unset `MUSIC_SLATE_IMPORT_URL` and bounce ECS to disable dual-write.
+- The Music Prospect & Award Board is not a reporting product. It lives at https://hub.avemaria.edu/music. `/music` on this host 308s there. Do not grant Trenton O'Neil reporting access for Music.
 - An email must be in at least one report list to receive a magic link. Add it to the specific report lists it should access; add it to every report list for full reporting access.
 - `ADMIN_EMAILS` in `apps/web-next/src/lib/access.ts` are source-controlled, full-access administrators. Do not add a normal report user there.
 
