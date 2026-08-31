@@ -91,3 +91,20 @@ export function barFill(n: number | null | undefined): number {
   if (n == null || Number.isNaN(n)) return 0;
   return Math.max(0, Math.min(100, n));
 }
+
+/** Snapshot timestamps are UTC. Show them in Naples / Eastern time. */
+export function formatEastern(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const day = new Date(iso);
+  if (Number.isNaN(day.getTime())) return iso;
+  const text = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(day);
+  return `${text} ET`;
+}

@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
@@ -52,10 +53,29 @@ function cacheIsCurrent(cached: AdvancementOverviewSnapshot | null): boolean {
   return Boolean(cached?.source === "qlik" && cached.received && cached.ytd && cached.pledges);
 }
 
+async function readLocalSnapshot(): Promise<AdvancementOverviewSnapshot | null> {
+  if (process.env.NODE_ENV === "production") return null;
+  const path = (process.env.ADVANCEMENT_OVERVIEW_LOCAL_JSON || "").trim();
+  if (!path) return null;
+  try {
+    const text = await readFile(path, "utf8");
+    return JSON.parse(text) as AdvancementOverviewSnapshot;
+  } catch {
+    return null;
+  }
+}
+
 /** FY Advancement Overview from DATA_BUCKET/advancement-overview/latest.json. */
 export async function GET(req: Request) {
   const denied = requireReportAccess(req, "advancement");
   if (denied) return denied;
+
+  const local = await readLocalSnapshot();
+  if (cacheIsCurrent(local)) {
+    return NextResponse.json(local, {
+      headers: { "Cache-Control": "private, max-age=5" },
+    });
+  }
 
   const cached = await readCache();
   if (cacheIsCurrent(cached)) {

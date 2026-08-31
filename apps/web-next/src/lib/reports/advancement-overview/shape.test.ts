@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   barFill,
   count,
+  formatEastern,
   isOverviewReady,
   pct,
   usd,
@@ -61,6 +62,11 @@ describe("advancement overview shape", () => {
     assert.equal(pct(196), "196%");
     assert.equal(pct(-20.3), "-20.3%");
     assert.equal(pct(null), "--");
+  });
+
+  it("formats Qlik snapshot times in Eastern", () => {
+    assert.equal(formatEastern("2026-08-31T15:57:00Z"), "Aug 31, 2026, 11:57 AM ET");
+    assert.equal(formatEastern(null), "");
   });
 
   it("clamps bar fill to 0-100", () => {
