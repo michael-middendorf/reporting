@@ -294,12 +294,12 @@ export default $config({
       // optimizer fails before Sharp runs. Pin the canary-verified wrapper
       // and the patched native dependency used by the production bundle.
       openNextVersion: "4.1.0",
-      // Do not `link` MgoTopProspectsData or StainedGlassWindowsData onto Web.
-      // SST serializes each linked resource into Lambda environment metadata, and
-      // this function's env is already at the 4KB Lambda limit (SST deploy of
-      // #104 failed at 4204 bytes). The ECS web app reads those latest.json
-      // objects from S3; the crons below write them. Cache-miss invoke is optional.
-      link: [data, masProcess, alumniProcess, instituteData, housingProcess, chapelNaming, advancementOverview],
+      // Do not `link` MgoTopProspectsData, StainedGlassWindowsData, or
+      // AdvancementOverviewData onto Web. SST serializes each linked resource
+      // into Lambda environment metadata, and this function's env is already at
+      // the 4KB Lambda limit (#104 failed at 4204 bytes; #164 SST at 4105).
+      // The ECS web app reads latest.json from S3 and invokes by function name.
+      link: [data, masProcess, alumniProcess, instituteData, housingProcess, chapelNaming],
       // The /api/institute-data route waits on the ~15-25s live Slate fetch.
       server: { timeout: "60 seconds" },
       environment: {
