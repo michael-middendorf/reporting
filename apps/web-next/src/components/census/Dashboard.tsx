@@ -23,6 +23,7 @@ import {
   type ReportStudent,
 } from "@/lib/reports/census/report";
 import {
+  applyLiveRetentionHistory,
   buildAllUgSplit,
   buildFtcaAttritionFromPrior,
   buildSportRetention,
@@ -226,12 +227,18 @@ export function CensusDashboard() {
       ? (tables.residency.find((r) => r.label === "On Campus" || r.label === "Resident")?.n ?? 0) / (tables.n || 1)
       : data.kpis.ugOnCampusPct,
   };
-  const summaryData = {
-    ...data,
-    summary: liveSummary || data.summary,
-    ftcaAttrition: liveFtca || data.ftcaAttrition,
-    allUgRetention: liveAllUg || data.allUgRetention,
-  };
+  const liveFtcaRate = liveFtca?.retentionRate ?? data.ftcaAttrition.retentionRate;
+  const liveUgRate = liveAllUg?.retentionRate ?? data.allUgRetention.retentionRate;
+  const summaryData = applyLiveRetentionHistory(
+    {
+      ...data,
+      summary: liveSummary || data.summary,
+      ftcaAttrition: liveFtca || data.ftcaAttrition,
+      allUgRetention: liveAllUg || data.allUgRetention,
+    },
+    liveFtcaRate,
+    liveUgRate,
+  );
   return (
     <div className="census-root">
       <div className="wrap">
@@ -362,7 +369,7 @@ export function CensusDashboard() {
         </div>
 
         {tab === "summary" && <SummaryTab data={summaryData} />}
-        {tab === "historical" && <HistoricalTab data={data} />}
+        {tab === "historical" && <HistoricalTab data={summaryData} />}
         {tab === "ug" && (
           <CensusReport
             data={summaryData}

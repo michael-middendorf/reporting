@@ -1,6 +1,7 @@
 import type { CensusLists, CensusRawStudent, UnretainedStudent } from "./lists";
 import { attachLoaStatus, isUgDegreeSeekingRow, S26_LOA_ROSTER, type LoaWithStatus } from "./lists-core";
 import {
+  applyLiveRetentionHistory,
   athleteOf,
   buildAllUgSplit,
   buildAssociationRetention,
@@ -1617,6 +1618,7 @@ export async function buildCensusWorkbook(
       notRetained: ug.all.notRetained,
       retentionRate: ug.all.retentionPct ?? 0,
     };
+    applyLiveRetentionHistory(data, data.ftcaAttrition.retentionRate, data.allUgRetention.retentionRate);
   }
   const extra: ReportExtras = {
     hasPrior: lists.prior.length > 0,

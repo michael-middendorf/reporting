@@ -2176,10 +2176,6 @@
     {
       "label": "F24\u2013F25",
       "rate": 0.8493
-    },
-    {
-      "label": "F25\u2013F26",
-      "rate": 0.8291
     }
   ],
   "historicalAllUgRetention": [
@@ -2206,10 +2202,6 @@
     {
       "label": "F24\u2013F25",
       "rate": 0.8677
-    },
-    {
-      "label": "F25\u2013F26",
-      "rate": 0.8469
     }
   ]
 }

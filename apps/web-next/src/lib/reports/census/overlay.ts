@@ -10,6 +10,7 @@ import {
 import {
   ayGraduatePcids,
   buildAllUgSplit,
+  applyLiveRetentionHistory,
   buildFtcaAttritionFromPrior,
   collectGpa,
   deriveFtcaRaw,
@@ -101,6 +102,7 @@ export async function loadCensusSnapshot(): Promise<{
       notRetained: ug.all.notRetained,
       retentionRate: ug.all.retentionPct ?? 0,
     };
+    applyLiveRetentionHistory(data, data.ftcaAttrition.retentionRate, data.allUgRetention.retentionRate);
   }
   const ftcaRaw = lists.prior.length
     ? deriveFtcaRaw(lists.prior, lists.students, lists.graduates)

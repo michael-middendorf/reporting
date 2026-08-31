@@ -152,6 +152,44 @@ export function isFtcaIncoming(s: { collegeAttend?: string; incomingReturning?: 
   );
 }
 
+export type RetentionHistoryRow = { label: string; rate: number };
+
+/** Fall-to-fall label for the year ending `endYear` (2026 → F25–F26). */
+export function fallToFallLabel(endYear: number): string {
+  return `F${String(endYear - 1).slice(-2)}–F${String(endYear).slice(-2)}`;
+}
+
+function yearFromRetentionLabel(label: string): number {
+  const m = /F(\d{2})\s*[–-]\s*F(\d{2})/i.exec(label);
+  if (!m) return 0;
+  const end = Number(m[2]);
+  return end >= 50 ? 1900 + end : 2000 + end;
+}
+
+/** Put the live current-year rate on the historical series. Prior years stay as published. */
+export function withLiveCurrentYearRate(
+  series: RetentionHistoryRow[],
+  endYear: number,
+  rate: number | null | undefined,
+): RetentionHistoryRow[] {
+  const next = series.filter((r) => yearFromRetentionLabel(r.label) !== endYear);
+  if (rate != null && Number.isFinite(rate)) next.push({ label: fallToFallLabel(endYear), rate });
+  return next.sort((a, b) => yearFromRetentionLabel(a.label) - yearFromRetentionLabel(b.label));
+}
+
+export function applyLiveRetentionHistory<
+  T extends {
+    historical?: { years?: number[] };
+    historicalFtcaRetention: RetentionHistoryRow[];
+    historicalAllUgRetention: RetentionHistoryRow[];
+  },
+>(data: T, ftcaRate: number | null | undefined, ugRate: number | null | undefined): T {
+  const endYear = data.historical?.years?.[0] ?? 2026;
+  data.historicalFtcaRetention = withLiveCurrentYearRate(data.historicalFtcaRetention, endYear, ftcaRate);
+  data.historicalAllUgRetention = withLiveCurrentYearRate(data.historicalAllUgRetention, endYear, ugRate);
+  return data;
+}
+
 function blank(v: string | number | null | undefined): string {
   const t = v == null ? "" : String(v).trim();
   return !t || t === "-" ? "" : t;

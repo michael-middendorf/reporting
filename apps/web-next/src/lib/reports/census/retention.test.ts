@@ -1,7 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { CensusRawStudent } from "./lists";
-import { buildFtcaAttritionFromPrior, buildSportRetention, catholicOf, deriveFtcaRaw, isCatholic, isFtcaIncoming } from "./retention";
+import {
+  applyLiveRetentionHistory,
+  buildFtcaAttritionFromPrior,
+  buildSportRetention,
+  catholicOf,
+  deriveFtcaRaw,
+  isCatholic,
+  isFtcaIncoming,
+  withLiveCurrentYearRate,
+} from "./retention";
 
 function prior(partial: Partial<CensusRawStudent>): CensusRawStudent {
   return {
@@ -43,6 +52,39 @@ function prior(partial: Partial<CensusRawStudent>): CensusRawStudent {
     ...partial,
   };
 }
+
+test("historical F25-F26 is the live enrolled/cohort rate, not a frozen snapshot", () => {
+  const ftca = buildFtcaAttritionFromPrior(
+    [prior({ pcid: "P1" }), prior({ pcid: "P2" }), prior({ pcid: "P3" })],
+    ["P1", "P2"],
+    [],
+  );
+  assert.equal(ftca.cohort, 3);
+  assert.equal(ftca.enrolledThisFall, 2);
+  assert.equal(ftca.retentionRate, 2 / 3);
+  const data = applyLiveRetentionHistory(
+    {
+      historical: { years: [2026] },
+      historicalFtcaRetention: [
+        { label: "F24–F25", rate: 0.849 },
+        { label: "F25–F26", rate: 0.8291 },
+      ],
+      historicalAllUgRetention: [{ label: "F25–F26", rate: 0.99 }],
+    },
+    ftca.retentionRate,
+    0.75,
+  );
+  assert.equal(data.historicalFtcaRetention.find((r) => r.label === "F24–F25")?.rate, 0.849);
+  assert.equal(data.historicalFtcaRetention.find((r) => r.label === "F25–F26")?.rate, 2 / 3);
+  assert.equal(data.historicalAllUgRetention.find((r) => r.label === "F25–F26")?.rate, 0.75);
+});
+
+test("withLiveCurrentYearRate matches hyphen or en-dash current-year labels", () => {
+  const out = withLiveCurrentYearRate([{ label: "F25-F26", rate: 0.5 }], 2026, 322 / 392);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].label, "F25–F26");
+  assert.equal(out[0].rate, 322 / 392);
+});
 
 test("Non-Catholic is not counted as Catholic", () => {
   assert.equal(isCatholic({ religion: "Catholic" }), true);
