@@ -171,6 +171,8 @@ export class ReportingEcsStack extends cdk.Stack {
       INSTITUTE_FN_NAME: "amu-reporting-production-InstituteDataFunction-trtxkdvv",
       MAS_PROCESS_FUNCTION: "amu-reporting-production-MasProcessFunction-xzhzvdkw",
       ALUMNI_PROCESS_FUNCTION: "amu-reporting-production-AlumniProcessFunction-vuhfevxd",
+      ADVANCEMENT_OVERVIEW_FN_NAME:
+        "amu-reportin-production-AdvancementOverviewDataFunction-bdadrzku",
     };
     task.addToTaskRolePolicy(new iam.PolicyStatement({
       actions: ["lambda:InvokeFunction"],
