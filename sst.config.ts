@@ -217,8 +217,8 @@ export default $config({
       copyFiles: commonFiles,
       environment: {
         DATA_BUCKET: data.name,
-        API_KEY: virtuousApiKey.value,
-        VIRTUOUS_API_KEY: virtuousApiKey.value,
+        QLIK_API_KEY: qlikApiKey.value,
+        QLIK_TENANT: qlikTenant.value,
         ADVANCEMENT_OVERVIEW_CACHE_KEY: "advancement-overview/latest.json",
       },
       permissions: reportDataPerms,
