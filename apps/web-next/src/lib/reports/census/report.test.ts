@@ -243,6 +243,22 @@ test("gender, athlete, and major filters stack", () => {
   assert.equal(filtered[0].sport, "Softball");
 });
 
+test("religion table uses detailed religion; Non-Catholic is not 100% Catholic", () => {
+  const rows = set([
+    raw({ pcid: "1", religion: "Catholic", cathGroup: "Catholic" }),
+    raw({ pcid: "2", religion: "Christian", cathGroup: "Non-Catholic" }),
+    raw({ pcid: "3", religion: "Eastern Rite Catholic", cathGroup: "Catholic" }),
+    raw({ pcid: "4", religion: "Other", cathGroup: "Non-Catholic" }),
+  ]);
+  const rpt = buildReport(filterStudents(rows, DEFAULT_FILTERS));
+  const labels = rpt.religion.map((r) => r.label).sort();
+  assert.deepEqual(labels, ["Catholic", "Christian", "Eastern Rite Catholic", "Other"]);
+  const catholicN = rpt.religion.filter((r) => r.label === "Catholic" || r.label === "Eastern Rite Catholic").reduce((s, r) => s + r.n, 0);
+  assert.equal(catholicN / rpt.n, 0.5);
+  assert.equal(rpt.floridaCatholic.find((r) => r.label === "Catholic")?.n, 2);
+  assert.equal(rpt.floridaCatholic.find((r) => r.label === "Non-Catholic")?.n, 2);
+});
+
 test("class level includes incoming; residency splits male/female", () => {
   const rows = set([
     raw({ gender: "Female", classLevel: "Freshman", incomingReturning: "Incoming", residency: "Resident" }),

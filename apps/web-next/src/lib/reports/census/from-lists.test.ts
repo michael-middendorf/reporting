@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { summaryFromStudents } from "./from-lists";
+import { applyRegistrationTotals, sumCredits, summaryFromStudents } from "./from-lists";
+import snapshot from "./snapshot.json";
 import type { CensusRawStudent } from "./lists-core";
 
 function s(partial: Partial<CensusRawStudent>): CensusRawStudent {
@@ -43,6 +44,20 @@ function s(partial: Partial<CensusRawStudent>): CensusRawStudent {
     ...partial,
   };
 }
+
+test("credit totals and Catholic % ignore Non-Catholic labels", () => {
+  const rows = [
+    s({ pcid: "1", religion: "Catholic", cathGroup: "Catholic", credits: 15 }),
+    s({ pcid: "2", religion: "Christian", cathGroup: "Non-Catholic", credits: 16, incomingReturning: "Returning" }),
+    s({ pcid: "3", religion: "Eastern Rite Catholic", cathGroup: "Catholic", credits: 12, incomingReturning: "Returning" }),
+    s({ pcid: "4", program: "GRAD", collegeAttend: "GRAD", degree: "MBA", credits: 6, religion: "Catholic" }),
+  ];
+  assert.equal(sumCredits(rows), 49);
+  const data = applyRegistrationTotals(structuredClone(snapshot), rows);
+  assert.equal(data.kpis.pctCatholic, 2 / 3);
+  assert.equal(data.kpis.ugCredits, 43);
+  assert.equal(data.kpis.totalCredits, 49);
+});
 
 test("all-student total is every registration row; UG DS excludes dual", () => {
   const rows = [

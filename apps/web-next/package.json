@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:enrollment": "npx tsx --test src/lib/reports/enrollment/fall-report.test.ts src/lib/reports/enrollment/withdrawals.test.ts src/lib/reports/enrollment/process.test.ts",
-    "test:census": "npx tsx --test src/lib/reports/census/build.test.ts src/lib/reports/census/residency.test.ts src/lib/reports/census/workbook.test.ts src/lib/reports/census/lists.test.ts src/lib/reports/census/report.test.ts src/lib/reports/census/retention.test.ts",
+    "test:census": "npx tsx --test src/lib/reports/census/build.test.ts src/lib/reports/census/residency.test.ts src/lib/reports/census/workbook.test.ts src/lib/reports/census/lists.test.ts src/lib/reports/census/report.test.ts src/lib/reports/census/retention.test.ts src/lib/reports/census/from-lists.test.ts",
     "test:housing": "npx tsx --test src/lib/reports/housing/model.test.ts",
     "test:advancement-overview": "npx tsx --test src/lib/reports/advancement-overview/shape.test.ts",
     "test:mgo-top-prospects": "npx tsx --test src/lib/reports/mgo-top-prospects/shape.test.ts",

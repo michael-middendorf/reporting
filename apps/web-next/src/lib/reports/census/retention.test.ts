@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { CensusRawStudent } from "./lists";
-import { buildFtcaAttritionFromPrior, buildSportRetention, deriveFtcaRaw, isFtcaIncoming } from "./retention";
+import { buildFtcaAttritionFromPrior, buildSportRetention, catholicOf, deriveFtcaRaw, isCatholic, isFtcaIncoming } from "./retention";
 
 function prior(partial: Partial<CensusRawStudent>): CensusRawStudent {
   return {
@@ -43,6 +43,17 @@ function prior(partial: Partial<CensusRawStudent>): CensusRawStudent {
     ...partial,
   };
 }
+
+test("Non-Catholic is not counted as Catholic", () => {
+  assert.equal(isCatholic({ religion: "Catholic" }), true);
+  assert.equal(isCatholic({ religion: "Eastern Rite Catholic" }), true);
+  assert.equal(isCatholic({ religion: "Christian" }), false);
+  assert.equal(isCatholic({ religion: "Other" }), false);
+  assert.equal(isCatholic({ cathGroup: "Non-Catholic", religion: "" }), false);
+  assert.equal(isCatholic({ cathGroup: "Catholic", religion: "" }), true);
+  assert.equal(catholicOf({ cathGroup: "Non-Catholic" }), "Non-Catholic");
+  assert.equal(catholicOf({ religion: "Eastern Rite Catholic" }), "Catholic");
+});
 
 test("FTCA raw marks left students Not Retained using the FA25 sport", () => {
   const rows = deriveFtcaRaw(

@@ -80,6 +80,8 @@ export type CensusSnapshot = {
     allStudents: number;
     ugStudents: number;
     foreignCountries: number;
+    ugCredits?: number | null;
+    totalCredits?: number | null;
     ugOnCampusPct: number | null;
     incomingHsGpa: number | null;
     pctCatholic: number | null;

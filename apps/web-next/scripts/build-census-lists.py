@@ -159,7 +159,7 @@ def load_registration(path: Path) -> list[dict]:
             elif field == "fsp":
                 extra["fsp"] = "FSP"
             elif field == "institute":
-                extra["institute"] = "Institute"
+                extra["institute"] = "Associate"
         elif "marines" in key:
             extra["marines"] = "Mary's Marines"
         out.append(

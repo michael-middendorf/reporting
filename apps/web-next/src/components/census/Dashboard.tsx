@@ -26,9 +26,10 @@ import {
   buildAllUgSplit,
   buildFtcaAttritionFromPrior,
   buildSportRetention,
+  isCatholic,
   type FtcaRawRow,
 } from "@/lib/reports/census/retention";
-import { KPI_DEFS, SUMMARY_DEFS, summaryFromStudents, uniqueStudentCount } from "@/lib/reports/census/from-lists";
+import { KPI_DEFS, SUMMARY_DEFS, summaryFromStudents, sumCredits, uniqueStudentCount } from "@/lib/reports/census/from-lists";
 import { buildVerifyList } from "@/lib/reports/census/verify";
 import type { HousingAssignmentRow } from "@/lib/reports/census/residency";
 import {
@@ -39,6 +40,11 @@ import {
 import "@/styles/census.css";
 
 function fmtFte(n: number | null | undefined): string {
+  if (n == null) return "—";
+  return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
+}
+
+function fmtCredits(n: number | null | undefined): string {
   if (n == null) return "—";
   return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
@@ -206,13 +212,15 @@ export function CensusDashboard() {
   if (!data) return <p style={{ padding: 24 }}>Loading…</p>;
 
   const tables = filteredReport.length ? buildReport(filteredReport) : null;
+  const ugds = filteredAll.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend));
   const k = {
     ...data.kpis,
     allStudents: rawStudents.length ? uniqueStudentCount(filteredAll) : data.kpis.allStudents,
     ugStudents: liveSummary?.degreeSeeking.headcount ?? data.kpis.ugStudents,
-    states: tables ? tables.states.filter((r) => r.label !== "International").length : data.kpis.states,
-    pctCatholic: tables
-      ? tables.religion.filter((r) => /cathol/i.test(r.label)).reduce((s, r) => s + r.n, 0) / (tables.n || 1)
+    ugCredits: rawStudents.length ? sumCredits(ugds) : (data.kpis.ugCredits ?? null),
+    totalCredits: rawStudents.length ? sumCredits(filteredAll) : (data.kpis.totalCredits ?? null),
+    pctCatholic: ugds.length
+      ? ugds.filter(isCatholic).length / ugds.length
       : data.kpis.pctCatholic,
     ugOnCampusPct: tables
       ? (tables.residency.find((r) => r.label === "On Campus" || r.label === "Resident")?.n ?? 0) / (tables.n || 1)
@@ -290,7 +298,6 @@ export function CensusDashboard() {
         )}
 
         <div className="kpis">
-          <Kpi label="States" value={fmtN(k.states)} def={KPI_DEFS.states} />
           <Kpi label="All students" value={fmtN(k.allStudents)} def={KPI_DEFS.allStudents} />
           <Kpi label="UG degree-seeking" value={fmtN(k.ugStudents)} def={KPI_DEFS.ugStudents} />
           <Kpi
@@ -298,7 +305,8 @@ export function CensusDashboard() {
             value={fmtN(liveSummary?.ireland.headcount ?? data.summary.ireland.headcount)}
             def={KPI_DEFS.ireland}
           />
-          <Kpi label="Foreign countries" value={fmtN(k.foreignCountries)} def={KPI_DEFS.foreignCountries} flip />
+          <Kpi label="UG credits" value={fmtCredits(k.ugCredits)} def={KPI_DEFS.ugCredits} />
+          <Kpi label="Total credits" value={fmtCredits(k.totalCredits)} def={KPI_DEFS.totalCredits} flip />
           <Kpi
             label="UG on campus"
             value={fmtPct(k.ugOnCampusPct)}
@@ -311,7 +319,7 @@ export function CensusDashboard() {
             value={k.incomingHsGpa?.toFixed(2) ?? "—"}
             def={KPI_DEFS.incomingHsGpa}
           />
-          <Kpi label="% Catholic" value={fmtPct(k.pctCatholic, 0)} def={KPI_DEFS.pctCatholic} />
+          <Kpi label="% Catholic" value={fmtPct(k.pctCatholic)} def={KPI_DEFS.pctCatholic} />
           <Kpi
             label="Avg CLT / ACT / SAT"
             value={`${k.avgClt ?? "—"}  /  ${k.avgAct ?? "—"}  /  ${k.avgSat ?? "—"}`}

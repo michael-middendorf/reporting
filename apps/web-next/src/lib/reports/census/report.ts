@@ -1,5 +1,6 @@
 import type { CensusRawStudent, LoaWithStatus, UnretainedStudent } from "./lists-core";
 import { CLASS_ORDER, COUNTRY_NAMES } from "./present";
+import { catholicOf, isCatholic } from "./retention";
 import type { CensusSnapshot, LabeledCount } from "./types";
 
 export type ReportStudent = {
@@ -306,7 +307,7 @@ export function buildReport(rows: ReportStudent[]): ReportTables {
   const athletes = rows.filter((s) => s.athlete === "Athlete");
   const incoming = rows.filter((s) => s.incomingReturning === "Incoming");
   const florida = rows.filter((s) => s.state === "FL");
-  const nonFlCath = rows.filter((s) => s.state !== "FL" && /cathol/i.test(s.cathGroup || s.religion));
+  const nonFlCath = rows.filter((s) => s.state !== "FL" && isCatholic(s));
   const honors = rows.filter((s) => s.honors);
 
   const states = alphaStates(
@@ -384,7 +385,7 @@ export function buildReport(rows: ReportStudent[]): ReportTables {
     states,
     countries,
     gender: namedOrder(counts(rows, (s) => s.gender || "—"), ["Female", "Male"]),
-    religion: counts(rows, (s) => s.cathGroup || s.religion || "Other"),
+    religion: counts(rows, (s) => s.religion || "Other"),
     athlete: namedOrder(counts(rows, (s) => s.athlete || "Non-Athlete"), ["Athlete", "Non-Athlete"]),
     incomingAthlete: namedOrder(counts(incoming, (s) => s.athlete || "Non-Athlete"), ["Athlete", "Non-Athlete"]),
     classLevel,
@@ -393,10 +394,10 @@ export function buildReport(rows: ReportStudent[]): ReportTables {
     appDecisions: counts(rows, (s) => s.appDecision),
     honorsByClass: counts(honors, (s) => s.classLevel || "—").sort((a, b) => classRank(a.label) - classRank(b.label)),
     honorsN: honors.length,
-    athleticReligion: counts(athletes, (s) => s.cathGroup || s.religion || "Other"),
+    athleticReligion: counts(athletes, (s) => s.religion || "Other"),
     floridaAthlete: namedOrder(counts(florida, (s) => s.athlete || "Non-Athlete"), ["Athlete", "Non-Athlete"]),
     floridaCatholic: namedOrder(
-      counts(florida, (s) => (/cathol/i.test(s.cathGroup || s.religion) ? "Catholic" : "Non-Catholic")),
+      counts(florida, (s) => catholicOf(s)),
       ["Catholic", "Non-Catholic"],
     ),
     nonFloridaCatholicAthlete: namedOrder(

@@ -29,6 +29,7 @@ export function RawDataSheet({ students }: { students: CensusRawStudent[] }) {
       s.collegeAttend,
       s.classLevel,
       s.fullPart,
+      s.credits === "" || s.credits == null ? "—" : s.credits,
       s.sport || "—",
       s.institute || "—",
       s.honors || "—",
@@ -50,7 +51,7 @@ export function RawDataSheet({ students }: { students: CensusRawStudent[] }) {
           <SheetTable
             title=""
             scroll
-            headers={["PCID", "First", "Last", "In/Ret", "State", "Religion", "Cath/Chris/Other", "Program", "Degree", "Session", "College", "Class", "Load", "Sport", "Institute", "Honors", "Residency", "Gender"]}
+            headers={["PCID", "First", "Last", "In/Ret", "State", "Religion", "Cath/Chris/Other", "Program", "Degree", "Session", "College", "Class", "Load", "Credits", "Sport", "Institute", "Honors", "Residency", "Gender"]}
             rows={rows}
           />
         </>

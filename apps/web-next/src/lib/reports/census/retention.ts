@@ -85,8 +85,20 @@ export type FtcaExtras = {
   byMaleFlorida: CrosstabRow[];
 };
 
+/** Catholic or Eastern Rite Catholic. Does not treat "Non-Catholic" as Catholic. */
+export function isCatholic(s: { cathGroup?: string; religion?: string }): boolean {
+  const rel = (s.religion || "").trim();
+  if (rel && rel !== "-") {
+    const r = rel.toLowerCase();
+    if (/non[- ]?catholic/.test(r)) return false;
+    if (r === "cath" || r === "ecat" || r === "catholic" || r === "eastern rite catholic") return true;
+    return /catholic/.test(r);
+  }
+  return /^(catholic|cath|ecat)$/i.test((s.cathGroup || "").trim());
+}
+
 export function catholicOf(s: { cathGroup?: string; religion?: string }): "Catholic" | "Non-Catholic" {
-  return /cathol/i.test(s.cathGroup || s.religion || "") ? "Catholic" : "Non-Catholic";
+  return isCatholic(s) ? "Catholic" : "Non-Catholic";
 }
 
 export function athleteOf(s: { athlete?: string; sport?: string }): "Athlete" | "Non-Athlete" {

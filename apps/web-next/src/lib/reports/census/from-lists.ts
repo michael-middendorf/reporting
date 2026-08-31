@@ -1,5 +1,6 @@
 import { isUgDegreeSeekingRow, type CensusRawStudent } from "./lists-core";
 import { DEFAULT_FILTERS, buildReport, filterStudents, projectReportStudents } from "./report";
+import { isCatholic } from "./retention";
 import { fteFromStudent, type CensusSnapshot, type CensusSummary, type CountFte } from "./types";
 
 const NON_DS_DEGREE = new Set(["HSDE", "PENRIC", "NONDEG"]);
@@ -17,6 +18,10 @@ function hcFte(rows: CensusRawStudent[]): CountFte {
 
 export function uniqueStudentCount(rows: CensusRawStudent[]): number {
   return uniqueStudents(rows).length;
+}
+
+export function sumCredits(rows: { credits?: number | string | null }[]): number {
+  return Math.round(rows.reduce((s, r) => s + (Number(r.credits) || 0), 0) * 10) / 10;
 }
 
 function uniqueStudents(rows: CensusRawStudent[]): CensusRawStudent[] {
@@ -160,11 +165,13 @@ export function applyRegistrationTotals(data: CensusSnapshot, students: CensusRa
   };
   const ugds = students.filter(isUgDs);
   const stateLabels = new Set(tables.states.map((r) => r.label).filter((l) => l && l !== "International"));
-  const catholic = ugds.filter((s) => /cathol/i.test(s.cathGroup || s.religion)).length;
+  const catholic = ugds.filter(isCatholic).length;
   data.kpis.allStudents = summary.totalEnrollment.headcount;
   data.kpis.ugStudents = summary.degreeSeeking.headcount;
   data.kpis.states = stateLabels.size;
   data.kpis.pctCatholic = ugds.length ? catholic / ugds.length : null;
+  data.kpis.ugCredits = sumCredits(ugds);
+  data.kpis.totalCredits = sumCredits(students);
   if (tables.countries.length) data.kpis.foreignCountries = tables.countries.length;
   const onCampus = tables.residency.find((r) => r.label === "On Campus" || r.label === "Resident");
   if (tables.n) data.kpis.ugOnCampusPct = (onCampus?.n ?? 0) / tables.n;
@@ -175,20 +182,21 @@ export function applyRegistrationTotals(data: CensusSnapshot, students: CensusRa
 }
 
 export const KPI_DEFS: Record<string, string> = {
-  states:
-    "Distinct home State values on Fall 2026 Registration Status for UG degree-seeking students. International is not a state.",
   allStudents:
     "Every person on Fall 2026 Registration Status (Registration Status-26.xlsx). One row per PCID. Undergraduate, graduate, dual enrollment, and non-degree — no program filter.",
   ugStudents:
     "Registration Status rows with Program = UNDERG and College Attend not DUAL, EACO, or ND (B.A. and B.S.). Default Census Report view. Ireland is included.",
   ireland:
     "UG degree-seeking on Fall 2026 session 03Ireland (Registration Status with Residency). Also counted in Returning and Total Degree-Seeking.",
-  foreignCountries:
-    "Distinct non-US citizenships among registered students. Registration Status does not include citizenship, so this stays Needs data until that field is on the file.",
+  ugCredits:
+    "Sum of Credits on Fall 2026 Registration Status for UG degree-seeking students (the Census Report default).",
+  totalCredits:
+    "Sum of Credits on every Fall 2026 Registration Status row (undergraduate, graduate, dual enrollment, and non-degree). A student in UG and graduate is counted on both rows.",
   ugOnCampus:
     "UG degree-seeking in campus halls (On Campus). Ireland and Mont Mallary (session 03MM) are not On Campus.",
   incomingHsGpa: "Mean high school GPA for incoming UG. Needs a Slate / HS GPA file.",
-  pctCatholic: "UG degree-seeking students whose religion is Catholic or Eastern Rite Catholic, from Registration Status Religion.",
+  pctCatholic:
+    "UG degree-seeking students whose Religion is Catholic or Eastern Rite Catholic. Non-Catholic is not Catholic. From Registration Status Religion.",
   testScores: "Mean CLT / ACT / SAT for incoming UG. Needs a Slate scores file.",
 };
 
