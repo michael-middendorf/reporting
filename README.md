@@ -15,7 +15,7 @@ Remote: https://github.com/colecantu904/reporting
 | `/housing` | Housing occupancy, floor maps, move-ins, verification |
 | `/institute` | The Institute admissions pipeline |
 | `/advancement` | Advancement folder (Overview, MGO Top Prospects, Annunciation Circle, Fall Appeal, MA Points, Chapel Naming, Stained Glass) |
-| `/advancement/overview` | Advancement Overview (fundraising, MGO goals, pipeline; this FY and last FY) |
+| `/advancement/overview` | Advancement Overview (Qlik FY Results: received gifts, pledges, YTD, officers, pipeline) |
 | `/advancement/mgo-top-prospects` | FY MGO top prospects: open gift asks by portfolio, with named donors |
 | `/advancement/fall-appeal` | Fall 2026 Appeal revenue, segmentation, and year-over-year pace |
 | `/advancement/points` | MA points, tiers, and leaderboard |

@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
@@ -49,17 +50,32 @@ async function invokeBuild(): Promise<AdvancementOverviewSnapshot | null> {
 }
 
 function cacheIsCurrent(cached: AdvancementOverviewSnapshot | null): boolean {
-  return Boolean(
-    cached?.kpis &&
-      Array.isArray(cached.fiscalYears) &&
-      cached.fiscalYears.length >= 2,
-  );
+  return Boolean(cached?.source === "qlik" && cached.received && cached.ytd && cached.pledges);
+}
+
+async function readLocalSnapshot(): Promise<AdvancementOverviewSnapshot | null> {
+  if (process.env.NODE_ENV === "production") return null;
+  const path = (process.env.ADVANCEMENT_OVERVIEW_LOCAL_JSON || "").trim();
+  if (!path) return null;
+  try {
+    const text = await readFile(path, "utf8");
+    return JSON.parse(text) as AdvancementOverviewSnapshot;
+  } catch {
+    return null;
+  }
 }
 
 /** FY Advancement Overview from DATA_BUCKET/advancement-overview/latest.json. */
 export async function GET(req: Request) {
   const denied = requireReportAccess(req, "advancement");
   if (denied) return denied;
+
+  const local = await readLocalSnapshot();
+  if (cacheIsCurrent(local)) {
+    return NextResponse.json(local, {
+      headers: { "Cache-Control": "private, max-age=5" },
+    });
+  }
 
   const cached = await readCache();
   if (cacheIsCurrent(cached)) {
@@ -70,13 +86,13 @@ export async function GET(req: Request) {
 
   try {
     const live = await invokeBuild();
-    if (live?.kpis) {
+    if (cacheIsCurrent(live)) {
       return NextResponse.json(live, {
         headers: { "Cache-Control": "private, max-age=30" },
       });
     }
   } catch (e) {
-    if (cached?.kpis) {
+    if (cacheIsCurrent(cached)) {
       return NextResponse.json(cached, {
         headers: { "Cache-Control": "private, max-age=30" },
       });
@@ -89,7 +105,7 @@ export async function GET(req: Request) {
     );
   }
 
-  if (cached?.kpis) {
+  if (cacheIsCurrent(cached)) {
     return NextResponse.json(cached, {
       headers: { "Cache-Control": "private, max-age=30" },
     });
