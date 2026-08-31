@@ -10,7 +10,173 @@ import {
   type CensusRawStudent,
   type UnretainedStudent,
 } from "./lists-core";
-import { applyErezResidency, markIrelandReturning } from "./lists";
+import { applyErezResidency, markIrelandReturning, resolveCensusResidency } from "./lists";
+
+test("eRez On Campus / Commuter wins over registration Res Comm", () => {
+  const student = {
+    pcid: "P1",
+    first: "A",
+    last: "B",
+    incomingReturning: "Incoming",
+    state: "FL",
+    religion: "",
+    cathGroup: "",
+    ethnicity: "",
+    gender: "",
+    program: "UNDERG",
+    collegeAttend: "FTCA",
+    curriculum: "",
+    curriculumName: "",
+    classLevel: "Freshman",
+    fullPart: "FULL",
+    city: "",
+    credits: 15,
+    gpa: "",
+    earnedCredits: 0,
+    residency: "On Campus",
+    sport: "",
+    athlete: "",
+    athleticType: "",
+    rosterStatus: "",
+    honors: "",
+    fsp: "",
+    household: "",
+    institute: "",
+    marines: "",
+    appDecision: "",
+    session: "01",
+    degree: "",
+    email: "",
+    citizenship: "",
+    visa: "",
+  };
+  const house = {
+    pcid: "P1",
+    name: "A B",
+    email: "",
+    building: "Commuter",
+    room: "",
+    priceType: "NODM",
+    residency: "Commuter" as const,
+    classStatus: "Freshman",
+    studentType: "Incoming",
+    includedInCensus: true,
+  };
+  assert.equal(applyErezResidency([student], [house])[0].residency, "Commuter");
+});
+
+test("registration Ireland is not overwritten by eRez commuter or hall", () => {
+  const student = {
+    pcid: "P1",
+    first: "A",
+    last: "B",
+    incomingReturning: "Incoming",
+    state: "FL",
+    religion: "",
+    cathGroup: "",
+    ethnicity: "",
+    gender: "",
+    program: "UNDERG",
+    collegeAttend: "FTCA",
+    curriculum: "",
+    curriculumName: "",
+    classLevel: "Sophomore",
+    fullPart: "FULL",
+    city: "",
+    credits: 15,
+    gpa: "",
+    earnedCredits: 0,
+    residency: "Ireland",
+    sport: "",
+    athlete: "",
+    athleticType: "",
+    rosterStatus: "",
+    honors: "",
+    fsp: "",
+    household: "",
+    institute: "",
+    marines: "",
+    appDecision: "",
+    session: "03Ireland",
+    degree: "",
+    email: "",
+    citizenship: "",
+    visa: "",
+  };
+  const house = {
+    pcid: "P1",
+    name: "A B",
+    email: "",
+    building: "JPII",
+    room: "101",
+    priceType: "UGDP",
+    residency: "On Campus" as const,
+    classStatus: "",
+    studentType: "Returning",
+    includedInCensus: true,
+  };
+  assert.equal(applyErezResidency([student], [house])[0].residency, "Ireland");
+});
+
+test("eRez Other does not wipe registration Commuter; blank both is Unassigned", () => {
+  const base = {
+    pcid: "P1",
+    first: "A",
+    last: "B",
+    incomingReturning: "Incoming",
+    state: "FL",
+    religion: "",
+    cathGroup: "",
+    ethnicity: "",
+    gender: "",
+    program: "UNDERG",
+    collegeAttend: "FTCA",
+    curriculum: "",
+    curriculumName: "",
+    classLevel: "Freshman",
+    fullPart: "FULL",
+    city: "",
+    credits: 15,
+    gpa: "",
+    earnedCredits: 0,
+    residency: "Commuter",
+    sport: "",
+    athlete: "",
+    athleticType: "",
+    rosterStatus: "",
+    honors: "",
+    fsp: "",
+    household: "",
+    institute: "",
+    marines: "",
+    appDecision: "",
+    session: "01",
+    degree: "",
+    email: "",
+    citizenship: "",
+    visa: "",
+  };
+  const other = {
+    pcid: "P1",
+    name: "A B",
+    email: "",
+    building: "",
+    room: "",
+    priceType: "",
+    residency: "Other" as const,
+    classStatus: "",
+    studentType: "",
+    includedInCensus: true,
+  };
+  assert.equal(applyErezResidency([base], [other])[0].residency, "Commuter");
+  assert.equal(resolveCensusResidency({ ...base, residency: "" }), "Unassigned");
+  assert.equal(
+    applyErezResidency([{ ...base, residency: "" }], [
+      { ...other, building: "TERESA", room: "210", priceType: "UGDP", residency: "On Campus" },
+    ])[0].residency,
+    "On Campus",
+  );
+});
 
 test("eRez residency overwrites blank registration housing", () => {
   const students: CensusRawStudent[] = [

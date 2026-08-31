@@ -56,6 +56,44 @@ function isIrelandHousing(h: HousingAssignmentRow): boolean {
   return b === "CIARA" || b === "MALAC" || p === "ISTA";
 }
 
+const EREZ_CAMPUS = new Set(["On Campus", "Commuter"]);
+
+function mallaryFromRegistration(s: CensusRawStudent): boolean {
+  const sess = (s.session || "").toLowerCase().replace(/\s+/g, "");
+  return sess.includes("03mm") || sess.includes("mallary");
+}
+
+function irelandFromRegistration(s: CensusRawStudent): boolean {
+  const sess = (s.session || "").toLowerCase().replace(/\s+/g, "");
+  if (sess.includes("ireland")) return true;
+  return (s.residency || "").trim() === "Ireland";
+}
+
+function registrationResidency(raw: string): string {
+  const t = (raw || "").trim();
+  if (!t || t === "-" || t === "Unassigned") return "";
+  if (t === "Resident") return "On Campus";
+  return t;
+}
+
+/**
+ * eRez wins for On Campus / Commuter. Registration session wins for Ireland.
+ * Use the other source when the preferred one is blank. Unassigned only if both are empty.
+ */
+export function resolveCensusResidency(
+  s: CensusRawStudent,
+  hit?: HousingAssignmentRow,
+): string {
+  if (mallaryFromRegistration(s)) return "Mont Mallary";
+  if (irelandFromRegistration(s) || (hit && isIrelandHousing(hit))) return "Ireland";
+  const erez = hit && hit.residency !== "Unassigned" ? hit.residency : "";
+  if (erez && (EREZ_CAMPUS.has(erez) || erez === "Study Abroad")) return erez;
+  const reg = registrationResidency(s.residency);
+  if (reg) return reg;
+  if (erez) return erez;
+  return "Unassigned";
+}
+
 /**
  * Ireland (Ciara / Malachy) for now: Returning, Resident, and sport Ireland
  * when they do not already have a team. Session 03Ireland without an Ireland
@@ -89,19 +127,13 @@ export function applyErezResidency(
   students: CensusRawStudent[],
   housing: HousingAssignmentRow[],
 ): CensusRawStudent[] {
-  if (!housing.length) return markIrelandReturning(students);
+  if (!housing.length) {
+    return markIrelandReturning(students.map((s) => ({ ...s, residency: resolveCensusResidency(s) })));
+  }
   const byPcid = new Map(housing.map((h) => [h.pcid.toUpperCase(), h]));
   const withResidency = students.map((s) => {
     const hit = byPcid.get((s.pcid || "").toUpperCase());
-    if (!hit) return s;
-    const sess = (s.session || "").toLowerCase().replace(/\s+/g, "");
-    const mallary = sess.includes("03mm") || sess.includes("mallary");
-    const residency = mallary
-      ? "Mont Mallary"
-      : isIrelandHousing(hit)
-        ? "Ireland"
-        : hit.residency;
-    return { ...s, residency };
+    return { ...s, residency: resolveCensusResidency(s, hit) };
   });
   return markIrelandReturning(withResidency, housing);
 }

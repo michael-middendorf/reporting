@@ -61,6 +61,16 @@ function house(partial: Partial<HousingAssignmentRow>): HousingAssignmentRow {
   };
 }
 
+test("blank residency after eRez and registration is flagged, not treated as missing Ireland", () => {
+  const rows = buildVerifyList(
+    [raw({ pcid: "P8", first: "Yvette", last: "Flynn", session: "01", residency: "Unassigned" })],
+    [],
+    [],
+    [],
+  );
+  assert.ok(rows.some((r) => r.pcid === "P8" && r.issue === "No residency"));
+});
+
 test("Ireland session vs hall and housed-not-registered land on the verify list", () => {
   const rows = buildVerifyList(
     [

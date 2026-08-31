@@ -77,11 +77,22 @@ export function buildVerifyList(
     if (irelandSess && !irelandHouse) {
       rows.push({
         issue: "Ireland session, not Ireland housing",
-        why: "Registration session is 03Ireland but eRez is not Ciara/Malachy.",
+        why: "Registration session is 03Ireland (Ireland campus from the residency extract). eRez is not Ciara/Malachy. Census residency stays Ireland.",
         pcid: s.pcid,
         first: s.first,
         last: s.last,
-        detail: `session ${s.session || "—"} · housing ${h ? `${h.building || "none"} ${h.room || ""} (${h.residency})` : "not in eRez"}`,
+        detail: `session ${s.session || "—"} · housing ${h ? `${h.building || "none"} ${h.room || ""} (${h.residency})` : "not in eRez; Ireland kept from registration"}`,
+      });
+    }
+    const res = (s.residency || "").trim();
+    if (!irelandSess && (!res || res === "Unassigned")) {
+      rows.push({
+        issue: "No residency",
+        why: "Checked eRezLife and Registration Status with Residency (Res Comm). Neither has On Campus, Commuter, or Ireland.",
+        pcid: s.pcid,
+        first: s.first,
+        last: s.last,
+        detail: `session ${s.session || "—"} · registration ${s.residency || "—"} · eRez ${h ? `${h.building || "none"} ${h.room || ""} (${h.residency})` : "not in eRez"}`,
       });
     }
     if (irelandHouse && !irelandSess) {
@@ -147,6 +158,7 @@ export function buildVerifyList(
   }
 
   const order = [
+    "No residency",
     "Ireland session, not Ireland housing",
     "Ireland housing, not Ireland session",
     "Unretained senior",
