@@ -100,9 +100,7 @@ export function applyErezResidency(
       ? "Mont Mallary"
       : isIrelandHousing(hit)
         ? "Ireland"
-        : hit.residency === "Resident"
-          ? "On Campus"
-          : hit.residency;
+        : hit.residency;
     return { ...s, residency };
   });
   return markIrelandReturning(withResidency, housing);
