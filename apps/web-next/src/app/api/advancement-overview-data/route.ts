@@ -49,11 +49,7 @@ async function invokeBuild(): Promise<AdvancementOverviewSnapshot | null> {
 }
 
 function cacheIsCurrent(cached: AdvancementOverviewSnapshot | null): boolean {
-  return Boolean(
-    cached?.kpis &&
-      Array.isArray(cached.fiscalYears) &&
-      cached.fiscalYears.length >= 2,
-  );
+  return Boolean(cached?.source === "qlik" && cached.received && cached.ytd && cached.pledges);
 }
 
 /** FY Advancement Overview from DATA_BUCKET/advancement-overview/latest.json. */
@@ -70,13 +66,13 @@ export async function GET(req: Request) {
 
   try {
     const live = await invokeBuild();
-    if (live?.kpis) {
+    if (cacheIsCurrent(live)) {
       return NextResponse.json(live, {
         headers: { "Cache-Control": "private, max-age=30" },
       });
     }
   } catch (e) {
-    if (cached?.kpis) {
+    if (cacheIsCurrent(cached)) {
       return NextResponse.json(cached, {
         headers: { "Cache-Control": "private, max-age=30" },
       });
@@ -89,7 +85,7 @@ export async function GET(req: Request) {
     );
   }
 
-  if (cached?.kpis) {
+  if (cacheIsCurrent(cached)) {
     return NextResponse.json(cached, {
       headers: { "Cache-Control": "private, max-age=30" },
     });

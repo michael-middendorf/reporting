@@ -1,146 +1,54 @@
 """FY Advancement Overview publisher.
 
-Mirrors the Qlik Advancement Overview Results sheet using live Virtuous data.
-Each run builds the current fiscal year and the prior fiscal year so the
-Overview page can switch between them. Writes ``advancement-overview/latest.json``
-and returns the snapshot so the reporting API can invoke this function on a
-cache miss.
+Reads the published Qlik FY Advancement Overview / FY27 Results sheet via
+the Engine API and writes ``advancement-overview/latest.json``.
 """
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
 import json
+import math
 import os
-import time
-import urllib.error
-import urllib.parse
-import urllib.request
-from collections import defaultdict
 from typing import Any
 
-GIFT_PATH = "/api/Gift/Query"
-FULL_GIFT_PATH = "/api/Gift/Query/FullGift"
-ASK_PATH = "/api/GiftAsk/Query"
-PLEDGE_PATH_V2 = "/api/v2/Pledge/Query"
-PLANNED_PATH = "/api/PlannedGift/Query"
-DESIGNATION_PATH = "/api/GiftDesignation/Query"
-
 CACHE_KEY = os.environ.get("ADVANCEMENT_OVERVIEW_CACHE_KEY") or "advancement-overview/latest.json"
-RETRYABLE = {429, 500, 502, 503, 504}
+QLIK_APP_ID = os.environ.get("QLIK_ADVANCEMENT_APP_ID") or "a62f36c1-266e-4c71-95da-29ec2381a0d8"
+QLIK_SHEET_ID = (
+    os.environ.get("QLIK_ADVANCEMENT_SHEET_ID") or "bda0e031-ed48-4cbb-8539-bd05f0f4a88d"
+)
 
-TOTAL_GOAL = 16_000_000
-UNRESTRICTED_GOAL = 10_000_000
 PLEDGE_GOAL = 30
 ESTATE_GOAL = 25
+RELEASED_NOTE = "Actuals Updated 7/1/2026"
 
-MGO_TEAM = [
-    {"name": "Mark Middendorf", "solicitor": "Mark Middendorf", "goal": 5_000_000},
-    {"name": "Patrick O'Connell", "solicitor": "Patrick O'Connell", "goal": 4_500_000},
-    {"name": "Jim Thomas", "solicitor": "James Thomas", "goal": 3_000_000},
-    {"name": "Marita Emond", "solicitor": "Marita Emond", "goal": 2_000_000},
-    {"name": "Matthew Buzzanca", "solicitor": "Matthew Buzzanca", "goal": 1_000_000},
-    {"name": "Colleen Dolnick", "solicitor": "Colleen Dolnick", "goal": 500_000},
-]
-SOLICITOR_NAMES = {m["solicitor"] for m in MGO_TEAM}
-
-PIPELINE_EXCLUDE = {
-    "Declined (MGO)",
-    "Gift Received (Adv Svcs)",
-    "Prospect Research Review (Adv Svcs)",
+# Object ids on sheet bda0e031-ed48-4cbb-8539-bd05f0f4a88d (FY27 Results).
+OBJECTS = {
+    "endowed": "d0a93133-9236-4933-8dbc-1dd225572e78",
+    "temp_restricted": "4b90dbc0-edcc-4917-8221-f6310daf2541",
+    "unrestricted": "355b9390-952d-41d6-af6a-e67b670c8ef8",
+    "total_received": "cee5075a-98f8-4648-99ac-4491c1a103ec",
+    "released_fy26": "a03e0575-0729-4585-aa1e-a30d9454f4c5",
+    "released_other": "02c7ac29-4f27-4727-ab31-6ad675afb7f2",
+    "released_total": "a3689925-7dac-48fb-bde9-47952104dc82",
+    "pledges": "34666072-edb8-45b4-bfde-89ccc4f6120c",
+    "estate_realized": "b3fd6ee1-20a0-462e-bec3-2705f61a272d",
+    "estate_planned": "51fc6d1b-8be4-4abc-bfaf-43827c2e99c2",
+    "ytd_overall_cur": "2bde9479-5bfa-4b0b-893b-34641a85a1e9",
+    "ytd_mgo_cur": "ee9a037e-6361-4ede-8d2c-5106287875cb",
+    "ytd_donors_cur": "01255dd3-99ff-4aef-a312-fd3a98c3106f",
+    "ytd_overall_prior": "79a6cf1e-30e8-4a62-a711-daa4d63ef2a7",
+    "ytd_mgo_prior": "943c0835-a877-4980-81fb-a1f14d4e7165",
+    "ytd_donors_prior": "fc779d11-8916-4883-9571-16d8c3baff14",
+    "ytd_overall_diff": "749a6810-4b01-414c-b34d-7b76c70d353c",
+    "ytd_mgo_diff": "1870c8b0-ec17-4436-976b-50c11646ab03",
+    "ytd_donors_diff": "87950900-702c-4908-badc-829a8ad63695",
+    "ytd_overall_pct": "219cc17b-04cd-4d3a-8c53-989f00b3f1be",
+    "ytd_mgo_pct": "4ca62d44-a833-4e73-a199-498c1456ea21",
+    "ytd_donors_pct": "095adbd2-a769-4687-adc0-09ab0d463168",
+    "officers": "CaNSN",
+    "pipeline": "3e9c63e3-abe0-4824-a615-cf02eb8e608a",
 }
-PIPELINE_ORDER = [
-    "Cultivation / Gift Ask Strategy (MGO)",
-    "Preparing Proposal / Agreement (MGO)",
-    "Solicitation / Ask (MGO)",
-    "Pending (MGO)",
-    "Accepted (MGO)",
-    "Pending Installment / Annual Gift (MGO)",
-]
-
-
-class VirtuousClient:
-    def __init__(self, api_key: str, base_url: str, timeout: int = 120):
-        self.api_key = api_key
-        self.base_url = base_url.rstrip("/")
-        self.timeout = timeout
-
-    def paged_query(self, path: str, body: dict[str, Any], page_size: int = 1000) -> list[dict]:
-        rows: list[dict] = []
-        skip = 0
-        while True:
-            payload = self._post(path, body, params={"skip": skip, "take": page_size})
-            batch = payload.get("list") or []
-            total = int(payload.get("total") or 0)
-            rows.extend(batch)
-            skip += page_size
-            if not batch or skip >= total:
-                break
-        return rows
-
-    def _post(self, path: str, body: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
-        url = f"{self.base_url}{path}?{urllib.parse.urlencode(params)}"
-        data = json.dumps(body).encode("utf-8")
-        for attempt in range(6):
-            req = urllib.request.Request(
-                url,
-                data=data,
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                },
-                method="POST",
-            )
-            try:
-                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                    return json.loads(resp.read().decode("utf-8"))
-            except urllib.error.HTTPError as exc:
-                if exc.code in RETRYABLE and attempt < 5:
-                    time.sleep(min(30, 2 * (attempt + 1)))
-                    continue
-                detail = exc.read().decode("utf-8", errors="replace")[:500]
-                raise RuntimeError(f"Virtuous {path} → {exc.code}: {detail}") from exc
-        raise RuntimeError(f"Virtuous {path} failed after retries")
-
-
-def _status_key(value: Any) -> str:
-    return " ".join(str(value or "").strip().lower().split())
-
-
-def _num(value: Any) -> float:
-    if value is None or value == "":
-        return 0.0
-    if isinstance(value, (int, float)):
-        return float(value)
-    text = str(value).replace("$", "").replace(",", "").strip()
-    try:
-        return float(text)
-    except ValueError:
-        return 0.0
-
-
-def _parse_date(value: Any) -> dt.date | None:
-    if not value:
-        return None
-    text = str(value).strip()
-    if "T" in text:
-        text = text.split("T", 1)[0]
-    if not text:
-        return None
-    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y"):
-        try:
-            return dt.datetime.strptime(text, fmt).date()
-        except ValueError:
-            continue
-    return None
-
-
-def _custom(gift: dict[str, Any], name: str) -> str | None:
-    for field in gift.get("customFields") or []:
-        if field.get("name") == name:
-            value = field.get("value")
-            return str(value) if value else None
-    return None
 
 
 def fiscal_year_window(today: dt.date) -> tuple[int, dt.date, dt.date]:
@@ -156,344 +64,291 @@ def fiscal_year_window(today: dt.date) -> tuple[int, dt.date, dt.date]:
     return fy, start, end
 
 
-def shift_years(day: dt.date, years: int) -> dt.date:
-    try:
-        return day.replace(year=day.year + years)
-    except ValueError:
-        return dt.date(day.year + years, day.month, 28)
-
-
 def fiscal_year_label(fy: int) -> str:
     return f"FY {fy - 1}-{str(fy)[2:]}"
 
 
-def gauge_label(fy: int) -> str:
-    return f"of {str(fy - 1)[2:]}/{str(fy)[2:]} FY"
+def _is_num(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not (isinstance(value, float) and math.isnan(value))
 
 
-def overview_windows(today: dt.date) -> list[tuple[int, dt.date, dt.date, dt.date]]:
-    """Current FY then prior FY: (fy, start, end, as_of)."""
-    fy, start, end = fiscal_year_window(today)
-    windows = []
-    for offset in (0, 1):
-        year = fy - offset
-        fy_start = shift_years(start, -offset)
-        fy_end = shift_years(end, -offset)
-        windows.append((year, fy_start, fy_end, min(today, fy_end)))
-    return windows
+def _cell_num(cell: dict[str, Any] | None) -> float | None:
+    if not cell:
+        return None
+    value = cell.get("qNum")
+    if not _is_num(value):
+        return None
+    return float(value)
 
 
-def virt_date(day: dt.date) -> str:
-    return f"{day.month}/{day.day}/{day.year}"
+def _cell_text(cell: dict[str, Any] | None) -> str | None:
+    if not cell:
+        return None
+    text = cell.get("qText")
+    if text is None:
+        return None
+    text = str(text).strip()
+    if text in ("", "-", "--"):
+        return None
+    return text
 
 
-def _between(day: dt.date | None, start: dt.date, end: dt.date) -> bool:
-    return day is not None and start <= day <= end
+def _first_cell(layout: dict[str, Any]) -> dict[str, Any] | None:
+    cube = layout.get("qHyperCube") or {}
+    pages = cube.get("qDataPages") or []
+    if pages:
+        matrix = pages[0].get("qMatrix") or []
+        if matrix and matrix[0]:
+            return matrix[0][0]
+    total_row = cube.get("qGrandTotalRow") or []
+    if total_row:
+        return total_row[0]
+    return None
 
 
-def _gift_date(gift: dict[str, Any]) -> dt.date | None:
-    return _parse_date(gift.get("giftDate") or gift.get("giftDateFormatted"))
+def kpi_number(layout: dict[str, Any]) -> float | None:
+    return _cell_num(_first_cell(layout))
 
 
-def _query_since(parameter: str, start: dt.date, extra: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    conditions = [
-        {"parameter": parameter, "operator": "OnOrAfter", "value": virt_date(start)},
-        *(extra or []),
-    ]
-    return {"groups": [{"conditions": conditions}]}
+def kpi_pct(layout: dict[str, Any]) -> float | None:
+    cell = _first_cell(layout)
+    text = _cell_text(cell)
+    if text and "%" in text:
+        try:
+            return float(text.replace("%", "").replace(",", "").strip())
+        except ValueError:
+            pass
+    number = _cell_num(cell)
+    if number is None:
+        return None
+    if abs(number) <= 5:
+        return round(number * 100.0, 1)
+    return number
 
 
-def _delta(cur: float, prv: float) -> dict[str, Any]:
-    diff = cur - prv
-    pct = round(100.0 * diff / prv, 1) if prv else None
+def table_matrix(layout: dict[str, Any]) -> list[list[dict[str, Any]]]:
+    cube = layout.get("qHyperCube") or {}
+    pages = cube.get("qDataPages") or []
+    if not pages:
+        return []
+    return list(pages[0].get("qMatrix") or [])
+
+
+def officer_rows(layout: dict[str, Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    total = 0.0
+    for matrix_row in table_matrix(layout):
+        if len(matrix_row) < 2:
+            continue
+        name = _cell_text(matrix_row[0])
+        amount = _cell_num(matrix_row[1])
+        if not name:
+            continue
+        rows.append({"name": name, "amount": round(amount, 2) if amount is not None else None})
+        if amount is not None:
+            total += amount
+    return [{"name": "Totals", "amount": round(total, 2), "isTotal": True}, *rows]
+
+
+def pipeline_rows(layout: dict[str, Any]) -> tuple[list[dict[str, Any]], float, int]:
+    rows: list[dict[str, Any]] = []
+    total_amount = 0.0
+    total_count = 0
+    for matrix_row in table_matrix(layout):
+        if len(matrix_row) < 3:
+            continue
+        status = _cell_text(matrix_row[0])
+        amount = _cell_num(matrix_row[1])
+        count = _cell_num(matrix_row[2])
+        if not status:
+            continue
+        count_int = int(count) if count is not None else 0
+        rows.append({
+            "status": status,
+            "amount": round(amount, 2) if amount is not None else None,
+            "count": count_int,
+        })
+        if amount is not None:
+            total_amount += amount
+        total_count += count_int
+    return rows, round(total_amount, 2), total_count
+
+
+def _ytd_row(
+    current: float | None,
+    prior: float | None,
+    difference: float | None,
+    pct: float | None,
+) -> dict[str, Any]:
     return {
-        "current": round(cur, 2),
-        "prior": round(prv, 2),
-        "difference": round(diff, 2),
+        "current": None if current is None else round(current, 2),
+        "prior": None if prior is None else round(prior, 2),
+        "difference": None if difference is None else round(difference, 2),
         "pct": pct,
     }
 
 
-def _assemble_year(
+def snapshot_from_layouts(
+    layouts: dict[str, dict[str, Any]],
     *,
-    fy: int,
-    fy_start: dt.date,
-    fy_end: dt.date,
-    as_of: dt.date,
-    gifts: list[dict[str, Any]],
-    designations: list[dict[str, Any]],
-    solicitor_gifts: list[dict[str, Any]],
-    pledges: list[dict[str, Any]],
-    realized: list[dict[str, Any]],
-    planned: list[dict[str, Any]],
-    asks: list[dict[str, Any]],
+    today: dt.date,
+    generated_at: str,
 ) -> dict[str, Any]:
-    prior_start = shift_years(fy_start, -1)
-    prior_as_of = shift_years(as_of, -1)
+    missing = [name for name in OBJECTS if name not in layouts]
+    if missing:
+        raise RuntimeError(f"Qlik overview missing objects: {', '.join(missing)}")
 
-    current_by_id: dict[Any, dict[str, Any]] = {}
-    current_total = 0.0
-    prior_overall = 0.0
-    for gift in gifts:
-        gift_day = _gift_date(gift)
-        amount = _num(gift.get("amount"))
-        if _between(gift_day, fy_start, as_of):
-            current_total += amount
-            current_by_id[gift.get("id")] = gift
-        if _between(gift_day, prior_start, prior_as_of):
-            prior_overall += amount
-
-    unrestricted_gift_ids: set[Any] = set()
-    for row in designations:
-        if (row.get("projectLocation") or "") != "Unrestricted":
-            continue
-        gid = row.get("giftId") or row.get("gift_id")
-        if gid in current_by_id:
-            unrestricted_gift_ids.add(gid)
-    unrestricted_total = 0.0
-    for gid in unrestricted_gift_ids:
-        unrestricted_total += _num(current_by_id[gid].get("amount"))
-
-    mgo_current = 0.0
-    mgo_prior = 0.0
-    by_solicitor: dict[str, float] = defaultdict(float)
-    for gift in solicitor_gifts:
-        name = (_custom(gift, "GFT_Solicitor") or "").strip()
-        if name not in SOLICITOR_NAMES:
-            continue
-        amount = _num(gift.get("amount"))
-        gift_day = _gift_date(gift)
-        if _between(gift_day, fy_start, as_of):
-            mgo_current += amount
-            by_solicitor[name] += amount
-        if _between(gift_day, prior_start, prior_as_of):
-            mgo_prior += amount
-
-    officers = []
-    for row in MGO_TEAM:
-        received = round(by_solicitor.get(row["solicitor"], 0.0), 2)
-        goal = row["goal"]
-        officers.append({
-            "name": row["name"],
-            "solicitor": row["solicitor"],
-            "goal": goal,
-            "received": received,
-            "pctToGoal": round(100.0 * received / goal, 0) if goal else None,
-        })
-
-    cancelled = {"cancelled", "canceled", "writeoff", "write off"}
-    new_pledges = 0
-    for pledge in pledges:
-        if _status_key(pledge.get("status")) in cancelled:
-            continue
-        if _between(_parse_date(pledge.get("pledgeDate")), fy_start, as_of):
-            new_pledges += 1
-
-    realized_count = 0
-    for gift in realized:
-        if _between(_gift_date(gift), fy_start, as_of):
-            realized_count += 1
-    planned_count = 0
-    for row in planned:
-        if _between(_parse_date(row.get("plannedGiftDate")), fy_start, as_of):
-            planned_count += 1
-    estate_count = realized_count + planned_count
-
-    pipeline_map: dict[str, dict[str, Any]] = defaultdict(lambda: {"amount": 0.0, "count": 0})
-    for ask in asks:
-        status = " ".join((ask.get("status") or "").split())
-        if not status or status in PIPELINE_EXCLUDE:
-            continue
-        ask_day = _parse_date(ask.get("askDate") or ask.get("askDateFormatted"))
-        if not _between(ask_day, fy_start, as_of):
-            continue
-        pipeline_map[status]["amount"] += _num(ask.get("askAmount"))
-        pipeline_map[status]["count"] += 1
-    pipeline = []
-    seen: set[str] = set()
-    for status in PIPELINE_ORDER:
-        if status in pipeline_map:
-            row = pipeline_map[status]
-            pipeline.append({
-                "status": status,
-                "amount": round(row["amount"], 2),
-                "count": row["count"],
-            })
-            seen.add(status)
-    for status, row in sorted(pipeline_map.items()):
-        if status in seen:
-            continue
-        pipeline.append({
-            "status": status,
-            "amount": round(row["amount"], 2),
-            "count": row["count"],
-        })
-
-    return {
-        "fiscalYear": fy,
+    fy, _start, _end = fiscal_year_window(today)
+    officers = officer_rows(layouts["officers"])
+    pipe_rows, pipe_amount, pipe_count = pipeline_rows(layouts["pipeline"])
+    snapshot = {
+        "generated_at": generated_at,
+        "source": "qlik",
+        "qlikAppId": QLIK_APP_ID,
+        "qlikSheetId": QLIK_SHEET_ID,
+        "currentFiscalYear": fy,
         "fiscalYearLabel": fiscal_year_label(fy),
-        "gaugeLabel": gauge_label(fy),
-        "fyStart": fy_start.isoformat(),
-        "fyEnd": fy_end.isoformat(),
-        "asOf": as_of.isoformat(),
-        "kpis": {
-            "totalFundraising": {
-                "label": "Total Fundraising",
-                "amount": round(current_total, 2),
-                "goal": TOTAL_GOAL,
-                "pctOfGoal": round(100.0 * current_total / TOTAL_GOAL, 0) if TOTAL_GOAL else None,
-            },
-            "unrestricted": {
-                "label": "Unrestricted Gifts",
-                "amount": round(unrestricted_total, 2),
-                "goal": UNRESTRICTED_GOAL,
-                "pctOfGoal": round(100.0 * unrestricted_total / UNRESTRICTED_GOAL, 1) if UNRESTRICTED_GOAL else None,
-            },
-            "multiYearPledges": {
-                "label": "New Multi-Year Pledges",
-                "count": new_pledges,
-                "goal": PLEDGE_GOAL,
-            },
-            "estateGifts": {
-                "label": "Estate Gifts",
-                "count": estate_count,
-                "goal": ESTATE_GOAL,
-                "realizedBequests": realized_count,
-                "bequestIntentions": planned_count,
-            },
+        "asOf": today.isoformat(),
+        "received": {
+            "endowed": kpi_number(layouts["endowed"]),
+            "temporaryRestricted": kpi_number(layouts["temp_restricted"]),
+            "unrestricted": kpi_number(layouts["unrestricted"]),
+            "total": kpi_number(layouts["total_received"]),
+        },
+        "released": {
+            "fy26": kpi_number(layouts["released_fy26"]),
+            "other": kpi_number(layouts["released_other"]),
+            "total": kpi_number(layouts["released_total"]),
+            "note": RELEASED_NOTE,
+        },
+        "pledges": {
+            "multiYear": kpi_number(layouts["pledges"]),
+            "multiYearGoal": PLEDGE_GOAL,
+            "realizedEstate": kpi_number(layouts["estate_realized"]),
+            "realizedEstateGoal": ESTATE_GOAL,
+            "plannedEstate": kpi_number(layouts["estate_planned"]),
         },
         "ytd": {
-            "overall": _delta(current_total, prior_overall),
-            "mgoTeam": _delta(mgo_current, mgo_prior),
-            "currentYear": fy_start.year,
-            "priorYear": prior_start.year,
+            "currentLabel": f"FY{fy}",
+            "priorLabel": f"FY{fy - 1}",
+            "overall": _ytd_row(
+                kpi_number(layouts["ytd_overall_cur"]),
+                kpi_number(layouts["ytd_overall_prior"]),
+                kpi_number(layouts["ytd_overall_diff"]),
+                kpi_pct(layouts["ytd_overall_pct"]),
+            ),
+            "mgoTeam": _ytd_row(
+                kpi_number(layouts["ytd_mgo_cur"]),
+                kpi_number(layouts["ytd_mgo_prior"]),
+                kpi_number(layouts["ytd_mgo_diff"]),
+                kpi_pct(layouts["ytd_mgo_pct"]),
+            ),
+            "activeDonors": _ytd_row(
+                kpi_number(layouts["ytd_donors_cur"]),
+                kpi_number(layouts["ytd_donors_prior"]),
+                kpi_number(layouts["ytd_donors_diff"]),
+                kpi_pct(layouts["ytd_donors_pct"]),
+            ),
         },
         "officers": officers,
         "pipeline": {
-            "rows": pipeline,
-            "totalAmount": round(sum(r["amount"] for r in pipeline), 2),
-            "totalCount": sum(r["count"] for r in pipeline),
+            "rows": pipe_rows,
+            "totalAmount": pipe_amount,
+            "totalCount": pipe_count,
         },
     }
-
-
-def build_snapshot(client: VirtuousClient, today: dt.date) -> dict[str, Any]:
-    windows = overview_windows(today)
-    oldest = shift_years(windows[0][1], -2)
-    print(f"  fetching gifts since {virt_date(oldest)}…", flush=True)
-    gifts = client.paged_query(GIFT_PATH, _query_since("Gift Date", oldest), 1000)
-    print(f"  gifts: {len(gifts)}", flush=True)
-
-    print("  fetching designations…", flush=True)
-    designations = client.paged_query(
-        DESIGNATION_PATH,
-        _query_since("Gift Date", oldest),
-        1000,
-    )
-    print(f"  designations: {len(designations)}", flush=True)
-
-    print("  fetching MGO solicitor gifts…", flush=True)
-    try:
-        solicitor_gifts = client.paged_query(
-            FULL_GIFT_PATH,
-            _query_since(
-                "Gift Date",
-                oldest,
-                [{"parameter": "GFT_Solicitor", "operator": "IsKnown"}],
-            ),
-            200,
-        )
-    except RuntimeError as exc:
-        print(f"  solicitor query by custom field failed ({exc}); using full-gift date window", flush=True)
-        solicitor_gifts = client.paged_query(
-            FULL_GIFT_PATH,
-            _query_since("Gift Date", oldest),
-            200,
-        )
-    print(f"  solicitor gifts: {len(solicitor_gifts)}", flush=True)
-
-    print("  fetching pledges / estate / asks…", flush=True)
-    # /api/Pledge/Query is RecurringGift, not multi-year pledges. Qlik counts
-    # v2 Pledge rows with Frequency = Annually and pledgeDate in the FY through as-of.
-    pledges = client.paged_query(
-        PLEDGE_PATH_V2,
-        _query_since(
-            "Pledge Date",
-            oldest,
-            [{"parameter": "Frequency", "operator": "Is", "value": "Annually"}],
-        ),
-        200,
-    )
-    realized = client.paged_query(
-        GIFT_PATH,
-        _query_since(
-            "Gift Date",
-            oldest,
-            [{"parameter": "Segment Name", "operator": "Is", "value": "Realized Bequest"}],
-        ),
-        200,
-    )
-    planned = client.paged_query(
-        PLANNED_PATH,
-        {"groups": [{"conditions": [
-            {"parameter": "Segment Name", "operator": "Is", "value": "Bequest Intentions"},
-        ]}]},
-        200,
-    )
-    asks = client.paged_query(ASK_PATH, _query_since("Ask Date", oldest), 500)
-
-    years = [
-        _assemble_year(
-            fy=fy,
-            fy_start=fy_start,
-            fy_end=fy_end,
-            as_of=as_of,
-            gifts=gifts,
-            designations=designations,
-            solicitor_gifts=solicitor_gifts,
-            pledges=pledges,
-            realized=realized,
-            planned=planned,
-            asks=asks,
-        )
-        for fy, fy_start, fy_end, as_of in windows
-    ]
-    current = years[0]
-    snapshot = {
-        "generated_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "source": "virtuous",
-        "currentFiscalYear": current["fiscalYear"],
-        "fiscalYearLabel": current["fiscalYearLabel"],
-        "gaugeLabel": current["gaugeLabel"],
-        "asOf": current["asOf"],
-        "kpis": current["kpis"],
-        "ytd": current["ytd"],
-        "officers": current["officers"],
-        "pipeline": current["pipeline"],
-        "fiscalYears": years,
-    }
     print(
-        f"  {current['fiscalYearLabel']} total={current['kpis']['totalFundraising']['amount']:.2f} "
-        f"unrestricted={current['kpis']['unrestricted']['amount']:.2f} "
-        f"pledges={current['kpis']['multiYearPledges']['count']} "
-        f"estate={current['kpis']['estateGifts']['count']} "
-        f"pipeline={current['pipeline']['totalCount']}",
+        f"  {snapshot['fiscalYearLabel']} total={snapshot['received']['total']} "
+        f"unrestricted={snapshot['received']['unrestricted']} "
+        f"pledges={snapshot['pledges']['multiYear']} "
+        f"estate={snapshot['pledges']['realizedEstate']} "
+        f"pipeline={pipe_count}",
         flush=True,
     )
     return snapshot
 
 
+class QlikEngine:
+    def __init__(self, api_key: str, tenant: str, app_id: str, timeout: int = 30):
+        self.api_key = api_key
+        self.tenant = tenant.rstrip("/")
+        self.app_id = app_id
+        self.timeout = timeout
+
+    async def fetch_layouts(self, object_ids: dict[str, str]) -> dict[str, dict[str, Any]]:
+        import websockets
+
+        url = f"wss://{self.tenant}/app/{self.app_id}"
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        mid = 0
+
+        async with websockets.connect(
+            url,
+            additional_headers=headers,
+            open_timeout=20,
+            max_size=None,
+        ) as ws:
+            await asyncio.wait_for(ws.recv(), timeout=15)
+
+            async def rpc(method: str, handle: int, params: dict[str, Any]) -> dict[str, Any]:
+                nonlocal mid
+                mid += 1
+                message_id = mid
+                await ws.send(
+                    json.dumps({
+                        "jsonrpc": "2.0",
+                        "id": message_id,
+                        "method": method,
+                        "handle": handle,
+                        "params": params,
+                    })
+                )
+                while True:
+                    raw = await asyncio.wait_for(ws.recv(), timeout=self.timeout)
+                    resp = json.loads(raw)
+                    if resp.get("id") != message_id:
+                        continue
+                    if "error" in resp:
+                        raise RuntimeError(
+                            f"Qlik {method} failed: {json.dumps(resp['error'])[:400]}"
+                        )
+                    return resp
+
+            opened = await rpc("OpenDoc", -1, {"qDocName": self.app_id})
+            doc = ((opened.get("result") or {}).get("qReturn") or {})
+            doc_handle = doc.get("qHandle")
+            if not doc_handle:
+                raise RuntimeError("Qlik OpenDoc did not return a document handle")
+
+            layouts: dict[str, dict[str, Any]] = {}
+            for name, object_id in object_ids.items():
+                got = await rpc("GetObject", doc_handle, {"qId": object_id})
+                handle = ((got.get("result") or {}).get("qReturn") or {}).get("qHandle")
+                if not handle:
+                    raise RuntimeError(f"Qlik GetObject missed {name} ({object_id})")
+                laid = await rpc("GetLayout", handle, {})
+                layout = (laid.get("result") or {}).get("qLayout")
+                if not isinstance(layout, dict):
+                    raise RuntimeError(f"Qlik GetLayout empty for {name} ({object_id})")
+                layouts[name] = layout
+            return layouts
+
+
+def build_snapshot(layouts: dict[str, dict[str, Any]], today: dt.date) -> dict[str, Any]:
+    generated_at = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return snapshot_from_layouts(layouts, today=today, generated_at=generated_at)
+
+
 def handler(event: dict[str, Any] | None = None, context: Any = None) -> dict[str, Any]:
     del event, context
-    key = (os.environ.get("VIRTUOUS_API_KEY") or os.environ.get("API_KEY") or "").strip()
-    if not key:
-        raise RuntimeError("VIRTUOUS_API_KEY is required")
-    client = VirtuousClient(
-        key,
-        os.environ.get("VIRTUOUS_BASE_URL") or "https://api.virtuoussoftware.com",
-        timeout=180,
-    )
-    snapshot = build_snapshot(client, dt.datetime.now(dt.timezone.utc).date())
+    api_key = (os.environ.get("QLIK_API_KEY") or "").strip()
+    tenant = (os.environ.get("QLIK_TENANT") or "").strip()
+    if not api_key or not tenant:
+        raise RuntimeError("QLIK_API_KEY and QLIK_TENANT are required")
+    print(f"  fetching Qlik app {QLIK_APP_ID} sheet {QLIK_SHEET_ID}…", flush=True)
+    engine = QlikEngine(api_key, tenant, QLIK_APP_ID)
+    layouts = asyncio.run(engine.fetch_layouts(OBJECTS))
+    snapshot = build_snapshot(layouts, dt.datetime.now(dt.timezone.utc).date())
     from common.s3util import put_json
 
     uri = put_json(CACHE_KEY, snapshot)

@@ -1,14 +1,12 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import {
   barFill,
-  gaugeCopy,
-  hasFiscalYears,
+  count,
+  isOverviewReady,
   pct,
-  pickYear,
   usd,
   type AdvancementOverviewSnapshot,
   type OfficerRow,
@@ -17,53 +15,11 @@ import {
 import "@/styles/annunciation.css";
 import "@/styles/advancement-overview.css";
 
-function deltaClass(n: number): string {
+function deltaClass(n: number | null | undefined): string {
+  if (n == null) return "";
   if (n > 0) return "ao-pos";
   if (n < 0) return "ao-neg";
   return "";
-}
-
-function goalBarColor(n: number | null | undefined): string {
-  const v = n ?? 0;
-  if (v >= 100) return "#2f7a48";
-  if (v >= 70) return "#4fa56a";
-  if (v >= 40) return "#8ecf96";
-  return "#c5e6c8";
-}
-
-function parseFy(raw: string | null): number | null {
-  if (!raw) return null;
-  const n = Number(raw);
-  return Number.isInteger(n) && n > 1990 && n < 2100 ? n : null;
-}
-
-function Gauge({ value, subtitle }: { value: number | null | undefined; subtitle: string }) {
-  const shown = value ?? 0;
-  const r = 52;
-  const c = 2 * Math.PI * r;
-  const filled = (barFill(shown) / 100) * c;
-  return (
-    <svg viewBox="0 0 140 140" aria-hidden="true">
-      <circle cx="70" cy="70" r={r} fill="none" stroke="#e6eee8" strokeWidth="12" />
-      <circle
-        cx="70"
-        cy="70"
-        r={r}
-        fill="none"
-        stroke="#4fa56a"
-        strokeWidth="12"
-        strokeLinecap="round"
-        strokeDasharray={`${filled} ${c}`}
-        transform="rotate(-90 70 70)"
-      />
-      <text className="ao-gauge-pct" x="70" y="68" textAnchor="middle">
-        {pct(value, 0)}
-      </text>
-      <text className="ao-gauge-sub" x="70" y="86" textAnchor="middle">
-        {subtitle}
-      </text>
-    </svg>
-  );
 }
 
 function VBar({
@@ -83,17 +39,22 @@ function VBar({
         <div className="ao-vbar-fill" style={{ height: `${barFill((n / goal) * 100)}%` }} />
       </div>
       <div className="ao-vbar-min">0</div>
-      <div className="ao-vbar-value">{value ?? "—"}</div>
+      <div className="ao-vbar-value">{value == null ? "--" : count(value)}</div>
       <div className="ao-vbar-label">{label}</div>
     </div>
   );
 }
 
+function MoneyKpi({ label, amount }: { label: string; amount: number | null | undefined }) {
+  return (
+    <div>
+      <div className="ao-kpi-label">{label}</div>
+      <div className="ao-kpi-value">{usd(amount)}</div>
+    </div>
+  );
+}
+
 function AdvancementOverviewPage() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const requestedFy = parseFy(searchParams.get("fy"));
   const [data, setData] = useState<AdvancementOverviewSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -136,24 +97,13 @@ function AdvancementOverviewPage() {
     };
   }, []);
 
-  const years = data?.fiscalYears ?? [];
-  const view = pickYear(data, requestedFy);
-  const selectedFy = view?.fiscalYear ?? requestedFy;
-  const k = view?.kpis;
-  const ytd = view?.ytd;
-  const officers = view?.officers ?? [];
-  const pipeline = view?.pipeline;
-  const currentYear = ytd?.currentYear ?? 2025;
-  const priorYear = ytd?.priorYear ?? 2024;
-
-  function selectFy(fy: number) {
-    const params = new URLSearchParams(searchParams.toString());
-    const current = data?.currentFiscalYear ?? years[0]?.fiscalYear;
-    if (current != null && fy === current) params.delete("fy");
-    else params.set("fy", String(fy));
-    const query = params.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-  }
+  const ready = isOverviewReady(data);
+  const received = data?.received;
+  const released = data?.released;
+  const pledges = data?.pledges;
+  const ytd = data?.ytd;
+  const officers = data?.officers ?? [];
+  const pipeline = data?.pipeline;
 
   return (
     <main className="ac-page ao-page">
@@ -161,25 +111,11 @@ function AdvancementOverviewPage() {
         <div>
           <h1>Advancement Overview</h1>
           <p className="ac-sub">
-            {view?.fiscalYearLabel ?? "FY"} results from Virtuous
+            {data?.fiscalYearLabel ?? "FY"} Results from Qlik
             {data?.generated_at ? ` · updated ${data.generated_at}` : ""}.
           </p>
         </div>
         <div className="ao-head-actions">
-          {hasFiscalYears(data) && selectedFy != null && (
-            <div className="ao-fy-switch" role="group" aria-label="Fiscal year">
-              {years.map((year) => (
-                <button
-                  key={year.fiscalYear}
-                  type="button"
-                  aria-pressed={year.fiscalYear === selectedFy}
-                  onClick={() => selectFy(year.fiscalYear)}
-                >
-                  {year.fiscalYearLabel}
-                </button>
-              ))}
-            </div>
-          )}
           <button type="button" className="ac-refresh" onClick={load} disabled={loading}>
             {loading ? "Loading…" : "Refresh"}
           </button>
@@ -192,41 +128,53 @@ function AdvancementOverviewPage() {
         </div>
       )}
 
-      {!error && (
+      {!error && ready && (
         <>
           <div className="ao-top">
             <section className="ao-card">
-              <div className="ao-card-body ao-fund">
-                <div>
-                  <div className="ao-kpi-label">Total Fundraising</div>
-                  <div className="ao-kpi-value">{usd(k?.totalFundraising.amount)}</div>
-                </div>
-                <div>
-                  <div className="ao-kpi-label">Unrestricted Gifts</div>
-                  <div className="ao-kpi-value">{usd(k?.unrestricted.amount)}</div>
-                  <div className="ao-kpi-goal">Goal: {usd(k?.unrestricted.goal)}</div>
-                </div>
-                <div className="ao-gauge">
-                  <Gauge
-                    value={k?.totalFundraising.pctOfGoal}
-                    subtitle={view ? gaugeCopy(view) : "of FY"}
-                  />
-                </div>
+              <header className="ao-panel-head">
+                <h2>FY27 Received Gifts</h2>
+                <p>Business Fund Designation</p>
+              </header>
+              <div className="ao-card-body ao-received">
+                <MoneyKpi label="FY27 Endowed" amount={received?.endowed} />
+                <MoneyKpi label="FY27 Temporary Restricted" amount={received?.temporaryRestricted} />
+                <MoneyKpi label="FY27 Unrestricted" amount={received?.unrestricted} />
+                <MoneyKpi label="FY27 Total Received Gifts" amount={received?.total} />
               </div>
             </section>
 
             <section className="ao-card">
-              <div className="ao-vbars">
+              <header className="ao-panel-head">
+                <h2>FY27 Released Restricted Funds</h2>
+                <p>{released?.note ?? "Actuals Updated 7/1/2026"}</p>
+              </header>
+              <div className="ao-card-body ao-released">
+                <MoneyKpi label="FY26 Released Restricted" amount={released?.fy26} />
+                <MoneyKpi label="Other Released Restricted" amount={released?.other} />
+                <MoneyKpi label="FY27 Total Released Restricted" amount={released?.total} />
+              </div>
+            </section>
+
+            <section className="ao-card">
+              <header className="ao-panel-head">
+                <h2>FY27 Pledges & Planned Giving</h2>
+              </header>
+              <div className="ao-vbars ao-vbars-3">
                 <VBar
-                  value={k?.multiYearPledges.count}
-                  goal={k?.multiYearPledges.goal ?? 30}
+                  value={pledges?.multiYear}
+                  goal={pledges?.multiYearGoal ?? 30}
                   label="New Multi-Year Pledges"
                 />
                 <VBar
-                  value={k?.estateGifts.count}
-                  goal={k?.estateGifts.goal ?? 25}
-                  label="Estate Gifts"
+                  value={pledges?.realizedEstate}
+                  goal={pledges?.realizedEstateGoal ?? 25}
+                  label="FY27 Realized Estate Gifts"
                 />
+                <div className="ao-planned">
+                  <div className="ao-kpi-label">FY27 Planned Estate Gifts</div>
+                  <div className="ao-kpi-value">{count(pledges?.plannedEstate)}</div>
+                </div>
               </div>
             </section>
           </div>
@@ -235,16 +183,17 @@ function AdvancementOverviewPage() {
             <table className="ao-table ao-ytd-table">
               <thead>
                 <tr>
-                  <th>YTD Actuals</th>
-                  <th className="ao-num">{currentYear}</th>
-                  <th className="ao-num">{priorYear}</th>
+                  <th>FY27 vs. FY26 YTD Actuals</th>
+                  <th className="ao-num">{ytd?.currentLabel ?? "FY2027"}</th>
+                  <th className="ao-num">{ytd?.priorLabel ?? "FY2026"}</th>
                   <th className="ao-num">Difference</th>
                   <th className="ao-num">Percentage</th>
                 </tr>
               </thead>
               <tbody>
-                <YtdLine label="MGO Team" row={ytd?.mgoTeam} />
-                <YtdLine label="Overall" row={ytd?.overall} />
+                <YtdLine label="Overall" row={ytd?.overall} kind="money" />
+                <YtdLine label="MGO Team" row={ytd?.mgoTeam} kind="money" />
+                <YtdLine label="Active Donors" row={ytd?.activeDonors} kind="count" />
               </tbody>
             </table>
           </section>
@@ -252,40 +201,28 @@ function AdvancementOverviewPage() {
           <div className="ao-bottom">
             <section className="ao-card">
               <header className="ao-panel-head">
-                <h2>Individual Goals</h2>
-                <p>Major Gift Officers</p>
+                <h2>Individual Fundraising Results</h2>
+                <p>Gift Officers | FY27 Overview</p>
               </header>
               <table className="ao-table">
                 <thead>
                   <tr>
-                    <th>MGO</th>
-                    <th className="ao-num">Goal</th>
-                    <th className="ao-num">% to Goal</th>
+                    <th>Gift Officer</th>
+                    <th className="ao-num">FY27 Total Gifts</th>
                   </tr>
                 </thead>
                 <tbody>
                   {officers.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="ao-empty">
+                      <td colSpan={2} className="ao-empty">
                         {loading ? "Loading…" : "No officer totals."}
                       </td>
                     </tr>
                   )}
                   {officers.map((o: OfficerRow) => (
-                    <tr key={o.solicitor}>
+                    <tr key={o.name} className={o.isTotal ? "ao-total-row" : undefined}>
                       <td>{o.name}</td>
-                      <td className="ao-num">{usd(o.goal)}</td>
-                      <td className="ao-num" style={{ padding: 0, width: "34%" }}>
-                        <div className="ao-goal-bar">
-                          <span
-                            style={{
-                              width: `${barFill(o.pctToGoal)}%`,
-                              background: goalBarColor(o.pctToGoal),
-                            }}
-                          />
-                          <em>{pct(o.pctToGoal, 0)}</em>
-                        </div>
-                      </td>
+                      <td className="ao-num">{usd(o.amount)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -305,10 +242,10 @@ function AdvancementOverviewPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
+                  <tr className="ao-total-row">
                     <td>Totals</td>
                     <td className="ao-num">{usd(pipeline?.totalAmount)}</td>
-                    <td className="ao-num">{pipeline?.totalCount ?? "—"}</td>
+                    <td className="ao-num">{pipeline?.totalCount ?? "--"}</td>
                   </tr>
                   {(pipeline?.rows ?? []).map((r) => (
                     <tr key={r.status}>
@@ -323,36 +260,37 @@ function AdvancementOverviewPage() {
           </div>
         </>
       )}
+
+      {!error && !ready && !loading && (
+        <div className="ac-error">
+          <p>Advancement overview cache is not a Qlik snapshot yet. Wait for the next refresh.</p>
+        </div>
+      )}
     </main>
   );
 }
 
-function YtdLine({ label, row }: { label: string; row?: YtdRow }) {
+function YtdLine({
+  label,
+  row,
+  kind,
+}: {
+  label: string;
+  row?: YtdRow;
+  kind: "money" | "count";
+}) {
+  const fmt = kind === "count" ? count : usd;
   return (
     <tr>
       <td>{label}</td>
-      <td className="ao-num ao-now">{usd(row?.current)}</td>
-      <td className="ao-num">{usd(row?.prior)}</td>
-      <td className={`ao-num ${row ? deltaClass(row.difference) : ""}`}>
-        {usd(row?.difference)}
-      </td>
-      <td className={`ao-num ${row?.pct != null ? deltaClass(row.pct) : ""}`}>
-        {pct(row?.pct)}
-      </td>
+      <td className="ao-num ao-now">{fmt(row?.current)}</td>
+      <td className="ao-num">{fmt(row?.prior)}</td>
+      <td className={`ao-num ${deltaClass(row?.difference)}`}>{fmt(row?.difference)}</td>
+      <td className={`ao-num ${row?.pct != null ? deltaClass(row.pct) : ""}`}>{pct(row?.pct)}</td>
     </tr>
   );
 }
 
 export default function AdvancementOverviewRoute() {
-  return (
-    <Suspense
-      fallback={
-        <main className="ac-page ao-page">
-          <p className="ac-sub">Loading…</p>
-        </main>
-      }
-    >
-      <AdvancementOverviewPage />
-    </Suspense>
-  );
+  return <AdvancementOverviewPage />;
 }

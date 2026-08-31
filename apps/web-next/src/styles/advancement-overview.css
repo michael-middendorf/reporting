@@ -3,8 +3,6 @@
   --ao-navy-2: #16325c;
   --ao-gold: #c47a22;
   --ao-green: #3f8f5b;
-  --ao-green-mid: #6fba7a;
-  --ao-green-lt: #c5e6c8;
   --ao-track: #e4ebe4;
   --ao-red: #c44536;
   --ao-muted: #6b7c93;
@@ -23,43 +21,9 @@
   align-items: center;
 }
 
-.ao-fy-switch {
-  display: inline-flex;
-  border: 1px solid var(--ao-line);
-  border-radius: 8px;
-  overflow: hidden;
-  background: #fff;
-}
-
-.ao-fy-switch button {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--ao-navy);
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.ao-fy-switch button + button {
-  border-left: 1px solid var(--ao-line);
-}
-
-.ao-fy-switch button[aria-pressed="true"] {
-  background: var(--ao-navy);
-  color: #fff;
-}
-
-.ao-fy-switch button:focus-visible {
-  outline: 2px solid var(--ao-gold);
-  outline-offset: -2px;
-}
-
 .ao-top {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.9fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(280px, 0.95fr);
   gap: 16px;
   margin-bottom: 16px;
 }
@@ -75,11 +39,18 @@
   padding: 22px 24px 20px;
 }
 
-.ao-fund {
+.ao-received,
+.ao-released {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 148px;
-  gap: 12px 20px;
-  align-items: center;
+  gap: 16px 20px;
+}
+
+.ao-received {
+  grid-template-columns: 1fr 1fr;
+}
+
+.ao-released {
+  grid-template-columns: 1fr;
 }
 
 .ao-kpi-label {
@@ -90,49 +61,24 @@
 }
 
 .ao-kpi-value {
-  font-size: clamp(26px, 2.4vw, 34px);
+  font-size: clamp(22px, 2.1vw, 32px);
   font-weight: 700;
   color: var(--ao-gold);
   letter-spacing: -0.02em;
   line-height: 1.05;
 }
 
-.ao-kpi-goal {
-  margin-top: 10px;
-  font-size: 13px;
-  color: var(--ao-muted);
-}
-
-.ao-gauge {
-  width: 148px;
-  justify-self: end;
-}
-
-.ao-gauge svg {
-  display: block;
-  width: 148px;
-  height: 148px;
-}
-
-.ao-gauge-pct {
-  font-size: 22px;
-  font-weight: 700;
-  fill: var(--ao-gold);
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-}
-
-.ao-gauge-sub {
-  font-size: 10px;
-  fill: var(--ao-muted);
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-}
-
 .ao-vbars {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px 28px;
+  gap: 8px 20px;
   min-height: 168px;
-  padding: 8px 28px 12px;
+  padding: 8px 20px 12px;
+}
+
+.ao-vbars-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: stretch;
 }
 
 .ao-vbar {
@@ -177,7 +123,7 @@
 .ao-vbar-value {
   grid-column: 1 / -1;
   text-align: center;
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--ao-gold);
   line-height: 1.1;
@@ -187,10 +133,22 @@
 .ao-vbar-label {
   grid-column: 1 / -1;
   text-align: center;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--ao-navy);
   line-height: 1.25;
+}
+
+.ao-planned {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 12px 8px 20px;
+  text-align: center;
+}
+
+.ao-planned .ao-kpi-value {
+  font-size: 40px;
 }
 
 .ao-ytd {
@@ -230,7 +188,7 @@
   text-align: left;
   font-size: 16px;
   font-weight: 700;
-  width: 22%;
+  width: 28%;
 }
 
 .ao-ytd-table tbody td:first-child {
@@ -271,31 +229,9 @@
   opacity: 0.78;
 }
 
-.ao-goal-bar {
-  position: relative;
-  min-width: 88px;
-  height: 28px;
-  background: #f3f6f3;
-  overflow: hidden;
-}
-
-.ao-goal-bar > span {
-  display: block;
-  height: 100%;
-}
-
-.ao-goal-bar em {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 0 10px;
-  font-style: normal;
-  font-size: 13px;
+.ao-total-row td {
   font-weight: 700;
   color: var(--ao-navy);
-  font-variant-numeric: tabular-nums;
 }
 
 .ao-pipe-table tbody tr:first-child td {
@@ -309,13 +245,17 @@
   padding: 28px 14px;
 }
 
+@media (max-width: 1100px) {
+  .ao-top {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media (max-width: 980px) {
   .ao-top,
   .ao-bottom,
-  .ao-fund {
+  .ao-received,
+  .ao-vbars-3 {
     grid-template-columns: 1fr;
-  }
-  .ao-gauge {
-    justify-self: center;
   }
 }

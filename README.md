@@ -14,7 +14,7 @@ Remote: https://github.com/colecantu904/reporting
 | `/housing` | Housing occupancy, floor maps, move-ins, verification |
 | `/institute` | The Institute admissions pipeline |
 | `/advancement` | Advancement folder (Overview, MGO Top Prospects, Annunciation Circle, Chapel Naming, Stained Glass) |
-| `/advancement/overview` | Advancement Overview (fundraising, MGO goals, pipeline; this FY and last FY) |
+| `/advancement/overview` | Advancement Overview (Qlik FY Results: received gifts, pledges, YTD, officers, pipeline) |
 | `/advancement/mgo-top-prospects` | FY MGO top prospects: open gift asks by portfolio, with named donors |
 | `/advancement/chapel-naming` | Chapel naming opportunities (Virtuous gifts + naming catalog) |
 | `/advancement/stained-glass-windows` | Named chapel stained-glass windows (rose, sanctuary, nave) with donors |
