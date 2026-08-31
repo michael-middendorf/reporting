@@ -44,11 +44,13 @@ CLASS_MAP = {
     "NDEG": "NDEG",
 }
 
+# Religion = detailed label. Cath/Chris/Other = FA25 grouping (Catholic includes Eastern Rite).
 RELIGION_MAP = {
     "CATH": ("Catholic", "Catholic"),
-    "CHRI": ("Christian", "Christian"),
-    "ECAT": ("Eastern Rite Catholic", "Eastern Rite Catholic"),
-    "OTH": ("Other", "Other"),
+    "CHRI": ("Christian", "Non-Catholic"),
+    "ECAT": ("Eastern Rite Catholic", "Catholic"),
+    "OTH": ("Other", "Non-Catholic"),
+    "NONE": ("-", "Non-Catholic"),
 }
 
 GENDER_MAP = {"M": "Male", "F": "Female", "MALE": "Male", "FEMALE": "Female"}
@@ -267,6 +269,11 @@ def apply_residency_overlay(registered_rows: list[dict], extra: dict[str, dict])
 
 def load_eot_gpa(paths: list[Path]) -> dict[str, float]:
     """Latest cumulative GPA by PCID (prefer higher earned credits)."""
+    return {k: v[0] for k, v in load_eot(paths).items()}
+
+
+def load_eot(paths: list[Path]) -> dict[str, tuple[float, float]]:
+    """Latest cumulative GPA and earned credits by PCID (prefer higher earned credits)."""
     best: dict[str, tuple[float, float]] = {}
     for path in paths:
         if not path.exists():
@@ -288,7 +295,7 @@ def load_eot_gpa(paths: list[Path]) -> dict[str, float]:
             prev = best.get(pid)
             if prev is None or earned_n >= prev[1]:
                 best[pid] = (gpa_n, earned_n)
-    return {k: v[0] for k, v in best.items()}
+    return best
 
 
 def load_honors(path: Path) -> set[str]:
@@ -506,14 +513,18 @@ def main() -> None:
     for path in RESIDENCY_OVERLAYS:
         residency_overlay.update(load_residency_overlay(path))
     apply_residency_overlay(registered_rows, residency_overlay)
-    eot = load_eot_gpa(EOT_FILES)
+    eot = load_eot(EOT_FILES)
+    eot_gpa = {k: v[0] for k, v in eot.items()}
+    eot_earned = {k: v[1] for k, v in eot.items()}
     honors = load_honors(HONORS)
     scholar_emails, scholar_names, scholar_rows = load_institute_scholars(SCHOLARS)
     slate = load_slate_sports(SLATE_ATHLETES)
     prior = load_prior(PRIOR)
     for s in prior:
-        if s["pcid"] in eot:
-            s["gpa"] = eot[s["pcid"]]
+        if s["pcid"] in eot_gpa:
+            s["gpa"] = eot_gpa[s["pcid"]]
+        if s["pcid"] in eot_earned:
+            s["earnedCredits"] = eot_earned[s["pcid"]]
     prior_ids = {norm(s["pcid"]) for s in prior}
     ireland_ids = load_ireland_pcids() | {
         pid for pid, row in residency_overlay.items() if "ireland" in str(row.get("session") or "").lower()
@@ -526,11 +537,10 @@ def main() -> None:
     for r in registered_rows:
         pid = r["pcid"]
         gender = GENDER_MAP.get(r["genderRaw"].upper(), r["genderRaw"] or "")
-        rel, cath = RELIGION_MAP.get(r["religionRaw"].upper(), (r["religionRaw"] or "-", "Non-Catholic" if r["religionRaw"] else "-"))
-        if rel in {"Catholic", "Eastern Rite Catholic"}:
-            cath = rel
-        elif rel in {"Christian", "Other"}:
-            cath = rel
+        rel, cath = RELIGION_MAP.get(
+            r["religionRaw"].upper(),
+            (r["religionRaw"] or "-", "Non-Catholic" if r["religionRaw"] else "-"),
+        )
         slate_row = slate.get(pid, {})
         sport = slate_row.get("sport") or ""
         in_ireland = norm(pid) in ireland_ids or "ireland" in str(r.get("session") or "").lower()
@@ -553,7 +563,7 @@ def main() -> None:
         else:
             residency = ""
         honors_val = "Hons" if pid in honors else ""
-        gpa = eot.get(pid, r["gpa"])
+        gpa = eot_gpa.get(pid, r["gpa"])
         institute = r.get("institute") or ""
         email = (r.get("email") or "").strip()
         namekey = ((r.get("first") or "").strip().lower(), (r.get("last") or "").strip().lower())
@@ -609,10 +619,11 @@ def main() -> None:
     for s in prior:
         if norm(s["pcid"]) in registered_ids or norm(s["pcid"]) in grad_ids:
             continue
-        gpa = eot.get(s["pcid"], s.get("gpa") or "-")
+        gpa = eot_gpa.get(s["pcid"], s.get("gpa") or "-")
         honors_val = "Hons" if s["pcid"] in honors or str(s.get("honors") or "").lower() not in {"", "-", "none"} else s.get("honors") or ""
         if s["pcid"] in honors:
             honors_val = "Hons"
+        earned = eot_earned.get(s["pcid"], s.get("earnedCredits") or "")
         unretained.append(
             {
                 "pcid": s["pcid"],
@@ -632,6 +643,8 @@ def main() -> None:
                 "collegeAttend": s.get("collegeAttend") or "-",
                 "incomingReturning": s.get("incomingReturning") or "-",
                 "program": s.get("program") or "",
+                "credits": s.get("credits") if s.get("credits") not in (None, "") else "",
+                "earnedCredits": earned if earned not in (None, "") else "",
             }
         )
 
@@ -692,7 +705,7 @@ def main() -> None:
         f"unretained {len(unretained)} UG-DS {len(ug)} with EOT GPA {n_gpa}\n"
         f"ireland {n_ire} returning {n_ire_ret}\n"
         f"slate sports {sum(1 for v in slate.values() if v.get('sport'))}\n"
-        f"honors file {len(honors)} eot gpas {len(eot)} scholar roster {len(scholar_emails)} unmatched {len(unmatched_scholars)}"
+        f"honors file {len(honors)} eot gpas {len(eot_gpa)} scholar roster {len(scholar_emails)} unmatched {len(unmatched_scholars)}"
     )
     if unmatched_scholars:
         print("unmatched scholars:", "; ".join(unmatched_scholars))

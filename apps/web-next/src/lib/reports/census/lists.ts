@@ -4,19 +4,26 @@ import { readJsonObject } from "../housing/store";
 import type { HousingAssignmentRow } from "./residency";
 import {
   dropNonCensusSports,
+  S26_LOA_ROSTER,
   type CensusRawStudent,
+  type LoaStudent,
   type UnretainedStudent,
 } from "./lists-core";
 
 export {
+  attachLoaStatus,
   deriveUnretained,
   dropNonCensusSports,
   isDroppedCensusSport,
   isInterveningGraduate,
   isUgDegreeSeekingRow,
   normPcid,
+  S26_LOA_ROSTER,
   type CensusLists,
   type CensusRawStudent,
+  type LoaStudent,
+  type LoaStatus,
+  type LoaWithStatus,
   type UnretainedStudent,
 } from "./lists-core";
 
@@ -24,6 +31,7 @@ export const CENSUS_STUDENTS_KEY = "cache/census/students.json";
 export const CENSUS_UNRETAINED_KEY = "cache/census/unretained.json";
 export const CENSUS_PRIOR_KEY = "cache/census/prior.json";
 export const CENSUS_GRADUATES_KEY = "cache/census/graduates.json";
+export const CENSUS_LOA_KEY = "cache/census/loa.json";
 
 type Wrapped<T> = { students?: T[]; count?: number };
 
@@ -92,7 +100,9 @@ export function applyErezResidency(
       ? "Mont Mallary"
       : isIrelandHousing(hit)
         ? "Ireland"
-        : hit.residency;
+        : hit.residency === "Resident"
+          ? "On Campus"
+          : hit.residency;
     return { ...s, residency };
   });
   return markIrelandReturning(withResidency, housing);
@@ -116,5 +126,8 @@ export async function loadCensusLists(): Promise<import("./lists-core").CensusLi
       join(localDir, "graduates.json"),
     );
   }
-  return { students: dropNonCensusSports(students), unretained, prior, graduates };
+  let loa = await fromS3<LoaStudent>(CENSUS_LOA_KEY);
+  if (!loa.length) loa = fromFile<LoaStudent>(join(localDir, "loa.json"));
+  if (!loa.length) loa = S26_LOA_ROSTER;
+  return { students: dropNonCensusSports(students), unretained, prior, graduates, loa };
 }

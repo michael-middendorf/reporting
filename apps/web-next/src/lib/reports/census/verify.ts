@@ -116,7 +116,7 @@ export function buildVerifyList(
         pcid: s.pcid,
         first: s.first,
         last: s.last,
-        detail: `${s.classLevel} ${s.collegeAttend} GPA ${s.gpa ?? "—"} sport ${s.sport || "—"}`,
+        detail: `${s.classLevel} ${s.collegeAttend} GPA ${s.gpa ?? "—"} earned cr ${s.earnedCredits || "—"} FA25 cr ${s.credits || "—"} sport ${s.sport || "—"}`,
       });
     }
     if (h && hasRoom(h)) {

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { SheetTable, fmtN } from "@/components/census/Sheet";
-import type { CensusRawStudent, UnretainedStudent } from "@/lib/reports/census/lists-core";
+import type { CensusRawStudent, LoaWithStatus, UnretainedStudent } from "@/lib/reports/census/lists-core";
 import type { FtcaRawRow, SportRetentionRow } from "@/lib/reports/census/retention";
 import type { VerifyRow } from "@/lib/reports/census/verify";
 
@@ -59,8 +59,20 @@ export function RawDataSheet({ students }: { students: CensusRawStudent[] }) {
   );
 }
 
+function isSeniorClass(classLevel: string | undefined): boolean {
+  return /senior|^sr$/i.test(classLevel || "");
+}
+
 export function UnretainedSheet({ students }: { students: UnretainedStudent[] }) {
   const [q, setQ] = useState("");
+  const seniors = useMemo(
+    () =>
+      students
+        .filter((s) => isSeniorClass(s.classLevel) && (s.program || "UNDERG") === "UNDERG")
+        .slice()
+        .sort((a, b) => Number(b.earnedCredits || 0) - Number(a.earnedCredits || 0) || a.last.localeCompare(b.last)),
+    [students],
+  );
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const list = needle ? students.filter((s) => haystack(s as unknown as Record<string, unknown>).includes(needle)) : students;
@@ -70,6 +82,8 @@ export function UnretainedSheet({ students }: { students: UnretainedStudent[] })
       s.last,
       s.retention,
       s.gpa,
+      s.earnedCredits ?? "—",
+      s.credits ?? "—",
       s.sport || "—",
       s.program || "",
       s.collegeAttend,
@@ -83,17 +97,53 @@ export function UnretainedSheet({ students }: { students: UnretainedStudent[] })
     <div className="sheet">
       <div className="sheet-head">
         <h2>All Not Retained</h2>
-        <p className="sheet-n">{fmtN(students.length)} Fall 2025 census students not registered Fall 2026 and not 2025–26 graduates</p>
+        <p className="sheet-n">
+          {fmtN(students.length)} Fall 2025 census students not registered Fall 2026 and not 2025–26 graduates
+          {students.filter((s) => /senior|^sr$/i.test(s.classLevel || "")).length
+            ? ` · ${fmtN(students.filter((s) => /senior|^sr$/i.test(s.classLevel || "")).length)} seniors`
+            : ""}
+        </p>
       </div>
       {!students.length ? (
         <p className="note">Unretained list is not published yet.</p>
       ) : (
         <>
+          {seniors.length > 0 && (
+            <SheetTable
+              title="Unretained seniors — confirm they did not graduate"
+              headers={["PCID", "First", "Last", "GPA", "Earned credits", "FA25 credits", "Sport", "College"]}
+              rows={seniors.map((s) => [
+                s.pcid,
+                s.first,
+                s.last,
+                s.gpa,
+                s.earnedCredits ?? "—",
+                s.credits ?? "—",
+                s.sport || "—",
+                s.collegeAttend,
+              ])}
+            />
+          )}
           <input className="sheet-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, PCID, sport…" />
           <SheetTable
             title=""
             scroll
-            headers={["PCID", "First", "Last", "Retention", "GPA", "FA25 Sport", "Program", "College", "Class", "Gender", "Religion", "State"]}
+            headers={[
+              "PCID",
+              "First",
+              "Last",
+              "Retention",
+              "GPA",
+              "Earned credits",
+              "FA25 credits",
+              "FA25 Sport",
+              "Program",
+              "College",
+              "Class",
+              "Gender",
+              "Religion",
+              "State",
+            ]}
             rows={rows}
           />
         </>
@@ -136,6 +186,83 @@ export function FtcaRawSheet({ rows }: { rows: FtcaRawRow[] }) {
             title=""
             scroll
             headers={["First", "Last", "Retained F25?", "PCID", "Religion", "Cath/Chris/Other", "FA25 Sport", "FA25 Curriculum", "FA26 Sport", "FA26 Class", "FA26 Curriculum"]}
+            rows={shown}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+export function LoaSheet({ rows }: { rows: LoaWithStatus[] }) {
+  const [q, setQ] = useState("");
+  const shown = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const list = needle ? rows.filter((s) => haystack(s as unknown as Record<string, unknown>).includes(needle)) : rows;
+    return list.map((s) => [
+      s.pcid,
+      s.first,
+      s.last,
+      s.status,
+      s.classLevel,
+      s.incomingReturning,
+      s.curriculum,
+      s.sport || "—",
+      s.finalGpa || s.gpa || "—",
+      s.household || "—",
+      s.fsp || "—",
+      s.gender,
+      s.state || "—",
+      s.fa26Class || "—",
+      s.fa26Sport || "—",
+      s.fa26Curriculum || "—",
+      s.fa26Residency || "—",
+    ]);
+  }, [rows, q]);
+  const returned = rows.filter((s) => s.status === "Returned").length;
+  const gone = rows.filter((s) => s.status === "Did not return").length;
+  const graduated = rows.filter((s) => s.status === "Graduated").length;
+  return (
+    <div className="sheet">
+      <div className="sheet-head">
+        <h2>Spring 2026 Leave of Absence</h2>
+        <p className="sheet-n">
+          {fmtN(rows.length)} on the S26 LOA census · {fmtN(returned)} returned Fall 2026 · {fmtN(gone)} did not return
+          {graduated ? ` · ${fmtN(graduated)} graduated` : ""}
+        </p>
+      </div>
+      <p className="note">
+        Roster is the Spring 2026 census Leave of Absence sheet. Status is Fall 2026 Registration Status: Returned if they
+        are enrolled now, Did not return if they are on All Not Retained, Graduated if they finished in Fall 2025 / Spring
+        2026 / Summer 2026. The 6 who did not return are already in All Not Retained.
+      </p>
+      {!rows.length ? (
+        <p className="note">No S26 LOA students in the current filter.</p>
+      ) : (
+        <>
+          <input className="sheet-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, PCID, sport, status…" />
+          <SheetTable
+            title=""
+            scroll
+            headers={[
+              "PCID",
+              "First",
+              "Last",
+              "FA26 status",
+              "S26 class",
+              "In/Ret",
+              "Curriculum",
+              "S26 sport",
+              "GPA",
+              "Household",
+              "FSP",
+              "Gender",
+              "State",
+              "FA26 class",
+              "FA26 sport",
+              "FA26 curriculum",
+              "FA26 residency",
+            ]}
             rows={shown}
           />
         </>

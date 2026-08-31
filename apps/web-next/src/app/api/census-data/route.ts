@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { isUgDegreeSeekingRow } from "@/lib/reports/census/lists-core";
+import { attachLoaStatus, isUgDegreeSeekingRow, S26_LOA_ROSTER } from "@/lib/reports/census/lists-core";
 import { loadCensusSnapshot } from "@/lib/reports/census/overlay";
 import { projectReportStudents } from "@/lib/reports/census/report";
+import { ayGraduatePcids } from "@/lib/reports/census/retention";
 import { requireReportAccess } from "@/lib/s3-proxy";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,11 @@ export async function GET(req: Request) {
     graduates: lists.graduates,
     housingRows,
     ftcaRaw,
+    loaStudents: attachLoaStatus(
+      lists.loa.length ? lists.loa : S26_LOA_ROSTER,
+      lists.students,
+      ayGraduatePcids(lists.graduates),
+    ),
     unretained: {
       n: lists.unretained.length,
       ug: unretainedUg,

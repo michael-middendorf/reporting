@@ -58,13 +58,227 @@ export type UnretainedStudent = {
   collegeAttend: string;
   incomingReturning: string;
   program?: string;
+  credits?: number | string;
+  earnedCredits?: number | string;
 };
+
+export type LoaStudent = {
+  pcid: string;
+  first: string;
+  last: string;
+  sport: string;
+  classLevel: string;
+  incomingReturning: string;
+  collegeAttend: string;
+  credits: number | string;
+  gpa: number | string;
+  earnedCredits: number | string;
+  curriculum: string;
+  residency: string;
+  state: string;
+  ethnicity: string;
+  gender: string;
+  honors: string;
+  institute: string;
+  household: string;
+  fsp: string;
+  finalGpa: number | string;
+  religion: string;
+  term: string;
+};
+
+export type LoaStatus = "Returned" | "Did not return" | "Graduated";
+
+export type LoaWithStatus = LoaStudent & {
+  status: LoaStatus;
+  fa26Program: string;
+  fa26Class: string;
+  fa26Sport: string;
+  fa26Curriculum: string;
+  fa26Session: string;
+  fa26Residency: string;
+  fa26FullPart: string;
+  fa26Credits: number | string;
+};
+
+/** Spring 2026 census Leave of Absence sheet (7 students). Status is attached at load time. */
+export const S26_LOA_ROSTER: LoaStudent[] = [
+  {
+    pcid: "P000353941",
+    first: "Jacob",
+    last: "Mondarez",
+    sport: "Football",
+    classLevel: "Junior",
+    incomingReturning: "Returning",
+    collegeAttend: "FTCA",
+    credits: 12,
+    gpa: 2.56,
+    earnedCredits: 76,
+    curriculum: "Computer Science",
+    residency: "Resident",
+    state: "VA",
+    ethnicity: "ASIAN",
+    gender: "Male",
+    honors: "",
+    institute: "",
+    household: "",
+    fsp: "",
+    finalGpa: 2.27,
+    religion: "Catholic",
+    term: "Spring 2026",
+  },
+  {
+    pcid: "P000380327",
+    first: "Jeremy",
+    last: "Faccio",
+    sport: "",
+    classLevel: "Freshman",
+    incomingReturning: "Returning",
+    collegeAttend: "FTCA",
+    credits: 16,
+    gpa: 1.81,
+    earnedCredits: 36,
+    curriculum: "Communications",
+    residency: "Commuter",
+    state: "FL",
+    ethnicity: "HISPAN",
+    gender: "Male",
+    honors: "",
+    institute: "",
+    household: "",
+    fsp: "FSP",
+    finalGpa: 2.29,
+    religion: "Catholic",
+    term: "Spring 2026",
+  },
+  {
+    pcid: "P000380481",
+    first: "Domenica",
+    last: "Cedeno Medrano",
+    sport: "",
+    classLevel: "Sophomore",
+    incomingReturning: "Returning",
+    collegeAttend: "FTCA",
+    credits: 16,
+    gpa: 2.93,
+    earnedCredits: 48,
+    curriculum: "Finance",
+    residency: "Commuter",
+    state: "FL",
+    ethnicity: "",
+    gender: "Female",
+    honors: "",
+    institute: "",
+    household: "",
+    fsp: "",
+    finalGpa: 3.03,
+    religion: "Catholic",
+    term: "Spring 2026",
+  },
+  {
+    pcid: "P000380881",
+    first: "Marin",
+    last: "Kienbusch",
+    sport: "",
+    classLevel: "Sophomore",
+    incomingReturning: "Returning",
+    collegeAttend: "FTCA",
+    credits: 16,
+    gpa: 3.08,
+    earnedCredits: 58,
+    curriculum: "Psychology",
+    residency: "Resident",
+    state: "CO",
+    ethnicity: "WHITE",
+    gender: "Female",
+    honors: "",
+    institute: "",
+    household: "",
+    fsp: "",
+    finalGpa: 3.05,
+    religion: "Catholic",
+    term: "Spring 2026",
+  },
+  {
+    pcid: "P000382172",
+    first: "Christopher",
+    last: "Peloso",
+    sport: "Ultimate Frisbee",
+    classLevel: "Sophomore",
+    incomingReturning: "Returning",
+    collegeAttend: "FTCA",
+    credits: 16,
+    gpa: 3.6,
+    earnedCredits: 48,
+    curriculum: "Business",
+    residency: "Resident",
+    state: "",
+    ethnicity: "",
+    gender: "Male",
+    honors: "",
+    institute: "",
+    household: "Called By Name",
+    fsp: "",
+    finalGpa: 3.53,
+    religion: "Catholic",
+    term: "Spring 2026",
+  },
+  {
+    pcid: "P000384266",
+    first: "Cecilia",
+    last: "Ekblad",
+    sport: "",
+    classLevel: "Freshman",
+    incomingReturning: "Incoming",
+    collegeAttend: "FTCA",
+    credits: 16,
+    gpa: "",
+    earnedCredits: 16,
+    curriculum: "Prenursing",
+    residency: "Resident",
+    state: "MI",
+    ethnicity: "WHITE",
+    gender: "Female",
+    honors: "",
+    institute: "",
+    household: "",
+    fsp: "FSP",
+    finalGpa: 3.78,
+    religion: "Catholic",
+    term: "Spring 2026",
+  },
+  {
+    pcid: "P000385107",
+    first: "Andrew",
+    last: "Cucullu",
+    sport: "Basketball-Men",
+    classLevel: "Freshman",
+    incomingReturning: "Incoming",
+    collegeAttend: "FTCA",
+    credits: 16,
+    gpa: "",
+    earnedCredits: 12,
+    curriculum: "Business",
+    residency: "Resident",
+    state: "TN",
+    ethnicity: "HISPAN",
+    gender: "Male",
+    honors: "",
+    institute: "",
+    household: "",
+    fsp: "",
+    finalGpa: 2.03,
+    religion: "Catholic",
+    term: "Spring 2026",
+  },
+];
 
 export type CensusLists = {
   students: CensusRawStudent[];
   unretained: UnretainedStudent[];
   prior: CensusRawStudent[];
   graduates: { pcid: string; year?: string | number; term?: string; program?: string }[];
+  loa: LoaStudent[];
 };
 
 const NON_DS = new Set(["DUAL", "EACO", "ND"]);
@@ -113,4 +327,30 @@ export function deriveUnretained(
       return Boolean(id) && !registered.has(id) && !graduated.has(id);
     })
     .map((s) => ({ ...s, retention: "Not Retained" }));
+}
+
+/** Match S26 LOA roster to this fall's registration and intervening graduates. */
+export function attachLoaStatus(
+  loa: LoaStudent[],
+  registered: CensusRawStudent[],
+  graduatePcids: Iterable<string>,
+): LoaWithStatus[] {
+  const byId = new Map(registered.map((s) => [normPcid(s.pcid), s]));
+  const graduated = new Set([...graduatePcids].map(normPcid).filter(Boolean));
+  return loa.map((s) => {
+    const now = byId.get(normPcid(s.pcid));
+    const status: LoaStatus = now ? "Returned" : graduated.has(normPcid(s.pcid)) ? "Graduated" : "Did not return";
+    return {
+      ...s,
+      status,
+      fa26Program: now?.program || "",
+      fa26Class: now?.classLevel || "",
+      fa26Sport: now?.sport || "",
+      fa26Curriculum: now?.curriculumName || now?.curriculum || "",
+      fa26Session: now?.session || "",
+      fa26Residency: now?.residency || "",
+      fa26FullPart: now?.fullPart || "",
+      fa26Credits: now?.credits ?? "",
+    };
+  });
 }

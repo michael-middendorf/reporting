@@ -1,5 +1,5 @@
 import type { CensusLists, CensusRawStudent, UnretainedStudent } from "./lists";
-import { isUgDegreeSeekingRow } from "./lists-core";
+import { attachLoaStatus, isUgDegreeSeekingRow, S26_LOA_ROSTER, type LoaWithStatus } from "./lists-core";
 import {
   athleteOf,
   buildAllUgSplit,
@@ -21,9 +21,16 @@ import { buildVerifyList } from "./verify";
 import {
   DEFAULT_FILTERS,
   buildReport,
+  describeFilters,
+  filterCensusRaw,
+  filterLoa,
   filterStudents,
+  filterUnretained,
+  filtersForCensusRaw,
   projectReportStudents,
   tablesFromSnapshot,
+  type ListExportKind,
+  type ReportFilters,
   type ReportTables,
 } from "./report";
 import {
@@ -1244,7 +1251,73 @@ const UNRETAINED_HEADERS = [
   "College_Attend",
   "Incoming/Returning",
   "Program",
+  "FA25 Credits",
+  "Cumulative Earned Credits",
 ];
+
+const LOA_HEADERS = [
+  "PCID",
+  "First",
+  "Last",
+  "FA26 status",
+  "S26 sport",
+  "FA25 class",
+  "Incoming/Returning",
+  "College Attend",
+  "Curriculum",
+  "GPA",
+  "Final GPA",
+  "Household",
+  "FSP",
+  "State",
+  "Gender",
+  "FA26 program",
+  "FA26 class",
+  "FA26 sport",
+  "FA26 curriculum",
+  "FA26 session",
+  "FA26 residency",
+  "FA26 load",
+  "FA26 credits",
+];
+
+function loaRow(s: LoaWithStatus): CellValue[] {
+  return [
+    s.pcid,
+    s.first,
+    s.last,
+    s.status,
+    s.sport,
+    s.classLevel,
+    s.incomingReturning,
+    s.collegeAttend,
+    s.curriculum,
+    s.gpa,
+    s.finalGpa,
+    s.household,
+    s.fsp,
+    s.state,
+    s.gender,
+    s.fa26Program,
+    s.fa26Class,
+    s.fa26Sport,
+    s.fa26Curriculum,
+    s.fa26Session,
+    s.fa26Residency,
+    s.fa26FullPart,
+    s.fa26Credits,
+  ];
+}
+
+function loaForExport(lists: CensusLists, filters?: ReportFilters): LoaWithStatus[] {
+  const seed = lists.loa.length ? lists.loa : S26_LOA_ROSTER;
+  const withStatus = attachLoaStatus(
+    seed,
+    lists.students,
+    lists.graduates.map((g) => g.pcid),
+  );
+  return filters ? filterLoa(withStatus, filters) : withStatus;
+}
 
 function unretainedRow(s: UnretainedStudent): CellValue[] {
   return [
@@ -1265,6 +1338,8 @@ function unretainedRow(s: UnretainedStudent): CellValue[] {
     s.collegeAttend,
     s.incomingReturning,
     s.program || "",
+    s.credits ?? "",
+    s.earnedCredits ?? "",
   ];
 }
 
@@ -1331,10 +1406,198 @@ export function censusFileName(data: CensusSnapshot, exported = new Date()): str
   return `${fa}_Census_${data.status === "final" ? "Final" : "DRAFT"}_${stamp}.xlsx`;
 }
 
+export function listsFileName(kind: ListExportKind, data: CensusSnapshot, exported = new Date()): string {
+  const stamp = exported.toISOString().slice(0, 10);
+  const fa = faLabel(data.historical.years[0] ?? 2026);
+  const labels: Record<ListExportKind, string> = {
+    filtered: "FilteredLists",
+    raw: "Raw",
+    unretained: "Unretained",
+    sports: "Sports",
+    ftca: "FTCA_Raw",
+    verify: "Verify",
+    loa: "S26_LOA",
+  };
+  return `${fa}_Census_${labels[kind]}_${stamp}.xlsx`;
+}
+
+function ftcaRawCells(r: FtcaRawRow): CellValue[] {
+  return [
+    r.first,
+    r.last,
+    r.retained,
+    r.pcid,
+    r.ftca,
+    r.religion,
+    r.cathGroup,
+    r.catholicNonCatholic,
+    r.fa25Sport,
+    r.fa25Curriculum,
+    r.fa25FullPart,
+    r.fa25Credits,
+    r.fa25Gpa,
+    r.fa25Residency,
+    r.fa26Sport,
+    r.fa26Curriculum,
+    r.fa26Class,
+    r.fa26FullPart,
+    r.fa26Credits,
+    r.fa26Gpa,
+    r.fa26Residency,
+    r.dob,
+    r.gender,
+    r.ethnicity,
+    r.hsGpa,
+    r.city,
+    r.state,
+    r.pcid,
+  ];
+}
+
+const FTCA_RAW_HEADERS = [
+  "First",
+  "Last",
+  "Retained F25?",
+  "PCID",
+  "FTCA",
+  "Religious Affiliation",
+  "Catholic, Christian, Other",
+  "Catholic Non-Catholic",
+  "Fall 25 Athletic Association",
+  "Fall 25 Curriculum",
+  "Fall 25 FULL PART TIME",
+  "Fall 25 Credits",
+  "Fall 25 GPA",
+  "Fall 25 Res Comm",
+  "Fall 26 Athletic Association",
+  "Fall 26 Curriculum",
+  "Fall 26 Class",
+  "Fall 26 FULL PART TIME",
+  "Fall 26 Credits",
+  "Fall 26 GPA",
+  "Fall 26 Res Comm",
+  "DOB",
+  "Gender",
+  "Ethnicity",
+  "HS GPA",
+  "City",
+  "State",
+  "PCID",
+];
+
+/** Student-level sheets for the Export menu: current filters, unretained, sports, etc. */
+export async function buildListsWorkbook(
+  data: CensusSnapshot,
+  lists: CensusLists,
+  ftcaRaw: FtcaRawRow[],
+  housingRows: HousingAssignmentRow[],
+  filters: ReportFilters,
+  kind: ListExportKind,
+): Promise<Buffer> {
+  const enrolled = filterCensusRaw(lists.students, filtersForCensusRaw(filters));
+  const unretained = filterUnretained(lists.unretained, filters);
+  const prior = filterCensusRaw(lists.prior, filters);
+  const enrolledIds = enrolled.map((s) => s.pcid);
+  const keepPrior = new Set(prior.map((s) => (s.pcid || "").toUpperCase()));
+  const ftca = ftcaRaw.filter((r) => keepPrior.has((r.pcid || "").toUpperCase()));
+  const sports = prior.length
+    ? buildSportRetention(prior, enrolledIds, lists.graduates, filters.excludedSports)
+    : [];
+  const verify = buildVerifyList(enrolled, unretained, lists.graduates, housingRows);
+  const loa = loaForExport(lists, filters);
+  const want = (sheet: ListExportKind | "all") => kind === "filtered" || kind === sheet;
+
+  const wb = new XlsxWorkbook();
+  const ws = wb.addSheet("Filters");
+  ws.gridLines = false;
+  ws.width(1, 22);
+  ws.width(2, 88);
+  ws.set(1, 1, `${data.term} census list export`, TITLE);
+  ws.set(3, 1, "Kind", { bold: true, color: NAVY });
+  ws.set(3, 2, kind === "filtered" ? "All filtered lists" : kind);
+  ws.set(4, 1, "Filters", { bold: true, color: NAVY });
+  ws.set(4, 2, describeFilters(filters), { wrap: true });
+  ws.set(5, 1, "Exported", { bold: true, color: NAVY });
+  ws.set(5, 2, new Date().toISOString().slice(0, 10));
+  ws.set(6, 1, "Census Raw", { bold: true, color: NAVY });
+  ws.set(6, 2, `${enrolled.length.toLocaleString()} registered students after filters`);
+  ws.set(7, 1, "Unretained", { bold: true, color: NAVY });
+  ws.set(7, 2, `${unretained.length.toLocaleString()} FA25 not back after filters`);
+  ws.set(8, 1, "S26 LOA", { bold: true, color: NAVY });
+  ws.set(8, 2, `${loa.length.toLocaleString()} Spring 2026 leave of absence (${loa.filter((s) => s.status === "Returned").length} returned)`);
+  ws.height(4, 36);
+
+  if (want("raw")) {
+    writeListSheet(
+      wb,
+      "Census Raw",
+      CENSUS_RAW_HEADERS,
+      [14, 16, 18, 16, 8, 16, 14, 12, 10, 12, 14, 14, 12, 22, 12, 10, 16, 10, 12, 14, 16, 16, 22, 16, 16, 22, 10, 10, 12, 12, 14, 16, 10, 32, 12, 12, 10],
+      enrolled.map(rawRow),
+    );
+  }
+  if (want("unretained")) {
+    writeListSheet(
+      wb,
+      "All Not Retained",
+      UNRETAINED_HEADERS,
+      [14, 16, 18, 14, 12, 10, 12, 16, 10, 18, 16, 8, 10, 12, 14, 16, 12, 12, 16],
+      unretained.map(unretainedRow),
+    );
+  }
+  if (want("sports")) {
+    writeListSheet(
+      wb,
+      "Sports",
+      [
+        "Team",
+        "FA25 Roster",
+        "# Non-Retained",
+        "# Retained",
+        "# Graduated",
+        "Retention %",
+        "Graduated %",
+        "Retained Avg GPA",
+        "Non-Retained Avg GPA",
+        "Non-Retained 3.0+ GPA",
+      ],
+      [22, 12, 14, 12, 12, 12, 12, 16, 18, 18],
+      sports.map((r) => [
+        r.sport,
+        r.roster,
+        r.notRetained,
+        r.retained,
+        r.graduated,
+        r.retentionPct,
+        r.graduatedPct,
+        r.retainedAvgGpa,
+        r.notRetainedAvgGpa,
+        r.notRetained3plus,
+      ]),
+    );
+  }
+  if (want("ftca")) {
+    writeListSheet(wb, "FTCA Raw", FTCA_RAW_HEADERS, [14, 16, 14, 14, 10, 18, 18, 16, 22, 16, 14, 12, 12, 14, 22, 16, 12, 14, 12, 12, 14, 14, 10, 12, 10, 14, 8, 14], ftca.map(ftcaRawCells));
+  }
+  if (want("verify")) {
+    writeListSheet(
+      wb,
+      "Verify",
+      ["Issue", "PCID", "First", "Last", "Why", "Detail"],
+      [28, 14, 14, 16, 52, 42],
+      verify.map((r) => [r.issue, r.pcid, r.first, r.last, r.why, r.detail]),
+    );
+  }
+  if (want("loa")) {
+    writeListSheet(wb, "S26 LOA", LOA_HEADERS, [14, 14, 18, 16, 16, 14, 16, 12, 18, 10, 10, 16, 8, 8, 10, 12, 12, 16, 18, 12, 14, 10, 10], loa.map(loaRow));
+  }
+  return wb.writeBuffer();
+}
+
 export async function buildCensusWorkbook(
   data: CensusSnapshot,
   housingRows: HousingAssignmentRow[] = [],
-  lists: CensusLists = { students: [], unretained: [], prior: [], graduates: [] },
+  lists: CensusLists = { students: [], unretained: [], prior: [], graduates: [], loa: [] },
   ftcaRaw: FtcaRawRow[] = [],
 ): Promise<Buffer> {
   const wb = new XlsxWorkbook();
@@ -1442,7 +1705,7 @@ export async function buildCensusWorkbook(
     wb,
     "All Not Retained",
     UNRETAINED_HEADERS,
-    [14, 16, 18, 14, 12, 10, 12, 16, 10, 18, 16, 8, 10, 12, 14, 16, 12],
+    [14, 16, 18, 14, 12, 10, 12, 16, 10, 18, 16, 8, 10, 12, 14, 16, 12, 12, 16],
     lists.unretained.map(unretainedRow),
   );
   writeListSheet(
@@ -1458,6 +1721,13 @@ export async function buildCensusWorkbook(
       r.why,
       r.detail,
     ]),
+  );
+  writeListSheet(
+    wb,
+    "S26 LOA",
+    LOA_HEADERS,
+    [14, 14, 18, 16, 16, 14, 16, 12, 18, 10, 10, 16, 8, 8, 10, 12, 12, 16, 18, 12, 14, 10, 10],
+    loaForExport(lists).map(loaRow),
   );
   if (housingRows.length) writeHousing(wb, housingRows);
   writeSources(wb, data, housingRows.length, lists.students.length, lists.unretained.length);

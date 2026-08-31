@@ -3,12 +3,18 @@ import { test } from "node:test";
 import {
   DEFAULT_FILTERS,
   buildReport,
+  describeFilters,
   filterCensusRaw,
+  filtersActive,
   filtersForCensusRaw,
   filterStudents,
+  filterUnretained,
+  parseReportFilters,
   projectReportStudents,
+  projectUnretained,
   type ReportStudent,
 } from "./report";
+import type { UnretainedStudent } from "./lists-core";
 import type { CensusRawStudent } from "./lists";
 
 function raw(partial: Partial<CensusRawStudent>): CensusRawStudent {
@@ -133,6 +139,92 @@ test("excluding a sport removes those students from every table", () => {
   assert.equal(rpt.n, 2);
   assert.equal(rpt.sports.some((s) => s.label === "Football"), false);
   assert.equal(rpt.gender.find((g) => g.label === "Male")?.n, undefined);
+});
+
+test("religion filter keeps only those affiliations", () => {
+  const rows = set([
+    raw({ pcid: "1", religion: "Catholic" }),
+    raw({ pcid: "2", religion: "Christian" }),
+    raw({ pcid: "3", religion: "Eastern Rite Catholic" }),
+  ]);
+  const filtered = filterStudents(rows, { ...DEFAULT_FILTERS, religions: ["Catholic"] });
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0]?.religion, "Catholic");
+});
+
+test("Unretained filter is off by default and counts as an active filter", () => {
+  assert.equal(DEFAULT_FILTERS.retention, "enrolled");
+  assert.equal(filtersActive(DEFAULT_FILTERS), false);
+  assert.equal(filtersActive({ ...DEFAULT_FILTERS, retention: "unretained" }), true);
+  assert.match(describeFilters({ ...DEFAULT_FILTERS, retention: "unretained" }), /Unretained/);
+});
+
+test("Census Report can be built from the unretained list", () => {
+  const rows: UnretainedStudent[] = [
+    {
+      pcid: "P1",
+      first: "A",
+      last: "Lost",
+      retention: "Not Retained",
+      gpa: 2.1,
+      fsp: "-",
+      household: "-",
+      marines: "-",
+      honors: "-",
+      sport: "Football",
+      religion: "Catholic",
+      state: "FL",
+      gender: "Male",
+      classLevel: "Freshman",
+      collegeAttend: "FTCA",
+      incomingReturning: "Incoming",
+      program: "UNDERG",
+    },
+    {
+      pcid: "P2",
+      first: "B",
+      last: "Gone",
+      retention: "Not Retained",
+      gpa: 3.4,
+      fsp: "-",
+      household: "-",
+      marines: "-",
+      honors: "-",
+      sport: "-",
+      religion: "Christian",
+      state: "TX",
+      gender: "Female",
+      classLevel: "Sophomore",
+      collegeAttend: "FTCA",
+      incomingReturning: "Returning",
+      program: "UNDERG",
+    },
+  ];
+  const projected = projectUnretained(rows);
+  assert.equal(projected[0]?.athlete, "Athlete");
+  assert.equal(projected[1]?.athlete, "Non-Athlete");
+  const football = filterStudents(projected, { ...DEFAULT_FILTERS, includedSports: ["Football"] });
+  assert.equal(football.length, 1);
+  assert.equal(football[0]?.pcid, "P1");
+  const rpt = buildReport(projected);
+  assert.equal(rpt.n, 2);
+  assert.equal(rpt.gender.find((g) => g.label === "Male")?.n, 1);
+  const onlyUg = filterUnretained(rows, DEFAULT_FILTERS);
+  assert.equal(onlyUg.length, 2);
+});
+
+test("parseReportFilters reads Unretained and sports from the export POST body", () => {
+  const f = parseReportFilters({
+    retention: "unretained",
+    gender: "Female",
+    includedSports: ["Soccer-Women"],
+    degree: "all",
+  });
+  assert.equal(f.retention, "unretained");
+  assert.equal(f.gender, "Female");
+  assert.deepEqual(f.includedSports, ["Soccer-Women"]);
+  assert.equal(f.degree, "all");
+  assert.equal(parseReportFilters({ retention: "nope" }).retention, "enrolled");
 });
 
 test("gender, athlete, and major filters stack", () => {

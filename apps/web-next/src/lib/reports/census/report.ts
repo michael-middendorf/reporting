@@ -1,4 +1,4 @@
-import type { CensusRawStudent, UnretainedStudent } from "./lists-core";
+import type { CensusRawStudent, LoaWithStatus, UnretainedStudent } from "./lists-core";
 import { CLASS_ORDER, COUNTRY_NAMES } from "./present";
 import type { CensusSnapshot, LabeledCount } from "./types";
 
@@ -31,7 +31,10 @@ export type ReportFilters = {
   includedSports: string[];
   excludedSports: string[];
   majors: string[];
+  religions: string[];
   degree: "ug" | "all" | "BA" | "BS" | "grad" | "dual";
+  /** Census Report universe. Unretained = FA25 census, not registered FA26, not 2025–26 graduates. */
+  retention: "enrolled" | "unretained";
 };
 
 export const DEFAULT_FILTERS: ReportFilters = {
@@ -40,8 +43,17 @@ export const DEFAULT_FILTERS: ReportFilters = {
   includedSports: [],
   excludedSports: [],
   majors: [],
+  religions: [],
   degree: "ug",
+  retention: "enrolled",
 };
+
+export const LIST_EXPORT_KINDS = ["filtered", "raw", "unretained", "sports", "ftca", "verify", "loa"] as const;
+export type ListExportKind = (typeof LIST_EXPORT_KINDS)[number];
+
+export function isListExportKind(v: unknown): v is ListExportKind {
+  return typeof v === "string" && (LIST_EXPORT_KINDS as readonly string[]).includes(v);
+}
 
 /** Census Raw is the registration spine (UG, graduate, dual, non-degree). Other filters still apply. */
 export function filtersForCensusRaw(f: ReportFilters): ReportFilters {
@@ -84,6 +96,35 @@ export function projectReportStudents(rows: CensusRawStudent[]): ReportStudent[]
   }));
 }
 
+/** Map the unretained list onto Census Report tables (states, sports, gender, class, religion). */
+export function projectUnretained(rows: UnretainedStudent[]): ReportStudent[] {
+  return rows.map((s) => {
+    const sport = s.sport && s.sport !== "-" ? s.sport.trim() : "";
+    return {
+      pcid: (s.pcid || "").trim(),
+      gender: (s.gender || "").trim(),
+      athlete: sport ? "Athlete" : "Non-Athlete",
+      sport,
+      major: "",
+      degree: "",
+      program: (s.program || "").trim().toUpperCase(),
+      collegeAttend: (s.collegeAttend || "").trim().toUpperCase(),
+      classLevel: (s.classLevel || "").trim(),
+      fullPart: "",
+      incomingReturning: (s.incomingReturning || "").trim(),
+      state: (s.state || "").trim().toUpperCase(),
+      religion: (s.religion || "").trim(),
+      cathGroup: "",
+      ethnicity: "",
+      residency: "",
+      honors: Boolean(s.honors) && s.honors !== "-",
+      citizenship: "",
+      visa: "",
+      appDecision: "",
+    };
+  });
+}
+
 export function isUgDegreeSeeking(s: ReportStudent): boolean {
   return s.program === "UNDERG" && !NON_DS.has(s.collegeAttend);
 }
@@ -113,36 +154,49 @@ export function filterCensusRaw(rows: CensusRawStudent[], f: ReportFilters): Cen
 }
 
 export function filterUnretained(rows: UnretainedStudent[], f: ReportFilters): UnretainedStudent[] {
+  const keep = new Set(
+    filterStudents(projectUnretained(rows), { ...f, majors: [] }).map((s) => s.pcid.toUpperCase()),
+  );
+  return rows.filter((s) => keep.has((s.pcid || "").toUpperCase()));
+}
+
+export function filterLoa(rows: LoaWithStatus[], f: ReportFilters): LoaWithStatus[] {
   const projected: ReportStudent[] = rows.map((s) => ({
     pcid: s.pcid,
     gender: s.gender,
-    athlete: s.sport && s.sport !== "-" ? "Athlete" : "Non-Athlete",
-    sport: s.sport && s.sport !== "-" ? s.sport : "",
-    major: "",
+    athlete: s.sport ? "Athlete" : "Non-Athlete",
+    sport: s.sport,
+    major: s.curriculum,
     degree: "",
-    program: (s.program || "").toUpperCase(),
-    collegeAttend: (s.collegeAttend || "").toUpperCase(),
+    program: "UNDERG",
+    collegeAttend: s.collegeAttend,
     classLevel: s.classLevel,
     fullPart: "",
     incomingReturning: s.incomingReturning,
     state: s.state,
-    religion: "",
+    religion: s.religion,
     cathGroup: "",
-    ethnicity: "",
-    residency: "",
+    ethnicity: s.ethnicity,
+    residency: s.residency,
     honors: Boolean(s.honors) && s.honors !== "-",
     citizenship: "",
     visa: "",
     appDecision: "",
   }));
   const keep = new Set(filterStudents(projected, { ...f, majors: [] }).map((s) => s.pcid.toUpperCase()));
-  return rows.filter((s) => keep.has((s.pcid || "").toUpperCase()));
+  return rows.filter((s) => {
+    if (!keep.has((s.pcid || "").toUpperCase())) return false;
+    if (f.retention === "unretained") return s.status !== "Returned";
+    if (f.retention === "enrolled") return true;
+    return true;
+  });
 }
 
 export function filterStudents(rows: ReportStudent[], f: ReportFilters): ReportStudent[] {
   const included = new Set(f.includedSports.map((s) => s.toLowerCase()));
   const excluded = new Set(f.excludedSports.map((s) => s.toLowerCase()));
   const majors = new Set(f.majors);
+  const religions = new Set(f.religions);
   return rows.filter((s) => {
     if (!matchesDegree(s, f.degree)) return false;
     if (f.gender !== "all" && s.gender !== f.gender) return false;
@@ -151,6 +205,7 @@ export function filterStudents(rows: ReportStudent[], f: ReportFilters): ReportS
     if (included.size && (!sport || !included.has(sport))) return false;
     if (excluded.size && sport && excluded.has(sport)) return false;
     if (majors.size && !majors.has(s.major)) return false;
+    if (religions.size && !religions.has(s.religion)) return false;
     return true;
   });
 }
@@ -360,8 +415,51 @@ export function filtersActive(f: ReportFilters): boolean {
     f.includedSports.length > 0 ||
     f.excludedSports.length > 0 ||
     f.majors.length > 0 ||
-    f.degree !== "ug"
+    f.religions.length > 0 ||
+    f.degree !== "ug" ||
+    f.retention !== "enrolled"
   );
+}
+
+export function describeFilters(f: ReportFilters): string {
+  const parts: string[] = [];
+  parts.push(f.retention === "unretained" ? "Unretained (FA25 not back)" : "Enrolled Fall 2026");
+  const degree = DEGREE_OPTIONS.find((o) => o.id === f.degree);
+  if (degree) parts.push(degree.label);
+  if (f.gender !== "all") parts.push(f.gender);
+  if (f.athlete !== "all") parts.push(f.athlete);
+  if (f.includedSports.length) parts.push(`Sports: ${f.includedSports.join(", ")}`);
+  if (f.excludedSports.length) parts.push(`Hide: ${f.excludedSports.join(", ")}`);
+  if (f.religions.length) parts.push(`Religion: ${f.religions.join(", ")}`);
+  if (f.majors.length) parts.push(`Majors: ${f.majors.join(", ")}`);
+  return parts.join(" · ");
+}
+
+function asStringArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.map((x) => String(x || "").trim()).filter(Boolean);
+}
+
+/** Accept a POST body from the census Export menu. Unknown fields fall back to defaults. */
+export function parseReportFilters(raw: unknown): ReportFilters {
+  const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const gender = o.gender === "Female" || o.gender === "Male" ? o.gender : "all";
+  const athlete = o.athlete === "Athlete" || o.athlete === "Non-Athlete" ? o.athlete : "all";
+  const degreeIds = new Set(DEGREE_OPTIONS.map((d) => d.id));
+  const degree = typeof o.degree === "string" && degreeIds.has(o.degree as ReportFilters["degree"])
+    ? (o.degree as ReportFilters["degree"])
+    : "ug";
+  const retention = o.retention === "unretained" ? "unretained" : "enrolled";
+  return {
+    gender,
+    athlete,
+    includedSports: asStringArray(o.includedSports),
+    excludedSports: asStringArray(o.excludedSports),
+    majors: asStringArray(o.majors),
+    religions: asStringArray(o.religions),
+    degree,
+    retention,
+  };
 }
 
 /** Snapshot tables in the same shape the Census Report page uses. */

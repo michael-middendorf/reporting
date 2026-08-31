@@ -3,18 +3,22 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { CensusReport } from "@/components/census/CensusReport";
-import { FtcaRawSheet, RawDataSheet, UnretainedSheet, VerifySheet } from "@/components/census/CensusLists";
+import { FtcaRawSheet, LoaSheet, RawDataSheet, UnretainedSheet, VerifySheet } from "@/components/census/CensusLists";
 import { FilterBar, fmtN, fmtPct } from "@/components/census/Sheet";
-import type { CensusRawStudent, UnretainedStudent } from "@/lib/reports/census/lists-core";
+import type { CensusRawStudent, LoaWithStatus, UnretainedStudent } from "@/lib/reports/census/lists-core";
 import { isUgDegreeSeekingRow } from "@/lib/reports/census/lists-core";
 import {
   DEFAULT_FILTERS,
   buildReport,
+  describeFilters,
   filterCensusRaw,
   filtersForCensusRaw,
   filterStudents,
+  filterLoa,
   filterUnretained,
+  projectUnretained,
   uniqueSorted,
+  type ListExportKind,
   type ReportFilters,
   type ReportStudent,
 } from "@/lib/reports/census/report";
@@ -39,12 +43,13 @@ function fmtFte(n: number | null | undefined): string {
   return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
 
-type Tab = "summary" | "historical" | "ug" | "attrition" | "ftca" | "raw" | "unretained" | "verify";
+type Tab = "summary" | "historical" | "ug" | "attrition" | "ftca" | "raw" | "unretained" | "loa" | "verify";
 
 type CensusPageData = CensusSnapshot & {
   reportStudents?: ReportStudent[];
   rawStudents?: CensusRawStudent[];
   unretainedStudents?: UnretainedStudent[];
+  loaStudents?: LoaWithStatus[];
   priorStudents?: CensusRawStudent[];
   graduates?: { pcid: string; year?: string | number; term?: string; program?: string }[];
   housingRows?: HousingAssignmentRow[];
@@ -60,11 +65,18 @@ export function CensusDashboard() {
   const [downloading, setDownloading] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
-  async function downloadDraft() {
+  async function downloadExport(kind: "draft" | ListExportKind) {
     setExportError(null);
     setDownloading(true);
     try {
-      const res = await apiFetch("/api/census-export");
+      const res =
+        kind === "draft"
+          ? await apiFetch("/api/census-export")
+          : await apiFetch("/api/census-export", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ kind, filters }),
+            });
       if (!res.ok) {
         const json = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(json.error || res.statusText || "Export failed");
@@ -74,9 +86,10 @@ export function CensusDashboard() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = match?.[1] || "FA26_Census_DRAFT.xlsx";
+      a.download = match?.[1] || "FA26_Census_export.xlsx";
       a.click();
       URL.revokeObjectURL(url);
+      document.querySelector(".census-root .export-menu")?.removeAttribute("open");
     } catch (e) {
       setExportError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -107,18 +120,35 @@ export function CensusDashboard() {
 
   const students = data?.reportStudents || [];
   const rawStudents = data?.rawStudents || [];
-  const sports = useMemo(() => uniqueSorted(students, (s) => s.sport), [students]);
+  const unretainedProjected = useMemo(
+    () => projectUnretained(data?.unretainedStudents || []),
+    [data?.unretainedStudents],
+  );
+  const sports = useMemo(
+    () => uniqueSorted([...students, ...unretainedProjected], (s) => s.sport),
+    [students, unretainedProjected],
+  );
   const majors = useMemo(
     () => uniqueSorted(students.filter((s) => s.program === "UNDERG"), (s) => s.major),
     [students],
   );
+  const religions = useMemo(
+    () =>
+      uniqueSorted([...students, ...unretainedProjected], (s) => s.religion).filter((r) => r && r !== "-"),
+    [students, unretainedProjected],
+  );
   const peopleFilters = useMemo(() => filtersForCensusRaw(filters), [filters]);
   const filteredAll = useMemo(() => filterCensusRaw(rawStudents, peopleFilters), [rawStudents, peopleFilters]);
   const filteredRaw = useMemo(() => filterCensusRaw(rawStudents, filters), [rawStudents, filters]);
-  const filteredReport = useMemo(() => filterStudents(students, filters), [students, filters]);
+  const reportUniverse = filters.retention === "unretained" ? unretainedProjected : students;
+  const filteredReport = useMemo(() => filterStudents(reportUniverse, filters), [reportUniverse, filters]);
   const filteredUnretained = useMemo(
     () => filterUnretained(data?.unretainedStudents || [], filters),
     [data?.unretainedStudents, filters],
+  );
+  const filteredLoa = useMemo(
+    () => filterLoa(data?.loaStudents || [], filters),
+    [data?.loaStudents, filters],
   );
   const filteredPrior = useMemo(
     () => filterCensusRaw(data?.priorStudents || [], filters),
@@ -211,9 +241,38 @@ export function CensusDashboard() {
             </p>
           </div>
           <div className="hero-actions">
-            <button type="button" className="download" onClick={downloadDraft} disabled={downloading}>
-              {downloading ? "Building Excel…" : "Download Excel draft"}
-            </button>
+            <details className="export-menu">
+              <summary className="download" aria-disabled={downloading}>
+                {downloading ? "Building Excel…" : "Export"}
+              </summary>
+              <div className="export-menu-body">
+                <button type="button" disabled={downloading} onClick={() => downloadExport("draft")}>
+                  Full census draft
+                </button>
+                <button type="button" disabled={downloading} onClick={() => downloadExport("filtered")}>
+                  All filtered lists
+                  <span>{describeFilters(filters)}</span>
+                </button>
+                <button type="button" disabled={downloading} onClick={() => downloadExport("unretained")}>
+                  Unretained
+                </button>
+                <button type="button" disabled={downloading} onClick={() => downloadExport("loa")}>
+                  S26 LOA
+                </button>
+                <button type="button" disabled={downloading} onClick={() => downloadExport("sports")}>
+                  Sports
+                </button>
+                <button type="button" disabled={downloading} onClick={() => downloadExport("raw")}>
+                  Census Raw
+                </button>
+                <button type="button" disabled={downloading} onClick={() => downloadExport("ftca")}>
+                  FTCA Raw
+                </button>
+                <button type="button" disabled={downloading} onClick={() => downloadExport("verify")}>
+                  Verify
+                </button>
+              </div>
+            </details>
             <span className="draft-pill">{data.status}</span>
           </div>
         </div>
@@ -261,7 +320,13 @@ export function CensusDashboard() {
           />
         </div>
 
-        <FilterBar filters={filters} onChange={setFilters} sports={sports} majors={majors} />
+        <FilterBar filters={filters} onChange={setFilters} sports={sports} majors={majors} religions={religions} />
+        {filters.retention === "unretained" && (
+          <p className="filter-note">
+            Unretained is on. Census Report, All Not Retained, and exports use FA25 students who did not return.
+            Summary and Census Raw stay Fall 2026 enrolled.
+          </p>
+        )}
 
         <div className="tabs">
           {(
@@ -273,6 +338,7 @@ export function CensusDashboard() {
               ["ftca", "FTCA Raw"],
               ["raw", "Census Raw"],
               ["unretained", "All Not Retained"],
+              ["loa", "S26 LOA"],
               ["verify", "Verify"],
             ] as [Tab, string][]
           ).map(([id, label]) => (
@@ -309,6 +375,7 @@ export function CensusDashboard() {
         {tab === "ftca" && <FtcaRawSheet rows={filteredFtca} />}
         {tab === "raw" && <RawDataSheet students={filteredAll} />}
         {tab === "unretained" && <UnretainedSheet students={filteredUnretained} />}
+        {tab === "loa" && <LoaSheet rows={filteredLoa} />}
         {tab === "verify" && <VerifySheet rows={verifyRows} />}
       </div>
     </div>

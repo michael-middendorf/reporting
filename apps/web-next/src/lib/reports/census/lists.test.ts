@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  attachLoaStatus,
   deriveUnretained,
   dropNonCensusSports,
   isInterveningGraduate,
   isUgDegreeSeekingRow,
+  S26_LOA_ROSTER,
   type CensusRawStudent,
   type UnretainedStudent,
 } from "./lists-core";
@@ -256,6 +258,55 @@ function prior(pcid: string, extra: Partial<UnretainedStudent> = {}): Unretained
     ...extra,
   };
 }
+
+test("S26 LOA roster marks Mondarez returned and the other six as not returned", () => {
+  const enrolled: CensusRawStudent[] = [
+    {
+      pcid: "P000353941",
+      first: "Jacob",
+      last: "Mondarez",
+      incomingReturning: "Returning",
+      state: "VA",
+      religion: "Catholic",
+      cathGroup: "Catholic",
+      ethnicity: "ASIAN",
+      gender: "Male",
+      program: "UNDERG",
+      collegeAttend: "FTCA",
+      curriculum: "CSCI",
+      curriculumName: "Computer Science",
+      classLevel: "Junior",
+      fullPart: "FULL",
+      city: "",
+      credits: 16,
+      gpa: 2.27,
+      earnedCredits: 76,
+      residency: "On Campus",
+      sport: "Rugby-Men",
+      athlete: "Athlete",
+      athleticType: "",
+      rosterStatus: "",
+      honors: "",
+      fsp: "",
+      household: "",
+      institute: "",
+      marines: "",
+      appDecision: "",
+      session: "01",
+      degree: "BARTS",
+      email: "",
+      citizenship: "",
+      visa: "",
+    },
+  ];
+  const rows = attachLoaStatus(S26_LOA_ROSTER, enrolled, []);
+  assert.equal(rows.length, 7);
+  assert.equal(rows.filter((r) => r.status === "Returned").length, 1);
+  assert.equal(rows.find((r) => r.pcid === "P000353941")?.fa26Sport, "Rugby-Men");
+  assert.equal(rows.find((r) => r.pcid === "P000385107")?.status, "Did not return");
+  const grad = attachLoaStatus(S26_LOA_ROSTER, [], ["P000380327"]);
+  assert.equal(grad.find((r) => r.pcid === "P000380327")?.status, "Graduated");
+});
 
 test("unretained is last census minus graduates minus this-term registration", () => {
   const rows = deriveUnretained(

@@ -552,5 +552,7 @@ export function toUnretainedSeed(prior: CensusRawStudent[]): UnretainedStudent[]
     collegeAttend: s.collegeAttend,
     incomingReturning: s.incomingReturning,
     program: s.program,
+    credits: s.credits,
+    earnedCredits: s.earnedCredits,
   }));
 }

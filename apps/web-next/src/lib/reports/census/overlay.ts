@@ -73,13 +73,21 @@ export async function loadCensusSnapshot(): Promise<{
   }
   if (lists.prior.length && lists.students.length) {
     const gradIds = ayGraduatePcids(lists.graduates);
+    const priorById = new Map(lists.prior.map((p) => [(p.pcid || "").toUpperCase(), p]));
     lists = {
       ...lists,
       unretained: deriveUnretained(
         toUnretainedSeed(lists.prior),
         lists.students.map((s) => s.pcid),
         gradIds,
-      ),
+      ).map((s) => {
+        const prior = priorById.get((s.pcid || "").toUpperCase());
+        return {
+          ...s,
+          credits: s.credits ?? prior?.credits ?? "",
+          earnedCredits: s.earnedCredits || prior?.earnedCredits || "",
+        };
+      }),
     };
     const gpa = collectGpa(lists);
     const currentIds = lists.students.map((s) => s.pcid);

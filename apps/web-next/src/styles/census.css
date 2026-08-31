@@ -244,6 +244,57 @@
   outline: none;
   box-shadow: inset 0 -2px 0 var(--gold), 0 0 0 3px var(--gold-lo);
 }
+.census-root .export-menu {
+  position: relative;
+}
+.census-root .export-menu > summary {
+  list-style: none;
+  display: inline-block;
+}
+.census-root .export-menu > summary::-webkit-details-marker { display: none; }
+.census-root .export-menu-body {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  min-width: 280px;
+  background: #fff;
+  border: 1px solid var(--bdr);
+  box-shadow: 0 10px 28px rgba(26, 63, 111, 0.16);
+  border-radius: 8px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.census-root .export-menu-body button {
+  font-family: inherit;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.census-root .export-menu-body button span {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--t2);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.census-root .export-menu-body button:hover {
+  background: var(--pale);
+}
+.census-root .export-menu-body button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
 
 .census-root .grid-2 {
   display: grid;
@@ -440,6 +491,14 @@
   background: var(--navy);
   color: #fff;
   border-color: var(--navy);
+}
+.census-root .filter-note {
+  margin: -4px 0 14px;
+  padding: 8px 12px;
+  background: var(--gold-soft);
+  border-left: 3px solid var(--gold);
+  color: var(--navy);
+  font-size: 13px;
 }
 
 .census-root .sheet-grid {

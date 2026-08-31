@@ -108,11 +108,13 @@ export function FilterBar({
   onChange,
   sports,
   majors,
+  religions,
 }: {
   filters: ReportFilters;
   onChange: (next: ReportFilters) => void;
   sports: string[];
   majors: string[];
+  religions: string[];
 }) {
   function set<K extends keyof ReportFilters>(key: K, value: ReportFilters[K]) {
     onChange({ ...filters, [key]: value });
@@ -144,6 +146,16 @@ export function FilterBar({
               {o.label}
             </option>
           ))}
+        </select>
+      </label>
+      <label>
+        Retention
+        <select
+          value={filters.retention}
+          onChange={(e) => set("retention", e.target.value as ReportFilters["retention"])}
+        >
+          <option value="enrolled">Enrolled (Fall 2026)</option>
+          <option value="unretained">Unretained</option>
         </select>
       </label>
       <MultiFilter
@@ -193,6 +205,20 @@ export function FilterBar({
           </button>
         );
       })()}
+      <button
+        type="button"
+        className={filters.retention === "unretained" ? "filter-chip on" : "filter-chip"}
+        onClick={() => set("retention", filters.retention === "unretained" ? "enrolled" : "unretained")}
+      >
+        Unretained
+      </button>
+      <MultiFilter
+        label="Religion"
+        emptyLabel="All religions"
+        options={religions}
+        selected={filters.religions}
+        onChange={(next) => set("religions", next)}
+      />
       <MultiFilter
         label="Majors"
         emptyLabel="All majors"

@@ -3,7 +3,8 @@ import { test } from "node:test";
 import snapshot from "./snapshot.json";
 import { presentSnapshot } from "./present";
 import { applyHousingOverlay } from "./overlay";
-import { censusFileName, buildCensusWorkbook } from "./workbook";
+import { censusFileName, buildCensusWorkbook, buildListsWorkbook, listsFileName } from "./workbook";
+import { DEFAULT_FILTERS } from "./report";
 import { unzipEntries } from "./xlsx";
 import type { CensusSnapshot } from "./types";
 import type { Resident } from "../housing/types";
@@ -171,6 +172,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
           incomingReturning: "Incoming",
         },
       ],
+      loa: [],
     },
   );
   assert.equal(buf.subarray(0, 2).toString(), "PK");
@@ -185,6 +187,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
     "FA26 Census Raw Data",
     "All Not Retained",
     "Verify (temporary)",
+    "S26 LOA",
     "FA26 Housing (eRez)",
     "Sources",
   ]);
@@ -234,4 +237,24 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
     "Excel requires dimension before sheetViews",
   );
   assert.equal(censusFileName(data, new Date("2026-08-26T12:00:00Z")), "FA26_Census_DRAFT_2026-08-26.xlsx");
+});
+
+test("filtered list export includes Unretained and Sports sheets", async () => {
+  const data = draft();
+  const buf = await buildListsWorkbook(
+    data,
+    { students: [], unretained: [], prior: [], graduates: [], loa: [] },
+    [],
+    [],
+    { ...DEFAULT_FILTERS, retention: "unretained", includedSports: ["Football"] },
+    "filtered",
+  );
+  const files = unzipEntries(buf);
+  const workbook = files["xl/workbook.xml"];
+  assert.match(workbook, /All Not Retained/);
+  assert.match(workbook, /Sports/);
+  assert.match(workbook, /Census Raw/);
+  assert.match(workbook, /S26 LOA/);
+  assert.match(files["xl/worksheets/sheet1.xml"], /Unretained/);
+  assert.equal(listsFileName("unretained", data, new Date("2026-08-31T12:00:00Z")), "FA26_Census_Unretained_2026-08-31.xlsx");
 });

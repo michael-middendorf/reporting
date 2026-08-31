@@ -42,12 +42,13 @@ export function CensusReport({
     ? filterStudents(students, { ...DEFAULT_FILTERS, degree: filters.degree }).length
     : u.n;
 
+  const who = filters.retention === "unretained" ? "Unretained" : "";
   const title =
     filters.degree === "grad"
-      ? `${data.term} Census Report — Graduate Statistics`
+      ? `${data.term} Census Report — ${who ? `${who} · ` : ""}Graduate Statistics`
       : filters.degree === "all"
-        ? `${data.term} Census Report — All Students`
-        : `${data.term} Census Report — Undergraduate Statistics`;
+        ? `${data.term} Census Report — ${who ? `${who} · ` : ""}All Students`
+        : `${data.term} Census Report — ${who ? `${who} · ` : ""}Undergraduate Statistics`;
 
   const states = tables?.states ?? u.states;
   const countries = tables?.countries ?? u.countries;
@@ -86,6 +87,7 @@ export function CensusReport({
         <p className="sheet-n">
           {fmtN(n)} students
           {universe !== n ? ` of ${fmtN(universe)} in this degree group` : ""}
+          {filters.retention === "unretained" ? " · FA25 not registered FA26, not 2025–26 graduates" : ""}
           {students.length ? "" : " · snapshot totals (student list not loaded)"}
         </p>
       </div>
