@@ -1575,7 +1575,7 @@ function writeSources(
     [
       "Not retained",
       unretainedCount
-        ? `${unretainedCount.toLocaleString()} Fall 2025 census students not in Fall 2026 registration and not among 2025–26 Fall/Spring/Summer graduates.`
+        ? `${unretainedCount.toLocaleString()} Fall 2025 census students not in Fall 2026 registration, not 2025–26 graduates, and not the retention-sheet exceptions (AMSOL/enrolled/last credits, deceased, dropped after census, leave of absence).`
         : "Unretained list is not in the census cache yet.",
     ],
     ["Still to add", data.pending.length ? data.pending.join("; ") : "None"],
@@ -1711,8 +1711,8 @@ export async function buildListsWorkbook(
   ws.set(6, 2, `${enrolled.length.toLocaleString()} registered students after filters`);
   ws.set(7, 1, "Unretained", { bold: true, color: NAVY });
   ws.set(7, 2, `${unretained.length.toLocaleString()} FA25 not back after filters`);
-  ws.set(8, 1, "S26 LOA", { bold: true, color: NAVY });
-  ws.set(8, 2, `${loa.length.toLocaleString()} Spring 2026 leave of absence (${loa.filter((s) => s.status === "Returned").length} returned)`);
+  ws.set(8, 1, "LOA", { bold: true, color: NAVY });
+  ws.set(8, 2, `${loa.length.toLocaleString()} leave of absence (${loa.filter((s) => s.status === "Returned").length} returned Fall 2026)`);
   ws.height(4, 36);
 
   if (want("raw")) {

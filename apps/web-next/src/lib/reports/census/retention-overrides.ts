@@ -1,4 +1,4 @@
-import { normPcid, type CensusRawStudent } from "./lists-core";
+import { normPcid, type CensusRawStudent, type LoaStudent, type UnretainedStudent } from "./lists-core";
 import type { GraduateRecord } from "./retention";
 
 /** Dropped after FA25 census — out of the FA25 cohort for F26 retention. */
@@ -33,13 +33,74 @@ export const RETENTION_FORCE_GRADUATED: GraduateRecord[] = [
   ].map((pcid) => ({ pcid, year: "2026", term: "SUMMER" })),
 ];
 
+/**
+ * Unretained notes col R: leave of absence (intend to return).
+ * Off All Not Retained and out of the F26 retention cohort; they stay on the LOA tab.
+ */
+export const RETENTION_LOA = new Set(
+  [
+    "P000341593", // Alexander Earnhardt
+    "P000346188", // Sophia Gomez
+    "P000344532", // Derrick Guza
+    "P000380481", // Domenica Cedeno Medrano
+    "P000343982", // Matthew Pena
+    "P000380315", // Charles Wagner
+  ].map(normPcid),
+);
+
+export function markUnretainedNotes(rows: UnretainedStudent[]): UnretainedStudent[] {
+  return rows.map((s) =>
+    RETENTION_LOA.has(normPcid(s.pcid)) ? { ...s, retention: "Leave of Absence" } : s,
+  );
+}
+
+export function loaStudentsFromNotes(prior: CensusRawStudent[]): LoaStudent[] {
+  return prior
+    .filter((s) => RETENTION_LOA.has(normPcid(s.pcid)))
+    .map((s) => ({
+      pcid: s.pcid,
+      first: s.first,
+      last: s.last,
+      sport: s.sport || "",
+      classLevel: s.classLevel,
+      incomingReturning: s.incomingReturning,
+      collegeAttend: s.collegeAttend,
+      credits: s.credits,
+      gpa: s.gpa,
+      earnedCredits: s.earnedCredits,
+      curriculum: s.curriculumName || s.curriculum || "",
+      residency: s.residency,
+      state: s.state,
+      ethnicity: s.ethnicity || "",
+      gender: s.gender,
+      honors: s.honors || "",
+      institute: s.institute || "",
+      household: s.household || "",
+      fsp: s.fsp || "",
+      finalGpa: s.gpa,
+      religion: s.religion || "",
+      term: "Fall 2026",
+    }));
+}
+
+export function mergeLoaRosters(spring: LoaStudent[], fallNotes: LoaStudent[]): LoaStudent[] {
+  const have = new Set(spring.map((s) => normPcid(s.pcid)));
+  return [...spring, ...fallNotes.filter((s) => !have.has(normPcid(s.pcid)))];
+}
+
+/** Dropped after census, deceased, or approved LOA — not in the F26 retention cohort. */
+export function isOutOfRetentionCohort(pcid: string): boolean {
+  const id = normPcid(pcid);
+  return RETENTION_EXCLUDE.has(id) || RETENTION_LOA.has(id);
+}
+
 export function applyCensusRetentionNotes(
   prior: CensusRawStudent[],
   currentPcids: Iterable<string>,
   grads: GraduateRecord[],
 ): { prior: CensusRawStudent[]; currentIds: string[]; graduates: GraduateRecord[] } {
   return {
-    prior: prior.filter((s) => !RETENTION_EXCLUDE.has(normPcid(s.pcid))),
+    prior: prior.filter((s) => !isOutOfRetentionCohort(s.pcid)),
     currentIds: [...new Set([...currentPcids].map(normPcid).filter(Boolean)), ...RETENTION_FORCE_RETAINED],
     graduates: [...grads, ...RETENTION_FORCE_GRADUATED],
   };

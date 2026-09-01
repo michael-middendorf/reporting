@@ -13,6 +13,13 @@ import {
   type UnretainedStudent,
 } from "./lists-core";
 import { applyErezResidency, markIrelandReturning, markSpringAdmitsReturning, promoteFormerDualFtca, resolveCensusResidency } from "./lists";
+import {
+  applyCensusRetentionNotes,
+  loaStudentsFromNotes,
+  markUnretainedNotes,
+  mergeLoaRosters,
+  RETENTION_LOA,
+} from "./retention-overrides";
 
 test("eRez On Campus / Commuter wins over registration Res Comm", () => {
   const student = {
@@ -483,6 +490,10 @@ test("Rugby-Women is men's rugby associated, not a women's team", () => {
   assert.equal(out[1]?.sport, "Rugby-Men");
 });
 
+function rawPrior(pcid: string): CensusRawStudent {
+  return { pcid } as CensusRawStudent;
+}
+
 function prior(pcid: string, extra: Partial<UnretainedStudent> = {}): UnretainedStudent {
   return {
     pcid,
@@ -552,6 +563,88 @@ test("S26 LOA roster marks Mondarez returned and the other six as not returned",
   assert.equal(rows.find((r) => r.pcid === "P000385107")?.status, "Did not return");
   const grad = attachLoaStatus(S26_LOA_ROSTER, [], ["P000380327"]);
   assert.equal(grad.find((r) => r.pcid === "P000380327")?.status, "Graduated");
+});
+
+test("unretained notes take graduates, LOA, and exclude/force-retained off All Not Retained", () => {
+  assert.equal(RETENTION_LOA.size, 6);
+  const tagged = markUnretainedNotes([
+    prior("P000346188", { first: "Sophia", last: "Gomez" }),
+    prior("P1"),
+  ]);
+  assert.equal(tagged.find((s) => s.pcid === "P000346188")?.retention, "Leave of Absence");
+  assert.equal(tagged.find((s) => s.pcid === "P1")?.retention, "");
+  const notes = applyCensusRetentionNotes(
+    [
+      rawPrior("P000384377"), // Aiden — exclude
+      rawPrior("P000346188"), // Gomez — LOA
+      rawPrior("P000352989"), // Trumpore — force retained
+      rawPrior("P000347161"), // Berns — summer graduate
+      rawPrior("P1"),
+    ],
+    [],
+    [],
+  );
+  assert.deepEqual(
+    notes.prior.map((s) => s.pcid).sort(),
+    ["P000347161", "P000352989", "P1"].sort(),
+  );
+  assert.equal(notes.currentIds.includes("P000352989"), true);
+  assert.equal(
+    notes.graduates.some((g) => g.pcid === "P000347161"),
+    true,
+  );
+  const left = deriveUnretained(
+    notes.prior.map((s) => prior(s.pcid)),
+    notes.currentIds,
+    notes.graduates.map((g) => g.pcid),
+  );
+  assert.deepEqual(
+    left.map((s) => s.pcid),
+    ["P1"],
+  );
+  const fall = loaStudentsFromNotes([
+    {
+      pcid: "P000346188",
+      first: "Sophia",
+      last: "Gomez",
+      incomingReturning: "Returning",
+      state: "GA",
+      religion: "Catholic",
+      cathGroup: "Catholic",
+      ethnicity: "WHITE",
+      gender: "Female",
+      program: "UNDERG",
+      collegeAttend: "FTCA",
+      curriculum: "EXPHYS",
+      curriculumName: "Exercise Physiology",
+      classLevel: "Junior",
+      fullPart: "FULL",
+      city: "",
+      credits: 16,
+      gpa: 2.29,
+      earnedCredits: 0,
+      residency: "On Campus",
+      sport: "",
+      athlete: "Non-Athlete",
+      athleticType: "",
+      rosterStatus: "",
+      honors: "",
+      fsp: "",
+      household: "",
+      institute: "",
+      marines: "",
+      appDecision: "",
+      session: "01",
+      degree: "BARTS",
+      email: "",
+      citizenship: "",
+      visa: "",
+    },
+  ]);
+  assert.equal(fall[0]?.term, "Fall 2026");
+  const merged = mergeLoaRosters(S26_LOA_ROSTER, fall);
+  assert.equal(merged.filter((s) => s.pcid === "P000346188").length, 1);
+  assert.equal(merged.length, S26_LOA_ROSTER.length + 1);
 });
 
 test("unretained is last census minus graduates minus this-term registration", () => {

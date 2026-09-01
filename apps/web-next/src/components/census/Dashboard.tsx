@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { CensusReport } from "@/components/census/CensusReport";
+import { CensusChat } from "@/components/census/CensusChat";
 import { FtcaRawSheet, LoaSheet, RawDataSheet, UnretainedSheet, VerifySheet } from "@/components/census/CensusLists";
 import { FilterBar, fmtN, fmtPct } from "@/components/census/Sheet";
 import type { CensusRawStudent, LoaWithStatus, UnretainedStudent } from "@/lib/reports/census/lists-core";
@@ -281,6 +282,7 @@ export function CensusDashboard() {
             </p>
           </div>
           <div className="hero-actions">
+            <CensusChat />
             <details className="export-menu">
               <summary className="download" aria-disabled={downloading}>
                 {downloading ? "Building Excel…" : "Export"}
@@ -297,7 +299,7 @@ export function CensusDashboard() {
                   Unretained
                 </button>
                 <button type="button" disabled={downloading} onClick={() => downloadExport("loa")}>
-                  S26 LOA
+                  LOA
                 </button>
                 <button type="button" disabled={downloading} onClick={() => downloadExport("sports")}>
                   Sports
@@ -376,7 +378,7 @@ export function CensusDashboard() {
               ["ftca", "FTCA Raw"],
               ["raw", "Census Raw"],
               ["unretained", "All Not Retained"],
-              ["loa", "S26 LOA"],
+              ["loa", "LOA"],
               ["verify", "Verify"],
             ] as [Tab, string][]
           ).map(([id, label]) => (

@@ -3,6 +3,7 @@ import { test } from "node:test";
 import type { CensusRawStudent } from "./lists";
 import {
   applyLiveRetentionHistory,
+  buildAllUgSplit,
   buildFtcaAttritionFromPrior,
   buildFtcaExtras,
   buildSportRetention,
@@ -216,6 +217,28 @@ test("retention notes exclude Aiden Wilson, count Parks as retained, and treat l
   assert.equal(a.cohort, 2);
   assert.equal(a.enrolledThisFall, 1, "Seth Parks forced retained");
   assert.equal(a.notRetained, 0, "Berns is a summer graduate, not a leaver");
+});
+
+test("leave of absence notes are out of the retention cohort, not leavers", () => {
+  const ug = buildAllUgSplit(
+    [
+      prior({
+        pcid: "P000346188",
+        first: "Sophia",
+        last: "Gomez",
+        incomingReturning: "Returning",
+        collegeAttend: "FTCA",
+        classLevel: "Junior",
+      }),
+      prior({ pcid: "P1", incomingReturning: "Incoming", collegeAttend: "FTCA" }),
+      prior({ pcid: "P000352989", first: "Andrew", last: "Trumpore", incomingReturning: "Returning" }),
+    ],
+    ["P1"],
+    [],
+  );
+  assert.equal(ug.all.students, 2, "Gomez LOA is out of the FA25 retention cohort");
+  assert.equal(ug.all.enrolled, 2, "Trumpore counts as retained");
+  assert.equal(ug.all.notRetained, 0);
 });
 
 test("FTCA Sport Primary omits Non-Athlete; that is not a sport", () => {

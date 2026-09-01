@@ -22,6 +22,42 @@ GRADS_OUT = DATA / "graduates.json"
 
 NON_DS = {"DUAL", "EACO", "ND"}
 
+# Match retention-overrides.ts (Census retention sheet col R).
+RETENTION_UNRETAINED_SKIP = {
+    "P000384377",
+    "P000378273",  # exclude
+    "P000352989",
+    "P000380426",
+    "P000343155",
+    "P000379038",  # force retained
+    "P000358025",
+    "P000341586",
+    "P000342817",
+    "P000346202",
+    "P000347161",
+    "P000354952",
+    "P000357988",
+    "P000345243",
+    "P000379261",
+    "P000343142",
+    "P000354723",
+    "P000346640",
+    "P000347632",
+    "P000345979",
+    "P000343474",
+    "P000349726",
+    "P000381969",
+    "P000354719",
+    "P000383151",
+    "P000358530",  # force graduated
+    "P000341593",
+    "P000346188",
+    "P000344532",
+    "P000380481",
+    "P000343982",
+    "P000380315",  # LOA
+}
+
 
 def norm(v) -> str:
     return str(v or "").strip().upper()
@@ -173,7 +209,9 @@ def main() -> None:
             "program": s["program"],
         }
         for s in prior
-        if norm(s["pcid"]) not in registered and norm(s["pcid"]) not in grad_ids
+        if norm(s["pcid"]) not in registered
+        and norm(s["pcid"]) not in grad_ids
+        and norm(s["pcid"]) not in RETENTION_UNRETAINED_SKIP
     ]
     ug = [
         s

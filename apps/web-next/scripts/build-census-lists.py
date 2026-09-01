@@ -47,6 +47,34 @@ EXISTING_STUDENTS = DATA / "students.json"
 
 NON_DS = {"DUAL", "EACO", "ND"}
 
+# Match apps/web-next/src/lib/reports/census/retention-overrides.ts (Census retention sheet col R).
+RETENTION_EXCLUDE = {"P000384377", "P000378273"}  # Aiden Wilson; Hannah Nelson (deceased)
+RETENTION_FORCE_RETAINED = {"P000352989", "P000380426", "P000343155", "P000379038"}  # Trumpore; Harrell; Pritchard; Parks
+RETENTION_FORCE_GRADUATED = {
+    "P000358025",
+    "P000341586",
+    "P000342817",  # December 2025
+    "P000346202",  # Spring 2026
+    "P000347161",
+    "P000354952",
+    "P000357988",
+    "P000345243",
+    "P000379261",
+    "P000343142",
+    "P000354723",
+    "P000346640",
+    "P000347632",
+    "P000345979",
+    "P000343474",
+    "P000349726",
+    "P000381969",
+    "P000354719",
+    "P000383151",
+    "P000358530",  # Summer 2026
+}
+RETENTION_LOA = {"P000341593", "P000346188", "P000344532", "P000380481", "P000343982", "P000380315"}
+RETENTION_UNRETAINED_SKIP = RETENTION_EXCLUDE | RETENTION_FORCE_RETAINED | RETENTION_FORCE_GRADUATED | RETENTION_LOA
+
 CLASS_MAP = {
     "FRES": "Freshman",
     "FR": "Freshman",
@@ -1183,7 +1211,8 @@ def main() -> None:
 
     unretained = []
     for s in prior:
-        if norm(s["pcid"]) in registered_ids or norm(s["pcid"]) in grad_ids:
+        pid = norm(s["pcid"])
+        if pid in registered_ids or pid in grad_ids or pid in RETENTION_UNRETAINED_SKIP:
             continue
         gpa = eot_gpa.get(s["pcid"], s.get("gpa") or "-")
         honors_val = "Hons" if s["pcid"] in honors or str(s.get("honors") or "").lower() not in {"", "-", "none"} else s.get("honors") or ""
@@ -1240,7 +1269,7 @@ def main() -> None:
                 "generated": stamp,
                 "term": "Fall 2026",
                 "prior": "Fall 2025",
-                "definition": "FA25 census raw minus 2025-26 Fall/Spring/Summer graduates minus FA26 registration.",
+                "definition": "FA25 census raw minus 2025-26 Fall/Spring/Summer graduates minus FA26 registration minus retention-sheet exceptions (exclude, force retained, force graduated, LOA).",
                 "count": len(unretained),
                 "ugDegreeSeeking": len(ug),
                 "registered": len(registered_ids),

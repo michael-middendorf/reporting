@@ -226,19 +226,18 @@ export function LoaSheet({ rows }: { rows: LoaWithStatus[] }) {
   return (
     <div className="sheet">
       <div className="sheet-head">
-        <h2>Spring 2026 Leave of Absence</h2>
+        <h2>Leave of Absence</h2>
         <p className="sheet-n">
-          {fmtN(rows.length)} on the S26 LOA census · {fmtN(returned)} returned Fall 2026 · {fmtN(gone)} did not return
+          {fmtN(rows.length)} LOA · {fmtN(returned)} returned Fall 2026 · {fmtN(gone)} did not return
           {graduated ? ` · ${fmtN(graduated)} graduated` : ""}
         </p>
       </div>
       <p className="note">
-        Roster is the Spring 2026 census Leave of Absence sheet. Status is Fall 2026 Registration Status: Returned if they
-        are enrolled now, Did not return if they are on All Not Retained, Graduated if they finished in Fall 2025 / Spring
-        2026 / Summer 2026. The 6 who did not return are already in All Not Retained.
+        Spring 2026 LOA census plus Fall 2026 leave of absence from the unretained notes (intend to return). Status is
+        Fall 2026 registration. Fall 2026 leave of absence is on this tab, not All Not Retained.
       </p>
       {!rows.length ? (
-        <p className="note">No S26 LOA students in the current filter.</p>
+        <p className="note">No leave of absence students in the current filter.</p>
       ) : (
         <>
           <input className="sheet-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, PCID, sport, status…" />

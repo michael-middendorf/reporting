@@ -574,6 +574,110 @@
   border-top: 1.5px solid var(--gold-line);
 }
 
+.census-root .census-chat-launch { position: relative; }
+.census-root .census-chat {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  width: min(420px, calc(100vw - 24px));
+  max-height: min(72vh, 640px);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid var(--navy);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(26, 63, 111, 0.22);
+  z-index: 40;
+  overflow: hidden;
+}
+.census-root .census-chat-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid var(--gold-line);
+  background: var(--pale);
+}
+.census-root .census-chat-head p {
+  margin: 4px 0 0;
+  color: var(--t2);
+  font-size: 12px;
+}
+.census-root .census-chat-x {
+  border: none;
+  background: none;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--navy);
+}
+.census-root .census-chat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px 0;
+}
+.census-root .census-chat-chips button {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--navy);
+  background: var(--gold-soft);
+  border: 1px solid var(--gold-line);
+  border-radius: 999px;
+  padding: 5px 8px;
+  cursor: pointer;
+  text-align: left;
+}
+.census-root .census-chat-chips button:disabled { opacity: 0.6; }
+.census-root .census-chat-log {
+  flex: 1;
+  overflow: auto;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.census-root .census-chat-empty { color: var(--t2); font-size: 13px; }
+.census-root .census-chat-msg {
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 8px 10px;
+  border-radius: 8px;
+  white-space: pre-wrap;
+}
+.census-root .census-chat-msg.user {
+  align-self: flex-end;
+  background: var(--navy);
+  color: #fff;
+  max-width: 90%;
+}
+.census-root .census-chat-msg.assistant {
+  background: var(--pale);
+  border: 1px solid var(--bdr);
+}
+.census-root .census-chat-form {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--bdr);
+}
+.census-root .census-chat-form input {
+  flex: 1;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+}
+.census-root .census-chat-warn,
+.census-root .census-chat-err {
+  margin: 8px 12px 0;
+  font-size: 12px;
+}
+.census-root .census-chat-warn { color: #8a5a00; }
+.census-root .census-chat-err { color: #9b2c2c; }
+
 @media (max-width: 1100px) {
   .census-root .sheet-grid { grid-template-columns: 1fr; }
 }

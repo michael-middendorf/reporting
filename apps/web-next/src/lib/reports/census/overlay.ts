@@ -18,7 +18,7 @@ import {
   toUnretainedSeed,
   type FtcaRawRow,
 } from "./retention";
-import { applyCensusRetentionNotes } from "./retention-overrides";
+import { applyCensusRetentionNotes, loaStudentsFromNotes, markUnretainedNotes, mergeLoaRosters } from "./retention-overrides";
 import snapshot from "./snapshot.json";
 import { presentSnapshot } from "./present";
 import { housingAssignmentRows, residencyFromErez, type HousingAssignmentRow } from "./residency";
@@ -83,18 +83,21 @@ export async function loadCensusSnapshot(): Promise<{
     const priorById = new Map(lists.prior.map((p) => [(p.pcid || "").toUpperCase(), p]));
     lists = {
       ...lists,
-      unretained: deriveUnretained(
-        toUnretainedSeed(notes.prior),
-        notes.currentIds,
-        gradIds,
-      ).map((s) => {
-        const prior = priorById.get((s.pcid || "").toUpperCase());
-        return {
-          ...s,
-          credits: s.credits ?? prior?.credits ?? "",
-          earnedCredits: s.earnedCredits || prior?.earnedCredits || "",
-        };
-      }),
+      unretained: markUnretainedNotes(
+        deriveUnretained(
+          toUnretainedSeed(notes.prior),
+          notes.currentIds,
+          gradIds,
+        ).map((s) => {
+          const prior = priorById.get((s.pcid || "").toUpperCase());
+          return {
+            ...s,
+            credits: s.credits ?? prior?.credits ?? "",
+            earnedCredits: s.earnedCredits || prior?.earnedCredits || "",
+          };
+        }),
+      ),
+      loa: mergeLoaRosters(lists.loa, loaStudentsFromNotes(lists.prior)),
     };
     const gpa = collectGpa(lists);
     const currentIds = notes.currentIds;
