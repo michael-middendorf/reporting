@@ -271,7 +271,10 @@ function presidentAnswers(args: {
   ];
 }
 
-export function compactPerson(s: CensusRawStudent, extra: Record<string, string | number | boolean | null> = {}) {
+export function compactPerson(
+  s: CensusRawStudent,
+  extra: { list?: string; registeredFa26?: boolean } = {},
+) {
   const honors = (s.honors || "").trim();
   return {
     pcid: s.pcid,
@@ -294,7 +297,8 @@ export function compactPerson(s: CensusRawStudent, extra: Record<string, string 
     fsp: s.fsp || "",
     institute: s.institute || "",
     appDecision: s.appDecision || "",
-    ...extra,
+    list: extra.list ?? "",
+    registeredFa26: extra.registeredFa26 ?? false,
   };
 }
 

@@ -77,6 +77,8 @@ test("lookup finds names on FA26 and FA25 lists", () => {
     loa: [],
   };
   assert.equal(searchPeople(lists, "snyder")[0]?.pcid, "P0001");
+  assert.equal(searchPeople(lists, "snyder")[0]?.list, "FA26");
   assert.equal(searchPeople(lists, "Aiden Wilson")[0]?.pcid, "P0002");
+  assert.equal(searchPeople(lists, "Aiden Wilson")[0]?.list, "FA25");
   assert.equal(countPeople(lists, { term: "fa26", incoming: true, ftca: true }).n, 1);
 });
