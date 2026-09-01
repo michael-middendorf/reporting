@@ -16,7 +16,7 @@ DOWNLOADS = Path("/Users/regina.m.pirolli/Downloads")
 CENSUS_DIR = Path("/Users/regina.m.pirolli/Documents/PERSONAL Census Files")
 DATA = Path(__file__).resolve().parents[1] / "src/lib/reports/census/data"
 
-REGISTRATION = DOWNLOADS / "Registration Status-26.xlsx"
+REGISTRATION = DOWNLOADS / "Registration Status-27.xlsx"
 INTERNATIONAL_GLOB = "Registration Status*International*.xlsx"
 # -4 = session 01 with Res Comm (R on campus, C commuter, O other).
 # -2 = 03Ireland (not on -4). -5 = 01LuxMundi (replaces -3; adds Bates).
@@ -550,7 +550,7 @@ def apply_residency_overlay(registered_rows: list[dict], extra_rows: list[dict])
         if existing and prog and exist_progs and prog not in exist_progs:
             sess = str(overlay.get("session") or "").lower().replace(" ", "")
             # Extra program only for Lux Mundi / Ireland (Arianna UG + MA). Do not add a campus
-            # UNDERG row for someone already GRAD on Registration Status-26.
+            # UNDERG row for someone already GRAD on Registration Status.
             if "luxmundi" in sess or "ireland" in sess:
                 registered_rows.append(overlay)
                 by_pair[(pid, prog)] = overlay
@@ -670,10 +670,34 @@ def census_sport(team: str, gender: str) -> str:
     return pair[0] if gender == "Male" else pair[1]
 
 
+def load_sports_from_existing() -> dict[str, dict]:
+    """Keep current sports when a fresh Slate extract is not in /tmp."""
+    if not EXISTING_STUDENTS.exists():
+        return {}
+    payload = json.loads(EXISTING_STUDENTS.read_text())
+    out: dict[str, dict] = {}
+    for s in payload.get("students") or []:
+        pid = norm(s.get("pcid"))
+        if not pid.startswith("P"):
+            continue
+        sport = (s.get("sport") or "").strip()
+        if sport in {"-", "Non-Athlete"}:
+            sport = ""
+        out[pid] = {
+            "sport": sport,
+            "athlete": s.get("athlete") or ("Athlete" if sport else "Non-Athlete"),
+            "athleticType": s.get("athleticType") or "",
+            "rosterStatus": s.get("rosterStatus") or "",
+        }
+    return out
+
+
 def load_slate_sports(path: Path) -> dict[str, dict]:
     """Current roster only: sport + team association as of this fall, not last year's leftover team."""
     if not path.exists():
-        return {}
+        carried = load_sports_from_existing()
+        print(f"no {path}; carrying sports from existing students.json ({len(carried)})")
+        return carried
     payload = json.loads(path.read_text())
     rows = payload.get("row") or []
     if isinstance(rows, dict):

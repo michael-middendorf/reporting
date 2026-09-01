@@ -1556,7 +1556,7 @@ function writeSources(
     ],
     [
       "Registration",
-      "Fall 2026 Registration Status-26.xlsx plus Registration Status w Residency-2.xlsx (Mount Melleray Abbey) and Residency-3.xlsx (Lux Mundi). Mount Melleray Abbey and Lux Mundi stay in the main totals, with separate Summary lines.",
+      "Fall 2026 Registration Status-27.xlsx plus Registration Status w Residency-2.xlsx (Mount Melleray Abbey) and Residency-5.xlsx (Lux Mundi). Mount Melleray Abbey and Lux Mundi stay in the main totals, with separate Summary lines.",
     ],
     [
       "Institute scholars",

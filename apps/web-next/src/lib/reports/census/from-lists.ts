@@ -332,7 +332,7 @@ export function applyRegistrationTotals(data: CensusSnapshot, students: CensusRa
 
 export const KPI_DEFS: Record<string, string> = {
   allStudents:
-    "Every person on Fall 2026 Registration Status (Registration Status-26.xlsx). One row per PCID. Undergraduate, graduate, dual enrollment, and non-degree — no program filter.",
+    "Every person on Fall 2026 Registration Status (Registration Status-27.xlsx). One row per PCID. Undergraduate, graduate, dual enrollment, and non-degree — no program filter.",
   ugStudents:
     "Registration Status rows with Program = UNDERG and College Attend not DUAL, EACO, or ND (B.A. and B.S.). Default Census Report view. Mount Melleray Abbey is included.",
   ireland:
