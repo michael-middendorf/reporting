@@ -294,12 +294,13 @@ export default $config({
       // optimizer fails before Sharp runs. Pin the canary-verified wrapper
       // and the patched native dependency used by the production bundle.
       openNextVersion: "4.1.0",
-      // Do not `link` MgoTopProspectsData, StainedGlassWindowsData, or
-      // AdvancementOverviewData onto Web. SST serializes each linked resource
-      // into Lambda environment metadata, and this function's env is already at
-      // the 4KB Lambda limit (#104 failed at 4204 bytes; #164 SST at 4105).
-      // The ECS web app reads latest.json from S3 and invokes by function name.
-      link: [data, masProcess, alumniProcess, instituteData, housingProcess, chapelNaming],
+      // Do not `link` publisher Functions onto Web. SST serializes each
+      // linked resource into Lambda environment metadata, and this function
+      // already sits on the 4KB limit (#104 4204; #164 4105; #173 4159).
+      // Invoke by function name; ECS reads latest.json from S3. Report grants
+      // live in apps/web-next/src/lib/access.ts — do not duplicate
+      // *_ALLOWED_EMAILS here.
+      link: [data],
       // The /api/institute-data route waits on the ~15-25s live Slate fetch.
       server: { timeout: "60 seconds" },
       environment: {
@@ -314,26 +315,6 @@ export default $config({
         SLATE_QUERY_URL: slateQueryUrl.value,
         SLATE_DEPOSITS_URL: slateDepositsUrl.value,
         ALLOWED_EMAILS: allowedEmails.value,
-        ENROLLMENT_ALLOWED_EMAILS:
-          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
-        CENSUS_ALLOWED_EMAILS:
-          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
-        HOUSING_ALLOWED_EMAILS:
-          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
-        INSTITUTE_ALLOWED_EMAILS:
-          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,liam.j.orourke@avemaria.edu,garrett.j.hallinan@avemaria.edu,gabriel.f.mellino@avemaria.edu",
-        MAS_ALLOWED_EMAILS:
-          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
-        POINTS_ALLOWED_EMAILS:
-          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
-        ALUMNI_ALLOWED_EMAILS:
-          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu",
-        ADVANCEMENT_ALLOWED_EMAILS:
-          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu,sarah.chichester@avemaria.edu,regina.m.pirolli+test@avemaria.edu,becca.kennedy@avemaria.edu",
-        // Annunciation-only viewers get app access + see ONLY the Advancement
-        // folder (they are not admins and are on no other report's allowlist).
-        ANNUNCIATION_ALLOWED_EMAILS:
-          "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu,regina.m.pirolli+test@avemaria.edu,becca.kennedy@avemaria.edu",
         DATA_BUCKET: data.name,
         MAS_PROCESS_FUNCTION: masProcess.name,
         ALUMNI_PROCESS_FUNCTION: alumniProcess.name,
