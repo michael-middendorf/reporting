@@ -286,6 +286,8 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.doesNotMatch(attritionXml, /Athletic Retention/);
   assert.match(attritionXml, /Incoming FTCA/);
   assert.match(attritionXml, /HS GPA Ranges/);
+  assert.match(attritionXml, /ACT Converted/);
+  assert.match(attritionXml, /Test Score/);
   assert.match(attritionXml, /Needs data/);
   const noFbFtcaXml = files["xl/worksheets/sheet7.xml"];
   assert.match(noFbFtcaXml, /Football removed/);

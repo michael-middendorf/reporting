@@ -1075,7 +1075,7 @@ function writeAttrition(
       : [],
     { intCols: [1, 2], pctCols: [3], total: true },
   );
-  writeCountTable(
+  nRow = writeCountTable(
     ws,
     nRow + 2,
     colN,
@@ -1085,6 +1085,30 @@ function writeAttrition(
       ? []
       : crosstabCells(extras.byAppDecision, false, true),
     { intCols: [1, 2], pctCols: [3], total: true },
+  );
+  nRow = writeCountTable(
+    ws,
+    nRow + 2,
+    colN,
+    "Test Score",
+    ["Test Score", "Students", "# Non-Retained", "% Retained"],
+    extras.byTestScore.length ? attritionWithTotal(extras.byTestScore, a.retentionRate, "gpa") : [],
+    { intCols: [1, 2], pctCols: [3], total: true },
+  );
+  nRow = writeCountTable(
+    ws,
+    nRow + 2,
+    colN,
+    "ACT Converted",
+    ["ACT Converted", "Students", "# Non-Retained", "% Retained"],
+    extras.byActConverted.length ? attritionWithTotal(extras.byActConverted, a.retentionRate, "gpa") : [],
+    { intCols: [1, 2], pctCols: [3], total: true },
+  );
+  ws.set(
+    nRow,
+    colN,
+    "*ACT converted is the higher of verified ACT and SAT (College Board concordance). CLT-only students are in Has test score, not ACT converted.",
+    NOTE,
   );
 
   let tRow = writeCountTable(
@@ -1122,7 +1146,7 @@ function writeAttrition(
       : [],
     { intCols: [1, 2], pctCols: [3], total: true },
   );
-  writeCountTable(
+  tRow = writeCountTable(
     ws,
     tRow + 2,
     colT,
@@ -1131,6 +1155,24 @@ function writeAttrition(
     extras.byHsGpaFineAthletes.length
       ? attritionWithTotal(extras.byHsGpaFineAthletes, subsetRetention(extras.byHsGpaFineAthletes), "gpa")
       : [],
+    { intCols: [1, 2], pctCols: [3], total: true },
+  );
+  tRow = writeCountTable(
+    ws,
+    tRow + 2,
+    colT,
+    "Honors",
+    ["Honors", "Students", "# Non-Retained", "% Retained"],
+    extras.byHonors.length ? attritionWithTotal(extras.byHonors, a.retentionRate, "gpa") : [],
+    { intCols: [1, 2], pctCols: [3], total: true },
+  );
+  writeCountTable(
+    ws,
+    tRow + 2,
+    colT,
+    "FSP",
+    ["FSP", "Students", "# Non-Retained", "% Retained"],
+    extras.byFsp.length ? attritionWithTotal(extras.byFsp, a.retentionRate, "gpa") : [],
     { intCols: [1, 2], pctCols: [3], total: true },
   );
 }
@@ -1752,6 +1794,10 @@ const EMPTY_FTCA_EXTRAS: ReturnType<typeof buildFtcaExtras> = {
   byHsGpaAthletes: [],
   byHsGpaFine: [],
   byHsGpaFineAthletes: [],
+  byActConverted: [],
+  byTestScore: [],
+  byHonors: [],
+  byFsp: [],
 };
 
 const NO_FOOTBALL_FILTERS = { ...DEFAULT_FILTERS, excludedSports: ["Football"] };

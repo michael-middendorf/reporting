@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { applyRegistrationTotals, buildGraduateEnrollment, meanPositive, sumCredits, summaryFromStudents } from "./from-lists";
-import { promoteFormerDualFtca } from "./lists";
+import { markSpringAdmitsReturning, promoteFormerDualFtca } from "./lists";
 import snapshot from "./snapshot.json";
 import type { CensusRawStudent } from "./lists-core";
 
@@ -82,6 +82,20 @@ test("all-student total is every registration row; UG DS excludes dual", () => {
   assert.equal(sum.luxMundiGrad.headcount, 1);
   assert.equal(sum.gradMa.headcount, 0, "Lux Mundi MA is not also in campus MA Theology");
   assert.equal(sum.totalUndergraduate.headcount, 4);
+});
+
+test("Summary FTCA is Incoming+FTCA any class and excludes spring admits", () => {
+  const rows = markSpringAdmitsReturning([
+    s({ pcid: "P1", collegeAttend: "FTCA", classLevel: "Sophomore", incomingReturning: "Incoming" }),
+    s({ pcid: "P2", collegeAttend: "FTCA", classLevel: "Freshman", incomingReturning: "Incoming", admitTerm: "Spring 2026" }),
+    s({ pcid: "P3", collegeAttend: "TRAN", classLevel: "Freshman", incomingReturning: "Incoming" }),
+    s({ pcid: "P4", collegeAttend: "FTCA", classLevel: "Freshman", incomingReturning: "Returning" }),
+  ]);
+  const sum = summaryFromStudents(rows);
+  assert.equal(sum.ftca.headcount, 1);
+  assert.equal(sum.newStudents.headcount, 2);
+  assert.equal(sum.returning.headcount, 2);
+  assert.equal(sum.tran.headcount, 1);
 });
 
 test("Summary FTCA includes freshman who were dual enrollment last year", () => {

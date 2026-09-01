@@ -8,6 +8,7 @@ import {
 } from "./residency";
 import {
   dropNonCensusSports,
+  isSpringOrSummerAdmit,
   isUgDegreeSeekingRow,
   normPcid,
   S26_LOA_ROSTER,
@@ -146,12 +147,22 @@ export function promoteFormerDualFtca(
   if (!students.length || !prior.length) return students;
   const priorById = new Map(prior.map((s) => [normPcid(s.pcid), s]));
   return students.map((s) => {
+    if (isSpringOrSummerAdmit(s.admitTerm)) return s;
     if (!isFtcaFreshman(s)) return s;
     if ((s.incomingReturning || "").trim().toLowerCase().startsWith("incoming")) return s;
     const prev = priorById.get(normPcid(s.pcid));
     if (!prev) return { ...s, incomingReturning: "Incoming" };
     if (isUgDegreeSeekingRow(prev.program, prev.collegeAttend)) return s;
     return { ...s, incomingReturning: "Incoming" };
+  });
+}
+
+/** Spring/summer starters are Returning on the fall census, like last year. */
+export function markSpringAdmitsReturning(students: CensusRawStudent[]): CensusRawStudent[] {
+  return students.map((s) => {
+    if (!isSpringOrSummerAdmit(s.admitTerm)) return s;
+    if (!(s.incomingReturning || "").trim().toLowerCase().startsWith("incoming")) return s;
+    return { ...s, incomingReturning: "Returning" };
   });
 }
 
@@ -193,7 +204,7 @@ export async function loadCensusLists(): Promise<import("./lists-core").CensusLi
   if (!loa.length) loa = S26_LOA_ROSTER;
   const cleanedPrior = dropNonCensusSports(prior);
   return {
-    students: promoteFormerDualFtca(dropNonCensusSports(students), cleanedPrior),
+    students: markSpringAdmitsReturning(promoteFormerDualFtca(dropNonCensusSports(students), cleanedPrior)),
     unretained,
     prior: cleanedPrior,
     graduates,

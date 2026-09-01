@@ -12,7 +12,7 @@ import {
   type CensusRawStudent,
   type UnretainedStudent,
 } from "./lists-core";
-import { applyErezResidency, markIrelandReturning, promoteFormerDualFtca, resolveCensusResidency } from "./lists";
+import { applyErezResidency, markIrelandReturning, markSpringAdmitsReturning, promoteFormerDualFtca, resolveCensusResidency } from "./lists";
 
 test("eRez On Campus / Commuter wins over registration Res Comm", () => {
   const student = {
@@ -432,6 +432,32 @@ test("freshman FTCA who were dual enrollment last year count as Incoming", () =>
   assert.equal(out[0]?.incomingReturning, "Incoming");
   assert.equal(out[1]?.incomingReturning, "Returning", "repeat freshman who were UG last year stay Returning");
   assert.equal(out[2]?.incomingReturning, "Returning", "former DE who are TRAN are not the FTCA exception");
+});
+
+test("spring admits stay Returning on the fall census", () => {
+  const current = [
+    {
+      pcid: "P1",
+      collegeAttend: "FTCA",
+      classLevel: "Freshman",
+      incomingReturning: "Incoming",
+      admitTerm: "Spring 2026",
+      program: "UNDERG",
+    } as CensusRawStudent,
+    {
+      pcid: "P2",
+      collegeAttend: "FTCA",
+      classLevel: "Sophomore",
+      incomingReturning: "Incoming",
+      admitTerm: "Fall 2026",
+      program: "UNDERG",
+    } as CensusRawStudent,
+  ];
+  const promoted = promoteFormerDualFtca(current, []);
+  assert.equal(promoted[0]?.incomingReturning, "Incoming", "promote leaves spring Incoming until markSpring");
+  const out = markSpringAdmitsReturning(promoted);
+  assert.equal(out[0]?.incomingReturning, "Returning");
+  assert.equal(out[1]?.incomingReturning, "Incoming", "fall FTCA sophomore stays Incoming");
 });
 
 test("team athletes are Varsity / Non-Varsity / Non-NAIA only; managers and band are associated", () => {

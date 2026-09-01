@@ -350,7 +350,7 @@ export const KPI_DEFS: Record<string, string> = {
 export const SUMMARY_DEFS: Record<string, string> = {
   "Undergraduate, New Students Admitted":
     "UG degree-seeking Incoming. First-time except last year's dual enrollment who are freshman FTCA this year — those are Incoming, not Returning.",
-  FTCA: "Incoming UG degree-seeking with College Attend = FTCA. Includes freshman FTCA who were dual enrollment on the last census.",
+  FTCA: "Incoming UG degree-seeking with College Attend = FTCA, any class. Spring/summer admits are Returning, not this line. Includes former dual enrollment who are FTCA this fall.",
   TRAN: "Incoming UG degree-seeking with College Attend = TRAN (transfer).",
   READ: "Incoming UG degree-seeking with College Attend = READ (readmit).",
   SECB: "Incoming UG degree-seeking with College Attend = SECB (second bachelor's).",

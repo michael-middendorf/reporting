@@ -36,6 +36,7 @@ SCHOLARS = DOWNLOADS / "Scholars Fall 2026.xlsx"
 PRIOR = CENSUS_DIR / "Fall 2025 Census Final 9.23.25.xlsx"
 FA25_ROSTER = CENSUS_DIR / "FA25 Athlete Roster For Slate.xlsx"
 FA25_HOUSING = CENSUS_DIR / "Copy of 9.4.2025 CENSUS Fall 25.xlsx"
+FA26_ENTRY = DOWNLOADS / "Roster -_ Housing Report 20260821-155657.xlsx"
 # Gold Resident/Commuter was blank and not in the FA25 eRez extract.
 FA25_RESIDENCY_FILL = {
     "P000342716": "Other",  # Abigail Rich: LESS, San Diego, Fall 2025 graduate; not in eRez
@@ -307,6 +308,52 @@ def apply_fa25_housing(rows: list[dict], housing: dict[str, dict] | None = None)
             continue
         s["residency"] = res
         n += 1
+    return n
+
+
+def is_spring_or_summer_admit(term: str) -> bool:
+    t = (term or "").strip().upper()
+    return "SPRING" in t or "SUMM" in t
+
+
+def load_fa26_entry_terms(path: Path | None = None) -> dict[str, str]:
+    p = path or FA26_ENTRY
+    out: dict[str, str] = {}
+    if not p.exists():
+        return out
+    wb = load_workbook(p, data_only=True, read_only=True)
+    ws = wb.active
+    rows = ws.iter_rows(values_only=True)
+    header = header_map(next(rows))
+    i_id = next((header[k] for k in ("PCID", "Student ID", "ID") if k in header), None)
+    i_term = next((header[k] for k in ("Entry Term", "Admit Term") if k in header), None)
+    if i_id is None or i_term is None:
+        wb.close()
+        return out
+    for row in rows:
+        pid = pcid_of(row[i_id] if i_id < len(row) else None)
+        if not pid.startswith("P"):
+            continue
+        term = dash(row[i_term] if i_term < len(row) else None)
+        if term:
+            out[pid] = term
+    wb.close()
+    return out
+
+
+def apply_fa26_entry_terms(rows: list[dict], terms: dict[str, str] | None = None) -> int:
+    terms = terms if terms is not None else load_fa26_entry_terms()
+    n = 0
+    for s in rows:
+        pid = norm(s.get("pcid"))
+        term = terms.get(pid) or ""
+        if term:
+            s["admitTerm"] = term
+        if is_spring_or_summer_admit(s.get("admitTerm") or ""):
+            ir = str(s.get("incomingReturning") or "")
+            if ir.lower().startswith("incoming"):
+                s["incomingReturning"] = "Returning"
+                n += 1
     return n
 
 
@@ -926,6 +973,7 @@ def patch_incoming_only() -> None:
             n_dec = apply_accept_decisions(rows, decisions) if decisions else 0
             n_ch = apply_chesterton_de(rows, load_chesterton_de())
             n_ros = 0
+            apply_fa26_entry_terms(rows)
             scores_n = len(current_scores)
         else:
             n = apply_incoming_scores(rows, prior_scores) if prior_scores else 0
@@ -1178,6 +1226,7 @@ def main() -> None:
     decisions = load_accept_decisions()
     n_dec = apply_accept_decisions(students, decisions)
     n_chesterton = apply_chesterton_de(students, load_chesterton_de())
+    n_spring = apply_fa26_entry_terms(students)
 
     ug = [s for s in unretained if s.get("program") == "UNDERG" and s.get("collegeAttend") not in NON_DS]
     DATA.mkdir(parents=True, exist_ok=True)
@@ -1239,6 +1288,7 @@ def main() -> None:
         f"incoming scores FA25+FA26 {len(incoming_scores)} on students {n_inc_stu}; FA25 {len(prior_incoming_scores)} on prior {n_inc_prior}\n"
         f"accept decisions {len(decisions)} on students {n_dec}\n"
         f"chesterton DE {n_chesterton}\n"
+        f"spring/summer admits marked Returning {n_spring}\n"
         f"fa25 roster overlay {n_fa25_roster}\n"
         f"fa25 housing overlay {n_fa25_housing}\n"
         f"international {len(intl)} on students {n_intl}\n"

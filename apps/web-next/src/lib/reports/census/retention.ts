@@ -1,6 +1,7 @@
 import {
   canonicalCensusSport,
   isInterveningGraduate,
+  isSpringOrSummerAdmit,
   isTeamAthlete,
   isUgDegreeSeekingRow,
   normPcid,
@@ -91,6 +92,10 @@ export type FtcaExtras = {
   byHsGpaAthletes: AttritionRow[];
   byHsGpaFine: AttritionRow[];
   byHsGpaFineAthletes: AttritionRow[];
+  byActConverted: AttritionRow[];
+  byTestScore: AttritionRow[];
+  byHonors: AttritionRow[];
+  byFsp: AttritionRow[];
 };
 
 /** Catholic or Eastern Rite Catholic. Does not treat "Non-Catholic" as Catholic. */
@@ -139,6 +144,80 @@ export function gpaBucket(gpa: number | string | null | undefined): string {
 
 const HS_GPA_ORDER = ["<2.0", "2.0 - 2.49", "2.5 - 2.99", "3.0 - 3.49", "3.5 - 4.0", "No HS GPA"];
 const HS_GPA_FINE_ORDER = ["2.9- 2.99", "3.0 - 3.09", "3.1 - 3.19", "3.2 - 3.29", "3.3 - 3.39", "3.4 - 3.49"];
+const ACT_CONVERTED_ORDER = ["<18", "18-21", "22-24", "25-27", "28-30", "31-36", "No ACT converted"];
+const TEST_SCORE_ORDER = ["Has test score", "No test score"];
+const HONORS_ORDER = ["Honors", "No honors"];
+const FSP_ORDER = ["FSP", "No FSP"];
+
+/** College Board 2018 SAT total → ACT concordance. SAT below 400 is missing. */
+const SAT_TO_ACT: [number, number][] = [
+  [1570, 36],
+  [1530, 35],
+  [1490, 34],
+  [1450, 33],
+  [1420, 32],
+  [1390, 31],
+  [1360, 30],
+  [1330, 29],
+  [1300, 28],
+  [1260, 27],
+  [1230, 26],
+  [1200, 25],
+  [1160, 24],
+  [1130, 23],
+  [1100, 22],
+  [1060, 21],
+  [1030, 20],
+  [990, 19],
+  [960, 18],
+  [920, 17],
+  [880, 16],
+  [830, 15],
+  [780, 14],
+  [730, 13],
+  [690, 12],
+  [650, 11],
+  [620, 10],
+  [590, 9],
+];
+
+export function satToAct(sat: number | string | null | undefined): number | null {
+  const n = Number(sat);
+  if (!Number.isFinite(n) || n < 400) return null;
+  for (const [min, act] of SAT_TO_ACT) {
+    if (n >= min) return act;
+  }
+  return 9;
+}
+
+function scorePositive(v: number | string | null | undefined, floor = 0): number | null {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= floor) return null;
+  return n;
+}
+
+/** Higher of verified ACT and SAT converted to ACT. CLT-only is not an ACT converted score. */
+export function actConverted(s: { act?: number | string; sat?: number | string }): number | null {
+  const act = scorePositive(s.act);
+  const fromSat = satToAct(s.sat);
+  const scores = [act, fromSat].filter((n): n is number => n != null);
+  return scores.length ? Math.max(...scores) : null;
+}
+
+export function hasTestScore(s: { act?: number | string; sat?: number | string; clt?: number | string }): boolean {
+  return scorePositive(s.act) != null || satToAct(s.sat) != null || scorePositive(s.clt) != null;
+}
+
+export function actConvertedBucket(s: { act?: number | string; sat?: number | string }): string {
+  const n = actConverted(s);
+  if (n == null) return "No ACT converted";
+  if (n < 18) return "<18";
+  if (n < 22) return "18-21";
+  if (n < 25) return "22-24";
+  if (n < 28) return "25-27";
+  if (n < 31) return "28-30";
+  return "31-36";
+}
 
 function roundGpa(gpa: number | string | null | undefined): number | null {
   const n = Number(gpa);
@@ -205,8 +284,7 @@ export function isFtcaIncoming(s: {
 }): boolean {
   if ((s.collegeAttend || "").trim().toUpperCase() !== "FTCA") return false;
   if (!(s.incomingReturning || "").trim().toLowerCase().startsWith("incoming")) return false;
-  const admit = (s.admitTerm || "").trim().toUpperCase();
-  if (admit.includes("SPRING") || admit.includes("SUMM")) return false;
+  if (isSpringOrSummerAdmit(s.admitTerm)) return false;
   return true;
 }
 
@@ -629,6 +707,11 @@ function attritionFromMap(
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 
+function associationFlag(v?: string): boolean {
+  const t = (v || "").trim();
+  return Boolean(t) && t !== "-";
+}
+
 function bump(map: Map<string, { students: number; notRetained: number }>, label: string, left: boolean) {
   const row = map.get(label) || { students: 0, notRetained: 0 };
   row.students += 1;
@@ -705,6 +788,10 @@ export function buildFtcaExtras(
   const byHsGpaAthletes = new Map<string, { students: number; notRetained: number }>();
   const byHsGpaFine = new Map<string, { students: number; notRetained: number }>();
   const byHsGpaFineAthletes = new Map<string, { students: number; notRetained: number }>();
+  const byActConverted = new Map<string, { students: number; notRetained: number }>();
+  const byTestScore = new Map<string, { students: number; notRetained: number }>();
+  const byHonors = new Map<string, { students: number; notRetained: number }>();
+  const byFsp = new Map<string, { students: number; notRetained: number }>();
   for (const s of cohort) {
     const left = leftWithoutGrad(normPcid(s.pcid), registered, graduated);
     bump(byHsGpa, hsGpaBucket(s.hsGpa), left);
@@ -714,6 +801,10 @@ export function buildFtcaExtras(
       bump(byHsGpaAthletes, hsGpaBucket(s.hsGpa), left);
       if (fine) bump(byHsGpaFineAthletes, fine, left);
     }
+    bump(byActConverted, actConvertedBucket(s), left);
+    bump(byTestScore, hasTestScore(s) ? "Has test score" : "No test score", left);
+    bump(byHonors, associationFlag(s.honors) ? "Honors" : "No honors", left);
+    bump(byFsp, associationFlag(s.fsp) ? "FSP" : "No FSP", left);
   }
   const notRetained = cohort.filter((s) => leftWithoutGrad(normPcid(s.pcid), registered, graduated)).length;
   return {
@@ -738,6 +829,10 @@ export function buildFtcaExtras(
     byHsGpaAthletes: sortHsGpa(attritionFromMap(byHsGpaAthletes, notRetained), HS_GPA_ORDER),
     byHsGpaFine: sortHsGpa(attritionFromMap(byHsGpaFine, notRetained), HS_GPA_FINE_ORDER),
     byHsGpaFineAthletes: sortHsGpa(attritionFromMap(byHsGpaFineAthletes, notRetained), HS_GPA_FINE_ORDER),
+    byActConverted: sortHsGpa(attritionFromMap(byActConverted, notRetained), ACT_CONVERTED_ORDER),
+    byTestScore: sortHsGpa(attritionFromMap(byTestScore, notRetained), TEST_SCORE_ORDER),
+    byHonors: sortHsGpa(attritionFromMap(byHonors, notRetained), HONORS_ORDER),
+    byFsp: sortHsGpa(attritionFromMap(byFsp, notRetained), FSP_ORDER),
   };
 }
 

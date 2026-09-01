@@ -305,6 +305,12 @@ export function isUgDegreeSeekingRow(program: string, collegeAttend: string): bo
   return (program || "").trim().toUpperCase() === "UNDERG" && !NON_DS.has((collegeAttend || "").trim().toUpperCase());
 }
 
+/** Slate/eRez Entry Term like "Spring 2026" or "2025SPRING01". */
+export function isSpringOrSummerAdmit(admitTerm?: string): boolean {
+  const t = (admitTerm || "").trim().toUpperCase();
+  return t.includes("SPRING") || t.includes("SUMM");
+}
+
 /** Pickleball is club, not NAIA. Ireland is a campus (Mount Melleray), not a team. */
 export function isDroppedCensusSport(sport: string): boolean {
   const t = (sport || "").trim().toLowerCase();

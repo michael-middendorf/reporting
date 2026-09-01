@@ -10,6 +10,10 @@ import {
   deriveFtcaRaw,
   hsGpaBucket,
   hsGpaFineBucket,
+  satToAct,
+  actConverted,
+  actConvertedBucket,
+  hasTestScore,
   isCatholic,
   isFtcaIncoming,
   withLiveCurrentYearRate,
@@ -303,6 +307,20 @@ test("hiding a sport drops it from retention totals", () => {
   assert.equal(rows[0]?.sport, "Volleyball");
 });
 
+test("SAT converts to ACT and ACT converted takes the higher score", () => {
+  assert.equal(satToAct(399), null);
+  assert.equal(satToAct(1200), 25);
+  assert.equal(satToAct(1570), 36);
+  assert.equal(actConverted({ act: 24, sat: 1400 }), 31);
+  assert.equal(actConverted({ act: 28, sat: 1100 }), 28);
+  assert.equal(actConverted({ act: 0, sat: 350 }), null);
+  assert.equal(actConvertedBucket({ act: 17 }), "<18");
+  assert.equal(actConvertedBucket({ sat: 1210 }), "25-27");
+  assert.equal(actConvertedBucket({}), "No ACT converted");
+  assert.equal(hasTestScore({ clt: 80 }), true);
+  assert.equal(hasTestScore({ act: 0, sat: 0, clt: 0 }), false);
+});
+
 test("HS GPA buckets match the FA25 FTCA sheet", () => {
   assert.equal(hsGpaBucket(""), "No HS GPA");
   assert.equal(hsGpaBucket(0), "No HS GPA");
@@ -330,6 +348,21 @@ test("FTCA extras fill HS GPA ranges and copy scores onto FTCA raw", () => {
   assert.equal(extras.byHsGpa.find((r) => r.label === "3.0 - 3.49")?.students, 1);
   assert.equal(extras.byHsGpaFine.find((r) => r.label === "3.0 - 3.09")?.students, 1);
   assert.equal(extras.byHsGpaAthletes.find((r) => r.label === "2.0 - 2.49")?.notRetained, 1);
+  const scored = buildFtcaExtras(
+    [
+      prior({ pcid: "P1", act: 26 }),
+      prior({ pcid: "P2", sat: 1100, sport: "" }),
+      prior({ pcid: "P3", clt: 90, sport: "" }),
+      prior({ pcid: "P4", honors: "Hons", sport: "" }),
+    ],
+    ["P1", "P4"],
+    [],
+  );
+  assert.equal(scored.byActConverted.find((r) => r.label === "25-27")?.students, 1);
+  assert.equal(scored.byActConverted.find((r) => r.label === "22-24")?.students, 1);
+  assert.equal(scored.byActConverted.find((r) => r.label === "No ACT converted")?.students, 2);
+  assert.equal(scored.byTestScore.find((r) => r.label === "Has test score")?.students, 3);
+  assert.equal(scored.byHonors.find((r) => r.label === "Honors")?.students, 1);
   const raw = deriveFtcaRaw(
     [prior({ pcid: "P1", hsGpa: 3.8, dob: "03/28/2007", act: 26 })],
     [prior({ pcid: "P1" })],
