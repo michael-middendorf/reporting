@@ -367,6 +367,34 @@ test("sport table splits team athletes from athletics associated like S26", () =
   );
 });
 
+test("blank athletic type and Athletic Associated are associated, not team athletes", () => {
+  const rows = set([
+    raw({ pcid: "1", sport: "Football", athlete: "Athlete", athleticType: "" }),
+    raw({
+      pcid: "2",
+      sport: "Football",
+      athlete: "Athlete",
+      athleticType: "Varsity",
+      rosterStatus: "Roster - Athletic Associated",
+    }),
+    raw({
+      pcid: "3",
+      sport: "Band",
+      athlete: "Athlete",
+      athleticType: "Non-Varsity",
+      rosterStatus: "Roster - Athletic Associated",
+    }),
+    raw({ pcid: "4", sport: "Football", athlete: "Athlete", athleticType: "Varsity" }),
+  ]);
+  const rpt = buildReport(filterStudents(rows, DEFAULT_FILTERS));
+  const fb = rpt.sports.find((r) => r.label === "Football");
+  assert.equal(fb?.athletes, 1);
+  assert.equal(fb?.associated, 3);
+  const band = rpt.sports.find((r) => r.label === "Band");
+  assert.equal(band?.athletes, 0);
+  assert.equal(band?.associated, 1);
+});
+
 test("Rugby-Women folds into Rugby-Men; AMU has no women's rugby", () => {
   const rows = set([
     raw({ pcid: "1", sport: "Rugby-Men", athlete: "Athlete", athleticType: "Non-NAIA", gender: "Male" }),

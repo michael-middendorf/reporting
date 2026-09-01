@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Resident } from "../housing/types";
-import { censusResidencyOf, isLikelyUgResident, residencyFromErez } from "./residency";
+import { censusResidencyOf, displayCensusResidency, isLikelyUgResident, residencyFromErez } from "./residency";
+
+test("blank and dash residency do not display as a residence type", () => {
+  assert.equal(displayCensusResidency(""), "");
+  assert.equal(displayCensusResidency("-"), "");
+  assert.equal(displayCensusResidency("Resident"), "On Campus");
+  assert.equal(displayCensusResidency("Commuter"), "Commuter");
+});
 
 test("eRez price types map to FA25 residency buckets", () => {
   assert.equal(censusResidencyOf({ building: "JPII", price_type: "UGDP" }), "On Campus");

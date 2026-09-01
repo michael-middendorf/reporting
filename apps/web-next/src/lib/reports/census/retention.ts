@@ -194,18 +194,20 @@ export function collectGpa(lists: CensusLists): Map<string, number> {
 }
 
 /**
- * FA25 Incoming+FTCA. Spring admits are not on the FA25 census.
- * Former dual enrollment is often Returning+Freshman+FTCA, not Incoming — include those.
+ * FA25 Summary FTCA line: Incoming AND College Attend = FTCA (392 on the gold census).
+ * Class level does not matter. Spring/summer admits are out.
  */
 export function isFtcaIncoming(s: {
   collegeAttend?: string;
   incomingReturning?: string;
   classLevel?: string;
+  admitTerm?: string;
 }): boolean {
   if ((s.collegeAttend || "").trim().toUpperCase() !== "FTCA") return false;
-  const ir = (s.incomingReturning || "").trim().toLowerCase();
-  if (ir.startsWith("incoming")) return true;
-  return (s.classLevel || "").trim().toLowerCase().startsWith("fresh");
+  if (!(s.incomingReturning || "").trim().toLowerCase().startsWith("incoming")) return false;
+  const admit = (s.admitTerm || "").trim().toUpperCase();
+  if (admit.includes("SPRING") || admit.includes("SUMM")) return false;
+  return true;
 }
 
 export type RetentionHistoryRow = { label: string; rate: number };

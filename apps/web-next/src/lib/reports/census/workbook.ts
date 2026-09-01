@@ -951,7 +951,7 @@ function writeAttrition(
     2,
     1,
     opts?.note ||
-      "Cohort = Fall 2025 Incoming+FTCA (spring admits are not on the FA25 census), plus FTCA freshmen listed as Returning (former dual enrollment). Aiden Wilson excluded (dropped after FA25 census). Athletic retention is on the Census Report sheet.",
+      "Cohort = Fall 2025 census Incoming+FTCA (392 on the FA25 Summary). Class level does not matter. Spring/summer admits are not in this pool. Aiden Wilson excluded (dropped after FA25 census). Athletic retention is on the Census Report sheet.",
     NOTE,
   );
 

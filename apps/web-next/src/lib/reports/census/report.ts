@@ -26,6 +26,7 @@ export type ReportStudent = {
   visa: string;
   appDecision: string;
   athleticType: string;
+  rosterStatus: string;
 };
 
 export type ReportFilters = {
@@ -97,6 +98,7 @@ export function projectReportStudents(rows: CensusRawStudent[]): ReportStudent[]
     visa: (r.visa || "").trim().toUpperCase(),
     appDecision: (r.appDecision || "").trim() || "Not listed",
     athleticType: (r.athleticType || "").trim(),
+    rosterStatus: (r.rosterStatus || "").trim(),
   }));
 }
 
@@ -125,7 +127,8 @@ export function projectUnretained(rows: UnretainedStudent[]): ReportStudent[] {
       citizenship: "",
       visa: "",
       appDecision: "",
-      athleticType: "",
+      athleticType: (s.athleticType || "").trim(),
+      rosterStatus: (s.rosterStatus || "").trim(),
     };
   });
 }
@@ -188,6 +191,7 @@ export function filterLoa(rows: LoaWithStatus[], f: ReportFilters): LoaWithStatu
     visa: "",
     appDecision: "",
     athleticType: "",
+    rosterStatus: "",
   }));
   const keep = new Set(filterStudents(projected, { ...f, majors: [] }).map((s) => s.pcid.toUpperCase()));
   return rows.filter((s) => {

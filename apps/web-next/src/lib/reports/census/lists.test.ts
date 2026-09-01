@@ -5,6 +5,7 @@ import {
   deriveUnretained,
   dropNonCensusSports,
   isInterveningGraduate,
+  isTeamAthlete,
   isUgDegreeSeekingRow,
   withoutFootballPlayers,
   S26_LOA_ROSTER,
@@ -431,6 +432,18 @@ test("freshman FTCA who were dual enrollment last year count as Incoming", () =>
   assert.equal(out[0]?.incomingReturning, "Incoming");
   assert.equal(out[1]?.incomingReturning, "Returning", "repeat freshman who were UG last year stay Returning");
   assert.equal(out[2]?.incomingReturning, "Returning", "former DE who are TRAN are not the FTCA exception");
+});
+
+test("team athletes are Varsity / Non-Varsity / Non-NAIA only; managers and band are associated", () => {
+  assert.equal(isTeamAthlete({ sport: "Football", athleticType: "Varsity" }), true);
+  assert.equal(isTeamAthlete({ sport: "Football", athleticType: "Non-Varsity" }), true);
+  assert.equal(isTeamAthlete({ sport: "Rugby-Men", athleticType: "Non-NAIA" }), true);
+  assert.equal(isTeamAthlete({ sport: "Football", athleticType: "Manager/Student Coach" }), false);
+  assert.equal(isTeamAthlete({ sport: "Football", athleticType: "", rosterStatus: "Roster - Athletic Associated" }), false);
+  assert.equal(isTeamAthlete({ sport: "Football", athleticType: "Varsity", rosterStatus: "Roster - Athletic Associated" }), false);
+  assert.equal(isTeamAthlete({ sport: "Band", athleticType: "Non-Varsity", rosterStatus: "Roster - Athletic Associated" }), false);
+  assert.equal(isTeamAthlete({ sport: "Football", athleticType: "" }), false, "blank FA25 status is a manager, not a player");
+  assert.equal(isTeamAthlete({ sport: "Ireland", athleticType: "" }), false);
 });
 
 test("Rugby-Women is men's rugby associated, not a women's team", () => {

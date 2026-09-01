@@ -42,6 +42,7 @@ export type CensusRawStudent = {
   act?: number | string;
   sat?: number | string;
   clt?: number | string;
+  admitTerm?: string;
 };
 
 export type UnretainedStudent = {
@@ -64,6 +65,8 @@ export type UnretainedStudent = {
   program?: string;
   credits?: number | string;
   earnedCredits?: number | string;
+  athleticType?: string;
+  rosterStatus?: string;
 };
 
 export type LoaStudent = {
@@ -329,14 +332,14 @@ export function withoutFootballPlayers<T extends { sport?: string }>(rows: T[]):
 }
 
 /** S26 team players: Varsity / Non-Varsity / Non-NAIA. Band and managers are associated only. */
-export function isTeamAthlete(s: { athleticType?: string; sport?: string }): boolean {
+export function isTeamAthlete(s: { athleticType?: string; sport?: string; rosterStatus?: string }): boolean {
+  const sport = canonicalCensusSport(s.sport || "").toLowerCase();
+  if (!sport || sport === "band") return false;
   const t = (s.athleticType || "").trim().toUpperCase();
-  if (t === "VARSITY" || t === "NON-VARSITY" || t === "NON-NAIA") return true;
   if (t.includes("MANAGER") || t.includes("COACH")) return false;
-  const sport = (s.sport || "").trim().toLowerCase();
-  if (!sport || sport === "band" || sport === "ireland" || sport === "athletics") return false;
-  if (isDroppedCensusSport(sport)) return false;
-  return !t;
+  const status = (s.rosterStatus || "").trim().toLowerCase();
+  if (status.includes("associated")) return false;
+  return t === "VARSITY" || t === "NON-VARSITY" || t === "NON-NAIA";
 }
 
 export function dropNonCensusSports(students: CensusRawStudent[]): CensusRawStudent[] {

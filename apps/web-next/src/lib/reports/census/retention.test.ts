@@ -132,24 +132,37 @@ test("sport retention charges leavers to their Fall 2025 sport", () => {
   assert.equal(vb?.notRetained, 0);
 });
 
-test("FTCA raw keeps Incoming+FTCA and returning FTCA freshmen, not other returning FTCA", () => {
+test("FTCA raw is Incoming+FTCA from last fall, any class, not spring admits", () => {
   const rows = deriveFtcaRaw(
     [
-      prior({ pcid: "P1", incomingReturning: "Incoming", collegeAttend: "FTCA" }),
+      prior({ pcid: "P1", incomingReturning: "Incoming", collegeAttend: "FTCA", classLevel: "Freshman" }),
       prior({ pcid: "P2", incomingReturning: "Returning", collegeAttend: "FTCA", classLevel: "Sophomore" }),
-      prior({ pcid: "P3", incomingReturning: "Incoming", collegeAttend: "TRAN" }),
+      prior({ pcid: "P3", incomingReturning: "Incoming", collegeAttend: "TRAN", classLevel: "Freshman" }),
       prior({ pcid: "P4", incomingReturning: "Returning", collegeAttend: "FTCA", classLevel: "Freshman" }),
+      prior({ pcid: "P5", incomingReturning: "Incoming", collegeAttend: "FTCA", classLevel: "Sophomore" }),
+      prior({
+        pcid: "P6",
+        incomingReturning: "Incoming",
+        collegeAttend: "FTCA",
+        classLevel: "Freshman",
+        admitTerm: "2025SPRING01",
+      }),
     ],
     [],
     [],
   );
   assert.deepEqual(
     rows.map((r) => r.pcid).sort(),
-    ["P1", "P4"],
+    ["P1", "P5"],
   );
-  assert.equal(isFtcaIncoming(prior({ incomingReturning: "Incoming", collegeAttend: "FTCA" })), true);
-  assert.equal(isFtcaIncoming(prior({ incomingReturning: "Returning", collegeAttend: "FTCA", classLevel: "Sophomore" })), false);
-  assert.equal(isFtcaIncoming(prior({ incomingReturning: "Returning", collegeAttend: "FTCA", classLevel: "Freshman" })), true);
+  assert.equal(isFtcaIncoming(prior({ incomingReturning: "Incoming", collegeAttend: "FTCA", classLevel: "Freshman" })), true);
+  assert.equal(isFtcaIncoming(prior({ incomingReturning: "Incoming", collegeAttend: "FTCA", classLevel: "Sophomore" })), true);
+  assert.equal(
+    isFtcaIncoming(
+      prior({ incomingReturning: "Incoming", collegeAttend: "FTCA", classLevel: "Freshman", admitTerm: "2025SPRING01" }),
+    ),
+    false,
+  );
 });
 
 test("FTCA attrition cohort is Incoming+FTCA", () => {
@@ -233,6 +246,20 @@ test("athletic retention splits team athletes from associated like S26", () => {
   const band = rows.find((r) => r.sport === "Band");
   assert.equal(band?.athletes, 0);
   assert.equal(band?.associated, 1);
+});
+
+test("blank FA25 athletic type on a team is associated, not a team athlete", () => {
+  const rows = buildSportRetention(
+    [
+      prior({ pcid: "P1", sport: "Football", athleticType: "Varsity" }),
+      prior({ pcid: "P2", sport: "Football", athleticType: "", rosterStatus: "" }),
+    ],
+    ["P1", "P2"],
+    [],
+  );
+  const fb = rows.find((r) => r.sport === "Football");
+  assert.equal(fb?.athletes, 1);
+  assert.equal(fb?.associated, 2);
 });
 
 test("pickleball and Ireland are omitted from sport retention", () => {

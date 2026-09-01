@@ -35,6 +35,11 @@ HONORS = DOWNLOADS / "Association Honors-3.xlsx"
 SCHOLARS = DOWNLOADS / "Scholars Fall 2026.xlsx"
 PRIOR = CENSUS_DIR / "Fall 2025 Census Final 9.23.25.xlsx"
 FA25_ROSTER = CENSUS_DIR / "FA25 Athlete Roster For Slate.xlsx"
+FA25_HOUSING = CENSUS_DIR / "Copy of 9.4.2025 CENSUS Fall 25.xlsx"
+# Gold Resident/Commuter was blank and not in the FA25 eRez extract.
+FA25_RESIDENCY_FILL = {
+    "P000342716": "Other",  # Abigail Rich: LESS, San Diego, Fall 2025 graduate; not in eRez
+}
 GRADUATES = DOWNLOADS / "Graduated %2D All-13.xlsx"
 SLATE_ATHLETES = Path("/tmp/slate-athletes.json")
 EXISTING_STUDENTS = DATA / "students.json"
@@ -190,7 +195,7 @@ def load_international(paths: list[Path] | None = None) -> dict[str, dict]:
 
 
 def load_fa25_roster(path: Path | None = None) -> dict[str, dict]:
-    """FA25 Slate roster: Status = Varsity / Non-Varsity / Non-NAIA; blank = band / associated."""
+    """FA25 Slate roster: Status = Varsity / Non-Varsity / Non-NAIA; blank = band / manager associated."""
     p = path or FA25_ROSTER
     out: dict[str, dict] = {}
     if not p.exists():
@@ -216,6 +221,9 @@ def load_fa25_roster(path: Path | None = None) -> dict[str, dict]:
             rec["sport"] = sport
         if typ:
             rec["athleticType"] = typ
+        elif sport and sport.strip().lower() not in {"band", "marching band"}:
+            # Blank Status on a team is associated (managers / student coaches), not a player.
+            rec["athleticType"] = "Manager/Student Coach"
         if rec:
             out[pid] = rec
     wb.close()
@@ -233,6 +241,71 @@ def apply_fa25_roster(rows: list[dict], roster: dict[str, dict]) -> int:
         if rec.get("sport") and not str(s.get("sport") or "").strip():
             s["sport"] = rec["sport"]
             s["athlete"] = "Athlete"
+        n += 1
+    return n
+
+
+def fa25_housing_residency(building: str) -> str:
+    b = (building or "").strip().lower()
+    if not b:
+        return ""
+    if b == "commuter":
+        return "Commuter"
+    if "study" in b or b in {"resstab", "rsta"}:
+        return "Other"
+    return "Resident"
+
+
+def load_fa25_housing(path: Path | None = None) -> dict[str, dict]:
+    """FA25 eRez residence-applications: Building and Admit Term."""
+    p = path or FA25_HOUSING
+    out: dict[str, dict] = {}
+    if not p.exists():
+        return out
+    wb = load_workbook(p, data_only=True, read_only=True)
+    ws = wb.active
+    rows = ws.iter_rows(values_only=True)
+    header = header_map(next(rows))
+    i_id = next((header[k] for k in ("Student ID", "PCID", "ID") if k in header), None)
+    i_bldg = header.get("Building")
+    i_admit = header.get("Admit Term")
+    if i_id is None:
+        wb.close()
+        return out
+    for row in rows:
+        pid = pcid_of(row[i_id] if i_id < len(row) else None)
+        if not pid.startswith("P"):
+            continue
+        rec: dict = {}
+        if i_bldg is not None:
+            res = fa25_housing_residency(str(row[i_bldg] if i_bldg < len(row) else "") or "")
+            if res:
+                rec["residency"] = res
+        if i_admit is not None:
+            admit = dash(row[i_admit] if i_admit < len(row) else None)
+            if admit:
+                rec["admitTerm"] = admit
+        if rec:
+            out[pid] = rec
+    wb.close()
+    return out
+
+
+def apply_fa25_housing(rows: list[dict], housing: dict[str, dict] | None = None) -> int:
+    housing = housing if housing is not None else load_fa25_housing()
+    n = 0
+    for s in rows:
+        pid = norm(s.get("pcid"))
+        rec = housing.get(pid) or {}
+        if rec.get("admitTerm"):
+            s["admitTerm"] = rec["admitTerm"]
+        cur = str(s.get("residency") or "").strip()
+        if cur and cur != "-":
+            continue
+        res = rec.get("residency") or FA25_RESIDENCY_FILL.get(pid) or ""
+        if not res:
+            continue
+        s["residency"] = res
         n += 1
     return n
 
@@ -860,6 +933,7 @@ def patch_incoming_only() -> None:
             n_dec = 0
             n_ch = 0
             n_ros = apply_fa25_roster(rows, load_fa25_roster())
+            apply_fa25_housing(rows)
             scores_n = len(prior_scores)
         path.write_text(json.dumps(data, default=str))
         print(
@@ -945,6 +1019,7 @@ def main() -> None:
     slate = load_slate_sports(SLATE_ATHLETES)
     prior = load_prior(PRIOR)
     n_fa25_roster = apply_fa25_roster(prior, load_fa25_roster())
+    n_fa25_housing = apply_fa25_housing(prior)
     for s in prior:
         if s["pcid"] in eot_gpa:
             s["gpa"] = eot_gpa[s["pcid"]]
@@ -1079,6 +1154,8 @@ def main() -> None:
                 "marines": s.get("marines") or "-",
                 "honors": honors_val or "-",
                 "sport": s.get("sport") or "-",
+                "athleticType": s.get("athleticType") or "",
+                "rosterStatus": s.get("rosterStatus") or "",
                 "religion": s.get("religion") or "-",
                 "state": s.get("state") or "-",
                 "gender": s.get("gender") or "-",
@@ -1163,6 +1240,7 @@ def main() -> None:
         f"accept decisions {len(decisions)} on students {n_dec}\n"
         f"chesterton DE {n_chesterton}\n"
         f"fa25 roster overlay {n_fa25_roster}\n"
+        f"fa25 housing overlay {n_fa25_housing}\n"
         f"international {len(intl)} on students {n_intl}\n"
         f"honors file {len(honors)} eot gpas {len(eot_gpa)} scholar roster {len(scholar_emails)} unmatched {len(unmatched_scholars)}"
     )

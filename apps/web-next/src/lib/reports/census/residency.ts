@@ -65,6 +65,7 @@ export function isMountMellerayResidency(residency: string): boolean {
 /** Census Report / Excel label. Ireland campus shows as Ireland; Rome is its own line. */
 export function displayCensusResidency(residency: string): string {
   const t = (residency || "").trim();
+  if (!t || t === "-") return "";
   if (t === "Resident") return "On Campus";
   if (isMountMellerayResidency(t)) return "Ireland";
   if (t === "Study Abroad" || t.toUpperCase() === "RSTA") return "Rome";
