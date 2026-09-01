@@ -6,7 +6,8 @@ Student-level output is gitignored. Do not commit tokens or JSON.
 from __future__ import annotations
 
 import json
-from datetime import date
+import sys
+from datetime import date, datetime
 from pathlib import Path
 
 from openpyxl import load_workbook
@@ -16,6 +17,7 @@ CENSUS_DIR = Path("/Users/regina.m.pirolli/Documents/PERSONAL Census Files")
 DATA = Path(__file__).resolve().parents[1] / "src/lib/reports/census/data"
 
 REGISTRATION = DOWNLOADS / "Registration Status-26.xlsx"
+INTERNATIONAL_GLOB = "Registration Status*International*.xlsx"
 # -4 = session 01 with Res Comm (R on campus, C commuter, O other).
 # -2 = 03Ireland (not on -4). -5 = 01LuxMundi (replaces -3; adds Bates).
 RESIDENCY_OVERLAYS = [
@@ -24,9 +26,15 @@ RESIDENCY_OVERLAYS = [
     DOWNLOADS / "Registration Status w Residency-5.xlsx",
 ]
 EOT_FILES = [DOWNLOADS / "End Of Term-6.xlsx", DOWNLOADS / "End Of Term-7.xlsx"]
+# Both years. Filenames still say FA25; 100450 is Fall 2025 incoming, 103105 is Fall 2026 incoming.
+INCOMING_PRIOR = DOWNLOADS / "FA25 Incoming Students Census 20260901-100450.xlsx"
+INCOMING_CURRENT = DOWNLOADS / "FA25 Incoming Students Census 20260901-103105.xlsx"
+# Chesterton dual enrollment roster (DE Type column; blank still means Chesterton on this extract).
+CHESTERTON_DE = DOWNLOADS / "FA25 Incoming Students Census 20260901-103435.xlsx"
 HONORS = DOWNLOADS / "Association Honors-3.xlsx"
 SCHOLARS = DOWNLOADS / "Scholars Fall 2026.xlsx"
 PRIOR = CENSUS_DIR / "Fall 2025 Census Final 9.23.25.xlsx"
+FA25_ROSTER = CENSUS_DIR / "FA25 Athlete Roster For Slate.xlsx"
 GRADUATES = DOWNLOADS / "Graduated %2D All-13.xlsx"
 SLATE_ATHLETES = Path("/tmp/slate-athletes.json")
 EXISTING_STUDENTS = DATA / "students.json"
@@ -64,7 +72,6 @@ GENDERED_SPORT = {
     "swimming": ("Swimming-Men", "Swimming-Women"),
     "golf": ("Golf-Men", "Golf-Women"),
     "tennis": ("Tennis-Men", "Tennis-Women"),
-    "rugby": ("Rugby-Men", "Rugby-Women"),
     "track and field": ("XC/Track-Men", "XC/Track-Women"),
     "cross country": ("XC/Track-Men", "XC/Track-Women"),
     "xc/track": ("XC/Track-Men", "XC/Track-Women"),
@@ -140,6 +147,108 @@ def iter_sheet_rows(path: Path):
         if row and row[0]:
             yield header, row
     wb.close()
+
+
+def _col(header: dict[str, int], row, *names):
+    for n in names:
+        if n in header:
+            i = header[n]
+            return row[i] if i < len(row) else None
+    lower = {k.lower(): i for k, i in header.items()}
+    for n in names:
+        i = lower.get(n.lower())
+        if i is not None:
+            return row[i] if i < len(row) else None
+    return None
+
+
+def load_international(paths: list[Path] | None = None) -> dict[str, dict]:
+    """Citizenship + Visa from Registration Status - International Students."""
+    out: dict[str, dict] = {}
+    files = paths if paths is not None else sorted(
+        p for p in DOWNLOADS.glob(INTERNATIONAL_GLOB) if not p.name.startswith("~$")
+    )
+    for path in files:
+        if not path.exists():
+            continue
+        for header, row in iter_sheet_rows(path):
+            pid = pcid_of(_col(header, row, "ID", "PCID"))
+            if not pid.startswith("P"):
+                continue
+            rec: dict = {}
+            cit = dash(_col(header, row, "Citizenship")).upper()
+            visa = dash(_col(header, row, "Visa")).upper()
+            if cit:
+                rec["citizenship"] = cit
+            if visa:
+                rec["visa"] = visa
+            if rec:
+                prev = out.get(pid, {})
+                prev.update(rec)
+                out[pid] = prev
+    return out
+
+
+def load_fa25_roster(path: Path | None = None) -> dict[str, dict]:
+    """FA25 Slate roster: Status = Varsity / Non-Varsity / Non-NAIA; blank = band / associated."""
+    p = path or FA25_ROSTER
+    out: dict[str, dict] = {}
+    if not p.exists():
+        return out
+    wb = load_workbook(p, data_only=True)
+    ws = wb.active
+    rows = ws.iter_rows(values_only=True)
+    header = header_map(next(rows))
+    i_id = header.get("PCID")
+    i_sport = header.get("Sport")
+    i_type = header.get("Status")
+    if i_id is None or i_sport is None:
+        wb.close()
+        return out
+    for row in rows:
+        pid = pcid_of(row[i_id] if i_id < len(row) else None)
+        if not pid.startswith("P"):
+            continue
+        rec: dict = {}
+        sport = dash(row[i_sport] if i_sport < len(row) else None)
+        typ = dash(row[i_type] if i_type is not None and i_type < len(row) else None)
+        if sport:
+            rec["sport"] = sport
+        if typ:
+            rec["athleticType"] = typ
+        if rec:
+            out[pid] = rec
+    wb.close()
+    return out
+
+
+def apply_fa25_roster(rows: list[dict], roster: dict[str, dict]) -> int:
+    n = 0
+    for s in rows:
+        rec = roster.get(norm(s.get("pcid")))
+        if not rec:
+            continue
+        if rec.get("athleticType"):
+            s["athleticType"] = rec["athleticType"]
+        if rec.get("sport") and not str(s.get("sport") or "").strip():
+            s["sport"] = rec["sport"]
+            s["athlete"] = "Athlete"
+        n += 1
+    return n
+
+
+def apply_international(rows: list[dict], intl: dict[str, dict]) -> int:
+    n = 0
+    for s in rows:
+        rec = intl.get(norm(s.get("pcid")))
+        if not rec:
+            continue
+        if rec.get("citizenship"):
+            s["citizenship"] = rec["citizenship"]
+        if rec.get("visa"):
+            s["visa"] = rec["visa"]
+        n += 1
+    return n
 
 
 def load_registration(path: Path) -> list[dict]:
@@ -398,8 +507,12 @@ def census_sport(team: str, gender: str) -> str:
         return ""
     if "pickleball" in low:
         return ""
+    if "ireland" in low:
+        return ""
     if low in {"marching band", "band"}:
         return "Band"
+    if "rugby" in low:
+        return "Rugby-Men"
     if "cross country" in low or "track" in low or low.startswith("xc"):
         t = "Track and Field"
         low = t.lower()
@@ -493,6 +606,269 @@ def load_ireland_pcids() -> set[str]:
     return out
 
 
+def _incoming_col(header: dict[str, int], names: list[str]) -> int | None:
+    """Exact name first; skip SAT/CLT-to-ACT conversion columns (they contain '>>')."""
+    for n in names:
+        if n in header and ">>" not in n:
+            return header[n]
+    for k, i in header.items():
+        if ">>" in k:
+            continue
+        kl = k.lower()
+        for n in names:
+            if n.lower() in kl:
+                return i
+    return None
+
+
+def _num_score(v):
+    if v is None or v == "":
+        return None
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        return None
+    if n <= 0:
+        return None
+    return int(n) if n == int(n) else n
+
+
+def _hs_gpa(v):
+    if v is None or v == "":
+        return None
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        return None
+    if n <= 0:
+        return None
+    return round(n, 2)
+
+
+def _dob(v) -> str:
+    if v is None or v == "":
+        return ""
+    if isinstance(v, datetime):
+        return v.strftime("%m/%d/%Y")
+    if isinstance(v, date):
+        return v.strftime("%m/%d/%Y")
+    return str(v).strip()
+
+
+def incoming_paths(prior: bool = False) -> list[Path]:
+    files = [INCOMING_PRIOR] if prior else [INCOMING_PRIOR, INCOMING_CURRENT, CHESTERTON_DE]
+    return [p for p in files if p.exists() and not p.name.startswith("~$")]
+
+
+def load_incoming_scores(paths: list[Path] | None = None) -> dict[str, dict]:
+    """Slate incoming extract: Official AMU GPA = HS GPA. 0 scores are missing.
+
+    Native verified ACT/SAT/CLT only — not SAT Super >> ACT / CLT Super >> ACT.
+    """
+    out: dict[str, dict] = {}
+    for path in paths if paths is not None else incoming_paths():
+        if not path.exists():
+            continue
+        wb = load_workbook(path, read_only=True, data_only=True)
+        ws = wb.active
+        header = None
+        for row in ws.iter_rows(values_only=True):
+            if header is None:
+                header = header_map(row)
+                continue
+            i_id = _incoming_col(header, ["PowerCampus ID", "PCID", "ID", "PEOPLE ID"])
+            if i_id is None:
+                continue
+            pid = pcid_of(row[i_id])
+            if not pid:
+                continue
+            rec: dict = {}
+            i_gpa = _incoming_col(header, ["Official AMU GPA", "HS GPA", "High School GPA"])
+            i_act = _incoming_col(header, ["ACT Superscore (verified only)", "ACT Superscore", "ACT"])
+            i_sat = _incoming_col(header, ["SAT Superscore (verified only)", "SAT Superscore", "SAT"])
+            i_clt = _incoming_col(header, ["CLT Superscore (verified only)", "CLT Superscore", "CLT"])
+            i_dob = _incoming_col(header, ["Person Birthdate", "Birthdate", "DOB"])
+            gpa = _hs_gpa(row[i_gpa] if i_gpa is not None else None)
+            act = _num_score(row[i_act] if i_act is not None else None)
+            sat = _num_score(row[i_sat] if i_sat is not None else None)
+            clt = _num_score(row[i_clt] if i_clt is not None else None)
+            dob = _dob(row[i_dob] if i_dob is not None else None)
+            if gpa is not None:
+                rec["hsGpa"] = gpa
+            if act is not None:
+                rec["act"] = act
+            if sat is not None:
+                rec["sat"] = sat
+            if clt is not None:
+                rec["clt"] = clt
+            if dob:
+                rec["dob"] = dob
+            if rec:
+                prev = out.get(pid, {})
+                prev.update(rec)
+                out[pid] = prev
+        wb.close()
+    return out
+
+
+SCORE_KEYS = ("hsGpa", "act", "sat", "clt", "dob")
+
+# Slate accept codes → FA25 Census Application Decision labels.
+DECISION_MAP = {
+    "AT": "ACCT",
+    "ACCT": "ACCT",
+    "ACCEPT": "ACCT",
+    "ACCEDPT": "ACCT",
+    "ADMI": "ADM",
+    "ADM": "ADM",
+    "CMRV": "COMM",
+    "COMM": "COMM",
+    "COND": "COND",
+    "NODE": "NODE",
+}
+
+
+def _decision(v) -> str:
+    t = str(v or "").strip().upper()
+    if not t or t in {"-", "NONE", "NOT LISTED"}:
+        return ""
+    return DECISION_MAP.get(t, t)
+
+
+def clear_incoming_scores(rows: list[dict]) -> None:
+    for s in rows:
+        for k in SCORE_KEYS:
+            s.pop(k, None)
+
+
+def apply_incoming_scores(rows: list[dict], scores: dict[str, dict]) -> int:
+    n = 0
+    for s in rows:
+        rec = scores.get(norm(s.get("pcid")))
+        if not rec:
+            continue
+        for k in SCORE_KEYS:
+            v = rec.get(k)
+            if v in (None, ""):
+                continue
+            s[k] = v
+        n += 1
+    return n
+
+
+def load_accept_decisions(path: Path | None = None) -> dict[str, str]:
+    """Accept decisions from FA25 and FA26 incoming extracts. Later file wins on overlap."""
+    paths = [path] if path is not None else incoming_paths(False)
+    out: dict[str, str] = {}
+    for p in paths:
+        if not p.exists():
+            continue
+        wb = load_workbook(p, read_only=True, data_only=True)
+        ws = wb.active
+        header = None
+        for row in ws.iter_rows(values_only=True):
+            if header is None:
+                header = header_map(row)
+                continue
+            i_id = _incoming_col(header, ["PowerCampus ID", "PCID", "ID", "PEOPLE ID"])
+            i_dec = _incoming_col(
+                header,
+                ["Application Decision", "Accept Decision", "Accedpt Decision", "Admit Decision"],
+            )
+            if i_id is None or i_dec is None:
+                continue
+            pid = pcid_of(row[i_id])
+            d = _decision(row[i_dec])
+            if pid and d:
+                out[pid] = d
+        wb.close()
+    return out
+
+
+def load_chesterton_de(path: Path | None = None) -> dict[str, str]:
+    """PCIDs on the Chesterton DE extract. DE Type if present, else Chesterton."""
+    p = path or CHESTERTON_DE
+    out: dict[str, str] = {}
+    if not p.exists():
+        return out
+    wb = load_workbook(p, read_only=True, data_only=True)
+    ws = wb.active
+    header = None
+    for row in ws.iter_rows(values_only=True):
+        if header is None:
+            header = header_map(row)
+            continue
+        i_id = _incoming_col(header, ["PowerCampus ID", "PCID", "ID", "PEOPLE ID"])
+        if i_id is None:
+            continue
+        pid = pcid_of(row[i_id])
+        if not pid:
+            continue
+        i_de = _incoming_col(header, ["DE Type", "DEType", "Chesterton"])
+        de = str(row[i_de] or "").strip() if i_de is not None else ""
+        out[pid] = de or "Chesterton"
+    wb.close()
+    return out
+
+
+def apply_chesterton_de(rows: list[dict], roster: dict[str, str]) -> int:
+    n = 0
+    for s in rows:
+        de = roster.get(norm(s.get("pcid")))
+        if not de:
+            continue
+        s["deType"] = de
+        n += 1
+    return n
+
+
+def apply_accept_decisions(rows: list[dict], decisions: dict[str, str]) -> int:
+    n = 0
+    for s in rows:
+        s["appDecision"] = ""
+        d = decisions.get(norm(s.get("pcid")))
+        if not d:
+            continue
+        s["appDecision"] = d
+        n += 1
+    return n
+
+
+def patch_incoming_only() -> None:
+    current_scores = load_incoming_scores(incoming_paths(False))
+    prior_scores = load_incoming_scores(incoming_paths(True))
+    intl = load_international()
+    decisions = load_accept_decisions()
+    if not current_scores and not prior_scores and not intl and not decisions:
+        print("no incoming extract, international file, or accept-decision file in Downloads")
+        return
+    for name in ("students.json", "prior.json"):
+        path = DATA / name
+        data = json.loads(path.read_text())
+        rows = data.get("students") or []
+        if name == "students.json":
+            clear_incoming_scores(rows)
+            n = apply_incoming_scores(rows, current_scores) if current_scores else 0
+            n_int = apply_international(rows, intl) if intl else 0
+            n_dec = apply_accept_decisions(rows, decisions) if decisions else 0
+            n_ch = apply_chesterton_de(rows, load_chesterton_de())
+            n_ros = 0
+            scores_n = len(current_scores)
+        else:
+            n = apply_incoming_scores(rows, prior_scores) if prior_scores else 0
+            n_int = 0
+            n_dec = 0
+            n_ch = 0
+            n_ros = apply_fa25_roster(rows, load_fa25_roster())
+            scores_n = len(prior_scores)
+        path.write_text(json.dumps(data, default=str))
+        print(
+            f"{name} incoming {n} of {data.get('count')} international {n_int} "
+            f"decisions {n_dec} chesterton {n_ch} roster {n_ros} "
+            f"({scores_n} incoming, {len(intl)} intl, {len(decisions)} decisions)"
+        )
+
+
 def load_prior(path: Path) -> list[dict]:
     from openpyxl import load_workbook as lw
 
@@ -552,6 +928,9 @@ def load_prior(path: Path) -> list[dict]:
 
 
 def main() -> None:
+    if "--incoming-only" in sys.argv:
+        patch_incoming_only()
+        return
     cmap = load_curriculum_map()
     registered_rows = load_registration(REGISTRATION)
     residency_overlay: list[dict] = []
@@ -565,12 +944,28 @@ def main() -> None:
     scholar_emails, scholar_names, scholar_rows = load_institute_scholars(SCHOLARS)
     slate = load_slate_sports(SLATE_ATHLETES)
     prior = load_prior(PRIOR)
+    n_fa25_roster = apply_fa25_roster(prior, load_fa25_roster())
     for s in prior:
         if s["pcid"] in eot_gpa:
             s["gpa"] = eot_gpa[s["pcid"]]
         if s["pcid"] in eot_earned:
             s["earnedCredits"] = eot_earned[s["pcid"]]
     prior_ids = {norm(s["pcid"]) for s in prior}
+    prior_by = {norm(s["pcid"]): s for s in prior}
+
+    def prior_was_ug_ds(pid: str) -> bool:
+        prev = prior_by.get(norm(pid))
+        if not prev:
+            return False
+        return (prev.get("program") or "").strip().upper() == "UNDERG" and (
+            prev.get("collegeAttend") or ""
+        ).strip().upper() not in NON_DS
+
+    def is_ftca_freshman(row: dict) -> bool:
+        college = (row.get("collegeAttend") or "").strip().upper()
+        cls = CLASS_MAP.get(str(row.get("classRaw") or "").upper(), str(row.get("classRaw") or "").strip())
+        return college == "FTCA" and str(cls).lower().startswith("fresh")
+
     ireland_ids = load_ireland_pcids() | {
         norm(row["pcid"]) for row in residency_overlay if "ireland" in str(row.get("session") or "").lower()
     }
@@ -589,18 +984,16 @@ def main() -> None:
         slate_row = slate.get(pid, {})
         sport = slate_row.get("sport") or ""
         in_ireland = norm(pid) in ireland_ids or "ireland" in str(r.get("session") or "").lower()
-        if in_ireland and not sport:
-            sport = "Ireland"
-        athlete = slate_row.get("athlete") or ("Athlete" if sport == "Ireland" else "Non-Athlete")
-        if sport == "Ireland":
-            athlete = "Athlete"
+        if (sport or "").strip().lower() == "ireland":
+            sport = ""
+        athlete = slate_row.get("athlete") or "Non-Athlete"
         sess_key = str(r.get("session") or "").lower().replace(" ", "")
         in_mallary = "03mm" in sess_key or "mallary" in sess_key
         res_comm = str(r.get("resComm") or "").upper()
         if in_mallary:
             residency = "Mont Mallary"
         elif in_ireland:
-            residency = "Ireland"
+            residency = "Mount Melleray Abbey"
         elif res_comm == "C":
             residency = "Commuter"
         elif res_comm == "R":
@@ -622,7 +1015,9 @@ def main() -> None:
                 "first": r["first"],
                 "last": r["last"],
                 "incomingReturning": (
-                    "Returning"
+                    "Incoming"
+                    if is_ftca_freshman(r) and not prior_was_ug_ds(pid)
+                    else "Returning"
                     if norm(pid) in prior_ids
                     or in_ireland
                     or "ireland" in str(r.get("session") or "").lower()
@@ -654,6 +1049,7 @@ def main() -> None:
                 "institute": institute,
                 "marines": r.get("marines") or "",
                 "appDecision": "",
+                "deType": "",
                 "session": r["session"],
                 "degree": r["degree"],
                 "email": r["email"],
@@ -694,6 +1090,17 @@ def main() -> None:
                 "earnedCredits": earned if earned not in (None, "") else "",
             }
         )
+
+    incoming_scores = load_incoming_scores(incoming_paths(False))
+    prior_incoming_scores = load_incoming_scores(incoming_paths(True))
+    clear_incoming_scores(students)
+    n_inc_stu = apply_incoming_scores(students, incoming_scores)
+    n_inc_prior = apply_incoming_scores(prior, prior_incoming_scores)
+    intl = load_international()
+    n_intl = apply_international(students, intl)
+    decisions = load_accept_decisions()
+    n_dec = apply_accept_decisions(students, decisions)
+    n_chesterton = apply_chesterton_de(students, load_chesterton_de())
 
     ug = [s for s in unretained if s.get("program") == "UNDERG" and s.get("collegeAttend") not in NON_DS]
     DATA.mkdir(parents=True, exist_ok=True)
@@ -752,6 +1159,11 @@ def main() -> None:
         f"unretained {len(unretained)} UG-DS {len(ug)} with EOT GPA {n_gpa}\n"
         f"ireland {n_ire} returning {n_ire_ret}\n"
         f"slate sports {sum(1 for v in slate.values() if v.get('sport'))}\n"
+        f"incoming scores FA25+FA26 {len(incoming_scores)} on students {n_inc_stu}; FA25 {len(prior_incoming_scores)} on prior {n_inc_prior}\n"
+        f"accept decisions {len(decisions)} on students {n_dec}\n"
+        f"chesterton DE {n_chesterton}\n"
+        f"fa25 roster overlay {n_fa25_roster}\n"
+        f"international {len(intl)} on students {n_intl}\n"
         f"honors file {len(honors)} eot gpas {len(eot_gpa)} scholar roster {len(scholar_emails)} unmatched {len(unmatched_scholars)}"
     )
     if unmatched_scholars:

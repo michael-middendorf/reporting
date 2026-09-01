@@ -245,18 +245,60 @@ test("gender, athlete, and major filters stack", () => {
 
 test("religion table uses detailed religion; Non-Catholic is not 100% Catholic", () => {
   const rows = set([
-    raw({ pcid: "1", religion: "Catholic", cathGroup: "Catholic" }),
-    raw({ pcid: "2", religion: "Christian", cathGroup: "Non-Catholic" }),
-    raw({ pcid: "3", religion: "Eastern Rite Catholic", cathGroup: "Catholic" }),
+    raw({ pcid: "1", religion: "Catholic", cathGroup: "Catholic", athlete: "Athlete" }),
+    raw({ pcid: "2", religion: "Christian", cathGroup: "Non-Catholic", athlete: "Athlete" }),
+    raw({ pcid: "3", religion: "Eastern Rite Catholic", cathGroup: "Catholic", athlete: "Athlete" }),
     raw({ pcid: "4", religion: "Other", cathGroup: "Non-Catholic" }),
   ]);
   const rpt = buildReport(filterStudents(rows, DEFAULT_FILTERS));
-  const labels = rpt.religion.map((r) => r.label).sort();
-  assert.deepEqual(labels, ["Catholic", "Christian", "Eastern Rite Catholic", "Other"]);
+  assert.deepEqual(
+    rpt.religion.map((r) => r.label),
+    ["Catholic", "Christian", "Eastern Rite Catholic", "Other"],
+  );
+  assert.deepEqual(
+    rpt.athleticReligion.map((r) => r.label),
+    ["Catholic", "Christian", "Eastern Rite Catholic"],
+  );
   const catholicN = rpt.religion.filter((r) => r.label === "Catholic" || r.label === "Eastern Rite Catholic").reduce((s, r) => s + r.n, 0);
   assert.equal(catholicN / rpt.n, 0.5);
   assert.equal(rpt.floridaCatholic.find((r) => r.label === "Catholic")?.n, 2);
   assert.equal(rpt.floridaCatholic.find((r) => r.label === "Non-Catholic")?.n, 2);
+});
+
+test("Application Decisions keeps ACCT/ADM/COMM and Not listed, like FA25", () => {
+  const rows = set([
+    raw({ pcid: "1", appDecision: "AT" }),
+    raw({ pcid: "2", appDecision: "ACCT" }),
+    raw({ pcid: "3", appDecision: "ADMI" }),
+    raw({ pcid: "4", appDecision: "CMRV" }),
+    raw({ pcid: "5", appDecision: "" }),
+  ]);
+  const rpt = buildReport(filterStudents(rows, DEFAULT_FILTERS));
+  const by = Object.fromEntries(rpt.appDecisions.map((r) => [r.label, r.n]));
+  assert.equal(by.ACCT, 2);
+  assert.equal(by.ADM, 1);
+  assert.equal(by.COMM, 1);
+  assert.equal(by["Not listed"], 1);
+});
+
+test("Florida Catholic table keeps Non-Catholic rows (Christian is not Catholic)", () => {
+  const rows = set([
+    raw({ pcid: "1", state: "FL", religion: "Catholic", cathGroup: "Catholic" }),
+    raw({ pcid: "2", state: "FL", religion: "Christian", cathGroup: "Non-Catholic" }),
+    raw({ pcid: "3", state: "FL", religion: "Other", cathGroup: "Non-Catholic" }),
+    raw({ pcid: "4", state: "FL", religion: "Eastern Rite Catholic", cathGroup: "Catholic" }),
+    raw({ pcid: "5", state: "TX", religion: "Christian", cathGroup: "Non-Catholic" }),
+  ]);
+  const rpt = buildReport(filterStudents(rows, DEFAULT_FILTERS));
+  assert.equal(rpt.floridaAthlete.reduce((s, r) => s + r.n, 0), 4);
+  assert.deepEqual(
+    rpt.floridaCatholic.map((r) => [r.label, r.n]),
+    [
+      ["Catholic", 2],
+      ["Non-Catholic", 2],
+    ],
+  );
+  assert.equal(rpt.floridaCatholic[0].n + rpt.floridaCatholic[1].n, 4);
 });
 
 test("class level includes incoming; residency splits male/female", () => {
@@ -272,17 +314,69 @@ test("class level includes incoming; residency splits male/female", () => {
   assert.equal(res?.male, 0);
 });
 
+test("Student Residency shows Ireland and Rome as their own lines", () => {
+  const rows = set([
+    raw({ pcid: "1", residency: "Ireland", gender: "Female" }),
+    raw({ pcid: "2", residency: "Mount Melleray Abbey", gender: "Male" }),
+    raw({ pcid: "3", residency: "On Campus", gender: "Male" }),
+    raw({ pcid: "4", residency: "Rome", gender: "Female" }),
+  ]);
+  const rpt = buildReport(filterStudents(rows, DEFAULT_FILTERS));
+  const ire = rpt.residency.find((r) => r.label === "Ireland");
+  assert.equal(ire?.n, 2);
+  assert.equal(rpt.residency.find((r) => r.label === "Rome")?.n, 1);
+  assert.equal(rpt.residency.find((r) => r.label === "Mount Melleray Abbey"), undefined);
+});
+
 test("country percentages are of international students, like the FA25 sheet", () => {
   const rows = set([
     raw({ pcid: "1", citizenship: "" }),
-    raw({ pcid: "2", citizenship: "CAN" }),
-    raw({ pcid: "3", citizenship: "CAN" }),
-    raw({ pcid: "4", citizenship: "SPAIN" }),
+    raw({ pcid: "2", citizenship: "CAN", visa: "F1" }),
+    raw({ pcid: "3", citizenship: "CAN", visa: "F1" }),
+    raw({ pcid: "4", citizenship: "SPAIN", visa: "F1" }),
+    raw({ pcid: "5", citizenship: "MEX", visa: "F1", state: "FL" }),
   ]);
   const rpt = buildReport(filterStudents(rows, DEFAULT_FILTERS));
   const canada = rpt.countries.find((r) => r.label === "Canada");
   assert.equal(canada?.n, 2);
-  assert.equal(canada?.pct, 2 / 3);
+  assert.equal(canada?.pct, 2 / 4);
+  assert.equal(rpt.countries.find((r) => r.label === "Mexico")?.n, 1);
+  assert.equal(rpt.countries.length, 3);
+  assert.equal(rpt.states.find((r) => r.label === "International")?.n, 4);
+});
+
+test("sport table splits team athletes from athletics associated like S26", () => {
+  const rows = set([
+    raw({ pcid: "1", sport: "Football", athlete: "Athlete", athleticType: "Varsity" }),
+    raw({ pcid: "2", sport: "Football", athlete: "Athlete", athleticType: "Manager/Student Coach" }),
+    raw({ pcid: "3", sport: "Band", athlete: "Athlete", athleticType: "" }),
+    raw({ pcid: "4", sport: "Ireland", athlete: "Athlete", athleticType: "" }),
+    raw({ pcid: "5", athlete: "Non-Athlete", sport: "" }),
+  ]);
+  const rpt = buildReport(filterStudents(rows, DEFAULT_FILTERS));
+  const fb = rpt.sports.find((r) => r.label === "Football");
+  assert.equal(fb?.athletes, 1);
+  assert.equal(fb?.associated, 2);
+  const band = rpt.sports.find((r) => r.label === "Band");
+  assert.equal(band?.athletes, 0);
+  assert.equal(band?.associated, 1);
+  assert.equal(
+    rpt.sports.find((r) => r.label === "Ireland"),
+    undefined,
+    "Ireland is a campus, not a sport",
+  );
+});
+
+test("Rugby-Women folds into Rugby-Men; AMU has no women's rugby", () => {
+  const rows = set([
+    raw({ pcid: "1", sport: "Rugby-Men", athlete: "Athlete", athleticType: "Non-NAIA", gender: "Male" }),
+    raw({ pcid: "2", sport: "Rugby-Women", athlete: "Athlete", athleticType: "Manager/Student Coach", gender: "Female" }),
+  ]);
+  const rpt = buildReport(filterStudents(rows, DEFAULT_FILTERS));
+  assert.equal(rpt.sports.find((r) => r.label === "Rugby-Women"), undefined);
+  const rugby = rpt.sports.find((r) => r.label === "Rugby-Men");
+  assert.equal(rugby?.athletes, 1);
+  assert.equal(rugby?.associated, 2);
 });
 
 test("sports are A–Z; athlete tables list Athlete before Non-Athlete", () => {

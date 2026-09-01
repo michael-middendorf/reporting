@@ -1,6 +1,7 @@
 import {
-  isDroppedCensusSport,
+  canonicalCensusSport,
   isInterveningGraduate,
+  isTeamAthlete,
   isUgDegreeSeekingRow,
   normPcid,
   type CensusLists,
@@ -9,6 +10,7 @@ import {
 } from "./lists-core";
 import { ETHNICITY_NAMES, GPA_ORDER } from "./present";
 import type { AttritionRow, FtcaAttrition } from "./types";
+import { applyCensusRetentionNotes, RETENTION_FORCE_RETAINED } from "./retention-overrides";
 
 export type GraduateRecord = {
   pcid: string;
@@ -50,6 +52,8 @@ export type FtcaRawRow = {
 export type SportRetentionRow = {
   sport: string;
   roster: number;
+  athletes: number;
+  associated: number;
   notRetained: number;
   retained: number;
   graduated: number;
@@ -83,6 +87,10 @@ export type FtcaExtras = {
   byResidencyGender: CrosstabRow[];
   byAppDecision: CrosstabRow[];
   byMaleFlorida: CrosstabRow[];
+  byHsGpa: AttritionRow[];
+  byHsGpaAthletes: AttritionRow[];
+  byHsGpaFine: AttritionRow[];
+  byHsGpaFineAthletes: AttritionRow[];
 };
 
 /** Catholic or Eastern Rite Catholic. Does not treat "Non-Catholic" as Catholic. */
@@ -129,6 +137,46 @@ export function gpaBucket(gpa: number | string | null | undefined): string {
   return "3.5 - 4.0";
 }
 
+const HS_GPA_ORDER = ["<2.0", "2.0 - 2.49", "2.5 - 2.99", "3.0 - 3.49", "3.5 - 4.0", "No HS GPA"];
+const HS_GPA_FINE_ORDER = ["2.9- 2.99", "3.0 - 3.09", "3.1 - 3.19", "3.2 - 3.29", "3.3 - 3.39", "3.4 - 3.49"];
+
+function roundGpa(gpa: number | string | null | undefined): number | null {
+  const n = Number(gpa);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n * 100) / 100;
+}
+
+/** Coarse HS GPA bands from the FA25 FTCA attrition sheet. */
+export function hsGpaBucket(gpa: number | string | null | undefined): string {
+  const n = roundGpa(gpa);
+  if (n == null) return "No HS GPA";
+  if (n < 2) return "<2.0";
+  if (n < 2.5) return "2.0 - 2.49";
+  if (n < 3) return "2.5 - 2.99";
+  if (n < 3.5) return "3.0 - 3.49";
+  return "3.5 - 4.0";
+}
+
+/** 2.9–3.49 tenth-point bands from the FA25 FTCA attrition sheet. Null if outside that range. */
+export function hsGpaFineBucket(gpa: number | string | null | undefined): string | null {
+  const n = roundGpa(gpa);
+  if (n == null || n < 2.9 || n >= 3.5) return null;
+  if (n < 3) return "2.9- 2.99";
+  if (n < 3.1) return "3.0 - 3.09";
+  if (n < 3.2) return "3.1 - 3.19";
+  if (n < 3.3) return "3.2 - 3.29";
+  if (n < 3.4) return "3.3 - 3.39";
+  return "3.4 - 3.49";
+}
+
+function sortHsGpa(rows: AttritionRow[], order: string[]): AttritionRow[] {
+  return [...rows].sort((a, b) => {
+    const ai = order.indexOf(a.label);
+    const bi = order.indexOf(b.label);
+    return (ai === -1 ? 50 : ai) - (bi === -1 ? 50 : bi);
+  });
+}
+
 /** Prefer EOT / unretained GPA, then current, then prior census GPA. */
 export function collectGpa(lists: CensusLists): Map<string, number> {
   const m = new Map<string, number>();
@@ -145,11 +193,19 @@ export function collectGpa(lists: CensusLists): Map<string, number> {
   return m;
 }
 
-export function isFtcaIncoming(s: { collegeAttend?: string; incomingReturning?: string }): boolean {
-  return (
-    (s.collegeAttend || "").trim().toUpperCase() === "FTCA" &&
-    (s.incomingReturning || "").trim().toLowerCase().startsWith("incoming")
-  );
+/**
+ * FA25 Incoming+FTCA. Spring admits are not on the FA25 census.
+ * Former dual enrollment is often Returning+Freshman+FTCA, not Incoming — include those.
+ */
+export function isFtcaIncoming(s: {
+  collegeAttend?: string;
+  incomingReturning?: string;
+  classLevel?: string;
+}): boolean {
+  if ((s.collegeAttend || "").trim().toUpperCase() !== "FTCA") return false;
+  const ir = (s.incomingReturning || "").trim().toLowerCase();
+  if (ir.startsWith("incoming")) return true;
+  return (s.classLevel || "").trim().toLowerCase().startsWith("fresh");
 }
 
 export type RetentionHistoryRow = { label: string; rate: number };
@@ -196,9 +252,7 @@ function blank(v: string | number | null | undefined): string {
 }
 
 function sportOf(s: { sport?: string }): string {
-  const t = blank(s.sport);
-  if (isDroppedCensusSport(t)) return "";
-  return t;
+  return canonicalCensusSport(blank(s.sport));
 }
 
 export function ayGraduatePcids(grads: GraduateRecord[]): Set<string> {
@@ -214,16 +268,17 @@ export function deriveFtcaRaw(
   current: CensusRawStudent[],
   grads: GraduateRecord[],
 ): FtcaRawRow[] {
+  const notes = withNotes(prior, current.map((s) => s.pcid), grads);
   const registered = new Map(current.map((s) => [normPcid(s.pcid), s]));
-  const graduated = ayGraduatePcids(grads);
-  return prior
+  const graduated = notes.graduated;
+  return notes.rows
     .filter(isFtcaIncoming)
     .map((s) => {
       const id = normPcid(s.pcid);
       const now = registered.get(id);
       const retained: FtcaRawRow["retained"] = graduated.has(id)
         ? "Graduated"
-        : now
+        : now || RETENTION_FORCE_RETAINED.has(id)
           ? "Retained"
           : "Not Retained";
       return {
@@ -267,8 +322,10 @@ export function buildSportRetention(
   excludedSports: string[] = [],
   gpaByPcid: Map<string, number> = new Map(),
 ): SportRetentionRow[] {
-  const registered = new Set([...currentPcids].map(normPcid));
-  const graduated = ayGraduatePcids(grads);
+  const notes = withNotes(prior, currentPcids, grads);
+  prior = notes.rows;
+  const registered = notes.registered;
+  const graduated = notes.graduated;
   const excluded = new Set(excludedSports.map((s) => s.toLowerCase()));
   const map = new Map<
     string,
@@ -283,6 +340,8 @@ export function buildSportRetention(
     const row = map.get(sport) || {
       sport,
       roster: 0,
+      athletes: 0,
+      associated: 0,
       notRetained: 0,
       retained: 0,
       graduated: 0,
@@ -295,6 +354,8 @@ export function buildSportRetention(
       leftGpas: [],
     };
     row.roster += 1;
+    row.associated += 1;
+    if (isTeamAthlete(s)) row.athletes += 1;
     const id = normPcid(s.pcid);
     const gpa = gpaByPcid.get(id) ?? Number(s.gpa);
     if (graduated.has(id)) row.graduated += 1;
@@ -319,6 +380,8 @@ export function buildSportRetention(
       return {
         sport: r.sport,
         roster: r.roster,
+        athletes: r.athletes,
+        associated: r.associated,
         notRetained: r.notRetained,
         retained: r.retained,
         graduated: r.graduated,
@@ -336,16 +399,32 @@ function leftWithoutGrad(id: string, registered: Set<string>, graduated: Set<str
   return !registered.has(id) && !graduated.has(id);
 }
 
+function withNotes(
+  rows: CensusRawStudent[],
+  currentPcids: Iterable<string>,
+  grads: GraduateRecord[],
+) {
+  const notes = applyCensusRetentionNotes(rows, currentPcids, grads);
+  return {
+    rows: notes.prior,
+    registered: new Set(notes.currentIds),
+    graduated: ayGraduatePcids(notes.graduates),
+    graduates: notes.graduates,
+    currentIds: notes.currentIds,
+  };
+}
+
 export function buildCrosstabOn(
   rows: CensusRawStudent[],
   currentPcids: Iterable<string>,
   grads: GraduateRecord[],
   pick: (s: CensusRawStudent) => string,
 ): CrosstabRow[] {
-  const registered = new Set([...currentPcids].map(normPcid));
-  const graduated = ayGraduatePcids(grads);
+  const notes = withNotes(rows, currentPcids, grads);
+  const registered = notes.registered;
+  const graduated = notes.graduated;
   const map = new Map<string, CrosstabRow>();
-  for (const s of rows) {
+  for (const s of notes.rows) {
     const label = (pick(s) || "Not listed").trim() || "Not listed";
     const row = map.get(label) || { label, students: 0, notRetained: 0, graduated: 0, retentionPct: null };
     row.students += 1;
@@ -373,6 +452,56 @@ export function buildCrosstab(
   );
 }
 
+/** Committee admits (COMM) and admin overrides (ADM): FTCA, overall, gender, athlete. */
+export function buildAdmitOverrideRetention(
+  prior: CensusRawStudent[],
+  currentPcids: Iterable<string>,
+  grads: GraduateRecord[],
+): CrosstabRow[] {
+  const notes = withNotes(prior, currentPcids, grads);
+  const ug = notes.rows.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend));
+  const registered = notes.registered;
+  const graduated = notes.graduated;
+  const decision = (s: CensusRawStudent) => {
+    const t = (s.appDecision || "").trim().toUpperCase();
+    if (t === "ADM" || t === "ADMI") return "Admin override (ADM)";
+    if (t === "COMM" || t === "CMRV") return "Committee admit (COMM)";
+    return "";
+  };
+  const universes: { label2: string; keep: (s: CensusRawStudent) => boolean }[] = [
+    { label2: "Overall", keep: () => true },
+    { label2: "FTCA", keep: (s) => isFtcaIncoming(s) },
+    { label2: "Male", keep: (s) => s.gender === "Male" },
+    { label2: "Female", keep: (s) => s.gender === "Female" },
+    { label2: "Athlete", keep: (s) => athleteOf(s) === "Athlete" },
+    { label2: "Non-Athlete", keep: (s) => athleteOf(s) !== "Athlete" },
+  ];
+  const out: CrosstabRow[] = [];
+  for (const admit of ["Admin override (ADM)", "Committee admit (COMM)"]) {
+    const pool = ug.filter((s) => decision(s) === admit);
+    for (const u of universes) {
+      const rows = pool.filter(u.keep);
+      if (!rows.length) continue;
+      let notRetained = 0;
+      let graduatedN = 0;
+      for (const s of rows) {
+        const id = normPcid(s.pcid);
+        if (graduated.has(id)) graduatedN += 1;
+        else if (leftWithoutGrad(id, registered, graduated)) notRetained += 1;
+      }
+      out.push({
+        label: admit,
+        label2: u.label2,
+        students: rows.length,
+        notRetained,
+        graduated: graduatedN,
+        retentionPct: rows.length ? (rows.length - notRetained) / rows.length : null,
+      });
+    }
+  }
+  return out;
+}
+
 export function buildCrosstab2On(
   rows: CensusRawStudent[],
   currentPcids: Iterable<string>,
@@ -380,10 +509,11 @@ export function buildCrosstab2On(
   pick1: (s: CensusRawStudent) => string,
   pick2: (s: CensusRawStudent) => string,
 ): CrosstabRow[] {
-  const registered = new Set([...currentPcids].map(normPcid));
-  const graduated = ayGraduatePcids(grads);
+  const notes = withNotes(rows, currentPcids, grads);
+  const registered = notes.registered;
+  const graduated = notes.graduated;
   const map = new Map<string, CrosstabRow>();
-  for (const s of rows) {
+  for (const s of notes.rows) {
     const label = (pick1(s) || "Not listed").trim() || "Not listed";
     const label2 = (pick2(s) || "Not listed").trim() || "Not listed";
     const key = `${label}\0${label2}`;
@@ -404,8 +534,10 @@ export function buildAssociationRetention(
   currentPcids: Iterable<string>,
   grads: GraduateRecord[],
 ): CrosstabRow[] {
-  const registered = new Set([...currentPcids].map(normPcid));
-  const graduated = ayGraduatePcids(grads);
+  const notes = withNotes(prior, currentPcids, grads);
+  prior = notes.rows;
+  const registered = notes.registered;
+  const graduated = notes.graduated;
   const buckets: { label: string; test: (s: CensusRawStudent) => boolean }[] = [
     { label: "Households", test: (s) => Boolean(blank(s.household)) },
     { label: "FSP", test: (s) => Boolean(blank(s.fsp)) },
@@ -461,9 +593,10 @@ export function buildAllUgSplit(
   currentPcids: Iterable<string>,
   grads: GraduateRecord[],
 ): { all: RetentionSlice; athletes: RetentionSlice; nonAthletes: RetentionSlice } {
-  const ug = prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend));
-  const registered = new Set([...currentPcids].map(normPcid));
-  const graduated = ayGraduatePcids(grads);
+  const notes = withNotes(prior, currentPcids, grads);
+  const ug = notes.rows.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend));
+  const registered = notes.registered;
+  const graduated = notes.graduated;
   return {
     all: sliceOf(ug, registered, graduated),
     athletes: sliceOf(
@@ -508,9 +641,10 @@ export function buildFtcaAttritionFromPrior(
   grads: GraduateRecord[],
   gpaByPcid: Map<string, number> = new Map(),
 ): FtcaAttrition {
-  const cohort = prior.filter(isFtcaIncoming);
-  const registered = new Set([...currentPcids].map(normPcid));
-  const graduated = ayGraduatePcids(grads);
+  const notes = withNotes(prior, currentPcids, grads);
+  const cohort = notes.rows.filter(isFtcaIncoming);
+  const registered = notes.registered;
+  const graduated = notes.graduated;
   let enrolledThisFall = 0;
   let notRetained = 0;
   const byState = new Map<string, { students: number; notRetained: number }>();
@@ -527,8 +661,8 @@ export function buildFtcaAttritionFromPrior(
     if (left) notRetained += 1;
     bump(byState, s.state || "International", left);
     bump(byAthlete, athleteOf(s), left);
-    const sport = sportOf(s) || "Non-Athlete";
-    bump(bySport, sport, left);
+    const sport = sportOf(s);
+    if (sport) bump(bySport, sport, left);
     bump(byGpa, gpaBucket(gpaByPcid.get(id) ?? s.gpa), left);
     bump(byEthnicity, ethnicityLabel(s.ethnicity), left);
     bump(byCatholicAthlete, `${catholicOf(s)} / ${athleteOf(s)}`, left);
@@ -549,7 +683,7 @@ export function buildFtcaAttritionFromPrior(
     retentionRate: cohort.length ? enrolledThisFall / cohort.length : 0,
     byState: attritionFromMap(byState, notRetained),
     byAthlete: attritionFromMap(byAthlete, notRetained),
-    bySport: attritionFromMap(bySport, notRetained).filter((r) => r.label !== "Non-Athlete" || r.students > 0),
+    bySport: attritionFromMap(bySport, notRetained).filter((r) => r.label && r.label !== "Non-Athlete"),
     byGpa: gpaSorted,
     byEthnicity: attritionFromMap(byEthnicity, notRetained),
     byCatholicAthlete: attritionFromMap(byCatholicAthlete, notRetained),
@@ -561,7 +695,25 @@ export function buildFtcaExtras(
   currentPcids: Iterable<string>,
   grads: GraduateRecord[],
 ): FtcaExtras {
-  const cohort = prior.filter(isFtcaIncoming);
+  const notes = withNotes(prior, currentPcids, grads);
+  const cohort = notes.rows.filter(isFtcaIncoming);
+  const registered = notes.registered;
+  const graduated = notes.graduated;
+  const byHsGpa = new Map<string, { students: number; notRetained: number }>();
+  const byHsGpaAthletes = new Map<string, { students: number; notRetained: number }>();
+  const byHsGpaFine = new Map<string, { students: number; notRetained: number }>();
+  const byHsGpaFineAthletes = new Map<string, { students: number; notRetained: number }>();
+  for (const s of cohort) {
+    const left = leftWithoutGrad(normPcid(s.pcid), registered, graduated);
+    bump(byHsGpa, hsGpaBucket(s.hsGpa), left);
+    const fine = hsGpaFineBucket(s.hsGpa);
+    if (fine) bump(byHsGpaFine, fine, left);
+    if (athleteOf(s) === "Athlete") {
+      bump(byHsGpaAthletes, hsGpaBucket(s.hsGpa), left);
+      if (fine) bump(byHsGpaFineAthletes, fine, left);
+    }
+  }
+  const notRetained = cohort.filter((s) => leftWithoutGrad(normPcid(s.pcid), registered, graduated)).length;
   return {
     byAthleteGender: buildCrosstab2On(cohort, currentPcids, grads, athleteOf, (s) => s.gender || "—"),
     byEthnicityAthlete: buildCrosstab2On(cohort, currentPcids, grads, whiteOf, athleteOf),
@@ -580,6 +732,10 @@ export function buildFtcaExtras(
       catholicOf,
       athleteOf,
     ),
+    byHsGpa: sortHsGpa(attritionFromMap(byHsGpa, notRetained), HS_GPA_ORDER),
+    byHsGpaAthletes: sortHsGpa(attritionFromMap(byHsGpaAthletes, notRetained), HS_GPA_ORDER),
+    byHsGpaFine: sortHsGpa(attritionFromMap(byHsGpaFine, notRetained), HS_GPA_FINE_ORDER),
+    byHsGpaFineAthletes: sortHsGpa(attritionFromMap(byHsGpaFineAthletes, notRetained), HS_GPA_FINE_ORDER),
   };
 }
 

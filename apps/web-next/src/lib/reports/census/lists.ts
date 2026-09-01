@@ -1,9 +1,15 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { readJsonObject } from "../housing/store";
-import type { HousingAssignmentRow } from "./residency";
+import {
+  MOUNT_MELLERAY,
+  isMountMellerayResidency,
+  type HousingAssignmentRow,
+} from "./residency";
 import {
   dropNonCensusSports,
+  isUgDegreeSeekingRow,
+  normPcid,
   S26_LOA_ROSTER,
   type CensusRawStudent,
   type LoaStudent,
@@ -12,6 +18,7 @@ import {
 
 export {
   attachLoaStatus,
+  canonicalCensusSport,
   deriveUnretained,
   dropNonCensusSports,
   isDroppedCensusSport,
@@ -19,6 +26,7 @@ export {
   isUgDegreeSeekingRow,
   normPcid,
   S26_LOA_ROSTER,
+  withoutFootballPlayers,
   type CensusLists,
   type CensusRawStudent,
   type LoaStudent,
@@ -56,7 +64,7 @@ function isIrelandHousing(h: HousingAssignmentRow): boolean {
   return b === "CIARA" || b === "MALAC" || p === "ISTA";
 }
 
-const EREZ_CAMPUS = new Set(["On Campus", "Commuter"]);
+const EREZ_CAMPUS = new Set(["On Campus", "Commuter", "Rome", "Study Abroad"]);
 
 function mallaryFromRegistration(s: CensusRawStudent): boolean {
   const sess = (s.session || "").toLowerCase().replace(/\s+/g, "");
@@ -66,18 +74,19 @@ function mallaryFromRegistration(s: CensusRawStudent): boolean {
 function irelandFromRegistration(s: CensusRawStudent): boolean {
   const sess = (s.session || "").toLowerCase().replace(/\s+/g, "");
   if (sess.includes("ireland")) return true;
-  return (s.residency || "").trim() === "Ireland";
+  return isMountMellerayResidency(s.residency || "");
 }
 
 function registrationResidency(raw: string): string {
   const t = (raw || "").trim();
   if (!t || t === "-" || t === "Unassigned") return "";
   if (t === "Resident") return "On Campus";
+  if (isMountMellerayResidency(t)) return MOUNT_MELLERAY;
   return t;
 }
 
 /**
- * eRez wins for On Campus / Commuter. Registration session wins for Ireland.
+ * eRez wins for On Campus / Commuter. Registration session wins for Mount Melleray.
  * Use the other source when the preferred one is blank. Unassigned only if both are empty.
  */
 export function resolveCensusResidency(
@@ -85,7 +94,7 @@ export function resolveCensusResidency(
   hit?: HousingAssignmentRow,
 ): string {
   if (mallaryFromRegistration(s)) return "Mont Mallary";
-  if (irelandFromRegistration(s) || (hit && isIrelandHousing(hit))) return "Ireland";
+  if (irelandFromRegistration(s) || (hit && isIrelandHousing(hit))) return MOUNT_MELLERAY;
   const erez = hit && hit.residency !== "Unassigned" ? hit.residency : "";
   if (erez && (EREZ_CAMPUS.has(erez) || erez === "Study Abroad")) return erez;
   const reg = registrationResidency(s.residency);
@@ -95,9 +104,9 @@ export function resolveCensusResidency(
 }
 
 /**
- * Ireland (Ciara / Malachy) for now: Returning, Resident, and sport Ireland
- * when they do not already have a team. Session 03Ireland without an Ireland
- * house is Returning only.
+ * Mount Melleray (Ciara / Malachy) for now: Returning and Mount Melleray residency.
+ * Session 03Ireland without an Ireland house is Returning only.
+ * Ireland is a campus, not a sport — keep any real team sport they already have.
  */
 export function markIrelandReturning(
   students: CensusRawStudent[],
@@ -111,15 +120,38 @@ export function markIrelandReturning(
     const sess = (s.session || "").toLowerCase();
     const inIrelandHouse = ireland.has(id);
     if (!inIrelandHouse && !sess.includes("ireland")) return s;
-    const sport = (s.sport || "").trim();
-    const irelandSport = inIrelandHouse && !sport;
     return {
       ...s,
       incomingReturning: "Returning",
-      residency: inIrelandHouse || sess.includes("ireland") ? "Ireland" : s.residency,
-      sport: irelandSport ? "Ireland" : s.sport,
-      athlete: irelandSport || s.athlete === "Athlete" ? "Athlete" : s.athlete,
+      residency: inIrelandHouse || sess.includes("ireland") ? MOUNT_MELLERAY : s.residency,
     };
+  });
+}
+
+function isFtcaFreshman(s: CensusRawStudent): boolean {
+  return (
+    (s.collegeAttend || "").trim().toUpperCase() === "FTCA" &&
+    (s.classLevel || "").trim().toLowerCase().startsWith("fresh")
+  );
+}
+
+/**
+ * Last year's dual enrollment is not a prior college year. A true freshman FTCA
+ * who was only DE / non-degree on the last census is Incoming, not Returning.
+ */
+export function promoteFormerDualFtca(
+  students: CensusRawStudent[],
+  prior: CensusRawStudent[],
+): CensusRawStudent[] {
+  if (!students.length || !prior.length) return students;
+  const priorById = new Map(prior.map((s) => [normPcid(s.pcid), s]));
+  return students.map((s) => {
+    if (!isFtcaFreshman(s)) return s;
+    if ((s.incomingReturning || "").trim().toLowerCase().startsWith("incoming")) return s;
+    const prev = priorById.get(normPcid(s.pcid));
+    if (!prev) return { ...s, incomingReturning: "Incoming" };
+    if (isUgDegreeSeekingRow(prev.program, prev.collegeAttend)) return s;
+    return { ...s, incomingReturning: "Incoming" };
   });
 }
 
@@ -159,5 +191,12 @@ export async function loadCensusLists(): Promise<import("./lists-core").CensusLi
   let loa = await fromS3<LoaStudent>(CENSUS_LOA_KEY);
   if (!loa.length) loa = fromFile<LoaStudent>(join(localDir, "loa.json"));
   if (!loa.length) loa = S26_LOA_ROSTER;
-  return { students: dropNonCensusSports(students), unretained, prior, graduates, loa };
+  const cleanedPrior = dropNonCensusSports(prior);
+  return {
+    students: promoteFormerDualFtca(dropNonCensusSports(students), cleanedPrior),
+    unretained,
+    prior: cleanedPrior,
+    graduates,
+    loa,
+  };
 }

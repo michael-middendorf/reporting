@@ -9,10 +9,15 @@ import {
 import type { Resident } from "../housing/types";
 import type { CensusHousing, LabeledCount } from "./types";
 
+/** Formal campus name for the Ireland program (session 03Ireland / Ciara / Malachy). */
+export const MOUNT_MELLERAY = "Mount Melleray Abbey";
+
 export const CENSUS_RESIDENCY_ORDER = [
   "Commuter",
   "On Campus",
+  MOUNT_MELLERAY,
   "Ireland",
+  "Rome",
   "Mont Mallary",
   "Other",
   "Study Abroad",
@@ -52,7 +57,21 @@ export function isLikelyUgResident(r: {
   return true;
 }
 
-/** Campus buckets: On Campus (halls), Ireland, Mont Mallary, Commuter, Study Abroad, Other. */
+export function isMountMellerayResidency(residency: string): boolean {
+  const t = (residency || "").trim();
+  return t === "Ireland" || t === MOUNT_MELLERAY;
+}
+
+/** Census Report / Excel label. Ireland campus shows as Ireland; Rome is its own line. */
+export function displayCensusResidency(residency: string): string {
+  const t = (residency || "").trim();
+  if (t === "Resident") return "On Campus";
+  if (isMountMellerayResidency(t)) return "Ireland";
+  if (t === "Study Abroad" || t.toUpperCase() === "RSTA") return "Rome";
+  return t;
+}
+
+/** Campus buckets: On Campus (halls), Mount Melleray Abbey, Mont Mallary, Commuter, Study Abroad, Other. */
 export function censusResidencyOf(r: { building?: string; price_type?: string; session?: string }): Exclude<
   CensusResidencyBucket,
   "Unassigned"
@@ -62,7 +81,8 @@ export function censusResidencyOf(r: { building?: string; price_type?: string; s
   const price = priceTypeOf(r);
   if (sess.includes("03mm") || sess.includes("mallary")) return "Mont Mallary";
   if (isIreland(building) || price === EREZ_PRICE.IRELAND) return "Ireland";
-  if (isRome(r) || isCommuterAbroad(r)) return "Study Abroad";
+  if (isRome(r)) return "Rome";
+  if (isCommuterAbroad(r)) return "Study Abroad";
   if (building === "Commuter" || price === EREZ_PRICE.COMMUTER) return "Commuter";
   if (CAMPUS_HALLS.has(building) || price === EREZ_PRICE.HALL) return "On Campus";
   return "Other";
@@ -95,7 +115,9 @@ export function residencyFromErez(
   const counts: Record<CensusResidencyBucket, number> = {
     Commuter: 0,
     "On Campus": 0,
+    [MOUNT_MELLERAY]: 0,
     Ireland: 0,
+    Rome: 0,
     "Mont Mallary": 0,
     Other: 0,
     "Study Abroad": 0,

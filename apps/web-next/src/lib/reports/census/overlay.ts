@@ -5,6 +5,7 @@ import {
   deriveUnretained,
   loadCensusLists,
   markIrelandReturning,
+  promoteFormerDualFtca,
   type CensusLists,
 } from "./lists";
 import {
@@ -17,6 +18,7 @@ import {
   toUnretainedSeed,
   type FtcaRawRow,
 } from "./retention";
+import { applyCensusRetentionNotes } from "./retention-overrides";
 import snapshot from "./snapshot.json";
 import { presentSnapshot } from "./present";
 import { housingAssignmentRows, residencyFromErez, type HousingAssignmentRow } from "./residency";
@@ -70,16 +72,20 @@ export async function loadCensusSnapshot(): Promise<{
   }
   if (lists.students.length) {
     lists = { ...lists, students: markIrelandReturning(lists.students, housingRows) };
+    if (lists.prior.length) {
+      lists = { ...lists, students: promoteFormerDualFtca(lists.students, lists.prior) };
+    }
     applyRegistrationTotals(data, lists.students);
   }
   if (lists.prior.length && lists.students.length) {
-    const gradIds = ayGraduatePcids(lists.graduates);
+    const notes = applyCensusRetentionNotes(lists.prior, lists.students.map((s) => s.pcid), lists.graduates);
+    const gradIds = ayGraduatePcids(notes.graduates);
     const priorById = new Map(lists.prior.map((p) => [(p.pcid || "").toUpperCase(), p]));
     lists = {
       ...lists,
       unretained: deriveUnretained(
-        toUnretainedSeed(lists.prior),
-        lists.students.map((s) => s.pcid),
+        toUnretainedSeed(notes.prior),
+        notes.currentIds,
         gradIds,
       ).map((s) => {
         const prior = priorById.get((s.pcid || "").toUpperCase());
@@ -91,9 +97,9 @@ export async function loadCensusSnapshot(): Promise<{
       }),
     };
     const gpa = collectGpa(lists);
-    const currentIds = lists.students.map((s) => s.pcid);
-    data.ftcaAttrition = buildFtcaAttritionFromPrior(lists.prior, currentIds, lists.graduates, gpa);
-    const ug = buildAllUgSplit(lists.prior, currentIds, lists.graduates);
+    const currentIds = notes.currentIds;
+    data.ftcaAttrition = buildFtcaAttritionFromPrior(notes.prior, currentIds, notes.graduates, gpa);
+    const ug = buildAllUgSplit(notes.prior, currentIds, notes.graduates);
     data.allUgRetention = {
       priorUg: ug.all.students,
       graduates: ug.all.graduated,

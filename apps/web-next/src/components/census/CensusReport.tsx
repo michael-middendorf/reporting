@@ -116,7 +116,7 @@ export function CensusReport({
           ) : (
             <SheetTable
               title="Athletic Retention (Fall 2025 sport)"
-              headers={["Team", "FA25 Roster", "# Non-Retained", "# Retained", "# Graduated", "Retention %", "Graduated %"]}
+              headers={["Team", "FA25 Athletes", "FA25 Associated", "# Non-Retained", "# Retained", "# Graduated", "Retention %", "Graduated %"]}
               rows={[["Needs data", "", "", "", "", "", ""]]}
             />
           )}
@@ -142,11 +142,7 @@ export function CensusReport({
           <SheetTable
             title="Application Decisions"
             headers={["Type", "Students", "Percentage"]}
-            rows={
-              appDecisions.filter((r) => r.label && r.label !== "Not listed").length
-                ? countRows(appDecisions.filter((r) => r.label !== "Not listed"))
-                : [["Needs data", "", ""]]
-            }
+            rows={appDecisions.length ? countRows(appDecisions) : [["Needs data", "", ""]]}
           />
           <SheetTable
             title="Athletic Religious Association"
@@ -169,16 +165,24 @@ export function CensusReport({
           <SheetTable title="Gender" headers={["Gender", "Students", "Percentage"]} rows={countRows(gender)} />
           <SheetTable
             title="Sport"
-            headers={["Sport", "Students", "% of Student Athletes", "% of All Students"]}
+            headers={["Sport", "Athletes", "Athletics Associated", "% of Student Athletes", "% of All Students"]}
             rows={[
               ...sportsRows.map((r) => [
                 r.label,
-                fmtN(r.n),
+                fmtN(r.athletes ?? 0),
+                fmtN(r.associated ?? r.n),
                 fmtPct(r.pctOfAthletes, 2),
                 fmtPct(r.pctOfAll, 2),
               ]),
-              ["Total", fmtN(sportsRows.reduce((s, r) => s + r.n, 0)), "", ""],
+              [
+                "Total",
+                `${sportsRows.reduce((s, r) => s + (r.athletes ?? 0), 0)}*`,
+                `${sportsRows.reduce((s, r) => s + (r.associated ?? r.n), 0)}**`,
+                "",
+                "",
+              ],
             ]}
+            note={'*“Athletes” refers to team players only. “Athletics Associated” includes anyone affiliated with athletics (band, managers, etc.). **Athletics Association is used for athlete vs. non-athlete counts.'}
           />
         </div>
         <div className="sheet-col">
@@ -211,7 +215,7 @@ export function CensusReport({
             ]}
             note={
               data.housing
-                ? "On Campus = halls. Ireland and Mont Mallary (03MM) are separate. Middlebrooke is not On Campus."
+                ? "On Campus = halls. Ireland (Mount Melleray Abbey) and Rome are separate. Mont Mallary (03MM) is separate. Middlebrooke is not On Campus."
                 : "Housing pending"
             }
           />

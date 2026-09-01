@@ -8,8 +8,8 @@ test("eRez price types map to FA25 residency buckets", () => {
   assert.equal(censusResidencyOf({ building: "Commuter", price_type: "NODM" }), "Commuter");
   assert.equal(censusResidencyOf({ building: "CIARA", price_type: "ISTA" }), "Ireland");
   assert.equal(censusResidencyOf({ building: "MALAC", price_type: "ISTA" }), "Ireland");
+  assert.equal(censusResidencyOf({ building: "", price_type: "RSTA" }), "Rome");
   assert.equal(censusResidencyOf({ session: "03MM" }), "Mont Mallary");
-  assert.equal(censusResidencyOf({ building: "", price_type: "RSTA" }), "Study Abroad");
   assert.equal(censusResidencyOf({ building: "", price_type: "CSTA" }), "Study Abroad");
   assert.equal(censusResidencyOf({ building: "MBK", price_type: "M2FU" }), "Other");
 });

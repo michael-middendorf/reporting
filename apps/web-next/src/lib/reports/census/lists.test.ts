@@ -6,11 +6,12 @@ import {
   dropNonCensusSports,
   isInterveningGraduate,
   isUgDegreeSeekingRow,
+  withoutFootballPlayers,
   S26_LOA_ROSTER,
   type CensusRawStudent,
   type UnretainedStudent,
 } from "./lists-core";
-import { applyErezResidency, markIrelandReturning, resolveCensusResidency } from "./lists";
+import { applyErezResidency, markIrelandReturning, promoteFormerDualFtca, resolveCensusResidency } from "./lists";
 
 test("eRez On Campus / Commuter wins over registration Res Comm", () => {
   const student = {
@@ -115,7 +116,7 @@ test("registration Ireland is not overwritten by eRez commuter or hall", () => {
     studentType: "Returning",
     includedInCensus: true,
   };
-  assert.equal(applyErezResidency([student], [house])[0].residency, "Ireland");
+  assert.equal(applyErezResidency([student], [house])[0].residency, "Mount Melleray Abbey");
 });
 
 test("eRez Other does not wipe registration Commuter; blank both is Unassigned", () => {
@@ -327,9 +328,9 @@ test("Ireland housing and 03Ireland session count as Returning for now", () => {
     },
   ]);
   assert.equal(out[0].incomingReturning, "Returning");
-  assert.equal(out[0].residency, "Ireland");
-  assert.equal(out[0].sport, "Ireland");
-  assert.equal(out[0].athlete, "Athlete");
+  assert.equal(out[0].residency, "Mount Melleray Abbey");
+  assert.equal(out[0].sport, "");
+  assert.notEqual(out[0].athlete, "Athlete");
   assert.equal(out[1].incomingReturning, "Returning");
 });
 
@@ -387,20 +388,60 @@ test("Ireland keeps an existing sport and still counts as Ireland campus", () =>
       includedInCensus: true,
     },
   ]);
-  assert.equal(out[0].residency, "Ireland");
+  assert.equal(out[0].residency, "Mount Melleray Abbey");
   assert.equal(out[0].sport, "Rugby-Men");
   assert.equal(out[0].incomingReturning, "Returning");
 });
 
-test("pickleball is dropped as a census sport", () => {
+test("pickleball and Ireland are dropped as census sports", () => {
   const out = dropNonCensusSports([
     { pcid: "P1", sport: "Pickleball-Men", athlete: "Athlete", athleticType: "Club", rosterStatus: "Roster - Athlete" } as CensusRawStudent,
     { pcid: "P2", sport: "Football", athlete: "Athlete", athleticType: "Varsity", rosterStatus: "Roster - Athlete" } as CensusRawStudent,
+    { pcid: "P3", sport: "Ireland", athlete: "Athlete", athleticType: "", rosterStatus: "" } as CensusRawStudent,
   ]);
   assert.equal(out[0]?.sport, "");
   assert.equal(out[0]?.athlete, "Non-Athlete");
   assert.equal(out[1]?.sport, "Football");
   assert.equal(out[1]?.athlete, "Athlete");
+  assert.equal(out[2]?.sport, "");
+  assert.equal(out[2]?.athlete, "Non-Athlete");
+});
+
+test("withoutFootballPlayers drops Football and keeps other sports", () => {
+  const out = withoutFootballPlayers([
+    { pcid: "P1", sport: "Football" } as CensusRawStudent,
+    { pcid: "P2", sport: "Volleyball" } as CensusRawStudent,
+    { pcid: "P3", sport: "" } as CensusRawStudent,
+  ]);
+  assert.deepEqual(out.map((s) => s.pcid), ["P2", "P3"]);
+});
+
+test("freshman FTCA who were dual enrollment last year count as Incoming", () => {
+  const current = [
+    { pcid: "P1", collegeAttend: "FTCA", classLevel: "Freshman", incomingReturning: "Returning", program: "UNDERG" } as CensusRawStudent,
+    { pcid: "P2", collegeAttend: "FTCA", classLevel: "Freshman", incomingReturning: "Returning", program: "UNDERG" } as CensusRawStudent,
+    { pcid: "P3", collegeAttend: "TRAN", classLevel: "Freshman", incomingReturning: "Returning", program: "UNDERG" } as CensusRawStudent,
+  ];
+  const prior = [
+    { pcid: "P1", collegeAttend: "DUAL", program: "NDEG" } as CensusRawStudent,
+    { pcid: "P2", collegeAttend: "FTCA", program: "UNDERG" } as CensusRawStudent,
+    { pcid: "P3", collegeAttend: "DUAL", program: "NDEG" } as CensusRawStudent,
+  ];
+  const out = promoteFormerDualFtca(current, prior);
+  assert.equal(out[0]?.incomingReturning, "Incoming");
+  assert.equal(out[1]?.incomingReturning, "Returning", "repeat freshman who were UG last year stay Returning");
+  assert.equal(out[2]?.incomingReturning, "Returning", "former DE who are TRAN are not the FTCA exception");
+});
+
+test("Rugby-Women is men's rugby associated, not a women's team", () => {
+  const out = dropNonCensusSports([
+    { pcid: "P1", sport: "Rugby-Women", athlete: "Athlete", athleticType: "Manager/Student Coach", rosterStatus: "Roster - Athletic Associated" } as CensusRawStudent,
+    { pcid: "P2", sport: "Rugby-Men", athlete: "Athlete", athleticType: "Non-NAIA", rosterStatus: "Roster - Athlete" } as CensusRawStudent,
+  ]);
+  assert.equal(out[0]?.sport, "Rugby-Men");
+  assert.equal(out[0]?.athlete, "Athlete");
+  assert.equal(out[0]?.athleticType, "Manager/Student Coach");
+  assert.equal(out[1]?.sport, "Rugby-Men");
 });
 
 function prior(pcid: string, extra: Partial<UnretainedStudent> = {}): UnretainedStudent {

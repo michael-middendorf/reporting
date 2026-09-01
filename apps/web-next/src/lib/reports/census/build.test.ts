@@ -27,3 +27,25 @@ test("FA26 draft snapshot has the registration spine totals", () => {
   assert.equal(snapshot.summary.degreeSeeking.headcount, 1400);
   assert.ok(snapshot.pending.length > 0);
 });
+
+test("Historical prior years are the published FA25 census, not live FA26", () => {
+  const h = snapshot.historical;
+  assert.deepEqual(h.years, [2026, 2025, 2024, 2023, 2022, 2021, 2020]);
+  assert.equal(h.newStudents.hc[1], 459);
+  assert.equal(h.ftca.hc[1], 392);
+  assert.equal(h.returning.hc[1], 884);
+  assert.equal(h.degreeSeeking.hc[1], 1343);
+  assert.equal(h.degreeSeeking.fullTime[1], 1334);
+  assert.equal(h.totalUndergraduate.hc[1], 1370);
+  assert.equal(h.gradMa.hc[1], 19);
+  assert.equal(h.gradPhd.hc[1], 23);
+  assert.equal(h.gradMba.hc[1], 45);
+  assert.equal(h.gradMedcl.hc[1], 31);
+  assert.equal(h.gradMaPhil.hc[1], 4);
+  assert.equal(h.gradMaCrw.hc[1], 8);
+  assert.equal(h.totalGraduate.hc[1], 130);
+  assert.equal(h.totalGraduate.fte[1], 107);
+  assert.equal(h.totalEnrollment.hc[1], 1500);
+  assert.equal(h.totalEnrollment.hc[6], 1149);
+  assert.equal(h.totalGraduate.hc[6], 47);
+});

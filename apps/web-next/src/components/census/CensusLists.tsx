@@ -321,7 +321,8 @@ export function VerifySheet({ rows }: { rows: VerifyRow[] }) {
 export function SportRetentionTable({ rows }: { rows: SportRetentionRow[] }) {
   if (!rows.length) return null;
   const tot = {
-    roster: rows.reduce((s, r) => s + r.roster, 0),
+    athletes: rows.reduce((s, r) => s + r.athletes, 0),
+    associated: rows.reduce((s, r) => s + r.associated, 0),
     notRetained: rows.reduce((s, r) => s + r.notRetained, 0),
     retained: rows.reduce((s, r) => s + r.retained, 0),
     graduated: rows.reduce((s, r) => s + r.graduated, 0),
@@ -329,20 +330,21 @@ export function SportRetentionTable({ rows }: { rows: SportRetentionRow[] }) {
   return (
     <SheetTable
       title="Athletic Retention (Fall 2025 sport)"
-      headers={["Team", "FA25 Roster", "# Non-Retained", "# Retained", "# Graduated", "Retention %", "Graduated %"]}
+      headers={["Team", "FA25 Athletes", "FA25 Associated", "# Non-Retained", "# Retained", "# Graduated", "Retention %", "Graduated %"]}
       rows={[
         ...rows.map((r) => [
           r.sport,
-          fmtN(r.roster),
+          fmtN(r.athletes),
+          fmtN(r.associated),
           fmtN(r.notRetained),
           fmtN(r.retained),
           fmtN(r.graduated),
           r.retentionPct == null ? "—" : `${(r.retentionPct * 100).toFixed(1)}%`,
           r.graduatedPct == null ? "—" : `${(r.graduatedPct * 100).toFixed(1)}%`,
         ]),
-        ["Total", fmtN(tot.roster), fmtN(tot.notRetained), fmtN(tot.retained), fmtN(tot.graduated), "", ""],
+        ["Total", fmtN(tot.athletes), fmtN(tot.associated), fmtN(tot.notRetained), fmtN(tot.retained), fmtN(tot.graduated), "", ""],
       ]}
-      note="Leavers count against the sport they played on the Fall 2025 census, not this fall."
+      note={'*Athletes = team players (Varsity / Non-Varsity / Non-NAIA). Associated includes band, managers, and other affiliates. Leavers count against the Fall 2025 sport.'}
     />
   );
 }

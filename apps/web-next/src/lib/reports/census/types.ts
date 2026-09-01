@@ -10,6 +10,8 @@ export type LabeledCount = {
   female?: number;
   pctOfAthletes?: number;
   pctOfAll?: number;
+  athletes?: number;
+  associated?: number;
 };
 
 export type CensusSummary = {
@@ -29,14 +31,60 @@ export type CensusSummary = {
   chestertonDual: CountFte;
   nonDegree: CountFte;
   totalUndergraduate: CountFte;
+  gradMaPhil: CountFte;
   gradMa: CountFte;
   gradPhd: CountFte;
   gradMba: CountFte;
   gradMedcl: CountFte;
+  gradMaCrw: CountFte;
   luxMundiGrad: CountFte;
+  luxMundiNonDegree: CountFte;
   totalGraduate: CountFte;
   totalEnrollment: CountFte;
 };
+
+/** Frozen FA25 Historical row list. Do not add Summary-only breakouts here. */
+export const HISTORICAL_ROWS: {
+  label: string;
+  key?: keyof CensusSummary;
+  indent?: boolean;
+  total?: boolean;
+  bold?: boolean;
+}[] = [
+  { label: "Degree-Seeking" },
+  { label: "Undergraduate, New Students Admitted", key: "newStudents", bold: true },
+  { label: "FTCA", key: "ftca", indent: true },
+  { label: "TRAN", key: "tran", indent: true },
+  { label: "READ", key: "read", indent: true },
+  { label: "SECB", key: "secb", indent: true },
+  { label: "Lux Mundi", key: "luxMundiUg", indent: true },
+  { label: "Returning Students", key: "returning", bold: true },
+  { label: "Total Degree-Seeking", key: "degreeSeeking", total: true, bold: true },
+  { label: "" },
+  { label: "High School Dual Enrollment", key: "dualEnrollment", bold: true },
+  { label: "Non-Degree-Seeking / Personal Enrichment", key: "nonDegree", bold: true },
+  { label: "Lux Mundi Non-Degree-Seeking / Personal Enrichment", key: "luxMundiNonDegree" },
+  { label: "" },
+  { label: "TOTAL UNDERGRADUATE ENROLLMENT", key: "totalUndergraduate", total: true, bold: true },
+  { label: "" },
+  { label: "Graduate Phil", key: "gradMaPhil" },
+  { label: "Graduate MA Students:", key: "gradMa" },
+  { label: "Graduate PhD Students:", key: "gradPhd" },
+  { label: "Graduate MA Theo (Online) - Lux Mundi", key: "luxMundiGrad" },
+  { label: "Graduate MBA Students:", key: "gradMba" },
+  { label: "Graduate MEdCl", key: "gradMedcl" },
+  { label: "Graduate MA Comm", key: "gradMaCrw" },
+  { label: "TOTAL GRADUATE ENROLLMENT", key: "totalGraduate", total: true, bold: true },
+  { label: "" },
+  { label: "Graduate & Undergraduate Enrollment", key: "totalEnrollment", total: true, bold: true },
+];
+
+/** FA25 Historical prints Total Degree-Seeking as "1343 (1334 Full Time)". */
+export function degreeSeekingHcLabel(hc: number | null | undefined, fullTime: number | null | undefined): string | number | "" {
+  if (hc == null) return "";
+  if (fullTime == null) return hc;
+  return `${hc} (${fullTime} Full Time)`;
+}
 
 export type FtcaAttrition = {
   cohort: number;
@@ -59,7 +107,12 @@ export type AttritionRow = {
   shareOfNotRetained: number;
 };
 
-export type HistoricalSeries = { hc?: (number | null)[]; fte?: (number | null)[] };
+export type HistoricalSeries = {
+  hc?: (number | null)[];
+  fte?: (number | null)[];
+  /** UG degree-seeking full-time headcount; Historical prints "N (X Full Time)". */
+  fullTime?: (number | null)[];
+};
 
 export type CensusHousing = {
   source: "erez";

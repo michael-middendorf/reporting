@@ -14,6 +14,11 @@ export const COUNTRY_NAMES: Record<string, string> = {
   PARAGU: "Paraguay",
   SPAIN: "Spain",
   UK: "United Kingdom",
+  INDIA: "India",
+  RWANDA: "Rwanda",
+  UGANDA: "Uganda",
+  "D.R.C": "DR Congo",
+  DRC: "DR Congo",
 };
 
 export const ETHNICITY_NAMES: Record<string, string> = {

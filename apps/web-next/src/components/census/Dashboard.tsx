@@ -30,11 +30,13 @@ import {
   isCatholic,
   type FtcaRawRow,
 } from "@/lib/reports/census/retention";
-import { KPI_DEFS, SUMMARY_DEFS, summaryFromStudents, uniqueStudentCount } from "@/lib/reports/census/from-lists";
+import { KPI_DEFS, SUMMARY_DEFS, meanPositive, summaryFromStudents, uniqueStudentCount } from "@/lib/reports/census/from-lists";
 import { buildVerifyList } from "@/lib/reports/census/verify";
 import type { HousingAssignmentRow } from "@/lib/reports/census/residency";
 import {
+  degreeSeekingHcLabel,
   historicalSeries,
+  HISTORICAL_ROWS,
   type CensusSnapshot,
   type CountFte,
 } from "@/lib/reports/census/types";
@@ -219,6 +221,36 @@ export function CensusDashboard() {
     ugOnCampusPct: tables
       ? (tables.residency.find((r) => r.label === "On Campus" || r.label === "Resident")?.n ?? 0) / (tables.n || 1)
       : data.kpis.ugOnCampusPct,
+    incomingHsGpa: rawStudents.length
+      ? meanPositive(
+          ugds.filter((s) => (s.incomingReturning || "").toLowerCase().startsWith("incoming")),
+          (s) => s.hsGpa,
+          2,
+        )
+      : data.kpis.incomingHsGpa,
+    avgAct: rawStudents.length
+      ? meanPositive(
+          ugds.filter((s) => (s.incomingReturning || "").toLowerCase().startsWith("incoming")),
+          (s) => s.act,
+          1,
+        )
+      : data.kpis.avgAct,
+    avgSat: rawStudents.length
+      ? meanPositive(
+          ugds.filter((s) => (s.incomingReturning || "").toLowerCase().startsWith("incoming")),
+          (s) => s.sat,
+          0,
+          5,
+          400,
+        )
+      : data.kpis.avgSat,
+    avgClt: rawStudents.length
+      ? meanPositive(
+          ugds.filter((s) => (s.incomingReturning || "").toLowerCase().startsWith("incoming")),
+          (s) => s.clt,
+          1,
+        )
+      : data.kpis.avgClt,
   };
   const liveFtcaRate = liveFtca?.retentionRate ?? data.ftcaAttrition.retentionRate;
   const liveUgRate = liveAllUg?.retentionRate ?? data.allUgRetention.retentionRate;
@@ -301,7 +333,7 @@ export function CensusDashboard() {
           <Kpi label="All students" value={fmtN(k.allStudents)} def={KPI_DEFS.allStudents} />
           <Kpi label="UG degree-seeking" value={fmtN(k.ugStudents)} def={KPI_DEFS.ugStudents} />
           <Kpi
-            label="Ireland"
+            label="Mount Melleray Abbey"
             value={fmtN(liveSummary?.ireland.headcount ?? data.summary.ireland.headcount)}
             def={KPI_DEFS.ireland}
           />
@@ -454,20 +486,20 @@ function SummaryTab({ data }: { data: CensusSnapshot }) {
     { label: "SECB", c: s.secb, indent: true },
     { label: "Lux Mundi", c: s.luxMundiUg, indent: true },
     { label: "Returning Students", c: s.returning },
-    { label: "Ireland", c: s.ireland, indent: true },
+    { label: "Mount Melleray Abbey", c: s.ireland, indent: true },
     { label: "On Campus", c: s.onCampus, indent: true },
-    { label: "Mont Mallary", c: s.montMallary, indent: true },
     { label: "Total Degree-Seeking", c: s.degreeSeeking },
     { label: "High School Dual Enrollment", c: s.dualEnrollment },
-    { label: "Chesterton DE", c: s.chestertonDual, indent: true },
-    { label: "Chesterton", c: s.chesterton, indent: true },
+    { label: "Chesterton", c: s.chestertonDual, indent: true },
     { label: "Non-Degree-Seeking / Personal Enrichment", c: s.nonDegree },
-    { label: "Lux Mundi Non-Degree-Seeking / Personal Enrichment", c: s.luxMundiUg },
+    { label: "Lux Mundi Non-Degree-Seeking / Personal Enrichment", c: s.luxMundiNonDegree },
     { label: "TOTAL UNDERGRADUATE ENROLLMENT", c: s.totalUndergraduate },
-    { label: "Graduate MA Students", c: s.gradMa },
-    { label: "Graduate PhD Students", c: s.gradPhd },
-    { label: "Graduate MBA Students", c: s.gradMba },
-    { label: "Graduate MEdCl", c: s.gradMedcl },
+    { label: "MA Philosophy", c: s.gradMaPhil },
+    { label: "MA Theology", c: s.gradMa },
+    { label: "PhD Theology", c: s.gradPhd },
+    { label: "MBA", c: s.gradMba },
+    { label: "M. Education", c: s.gradMedcl },
+    { label: "MA CRW", c: s.gradMaCrw },
     { label: "Graduate MA Theo (Online) - Lux Mundi", c: s.luxMundiGrad },
     { label: "TOTAL GRADUATE ENROLLMENT", c: s.totalGraduate },
     { label: "Graduate & Undergraduate Enrollment", c: s.totalEnrollment },
@@ -517,32 +549,7 @@ function SummaryTab({ data }: { data: CensusSnapshot }) {
 
 function HistoricalTab({ data }: { data: CensusSnapshot }) {
   const years = data.historical.years;
-  const lines: { label: string; key?: string; indent?: boolean }[] = [
-    { label: "Degree-Seeking" },
-    { label: "Undergraduate, New Students Admitted", key: "newStudents" },
-    { label: "FTCA", key: "ftca", indent: true },
-    { label: "TRAN", key: "tran", indent: true },
-    { label: "READ", key: "read", indent: true },
-    { label: "SECB", key: "secb", indent: true },
-    { label: "Lux Mundi", key: "luxMundiUg", indent: true },
-    { label: "Returning Students", key: "returning" },
-    { label: "Ireland", key: "ireland", indent: true },
-    { label: "On Campus", key: "onCampus", indent: true },
-    { label: "Mont Mallary", key: "montMallary", indent: true },
-    { label: "Total Degree-Seeking", key: "degreeSeeking" },
-    { label: "High School Dual Enrollment", key: "dualEnrollment" },
-    { label: "Chesterton DE", key: "chestertonDual", indent: true },
-    { label: "Chesterton", key: "chesterton", indent: true },
-    { label: "Non-Degree-Seeking / Personal Enrichment", key: "nonDegree" },
-    { label: "TOTAL UNDERGRADUATE ENROLLMENT", key: "totalUndergraduate" },
-    { label: "Graduate MA Students", key: "gradMa" },
-    { label: "Graduate PhD Students", key: "gradPhd" },
-    { label: "Graduate MBA Students", key: "gradMba" },
-    { label: "Graduate MEdCl", key: "gradMedcl" },
-    { label: "Graduate MA Theo (Online) - Lux Mundi", key: "luxMundiGrad" },
-    { label: "TOTAL GRADUATE ENROLLMENT", key: "totalGraduate" },
-    { label: "Graduate & Undergraduate Enrollment", key: "totalEnrollment" },
-  ];
+  const lines = HISTORICAL_ROWS.filter((line) => line.label || line.key);
   return (
     <div className="sheet">
       <div className="sheet-head">
@@ -586,12 +593,20 @@ function HistoricalTab({ data }: { data: CensusSnapshot }) {
                 }
               >
                 <td>{line.label}</td>
-                {years.map((_, i) => (
-                  <Fragment key={i}>
-                    <td className="num">{!line.key || hc[i] == null ? (line.key ? "—" : "") : fmtN(hc[i])}</td>
-                    <td className="num">{!line.key || fte[i] == null ? (line.key ? "—" : "") : fmtFte(fte[i])}</td>
-                  </Fragment>
-                ))}
+                {years.map((_, i) => {
+                  const hcVal =
+                    line.key === "degreeSeeking"
+                      ? degreeSeekingHcLabel(hc[i], series.fullTime?.[i])
+                      : hc[i];
+                  return (
+                    <Fragment key={i}>
+                      <td className="num">
+                        {!line.key || hcVal === "" || hcVal == null ? (line.key ? "—" : "") : typeof hcVal === "number" ? fmtN(hcVal) : hcVal}
+                      </td>
+                      <td className="num">{!line.key || fte[i] == null ? (line.key ? "—" : "") : fmtFte(fte[i])}</td>
+                    </Fragment>
+                  );
+                })}
               </tr>
             );
           })}

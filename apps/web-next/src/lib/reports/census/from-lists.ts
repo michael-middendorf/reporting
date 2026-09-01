@@ -1,7 +1,7 @@
-import { isUgDegreeSeekingRow, type CensusRawStudent } from "./lists-core";
+import { isUgDegreeSeekingRow, normPcid, type CensusRawStudent } from "./lists-core";
 import { DEFAULT_FILTERS, buildReport, filterStudents, projectReportStudents } from "./report";
 import { isCatholic } from "./retention";
-import { fteFromStudent, type CensusSnapshot, type CensusSummary, type CountFte } from "./types";
+import { fteFromStudent, fullTimeUg, historicalSeries, type CensusSnapshot, type CensusSummary, type CountFte } from "./types";
 
 const NON_DS_DEGREE = new Set(["HSDE", "PENRIC", "NONDEG"]);
 
@@ -22,6 +22,26 @@ export function uniqueStudentCount(rows: CensusRawStudent[]): number {
 
 export function sumCredits(rows: { credits?: number | string | null }[]): number {
   return Math.round(rows.reduce((s, r) => s + (Number(r.credits) || 0), 0) * 10) / 10;
+}
+
+/** Mean of numeric values. 0 / blank are missing. SAT uses floor 400. Null if fewer than `min` scores. */
+export function meanPositive(
+  rows: { [k: string]: unknown }[],
+  pick: (s: { [k: string]: unknown }) => unknown,
+  digits = 1,
+  min = 5,
+  floor = 0,
+): number | null {
+  const xs: number[] = [];
+  for (const row of rows) {
+    const n = Number(pick(row));
+    if (!Number.isFinite(n)) continue;
+    if (floor > 0 ? n < floor : n <= 0) continue;
+    xs.push(n);
+  }
+  if (xs.length < min) return null;
+  const f = 10 ** digits;
+  return Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * f) / f;
 }
 
 function uniqueStudents(rows: CensusRawStudent[]): CensusRawStudent[] {
@@ -64,12 +84,27 @@ function isGrad(s: CensusRawStudent): boolean {
   return program(s) === "GRAD";
 }
 
+function curriculumCode(s: CensusRawStudent): string {
+  return (s.curriculum || "").trim().toUpperCase();
+}
+
+function isMaPhil(s: CensusRawStudent): boolean {
+  return curriculumCode(s) === "MAPHIL" || /philosoph/i.test(s.curriculumName || "");
+}
+
+function isMaCrw(s: CensusRawStudent): boolean {
+  const blob = `${s.curriculum || ""} ${s.curriculumName || ""}`;
+  return curriculumCode(s) === "MACOMM" || /creative\s*writ|\bcrw\b/i.test(blob);
+}
+
 function isUgDs(s: CensusRawStudent): boolean {
   return isUgDegreeSeekingRow(s.program, s.collegeAttend) && !NON_DS_DEGREE.has(degree(s));
 }
 
 export function isIrelandStudent(s: CensusRawStudent): boolean {
-  return (s.session || "").toLowerCase().includes("ireland") || (s.sport || "").trim().toLowerCase() === "ireland";
+  const sess = (s.session || "").toLowerCase();
+  const res = (s.residency || "").trim();
+  return sess.includes("ireland") || res === "Ireland" || res === "Mount Melleray Abbey";
 }
 
 export function isMallaryStudent(s: CensusRawStudent): boolean {
@@ -78,6 +113,7 @@ export function isMallaryStudent(s: CensusRawStudent): boolean {
 }
 
 export function isChesterton(s: CensusRawStudent): boolean {
+  if ((s.deType || "").trim().toLowerCase().includes("chesterton")) return true;
   const blob = `${s.session || ""} ${s.curriculum || ""} ${s.curriculumName || ""} ${s.collegeAttend || ""}`.toLowerCase();
   return blob.includes("chesterton");
 }
@@ -98,6 +134,10 @@ export function summaryFromStudents(students: CensusRawStudent[]): CensusSummary
   const nonDegree = students.filter((s) => !isUgDs(s) && !isDual(s) && !isGrad(s));
   const byCollege = (code: string) => incoming.filter((s) => college(s) === code);
   const byDeg = (code: string) => grads.filter((s) => degree(s) === code && !isLuxMundi(s));
+  const campusMa = byDeg("MARTS");
+  const maPhil = campusMa.filter(isMaPhil);
+  const maCrw = campusMa.filter(isMaCrw);
+  const maTheo = campusMa.filter((s) => !isMaPhil(s) && !isMaCrw(s));
   const ug = [...ugds, ...dual, ...nonDegree];
   return {
     newStudents: hcFte(incoming),
@@ -115,11 +155,14 @@ export function summaryFromStudents(students: CensusRawStudent[]): CensusSummary
     chesterton: hcFte(students.filter((s) => isChesterton(s) && !isDual(s))),
     chestertonDual: hcFte(dual.filter(isChesterton)),
     nonDegree: hcFte(nonDegree),
+    luxMundiNonDegree: hcFte(nonDegree.filter(isLuxMundi)),
     totalUndergraduate: hcFte(ug),
-    gradMa: hcFte(byDeg("MARTS")),
+    gradMaPhil: hcFte(maPhil),
+    gradMa: hcFte(maTheo),
     gradPhd: hcFte(byDeg("PHD")),
     gradMba: hcFte(byDeg("MBA")),
     gradMedcl: hcFte(grads.filter((s) => degree(s) === "MEDCL" && !isLuxMundi(s))),
+    gradMaCrw: hcFte(maCrw),
     luxMundiGrad: hcFte(luxGrad),
     totalGraduate: hcFte(grads),
     totalEnrollment: {
@@ -127,6 +170,100 @@ export function summaryFromStudents(students: CensusRawStudent[]): CensusSummary
       fte: hcFte(students).fte,
     },
   };
+}
+
+export const GRAD_PROGRAM_ORDER = [
+  "MA Philosophy",
+  "MA Theology",
+  "PhD Theology",
+  "MBA",
+  "M. Education",
+  "MA CRW",
+  "Lux Mundi MA Theology",
+  "Other",
+] as const;
+
+export function graduateProgramLabel(s: CensusRawStudent): string | null {
+  if (program(s) !== "GRAD") return null;
+  if (isLuxMundi(s)) return "Lux Mundi MA Theology";
+  const d = degree(s);
+  if (isMaPhil(s)) return "MA Philosophy";
+  if (isMaCrw(s)) return "MA CRW";
+  if (d === "PHD") return "PhD Theology";
+  if (d === "MBA") return "MBA";
+  if (d === "MEDCL" || /educ/i.test(`${s.curriculum || ""} ${s.curriculumName || ""}`)) return "M. Education";
+  if (d === "MARTS") return "MA Theology";
+  return "Other";
+}
+
+export type GradShareRow = { label: string; n: number; pct: number };
+
+export type GraduateProgramStats = {
+  program: string;
+  n: number;
+  athlete: GradShareRow[];
+  admits: GradShareRow[];
+  incomingReturning: GradShareRow[];
+  catholic: GradShareRow[];
+};
+
+function shareRows(n: number, pairs: [string, number][]): GradShareRow[] {
+  return pairs.map(([label, c]) => ({ label, n: c, pct: n ? c / n : 0 }));
+}
+
+function programStats(program: string, rows: CensusRawStudent[], alumniIds: Set<string>): GraduateProgramStats {
+  const n = rows.length;
+  const incoming = rows.filter(isIncoming);
+  const returning = n - incoming.length;
+  const athlete = rows.filter((s) => (s.athlete || "").trim() === "Athlete").length;
+  const catholic = rows.filter(isCatholic).length;
+  const alumniAdmits = incoming.filter((s) => alumniIds.has(normPcid(s.pcid))).length;
+  const externalAdmits = incoming.length - alumniAdmits;
+  return {
+    program,
+    n,
+    athlete: shareRows(n, [
+      ["Athlete", athlete],
+      ["Non-Athlete", n - athlete],
+    ]),
+    admits: shareRows(incoming.length, [
+      ["Alumni admits", alumniAdmits],
+      ["External admits", externalAdmits],
+    ]),
+    incomingReturning: shareRows(n, [
+      ["Incoming", incoming.length],
+      ["Returning", returning],
+    ]),
+    catholic: shareRows(n, [
+      ["Catholic", catholic],
+      ["Non-Catholic", n - catholic],
+    ]),
+  };
+}
+
+/** Overall graduate enrollment plus each Summary program. Alumni = AMU UG on the last census. */
+export function buildGraduateEnrollment(
+  students: CensusRawStudent[],
+  prior: CensusRawStudent[] = [],
+): GraduateProgramStats[] {
+  const grads = students.filter((s) => program(s) === "GRAD");
+  const alumniIds = new Set(
+    prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend)).map((s) => normPcid(s.pcid)),
+  );
+  const byProgram = new Map<string, CensusRawStudent[]>();
+  for (const s of grads) {
+    const label = graduateProgramLabel(s) || "Other";
+    const list = byProgram.get(label) || [];
+    list.push(s);
+    byProgram.set(label, list);
+  }
+  const blocks: GraduateProgramStats[] = [programStats("Overall", grads, alumniIds)];
+  for (const label of GRAD_PROGRAM_ORDER) {
+    const rows = byProgram.get(label);
+    if (!rows?.length) continue;
+    blocks.push(programStats(label, rows, alumniIds));
+  }
+  return blocks;
 }
 
 function patchYear0(data: CensusSnapshot, key: keyof CensusSummary, c: CountFte) {
@@ -172,12 +309,24 @@ export function applyRegistrationTotals(data: CensusSnapshot, students: CensusRa
   data.kpis.pctCatholic = ugds.length ? catholic / ugds.length : null;
   data.kpis.ugCredits = sumCredits(ugds);
   data.kpis.totalCredits = sumCredits(students);
+  const incoming = ugds.filter(isIncoming);
+  data.kpis.incomingHsGpa = meanPositive(incoming, (s) => s.hsGpa, 2);
+  data.kpis.avgAct = meanPositive(incoming, (s) => s.act, 1);
+  data.kpis.avgSat = meanPositive(incoming, (s) => s.sat, 0, 5, 400);
+  data.kpis.avgClt = meanPositive(incoming, (s) => s.clt, 1);
+  if (data.kpis.incomingHsGpa != null || data.kpis.avgAct != null || data.kpis.avgSat != null || data.kpis.avgClt != null) {
+    data.pending = data.pending.filter((p) => !/Incoming SAT \/ ACT \/ CLT \/ HS GPA/i.test(p));
+  }
   if (tables.countries.length) data.kpis.foreignCountries = tables.countries.length;
   const onCampus = tables.residency.find((r) => r.label === "On Campus" || r.label === "Resident");
   if (tables.n) data.kpis.ugOnCampusPct = (onCampus?.n ?? 0) / tables.n;
   for (const key of Object.keys(summary) as (keyof CensusSummary)[]) {
     patchYear0(data, key, summary[key]);
   }
+  const ds = historicalSeries(data.historical, "degreeSeeking");
+  if (!ds.fullTime) ds.fullTime = Array.from({ length: data.historical.years.length }, () => null);
+  ds.fullTime[0] = fullTimeUg(data);
+  data.historical.degreeSeeking = ds;
   return data;
 }
 
@@ -185,46 +334,50 @@ export const KPI_DEFS: Record<string, string> = {
   allStudents:
     "Every person on Fall 2026 Registration Status (Registration Status-26.xlsx). One row per PCID. Undergraduate, graduate, dual enrollment, and non-degree — no program filter.",
   ugStudents:
-    "Registration Status rows with Program = UNDERG and College Attend not DUAL, EACO, or ND (B.A. and B.S.). Default Census Report view. Ireland is included.",
+    "Registration Status rows with Program = UNDERG and College Attend not DUAL, EACO, or ND (B.A. and B.S.). Default Census Report view. Mount Melleray Abbey is included.",
   ireland:
-    "UG degree-seeking on Fall 2026 session 03Ireland (Registration Status with Residency). Also counted in Returning and Total Degree-Seeking.",
+    "UG degree-seeking at Mount Melleray Abbey (session 03Ireland). Also counted in Returning and Total Degree-Seeking.",
   ugOnCampus:
-    "UG degree-seeking in campus halls (On Campus). Ireland and Mont Mallary (session 03MM) are not On Campus.",
-  incomingHsGpa: "Mean high school GPA for incoming UG. Needs a Slate / HS GPA file.",
+    "UG degree-seeking in campus halls (On Campus). Mount Melleray Abbey is not On Campus.",
+  incomingHsGpa:
+    "Mean HS GPA for Fall 2026 incoming UG degree-seeking students with a score. Verified incoming extract; 0 is missing.",
   pctCatholic:
     "UG degree-seeking students whose Religion is Catholic or Eastern Rite Catholic. Non-Catholic is not Catholic. From Registration Status Religion.",
-  testScores: "Mean CLT / ACT / SAT for incoming UG. Needs a Slate scores file.",
+  testScores:
+    "Mean verified CLT / ACT / SAT superscores for Fall 2026 incoming UG degree-seeking students. 0 is missing. SAT below 400 is missing.",
 };
 
 export const SUMMARY_DEFS: Record<string, string> = {
   "Undergraduate, New Students Admitted":
-    "UG degree-seeking who were not on the Fall 2025 census (Incoming). Includes FTCA, TRAN, READ, SECB, and Incoming with blank College Attend.",
-  FTCA: "Incoming UG degree-seeking with College Attend = FTCA (first-time in college).",
+    "UG degree-seeking Incoming. First-time except last year's dual enrollment who are freshman FTCA this year — those are Incoming, not Returning.",
+  FTCA: "Incoming UG degree-seeking with College Attend = FTCA. Includes freshman FTCA who were dual enrollment on the last census.",
   TRAN: "Incoming UG degree-seeking with College Attend = TRAN (transfer).",
   READ: "Incoming UG degree-seeking with College Attend = READ (readmit).",
   SECB: "Incoming UG degree-seeking with College Attend = SECB (second bachelor's).",
   "Lux Mundi": "UG degree-seeking with Session 01LuxMundi. Breakout; also in Incoming / Returning.",
   "Returning Students":
-    "UG degree-seeking who were already on the Fall 2025 census. Ireland students are included here.",
-  Ireland:
-    "UG degree-seeking on session 03Ireland or sport Ireland (Registration Status with Residency). Breakout only — also in Returning and Total Degree-Seeking. Not On Campus.",
-  "On Campus": "UG degree-seeking in residence halls. Residential = On Campus. Ireland and Mont Mallary are separate.",
-  "Mont Mallary": "UG degree-seeking on session 03MM (Mont Mallary campus). Separate from On Campus and Ireland. Not the -0.118 SQL figure.",
+    "UG degree-seeking who were already on the Fall 2025 census. Mount Melleray Abbey is included here.",
+  "Mount Melleray Abbey":
+    "UG degree-seeking on session 03Ireland (Mount Melleray Abbey). Breakout only — also in Returning and Total Degree-Seeking. Not On Campus.",
+  "On Campus": "UG degree-seeking in residence halls. Residential = On Campus. Mount Melleray Abbey is separate.",
   "Total Degree-Seeking": "Program = UNDERG and College Attend not DUAL, EACO, or ND. Incoming + Returning.",
   "High School Dual Enrollment":
     "College Attend = DUAL or Degree = HSDE only. About 70 this fall. Early College (EACO) and Chesterton students who are not DUAL are not in this line. FTE is credits/12 when Full/Part is blank.",
-  Chesterton: "Chesterton students who are not dual enrollment (not College Attend DUAL / Degree HSDE).",
-  "Chesterton DE": "Chesterton students who are dual enrollment (DUAL / HSDE).",
+  Chesterton:
+    "Chesterton dual enrollment from the Chesterton DE Slate extract, among College Attend DUAL / Degree HSDE.",
   "Non-Degree-Seeking / Personal Enrichment":
     "Everyone who is not UG degree-seeking, not dual enrollment, and not Program = GRAD (ND / PENRIC / NONDEG / EACO).",
-  "Lux Mundi Non-Degree-Seeking / Personal Enrichment": "Non-degree rows with Session 01LuxMundi.",
+  "Lux Mundi Non-Degree-Seeking / Personal Enrichment":
+    "Non-degree rows with Session 01LuxMundi. Not UG Lux Mundi and not graduate Lux Mundi.",
   "TOTAL UNDERGRADUATE ENROLLMENT": "UG degree-seeking + dual enrollment + non-degree.",
-  "Graduate MA Students": "Program = GRAD, Degree = MARTS, excluding Lux Mundi session.",
-  "Graduate PhD Students": "Program = GRAD, Degree = PHD.",
-  "Graduate MBA Students": "Program = GRAD, Degree = MBA.",
-  "Graduate MEdCl": "Program = GRAD, Degree = MEdCL.",
-  "Graduate MA Theo (Online) - Lux Mundi": "Program = GRAD and Session 01LuxMundi. Counted in Total Graduate, not in MA above.",
-  "TOTAL GRADUATE ENROLLMENT": "Program = GRAD (MA + PhD + MBA + MEdCl + Lux Mundi).",
+  "MA Philosophy": "Program = GRAD, curriculum MAPHIL (M.A. in Philosophy). Excludes Lux Mundi.",
+  "MA Theology": "Program = GRAD, curriculum MATHEO (M.A. in Theology), excluding Lux Mundi. Same series as prior-year Graduate MA Students.",
+  "PhD Theology": "Program = GRAD, Degree = PHD (Ph.D. Theology).",
+  MBA: "Program = GRAD, Degree = MBA.",
+  "M. Education": "Program = GRAD, Degree = MEdCL (M.Ed. Catholic Educational Leadership).",
+  "MA CRW": "Program = GRAD, curriculum MACOMM. Same line as FA25 Summary MA CRW / Historical Graduate MA Comm.",
+  "Graduate MA Theo (Online) - Lux Mundi": "Program = GRAD and Session 01LuxMundi. Counted in Total Graduate, not in campus MA Theology.",
+  "TOTAL GRADUATE ENROLLMENT": "Program = GRAD (Philosophy + Theology + PhD + MBA + M.Ed + CRW + Lux Mundi).",
   "Graduate & Undergraduate Enrollment":
     "All Registration Status rows for Fall 2026. Same number as the All students box.",
 };

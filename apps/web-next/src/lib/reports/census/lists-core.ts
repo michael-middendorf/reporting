@@ -31,6 +31,7 @@ export type CensusRawStudent = {
   institute: string;
   marines: string;
   appDecision: string;
+  deType?: string;
   session: string;
   degree: string;
   email: string;
@@ -38,6 +39,9 @@ export type CensusRawStudent = {
   visa: string;
   dob?: string;
   hsGpa?: number | string;
+  act?: number | string;
+  sat?: number | string;
+  clt?: number | string;
 };
 
 export type UnretainedStudent = {
@@ -298,15 +302,52 @@ export function isUgDegreeSeekingRow(program: string, collegeAttend: string): bo
   return (program || "").trim().toUpperCase() === "UNDERG" && !NON_DS.has((collegeAttend || "").trim().toUpperCase());
 }
 
-/** Pickleball is not a census sport for FA26 (club; dropped from NAIA athlete counts). */
+/** Pickleball is club, not NAIA. Ireland is a campus (Mount Melleray), not a team. */
 export function isDroppedCensusSport(sport: string): boolean {
-  return (sport || "").toLowerCase().includes("pickleball");
+  const t = (sport || "").trim().toLowerCase();
+  return t.includes("pickleball") || t === "ireland";
+}
+
+/** AMU has men's rugby only. A woman on that roster (manager) is Rugby-Men, not a women's team. */
+const SPORT_ALIASES: Record<string, string> = {
+  "rugby-women": "Rugby-Men",
+  rugby: "Rugby-Men",
+};
+
+export function canonicalCensusSport(sport: string): string {
+  const t = (sport || "").trim();
+  if (!t || t.toLowerCase() === "non-athlete" || isDroppedCensusSport(t)) return "";
+  return SPORT_ALIASES[t.toLowerCase()] || t;
+}
+
+export function isCensusFootball(sport: string): boolean {
+  return canonicalCensusSport(sport).toLowerCase() === "football";
+}
+
+export function withoutFootballPlayers<T extends { sport?: string }>(rows: T[]): T[] {
+  return rows.filter((s) => !isCensusFootball(s.sport || ""));
+}
+
+/** S26 team players: Varsity / Non-Varsity / Non-NAIA. Band and managers are associated only. */
+export function isTeamAthlete(s: { athleticType?: string; sport?: string }): boolean {
+  const t = (s.athleticType || "").trim().toUpperCase();
+  if (t === "VARSITY" || t === "NON-VARSITY" || t === "NON-NAIA") return true;
+  if (t.includes("MANAGER") || t.includes("COACH")) return false;
+  const sport = (s.sport || "").trim().toLowerCase();
+  if (!sport || sport === "band" || sport === "ireland" || sport === "athletics") return false;
+  if (isDroppedCensusSport(sport)) return false;
+  return !t;
 }
 
 export function dropNonCensusSports(students: CensusRawStudent[]): CensusRawStudent[] {
   return students.map((s) => {
-    if (!isDroppedCensusSport(s.sport || "")) return s;
-    return { ...s, sport: "", athlete: "Non-Athlete", athleticType: "", rosterStatus: "" };
+    const sport = canonicalCensusSport(s.sport || "");
+    if (!sport) {
+      if (!isDroppedCensusSport(s.sport || "")) return s;
+      return { ...s, sport: "", athlete: "Non-Athlete", athleticType: "", rosterStatus: "" };
+    }
+    if (sport === (s.sport || "").trim()) return s;
+    return { ...s, sport };
   });
 }
 

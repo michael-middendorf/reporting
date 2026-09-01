@@ -1,6 +1,7 @@
-import type { CensusRawStudent, LoaWithStatus, UnretainedStudent } from "./lists-core";
+import { canonicalCensusSport, isTeamAthlete, type CensusRawStudent, type LoaWithStatus, type UnretainedStudent } from "./lists-core";
+import { CENSUS_RESIDENCY_ORDER, displayCensusResidency } from "./residency";
 import { CLASS_ORDER, COUNTRY_NAMES } from "./present";
-import { catholicOf, isCatholic } from "./retention";
+import { isCatholic } from "./retention";
 import type { CensusSnapshot, LabeledCount } from "./types";
 
 export type ReportStudent = {
@@ -24,6 +25,7 @@ export type ReportStudent = {
   citizenship: string;
   visa: string;
   appDecision: string;
+  athleticType: string;
 };
 
 export type ReportFilters = {
@@ -77,7 +79,7 @@ export function projectReportStudents(rows: CensusRawStudent[]): ReportStudent[]
     pcid: (r.pcid || "").trim(),
     gender: (r.gender || "").trim(),
     athlete: (r.athlete || "").trim() || (r.sport ? "Athlete" : "Non-Athlete"),
-    sport: (r.sport || "").trim(),
+    sport: canonicalCensusSport(r.sport),
     major: (r.curriculumName || r.curriculum || "").trim() || "Undeclared",
     degree: (r.degree || "").trim().toUpperCase(),
     program: (r.program || "").trim().toUpperCase(),
@@ -89,18 +91,19 @@ export function projectReportStudents(rows: CensusRawStudent[]): ReportStudent[]
     religion: (r.religion || "").trim(),
     cathGroup: (r.cathGroup || "").trim() || (r.religion || "").trim(),
     ethnicity: (r.ethnicity || "").trim(),
-    residency: (r.residency || "").trim() === "Resident" ? "On Campus" : (r.residency || "").trim(),
+    residency: displayCensusResidency(r.residency),
     honors: Boolean((r.honors || "").trim()) && (r.honors || "").trim() !== "-",
     citizenship: (r.citizenship || "").trim().toUpperCase(),
     visa: (r.visa || "").trim().toUpperCase(),
     appDecision: (r.appDecision || "").trim() || "Not listed",
+    athleticType: (r.athleticType || "").trim(),
   }));
 }
 
 /** Map the unretained list onto Census Report tables (states, sports, gender, class, religion). */
 export function projectUnretained(rows: UnretainedStudent[]): ReportStudent[] {
   return rows.map((s) => {
-    const sport = s.sport && s.sport !== "-" ? s.sport.trim() : "";
+    const sport = canonicalCensusSport(s.sport && s.sport !== "-" ? s.sport : "");
     return {
       pcid: (s.pcid || "").trim(),
       gender: (s.gender || "").trim(),
@@ -122,6 +125,7 @@ export function projectUnretained(rows: UnretainedStudent[]): ReportStudent[] {
       citizenship: "",
       visa: "",
       appDecision: "",
+      athleticType: "",
     };
   });
 }
@@ -183,6 +187,7 @@ export function filterLoa(rows: LoaWithStatus[], f: ReportFilters): LoaWithStatu
     citizenship: "",
     visa: "",
     appDecision: "",
+    athleticType: "",
   }));
   const keep = new Set(filterStudents(projected, { ...f, majors: [] }).map((s) => s.pcid.toUpperCase()));
   return rows.filter((s) => {
@@ -215,6 +220,50 @@ export function uniqueSorted(rows: ReportStudent[], pick: (s: ReportStudent) => 
   return [...new Set(rows.map(pick).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 }
 
+const RELIGION_ORDER = ["Catholic", "Christian", "Eastern Rite Catholic", "Other"];
+
+function religionLabel(s: ReportStudent): string {
+  const raw = (s.religion || "").trim();
+  const u = raw.toUpperCase().replace(/\s+/g, " ");
+  if (!raw || raw === "-" || u === "NONE") return "Other";
+  if (u === "CATH" || u === "CATHOLIC") return "Catholic";
+  if (u === "CHRI" || u === "CHRISTIAN") return "Christian";
+  if (u === "ECAT" || u === "EASTERN RITE CATHOLIC") return "Eastern Rite Catholic";
+  if (u === "OTH" || u === "OTHER") return "Other";
+  if (/non[- ]?catholic/i.test(raw)) return "Other";
+  return raw;
+}
+
+/** FA25 Census Report order. Always include Catholic, Christian, Eastern Rite, Other. */
+function religionBreakdown(rows: ReportStudent[]): LabeledCount[] {
+  const n = rows.length;
+  const map = new Map<string, number>();
+  for (const s of rows) {
+    const label = religionLabel(s);
+    map.set(label, (map.get(label) || 0) + 1);
+  }
+  const known = RELIGION_ORDER.map((label) => {
+    const c = map.get(label) || 0;
+    return { label, n: c, pct: n ? c / n : 0 };
+  });
+  const extras = [...map.entries()]
+    .filter(([label]) => !RELIGION_ORDER.includes(label))
+    .map(([label, c]) => ({ label, n: c, pct: n ? c / n : 0 }))
+    .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
+  return [...known, ...extras].filter((r) => r.n > 0);
+}
+
+const APP_DECISION_ORDER = ["ACCT", "ADM", "COMM", "COND", "Not listed"];
+
+function appDecisionLabel(s: ReportStudent): string {
+  const t = (s.appDecision || "").trim().toUpperCase();
+  if (!t || t === "-" || t === "NOT LISTED") return "Not listed";
+  if (t === "AT" || t === "ACCT" || t === "ACCEPT" || t === "ACCEDPT") return "ACCT";
+  if (t === "ADMI" || t === "ADM") return "ADM";
+  if (t === "CMRV" || t === "COMM") return "COMM";
+  return (s.appDecision || "").trim();
+}
+
 function counts(rows: ReportStudent[], pick: (s: ReportStudent) => string, blank = ""): LabeledCount[] {
   const map = new Map<string, number>();
   for (const s of rows) {
@@ -226,6 +275,17 @@ function counts(rows: ReportStudent[], pick: (s: ReportStudent) => string, blank
   return [...map.entries()]
     .map(([label, n]) => ({ label, n, pct: total ? n / total : 0 }))
     .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
+}
+
+/** Always emit both rows so Non-Catholic cannot disappear into a 100% Catholic table. */
+function catholicSplit(rows: ReportStudent[]): LabeledCount[] {
+  const n = rows.length;
+  const catholic = rows.filter(isCatholic).length;
+  const other = n - catholic;
+  return [
+    { label: "Catholic", n: catholic, pct: n ? catholic / n : 0 },
+    { label: "Non-Catholic", n: other, pct: n ? other / n : 0 },
+  ];
 }
 
 function namedOrder(rows: LabeledCount[], order: string[]): LabeledCount[] {
@@ -249,7 +309,17 @@ function alphaStates(rows: LabeledCount[]): LabeledCount[] {
 }
 
 function countryName(code: string): string {
-  return COUNTRY_NAMES[code] || code;
+  const t = (code || "").trim().toUpperCase();
+  return COUNTRY_NAMES[t] || COUNTRY_NAMES[code] || code;
+}
+
+/** Non-US citizenship. If Visa is present it must be F1 (gold: countries of F1 visa holders). */
+function isF1International(s: ReportStudent): boolean {
+  const cit = (s.citizenship || "").trim().toUpperCase();
+  if (!cit || cit === "US" || cit === "USA") return false;
+  const visa = (s.visa || "").trim().toUpperCase().replace("-", "");
+  if (visa && visa !== "F1") return false;
+  return true;
 }
 
 function classRank(label: string): number {
@@ -312,15 +382,13 @@ export function buildReport(rows: ReportStudent[]): ReportTables {
 
   const states = alphaStates(
     counts(rows, (s) => {
-      if (!s.state || s.citizenship) {
-        if (s.citizenship && s.citizenship !== "US" && s.citizenship !== "USA") return "International";
-      }
+      if (isF1International(s)) return "International";
       return s.state || "International";
     }),
   );
 
   const countries = counts(rows, (s) => {
-    if (!s.citizenship || s.citizenship === "US" || s.citizenship === "USA") return "";
+    if (!isF1International(s)) return "";
     return countryName(s.citizenship);
   }).sort((a, b) => a.label.localeCompare(b.label));
 
@@ -333,19 +401,25 @@ export function buildReport(rows: ReportStudent[]): ReportTables {
     }))
     .sort((a, b) => classRank(a.label) - classRank(b.label));
 
-  const sports = counts(athletes, (s) => s.sport)
+  const sports = counts(athletes, (s) => canonicalCensusSport(s.sport))
     .filter((r) => r.label)
-    .map((r) => ({
-      ...r,
-      pctOfAthletes: athletes.length ? r.n / athletes.length : 0,
-      pctOfAll: n ? r.n / n : 0,
-    }))
+    .map((r) => {
+      const subset = athletes.filter((s) => s.sport === r.label);
+      const team = subset.filter(isTeamAthlete).length;
+      return {
+        ...r,
+        n: subset.length,
+        athletes: team,
+        associated: subset.length,
+        pctOfAthletes: athletes.length ? subset.length / athletes.length : 0,
+        pctOfAll: n ? subset.length / n : 0,
+      };
+    })
     .sort((a, b) => a.label.localeCompare(b.label));
 
-  const resLabels = ["Commuter", "On Campus", "Ireland", "Mont Mallary", "Other", "Study Abroad", "Unassigned"];
-  const residency: LabeledCount[] = resLabels
+  const residency: LabeledCount[] = CENSUS_RESIDENCY_ORDER
     .map((label) => {
-      const subset = rows.filter((s) => (s.residency || "Unassigned") === label);
+      const subset = rows.filter((s) => (displayCensusResidency(s.residency) || "Unassigned") === label);
       return {
         label,
         n: subset.length,
@@ -385,21 +459,18 @@ export function buildReport(rows: ReportStudent[]): ReportTables {
     states,
     countries,
     gender: namedOrder(counts(rows, (s) => s.gender || "—"), ["Female", "Male"]),
-    religion: counts(rows, (s) => s.religion || "Other"),
+    religion: religionBreakdown(rows),
     athlete: namedOrder(counts(rows, (s) => s.athlete || "Non-Athlete"), ["Athlete", "Non-Athlete"]),
     incomingAthlete: namedOrder(counts(incoming, (s) => s.athlete || "Non-Athlete"), ["Athlete", "Non-Athlete"]),
     classLevel,
     sports,
     residency,
-    appDecisions: counts(rows, (s) => s.appDecision),
+    appDecisions: namedOrder(counts(rows, appDecisionLabel, "Not listed"), APP_DECISION_ORDER),
     honorsByClass: counts(honors, (s) => s.classLevel || "—").sort((a, b) => classRank(a.label) - classRank(b.label)),
     honorsN: honors.length,
-    athleticReligion: counts(athletes, (s) => s.religion || "Other"),
+    athleticReligion: religionBreakdown(athletes),
     floridaAthlete: namedOrder(counts(florida, (s) => s.athlete || "Non-Athlete"), ["Athlete", "Non-Athlete"]),
-    floridaCatholic: namedOrder(
-      counts(florida, (s) => catholicOf(s)),
-      ["Catholic", "Non-Catholic"],
-    ),
+    floridaCatholic: catholicSplit(florida),
     nonFloridaCatholicAthlete: namedOrder(
       counts(nonFlCath, (s) => s.athlete || "Non-Athlete"),
       ["Athlete", "Non-Athlete"],

@@ -67,9 +67,17 @@
       "headcount": 6,
       "fte": 1.0
     },
+    "luxMundiNonDegree": {
+      "headcount": 0,
+      "fte": 0
+    },
     "totalUndergraduate": {
       "headcount": 1476,
       "fte": 1356.3
+    },
+    "gradMaPhil": {
+      "headcount": 0,
+      "fte": 0
     },
     "gradMa": {
       "headcount": 41,
@@ -86,6 +94,10 @@
     "gradMedcl": {
       "headcount": 31,
       "fte": 27.5
+    },
+    "gradMaCrw": {
+      "headcount": 0,
+      "fte": 0
     },
     "luxMundiGrad": {
       "headcount": 8,
@@ -307,6 +319,15 @@
         1226,
         1235,
         1074
+      ],
+      "fullTime": [
+        null,
+        1334,
+        1283,
+        1213,
+        1222,
+        1230,
+        null
       ]
     },
     "dualEnrollment": {
@@ -362,6 +383,26 @@
       "fte": [
         null,
         1353,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    "gradMaPhil": {
+      "hc": [
+        null,
+        4,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "fte": [
+        null,
+        3,
         null,
         null,
         null,
@@ -437,7 +478,7 @@
         9,
         null,
         null,
-        47
+        null
       ],
       "fte": [
         27.5,
@@ -446,7 +487,27 @@
         9,
         null,
         null,
-        46
+        null
+      ]
+    },
+    "gradMaCrw": {
+      "hc": [
+        null,
+        8,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "fte": [
+        null,
+        3,
+        null,
+        null,
+        null,
+        null,
+        null
       ]
     },
     "totalGraduate": {
@@ -457,7 +518,7 @@
         85,
         63,
         43,
-        null
+        47
       ],
       "fte": [
         121.0,
@@ -466,7 +527,7 @@
         77,
         55,
         34,
-        null
+        46
       ]
     },
     "totalEnrollment": {
@@ -477,6 +538,26 @@
         1335,
         1311,
         1303,
+        1149
+      ]
+    },
+    "luxMundiNonDegree": {
+      "hc": [
+        null,
+        null,
+        null,
+        0,
+        0,
+        0,
+        2
+      ],
+      "fte": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
         null
       ]
     },
