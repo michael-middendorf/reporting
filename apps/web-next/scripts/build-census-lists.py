@@ -291,9 +291,15 @@ def apply_residency_overlay(registered_rows: list[dict], extra_rows: list[dict])
         existing = by_pcid.get(pid) or []
         exist_progs = {str(e.get("program") or "").strip().upper() for e in existing if str(e.get("program") or "").strip()}
         if existing and prog and exist_progs and prog not in exist_progs:
-            registered_rows.append(overlay)
-            by_pair[(pid, prog)] = overlay
-            by_pcid[pid].append(overlay)
+            sess = str(overlay.get("session") or "").lower().replace(" ", "")
+            # Extra program only for Lux Mundi / Ireland (Arianna UG + MA). Do not add a campus
+            # UNDERG row for someone already GRAD on Registration Status-26.
+            if "luxmundi" in sess or "ireland" in sess:
+                registered_rows.append(overlay)
+                by_pair[(pid, prog)] = overlay
+                by_pcid[pid].append(overlay)
+            else:
+                merge_onto(existing[0], overlay)
             continue
         if existing:
             merge_onto(existing[0], overlay)

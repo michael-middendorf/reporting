@@ -30,7 +30,7 @@ import {
   isCatholic,
   type FtcaRawRow,
 } from "@/lib/reports/census/retention";
-import { KPI_DEFS, SUMMARY_DEFS, summaryFromStudents, sumCredits, uniqueStudentCount } from "@/lib/reports/census/from-lists";
+import { KPI_DEFS, SUMMARY_DEFS, summaryFromStudents, uniqueStudentCount } from "@/lib/reports/census/from-lists";
 import { buildVerifyList } from "@/lib/reports/census/verify";
 import type { HousingAssignmentRow } from "@/lib/reports/census/residency";
 import {
@@ -41,11 +41,6 @@ import {
 import "@/styles/census.css";
 
 function fmtFte(n: number | null | undefined): string {
-  if (n == null) return "—";
-  return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
-}
-
-function fmtCredits(n: number | null | undefined): string {
   if (n == null) return "—";
   return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
@@ -218,8 +213,6 @@ export function CensusDashboard() {
     ...data.kpis,
     allStudents: rawStudents.length ? uniqueStudentCount(filteredAll) : data.kpis.allStudents,
     ugStudents: liveSummary?.degreeSeeking.headcount ?? data.kpis.ugStudents,
-    ugCredits: rawStudents.length ? sumCredits(ugds) : (data.kpis.ugCredits ?? null),
-    totalCredits: rawStudents.length ? sumCredits(filteredAll) : (data.kpis.totalCredits ?? null),
     pctCatholic: ugds.length
       ? ugds.filter(isCatholic).length / ugds.length
       : data.kpis.pctCatholic,
@@ -312,8 +305,6 @@ export function CensusDashboard() {
             value={fmtN(liveSummary?.ireland.headcount ?? data.summary.ireland.headcount)}
             def={KPI_DEFS.ireland}
           />
-          <Kpi label="UG credits" value={fmtCredits(k.ugCredits)} def={KPI_DEFS.ugCredits} />
-          <Kpi label="Total credits" value={fmtCredits(k.totalCredits)} def={KPI_DEFS.totalCredits} flip />
           <Kpi
             label="UG on campus"
             value={fmtPct(k.ugOnCampusPct)}

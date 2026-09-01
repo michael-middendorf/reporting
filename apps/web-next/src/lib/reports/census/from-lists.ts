@@ -188,10 +188,6 @@ export const KPI_DEFS: Record<string, string> = {
     "Registration Status rows with Program = UNDERG and College Attend not DUAL, EACO, or ND (B.A. and B.S.). Default Census Report view. Ireland is included.",
   ireland:
     "UG degree-seeking on Fall 2026 session 03Ireland (Registration Status with Residency). Also counted in Returning and Total Degree-Seeking.",
-  ugCredits:
-    "Sum of Credits on Fall 2026 Registration Status for UG degree-seeking students (the Census Report default).",
-  totalCredits:
-    "Sum of Credits on every Fall 2026 Registration Status row (undergraduate, graduate, dual enrollment, and non-degree). A student in UG and graduate is counted on both rows.",
   ugOnCampus:
     "UG degree-seeking in campus halls (On Campus). Ireland and Mont Mallary (session 03MM) are not On Campus.",
   incomingHsGpa: "Mean high school GPA for incoming UG. Needs a Slate / HS GPA file.",
