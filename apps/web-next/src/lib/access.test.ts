@@ -123,9 +123,10 @@ describe("full Advancement grants", () => {
     "Leslie.Sonnen@avemaria.edu",
     "Julie.Musselman@avemaria.edu",
     "Jim.Thomas@avemaria.edu",
+    "Becca.Kennedy@avemaria.edu",
   ];
 
-  it("lets Leslie, Julie, and Jim sign in to every Advancement report", () => {
+  it("lets Leslie, Julie, Jim, and Becca sign in to every Advancement report", () => {
     for (const email of people) {
       assert.equal(canLogin(email), true, email);
       assert.equal(canAccessReport(email, "advancement"), true, email);
@@ -146,10 +147,11 @@ describe("full Advancement grants", () => {
     ]);
   });
 
-  it("does not promote Julie or Jim to MA Points or other folders", () => {
+  it("does not promote Julie, Jim, or Becca to MA Points or other folders", () => {
     for (const email of [
       "Julie.Musselman@avemaria.edu",
       "Jim.Thomas@avemaria.edu",
+      "Becca.Kennedy@avemaria.edu",
     ]) {
       assert.equal(canAccessReport(email, "points"), false, email);
       assert.equal(canAccessReport(email, "housing"), false, email);
