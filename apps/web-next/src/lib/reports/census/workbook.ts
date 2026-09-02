@@ -599,7 +599,7 @@ function writeCensusReport(
     j + 2,
     col.j,
     "Committee admits and admin overrides",
-    ["Admit type", "Universe", "Students", "# Non-Retained", "Retention %"],
+    ["Admit type", "Type", "Students", "# Non-Retained", "Retention %"],
     crosstabCells(extra.admitOverride, true, false),
     { intCols: [2, 3], pctCols: [4] },
   );
