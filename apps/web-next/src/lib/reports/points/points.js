@@ -52,7 +52,7 @@ export function scoreNote(record) {
     // Authored by an MA but the note type isn't in our map. Only surface
     // Mission-Advancement-flavored notes as coverage gaps; ignore unrelated
     // system notes so they don't pollute the dashboard.
-    if (!/mission advancement/i.test(type)) return null;
+    if (!/mission advancement/i.test(type) && !/^obituary$/i.test(type)) return null;
     return {
       owner, type, points: 0, bucket: "unmatched", label: type,
       day: isoDay(date), date, weekday: isWeekday(date),
@@ -93,10 +93,69 @@ export function scoreEvent(record) {
   };
 }
 
-/** Score MA activity notes into a flat list of scored rows (events excluded). */
-export function scoreAll({ notes = [] }) {
+function parseAmount(value) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (value == null || value === "") return 0;
+  const n = Number(String(value).replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Pull GFT_Solicitor off a FullGift customFields array. */
+export function giftSolicitor(record) {
+  const fields = record.customFields || record.custom_fields || [];
+  for (const f of fields) {
+    if ((f.name || f.displayName) === "GFT_Solicitor" && f.value) return String(f.value).trim();
+  }
+  return (record.solicitor || "").trim() || null;
+}
+
+/** Primary designation / project name for a gift, if present. */
+export function giftProject(record) {
+  if (record.project) return record.project;
+  const des = record.giftDesignations || [];
+  return (des[0] && (des[0].project || des[0].display)) || record.segment || "";
+}
+
+/**
+ * Score a Virtuous Gift as dollars received (0 points — the 100-pt credit
+ * comes from the matching donation note so we don't double-count).
+ * Owner is GFT_Solicitor when that person is on the MA roster, else the
+ * MA who logged a donation note on the same contact (`ownerHint`).
+ */
+export function scoreGift(record, ownerHint = null) {
+  const solicitor = giftSolicitor(record);
+  const owner = (solicitor && rosterSet.has(solicitor) ? solicitor : null) || ownerHint;
+  if (!owner) return null;
+  const date = parseDate(record.giftDate || record.giftDateFormatted || record.createDateTimeUtc);
+  if (!date) return null;
+  const amount = parseAmount(record.amount);
+  return {
+    owner, type: "Gift", points: 0, amount, bucket: "donation",
+    label: "Donation received",
+    day: isoDay(date), date, weekday: isWeekday(date),
+    contactId: record.contactId, contactName: record.contactName || "",
+    giftId: record.id, giftType: record.giftType || "",
+    project: giftProject(record), solicitor: solicitor || "",
+    source: "gift",
+  };
+}
+
+/** Score MA activity notes (and optional gifts) into a flat list of scored rows. */
+export function scoreAll({ notes = [], gifts = [] }) {
   const rows = [];
   for (const n of notes) { const r = scoreNote(n); if (r) rows.push(r); }
+
+  const ownerByContact = new Map();
+  for (const r of rows) {
+    if (r.bucket === "gift" && r.contactId != null && !ownerByContact.has(r.contactId)) {
+      ownerByContact.set(r.contactId, r.owner);
+    }
+  }
+  for (const g of gifts) {
+    const hint = g.contactId != null ? ownerByContact.get(g.contactId) : null;
+    const r = scoreGift(g, hint);
+    if (r) rows.push(r);
+  }
   return rows;
 }
 

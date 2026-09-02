@@ -73,12 +73,12 @@ export function buildCalculationCSV(model, { meta = {}, rangeLabel = "All", gene
 
   // --- Summary (reconciles to the dashboard) -------------------------------
   L.push(line(["SUMMARY — totals per MA (these match the dashboard exactly)"]));
-  L.push(line(["MA", "Total Points", "Scored Activities", "Conversations", "Dials", "Uncounted / Flagged"]));
+  L.push(line(["MA", "Total Points", "Scored Activities", "Conversations", "Dials", "Gifts logged", "Dollars received", "Uncounted / Flagged"]));
   for (const o of model.owners) {
-    L.push(line([o.name, o.points, o.count, o.conversations, o.dials, o.unmatched]));
+    L.push(line([o.name, o.points, o.count, o.conversations, o.dials, o.gifts || 0, o.giftAmount || 0, o.unmatched]));
   }
   const t = model.totals;
-  L.push(line(["TEAM TOTAL", t.points, t.count, t.conversations, t.dials, t.unmatched]));
+  L.push(line(["TEAM TOTAL", t.points, t.count, t.conversations, t.dials, t.gifts || 0, t.giftAmount || 0, t.unmatched]));
   L.push("");
 
   // --- Detail: one row per task -------------------------------------------

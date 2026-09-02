@@ -1,7 +1,7 @@
 /* Typed wrappers around untyped points JS scoring modules. */
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const points = require("./points.js") as {
-  scoreAll: (input: { notes: unknown[] }) => unknown[];
+  scoreAll: (input: { notes: unknown[]; gifts?: unknown[] }) => unknown[];
   scoreEventsForDisplay: (events: unknown[]) => unknown[];
 };
 // eslint-disable-next-line @typescript-eslint/no-require-imports

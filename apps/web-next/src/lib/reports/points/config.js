@@ -20,13 +20,13 @@
  * `createdByUser` is the exact string Virtuous stamps on each ContactNote.
  * Confirmed live from the ContactNote API (2026-08-04). */
 export const MA_ROSTER = [
-  { name: "Sean Kelly",     email: "sean.e.kelly@avemaria.edu",     short: "Sean" },
-  { name: "Joseph Blaso",   email: "joseph.c.blaso@avemaria.edu",   short: "Joseph" },
-  { name: "Alanna McCann",  email: "alanna.f.mccann@avemaria.edu",  short: "Alanna" },
-  { name: "Caleb Metzen",   email: "",                              short: "Caleb" },
-  { name: "Elena Barnes",   email: "",                              short: "Elena" },
-  { name: "Betsy Scaletty", email: "",                              short: "Betsy" },
-  { name: "Natalia Abrams", email: "",                              short: "Natalia" },
+  { name: "Alanna McCann",  email: "alanna.f.mccann@avemaria.edu",  short: "Alanna",  tableOrder: 0 },
+  { name: "Sean Kelly",     email: "sean.e.kelly@avemaria.edu",     short: "Sean",    tableOrder: 1 },
+  { name: "Joseph Blaso",   email: "joseph.c.blaso@avemaria.edu",   short: "Joseph",  tableOrder: 2 },
+  { name: "Elena Barnes",   email: "",                              short: "Elena",   tableOrder: 3 },
+  { name: "Caleb Metzen",   email: "",                              short: "Caleb",   tableOrder: 4 },
+  { name: "Betsy Scaletty", email: "",                              short: "Betsy",   tableOrder: 5 },
+  { name: "Natalia Abrams", email: "",                              short: "Natalia", tableOrder: 6 },
 ];
 
 export const MA_NAMES = MA_ROSTER.map((m) => m.name);
@@ -88,6 +88,27 @@ export const CONFLICTS = {
   // Regina) — contact-info / credit-card changes count for 5 pts per the PDF
   // rubric. The two note-type mappings below now carry source "pdf" (no
   // conflict flag); the rule is documented in DEFINITIONS instead.
+  obituary: {
+    title: "Obituary notes",
+    pdf: "Not a named activity; closest bucket is 5 pts for updated contact info.",
+    spreadsheet: "Not tracked as a line item on the weekly totals.",
+    resolved: "5 points",
+    note: "Pulled from the Virtuous ‘Obituary’ note type, scoped to MA authors.",
+  },
+  mas_event_note: {
+    title: "MAS Event note (attributed to an MA)",
+    pdf: "‘Ave Near You’ event = 300; Marketing event (Zena’s team) = 75.",
+    spreadsheet: "Not a discrete line item.",
+    resolved: "300 points for ‘Mission Advancement | Event’; 75 for ‘Mission Advancement | Marketing Event’",
+    note: "Virtuous Event records still have no MA owner. Once the Contact Note types exist, an MA can log the event they worked and receive the points.",
+  },
+  mas_meeting_note: {
+    title: "MAS Meeting note",
+    pdf: "25 points per face-to-face (coffee/lunch with a prospect).",
+    spreadsheet: "‘Live Mtg’ is scored at 25.",
+    resolved: "25 points",
+    note: "Create the Virtuous Contact Note type ‘Mission Advancement | Meeting’. The existing ‘In Person’ type already scores 25 and continues to count.",
+  },
 };
 
 /* ---- Points map: Virtuous note `type` (lowercased) -> rule ---------------
@@ -122,9 +143,19 @@ export const POINTS_MAP = {
   "in person":  { points: 25, bucket: "facetoface", label: "Face-to-face (coffee/lunch)", source: "pdf+spreadsheet" },
 
   "mission advancement | invalid mailing address":
-    { points: 5, bucket: "note", label: "Updated contact info", source: "pdf" },
+    { points: 5, bucket: "address", label: "Invalid mailing address", source: "pdf" },
   "as - address change/update":
-    { points: 5, bucket: "note", label: "Address change/update", source: "pdf" },
+    { points: 5, bucket: "address", label: "Address change/update", source: "pdf" },
+
+  "obituary":
+    { points: 5, bucket: "obituary", label: "Obituary", source: "assumed", conflict: "obituary" },
+
+  "mission advancement | event":
+    { points: 300, bucket: "event", label: "MAS Event (Ave Near You)", source: "pdf", conflict: "mas_event_note" },
+  "mission advancement | marketing event":
+    { points: 75, bucket: "event", label: "MAS Marketing Event", source: "pdf", conflict: "mas_event_note" },
+  "mission advancement | meeting":
+    { points: 25, bucket: "facetoface", label: "MAS Meeting (face-to-face)", source: "pdf", conflict: "mas_meeting_note" },
 
   "fy27 mgo goal activity":
     { points: 10, bucket: "mgo", label: "MGO appointment set", source: "assumed", conflict: "mgo_appointment" },
@@ -132,14 +163,18 @@ export const POINTS_MAP = {
 
 /* ---- Bucket display order + colors (for the activity breakdown) ---------- */
 export const BUCKETS = [
-  { id: "gift",       label: "Gifts secured",   points: 100, color: "var(--gold)" },
-  { id: "facetoface", label: "Face-to-face",    points: 25,  color: "#7a5cc0" },
-  { id: "mgo",        label: "MGO appts",        points: 10,  color: "#2f6fed" },
-  { id: "conversation", label: "Conversations", points: 10,  color: "#3f7d54" },
-  { id: "note",       label: "Notes / updates", points: 5,   color: "#c85a3a" },
-  { id: "email",      label: "Emails / texts",  points: 1,   color: "#5b8bb0" },
-  { id: "dial",       label: "Dials / VMs",     points: 1,   color: "#8a97a6" },
-  { id: "failed",     label: "Invalid / failed", points: 0,  color: "#c2c9d1" },
+  { id: "gift",         label: "Gifts secured",     points: 100, color: "var(--gold)" },
+  { id: "event",        label: "MAS Events",        points: 300, color: "#b45309" },
+  { id: "facetoface",   label: "Meetings / F2F",    points: 25,  color: "#7a5cc0" },
+  { id: "mgo",          label: "MGO appts",         points: 10,  color: "#2f6fed" },
+  { id: "conversation", label: "Conversations",     points: 10,  color: "#3f7d54" },
+  { id: "note",         label: "Letters / notes",   points: 5,   color: "#c85a3a" },
+  { id: "address",      label: "Address updates",   points: 5,   color: "#0f766e" },
+  { id: "obituary",     label: "Obituaries",        points: 5,   color: "#64748b" },
+  { id: "email",        label: "Emails / texts",    points: 1,   color: "#5b8bb0" },
+  { id: "dial",         label: "Dials / VMs",       points: 1,   color: "#8a97a6" },
+  { id: "failed",       label: "Invalid / failed",  points: 0,  color: "#c2c9d1" },
+  { id: "donation",     label: "Dollars received",  points: 0,   color: "#c8972d" },
 ];
 
 /* ---- Event scoring (300 / 75) -------------------------------------------
@@ -195,5 +230,17 @@ export const DEFINITIONS = [
       "Contact-information and credit-card updates COUNT for 5 points, per the PDF rubric (grouped with handwritten note / " +
       "TSM book). Logged via the ‘Mission Advancement | Invalid Mailing Address’ and address change/update note types. " +
       "(Previously flagged for review; confirmed counting 2026-08-14.)",
+  },
+  {
+    term: "Obituary (5 pts)",
+    text:
+      "Obituary notes authored by an MA count as a contact-info update (5 pts). Non-MA authors are ignored.",
+  },
+  {
+    term: "Dollars received",
+    text:
+      "Gift dollars are shown separately from the 100-pt gift credit. A gift is attributed to an MA when GFT_Solicitor " +
+      "is that MA, or when the MA logged a New Donation / AC / Recurring Gift note on the same contact. Amounts are the " +
+      "posted Virtuous gift, not an annualized monthly figure.",
   },
 ];

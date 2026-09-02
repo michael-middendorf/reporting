@@ -23,6 +23,22 @@ const EVENT_FIELDS = [
   "createdByUser",
 ] as const;
 
+const GIFT_FIELDS = [
+  "id",
+  "contactId",
+  "contactName",
+  "giftDate",
+  "amount",
+  "giftType",
+  "segment",
+] as const;
+
+const DONATION_NOTE_TYPES = new Set([
+  "Mission Advancement | New Donation or New AC",
+  "Mission Advancement | Annunciation Circle Updated",
+  "Mission Advancement | Update Recurring Gift",
+]);
+
 /** Serve points payloads from sources/virtuous/{contact_notes,events}. */
 export async function GET(req: Request, ctx: Ctx) {
   const denied = requireReportAccess(req, "points");
@@ -45,6 +61,27 @@ export async function GET(req: Request, ctx: Ctx) {
         headers: { "X-AMU-Source-Dt": latest.dt, "Cache-Control": "private, max-age=60" },
       });
     }
+    if (file === "gifts.json") {
+      const notes = await loadSourceRows<Record<string, unknown>>("virtuous", "contact_notes");
+      const contactIds = new Set<number>();
+      for (const r of notes.rows) {
+        if (!MA_NAMES.has(String(r.createdByUser || "").trim())) continue;
+        if (!DONATION_NOTE_TYPES.has(String(r.type || "").trim())) continue;
+        const cid = Number(r.contactId);
+        if (Number.isFinite(cid)) contactIds.add(cid);
+      }
+      const gifts = await loadSourceRows<Record<string, unknown>>("virtuous", "gifts");
+      const kept = gifts.rows
+        .filter((r) => contactIds.has(Number(r.contactId)))
+        .map((r) => {
+          const lean: Record<string, unknown> = {};
+          for (const k of GIFT_FIELDS) lean[k] = r[k];
+          return lean;
+        });
+      return NextResponse.json(kept, {
+        headers: { "X-AMU-Source-Dt": gifts.latest.dt, "Cache-Control": "private, max-age=60" },
+      });
+    }
     if (file === "events.json") {
       const { rows, latest } = await loadSourceRows<Record<string, unknown>>("virtuous", "events");
       const events = rows.map((r) => {
@@ -59,15 +96,19 @@ export async function GET(req: Request, ctx: Ctx) {
     if (file === "meta.json") {
       const notes = await loadSourceRows("virtuous", "contact_notes");
       const events = await loadSourceRows("virtuous", "events");
+      const gifts = await loadSourceRows("virtuous", "gifts").catch(() => ({
+        rows: [] as unknown[],
+        latest: { pulled_at: null },
+      }));
       const kept = notes.rows.filter((r) =>
         MA_NAMES.has(String((r as { createdByUser?: string }).createdByUser || "").trim()),
       );
       return NextResponse.json({
         sample: false,
-        provenance: "sources/virtuous contact_notes + events (roster-filtered for points).",
+        provenance: "sources/virtuous contact_notes + events + gifts (roster-filtered for points).",
         generated_at: notes.latest.pulled_at,
         note_window_days: 365,
-        record_counts: { notes: kept.length, events: events.rows.length },
+        record_counts: { notes: kept.length, events: events.rows.length, gifts: gifts.rows.length },
         roster: [...MA_NAMES],
       });
     }

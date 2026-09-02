@@ -18,12 +18,13 @@ async function getJSON(name, fallback) {
 
 /** Load all raw inputs the scoring engine needs. */
 export async function loadRaw() {
-  const [notes, events, meta] = await Promise.all([
+  const [notes, events, gifts, meta] = await Promise.all([
     getJSON(RAW_FILES.notes, []),
     getJSON(RAW_FILES.events, []),
+    getJSON(RAW_FILES.gifts, []),
     getJSON(RAW_FILES.meta, {}),
   ]);
   // Support either a bare array or a {records:[...]} envelope.
   const arr = (x) => (Array.isArray(x) ? x : x.records || x.list || []);
-  return { notes: arr(notes), events: arr(events), meta };
+  return { notes: arr(notes), events: arr(events), gifts: arr(gifts), meta };
 }

@@ -14,7 +14,7 @@ from typing import Any
 from common.sources import publish_dataset
 
 NOTE_TYPE_PREFIXES = ["Mission Advancement"]
-NOTE_TYPE_EXACT = ["Letter", "In Person", "Text Message"]
+NOTE_TYPE_EXACT = ["Letter", "In Person", "Text Message", "Obituary"]
 EVENT_MATCH_KEYWORDS = ["Near You", "Market"]
 RETRYABLE = {429, 500, 502, 503, 504}
 REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-east-2"

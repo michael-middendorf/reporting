@@ -32,18 +32,62 @@ const RANGE_KEYS = ["7", "14", "today", "week", "all"] as const;
 
 type Owner = {
   name: string;
+  short?: string;
   points: number;
   avgPerWeekday: number;
   conversations?: number;
   dials?: number;
   convRate?: number;
   count?: number;
+  gifts?: number;
+  giftAmount?: number;
   weekdaysWorked?: number;
   buckets?: Record<string, number>;
   bucketPoints?: Record<string, number>;
-  weekList?: { key: string; points: number; conversations: number; dials: number }[];
+  weekList?: {
+    key: string;
+    points: number;
+    conversations: number;
+    dials: number;
+    gifts?: number;
+    giftAmount?: number;
+  }[];
   tier?: { id: string; label: string; color?: string; min: number };
 };
+
+type GiftRow = {
+  owner: string;
+  contactName?: string;
+  day?: string;
+  giftType?: string;
+  project?: string;
+  amount?: number;
+};
+
+type WeekRec = {
+  conversations?: number;
+  dials?: number;
+  points?: number;
+  gifts?: number;
+  giftAmount?: number;
+};
+
+type WeekGridRow = {
+  key: string;
+  label: string;
+  byOwner: Record<string, WeekRec>;
+  totals: WeekRec & { convRate?: number; avgPoints?: number };
+};
+
+type BestRec = { value: number; week: string | null };
+type Bests = {
+  owners: Array<{ name: string; short?: string } & Record<string, BestRec | string | undefined>>;
+  team: Record<string, BestRec>;
+  metrics: Array<{ id: string; label: string }>;
+};
+
+const money = (n: number | undefined) => `$${Math.round(n || 0).toLocaleString()}`;
+const pct = (n: number | undefined) => `${((n || 0) * 100).toFixed(1)}%`;
 
 /** One scored activity row (from points.js scoreNote / aggregate model.rows). */
 type Row = {
@@ -89,14 +133,15 @@ async function loadRaw() {
     if (!res.ok) throw new Error(`${name}: ${res.status}`);
     return res.json();
   };
-  const [notes, events, meta] = await Promise.all([
+  const [notes, events, gifts, meta] = await Promise.all([
     get("notes.json"),
     get("events.json"),
+    get("gifts.json").catch(() => []),
     get("meta.json"),
   ]);
   const arr = (x: unknown) =>
     Array.isArray(x) ? x : ((x as { records?: unknown[] })?.records || []);
-  return { notes: arr(notes), events: arr(events), meta: meta || {} };
+  return { notes: arr(notes), events: arr(events), gifts: arr(gifts), meta: meta || {} };
 }
 
 function MixBar({ buckets }: { buckets?: Record<string, number> }) {
@@ -136,12 +181,12 @@ export default function PointsPage() {
   useEffect(() => {
     loadRaw()
       .then((raw) => {
-        const scored = scoreAll({ notes: raw.notes }) as unknown as Array<Record<string, unknown>>;
+        const scored = scoreAll({ notes: raw.notes, gifts: raw.gifts }) as unknown as Array<Record<string, unknown>>;
         const ev = scoreEventsForDisplay(raw.events) as unknown as Array<Record<string, unknown>>;
         setRows(scored);
         setEvents(ev);
         setMeta(raw.meta as Record<string, unknown>);
-        setStatus(`${raw.notes.length.toLocaleString()} raw notes`);
+        setStatus(`${raw.notes.length.toLocaleString()} raw notes · ${raw.gifts.length.toLocaleString()} gifts`);
       })
       .catch((e) => setError(String(e)));
   }, []);
@@ -164,15 +209,21 @@ export default function PointsPage() {
         dials?: number;
         convRate?: number;
         weekdays?: number;
+        gifts?: number;
+        giftAmount?: number;
       };
       owners: Owner[];
+      tableOwners: Owner[];
       rows: unknown[];
       buckets: typeof BUCKETS;
+      gifts: GiftRow[];
+      weekGrid: WeekGridRow[];
+      bests: Bests;
     };
   }, [rows, range, customStart, customEnd]);
 
   const daily = useMemo(
-    () => dailyTotals(model.rows) as Array<{ date: string; points: number; weekend?: boolean }>,
+    () => dailyTotals(model.rows) as Array<{ day?: string; date: string | Date; points: number }>,
     [model.rows],
   );
   const selectedOwner = model.owners.find((o) => o.name === selected);
@@ -185,7 +236,12 @@ export default function PointsPage() {
     }
     return map;
   }, [model.owners]);
-  const mixPeak = Math.max(1, ...Object.values(teamMix));
+  const mixPeak = Math.max(
+    1,
+    ...Object.entries(teamMix)
+      .filter(([k]) => k !== "donation")
+      .map(([, v]) => v),
+  );
 
   const rangeLabel =
     range === "custom"
@@ -351,37 +407,31 @@ export default function PointsPage() {
             </div>
           </div>
 
-          <section
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))",
-              gap: 12,
-              marginBottom: 24,
-            }}
-          >
+          <section className="kpis">
             {[
-              ["Total Points", model.totals?.points, `${model.totals?.count ?? 0} activities`],
+              ["Total Points", (model.totals?.points ?? 0).toLocaleString(), `${model.totals?.count ?? 0} scored activities`],
               [
                 "Conversations",
-                model.totals?.conversations,
-                `Dial rate ${((model.totals?.convRate || 0) * 100).toFixed(0)}%`,
+                String(model.totals?.conversations ?? 0),
+                `${pct(model.totals?.convRate)} of dials`,
               ],
-              ["Weekdays Covered", model.totals?.weekdays, "Across selected range"],
+              [
+                "Gifts Raised",
+                money(model.totals?.giftAmount),
+                `${model.totals?.gifts ?? 0} gifts logged · ${model.totals?.weekdays ?? 0} weekdays`,
+              ],
               [
                 "Team Avg / Weekday",
                 model.totals?.weekdays
-                  ? ((model.totals.points || 0) / model.totals.weekdays).toFixed(1)
+                  ? Math.round((model.totals.points || 0) / model.totals.weekdays).toLocaleString()
                   : "—",
-                `${model.owners.length} MAs`,
+                "points per weekday",
               ],
             ].map(([l, v, sub]) => (
-              <div
-                key={String(l)}
-                style={{ background: "#fff", border: "1px solid #d7e0ec", borderRadius: 10, padding: 12 }}
-              >
-                <div style={{ fontSize: 11, textTransform: "uppercase", opacity: 0.65 }}>{l as string}</div>
-                <div style={{ fontSize: 24, fontWeight: 700 }}>{v ?? "—"}</div>
-                <div style={{ fontSize: 12, opacity: 0.7 }}>{sub as string}</div>
+              <div key={String(l)} className="kpi">
+                <div className="label">{l as string}</div>
+                <div className="value tabular">{v}</div>
+                <div className="foot">{sub as string}</div>
               </div>
             ))}
           </section>
@@ -481,37 +531,43 @@ export default function PointsPage() {
             </section>
           )}
 
-          <section style={{ marginBottom: 28 }}>
-            <h2>Leaderboard</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: 12 }}>
+          <section className="section">
+            <h2>
+              Leaderboard <span className="section-hint">click an MA to see their weekly breakdown</span>
+            </h2>
+            <div className="cards">
               {model.owners.map((o, idx) => {
                 const tier = o.tier || tierFor(o.avgPerWeekday || 0);
                 return (
                   <button
                     key={o.name}
                     type="button"
+                    className={`macard${selected === o.name ? " selected" : ""}`}
                     onClick={() => setSelected(o.name === selected ? null : o.name)}
-                    style={{
-                      textAlign: "left",
-                      background: selected === o.name ? "#f7f1e4" : "#fff",
-                      border: "1px solid #d7e0ec",
-                      borderRadius: 12,
-                      padding: 14,
-                      cursor: "pointer",
-                    }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <strong>
-                        #{idx + 1} {o.name}
-                      </strong>
-                      <span style={{ color: tier.color || "#0c233f", fontSize: 12 }}>{tier.label}</span>
+                    <div className="rank">{idx + 1}</div>
+                    <div className="name">{o.name}</div>
+                    <div className="pts tabular">
+                      {o.points.toLocaleString()} <small>pts</small>
                     </div>
-                    <div style={{ fontSize: 22, fontWeight: 700 }}>{o.points}</div>
-                    <div style={{ fontSize: 12, opacity: 0.75 }}>
-                      Avg/wkdy {(o.avgPerWeekday || 0).toFixed(1)} · Convos {o.conversations ?? 0} · Rate{" "}
-                      {(((o.convRate || 0) as number) * 100).toFixed(0)}%
+                    <span className="tier" style={{ background: tier.color }}>
+                      {tier.label}
+                    </span>
+                    <div className="statrow">
+                      <div className="s">
+                        Avg/weekday
+                        <b className="tabular">{Math.round(o.avgPerWeekday || 0).toLocaleString()}</b>
+                      </div>
+                      <div className="s">
+                        Conversations
+                        <b className="tabular">{o.conversations ?? 0}</b>
+                      </div>
+                      <div className="s">
+                        Raised
+                        <b className="tabular">{money(o.giftAmount)}</b>
+                      </div>
                     </div>
-                    <MixBar buckets={o.buckets} />
+                    <MixBar buckets={o.bucketPoints || o.buckets} />
                   </button>
                 );
               })}
@@ -519,28 +575,35 @@ export default function PointsPage() {
           </section>
 
           {selectedOwner && (
-            <section style={{ marginBottom: 28, background: "#fff", borderRadius: 12, padding: 16 }}>
-              <h2>{selectedOwner.name} — weekly breakdown</h2>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <section className="section panel">
+              <h2>
+                {selectedOwner.name}{" "}
+                <span className="section-hint">
+                  {selectedOwner.tier?.label} · {Math.round(selectedOwner.avgPerWeekday || 0)} pts/weekday · {money(selectedOwner.giftAmount)} raised
+                </span>
+              </h2>
+              <table className="grid">
                 <thead>
                   <tr>
-                    <th align="left">Week</th>
-                    <th align="right">Points</th>
-                    <th align="right">Convos</th>
-                    <th align="right">Dials</th>
-                    <th align="right">Rate</th>
+                    <th>Week</th>
+                    <th>Points</th>
+                    <th>Convos</th>
+                    <th>Dials</th>
+                    <th>Rate</th>
+                    <th>Gifts</th>
+                    <th>Raised</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(selectedOwner.weekList || []).map((w) => (
                     <tr key={w.key}>
-                      <td>{w.key}</td>
-                      <td align="right">{w.points}</td>
-                      <td align="right">{w.conversations}</td>
-                      <td align="right">{w.dials}</td>
-                      <td align="right">
-                        {w.dials ? `${((w.conversations / w.dials) * 100).toFixed(0)}%` : "—"}
-                      </td>
+                      <td>Week of {w.key.slice(5)}</td>
+                      <td className="pts tabular">{w.points.toLocaleString()}</td>
+                      <td className="tabular">{w.conversations}</td>
+                      <td className="tabular">{w.dials}</td>
+                      <td className="tabular">{w.dials ? pct(w.conversations / w.dials) : "—"}</td>
+                      <td className="tabular">{w.gifts ?? 0}</td>
+                      <td className="pts tabular">{money(w.giftAmount)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -648,76 +711,251 @@ export default function PointsPage() {
             </section>
           )}
 
-          <section style={{ marginBottom: 28 }}>
-            <h2>Activity mix (team points)</h2>
-            <div style={{ background: "#fff", borderRadius: 12, padding: 16 }}>
-              {BUCKETS.map((b: { id: string; label: string; color: string }) => {
-                const v = teamMix[b.id] || 0;
+          <section className="section">
+            <h2>
+              Weekly Totals <span className="section-hint">same layout as the tracker — conversations, dials, rate, points, gifts, dollars</span>
+            </h2>
+            <div className="panel week-stack">
+              {!(model.weekGrid || []).length && <p className="footnote">No weekly activity in range.</p>}
+              {[...(model.weekGrid || [])].reverse().map((g) => {
+                const mas = model.tableOwners || [];
+                const cell = (w: WeekRec | undefined, id: string) => {
+                  const rec = w || {};
+                  if (id === "rate") return rec.dials ? pct((rec.conversations || 0) / rec.dials) : "—";
+                  if (id === "giftAmount") return money(rec.giftAmount);
+                  if (id === "points") return (rec.points || 0).toLocaleString();
+                  return String((rec as Record<string, number>)[id] || 0);
+                };
+                const metrics: Array<[string, string]> = [
+                  ["conversations", "Conversations"],
+                  ["dials", "Dials"],
+                  ["rate", "%"],
+                  ["points", "Points"],
+                  ["gifts", "Gifts"],
+                  ["giftAmount", "Raised"],
+                ];
                 return (
-                  <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                    <div style={{ width: 140, fontSize: 13 }}>{b.label}</div>
-                    <div style={{ flex: 1, height: 14, background: "#eef3fa", borderRadius: 4 }}>
-                      <div
-                        style={{
-                          width: `${(v / mixPeak) * 100}%`,
-                          height: "100%",
-                          background: b.color,
-                          borderRadius: 4,
-                        }}
-                      />
+                  <div key={g.key} className="week-block">
+                    <h3>Week of {g.label}</h3>
+                    <div className="week-scroll">
+                      <table className="grid weekgrid">
+                        <thead>
+                          <tr>
+                            <th className="metric" />
+                            {mas.map((o) => (
+                              <th key={o.name} className="ma">{o.short || o.name}</th>
+                            ))}
+                            <th className="ma">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {metrics.map(([id, label]) => (
+                            <tr key={id}>
+                              <th className="metric">{label}</th>
+                              {mas.map((o) => (
+                                <td key={o.name} className="tabular">{cell(g.byOwner[o.name], id)}</td>
+                              ))}
+                              <td className="tabular pts">
+                                {id === "rate"
+                                  ? pct(g.totals.convRate)
+                                  : id === "giftAmount"
+                                    ? money(g.totals.giftAmount)
+                                    : id === "points"
+                                      ? <>{(g.totals.points || 0).toLocaleString()} <span className="muted">avg {Math.round(g.totals.avgPoints || 0)}</span></>
+                                      : String((g.totals as Record<string, number>)[id] || 0)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                    <div style={{ width: 56, textAlign: "right", fontWeight: 700 }}>{v}</div>
                   </div>
                 );
               })}
             </div>
           </section>
 
-          <section style={{ marginBottom: 28 }}>
-            <h2>Daily team points</h2>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "flex-end",
-                gap: 3,
-                height: 160,
-                background: "#fff",
-                padding: 12,
-                borderRadius: 12,
-              }}
-            >
-              {daily.map((d) => {
-                const max = Math.max(1, ...daily.map((x) => x.points));
-                const h = (d.points / max) * 130;
-                return (
-                  <div
-                    key={d.date}
-                    title={`${d.date}: ${d.points}`}
-                    style={{
-                      flex: 1,
-                      height: Math.max(2, h),
-                      background: d.weekend ? "#c5d0df" : "#0c233f",
-                      borderRadius: 3,
-                    }}
-                  />
-                );
-              })}
+          <section className="section">
+            <h2>
+              Personal Bests <span className="section-hint">best week in each category — not necessarily the same week</span>
+            </h2>
+            <div className="bests">
+              {(model.bests?.owners || []).map((o) => (
+                <div key={String(o.name)} className="bestcard">
+                  <div className="name">{String(o.short || o.name)}</div>
+                  {(model.bests?.metrics || []).map((m) => {
+                    const rec = o[m.id] as BestRec | undefined;
+                    const val = m.id === "giftAmount" ? money(rec?.value) : (rec?.value ?? 0).toLocaleString();
+                    return (
+                      <div key={m.id} className="best-row">
+                        <span>{m.label}</span>
+                        <b className="tabular">{val}</b>
+                        <em>wk {rec?.week ? rec.week.slice(5) : "—"}</em>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+              {model.bests?.team && (
+                <div className="bestcard team">
+                  <div className="name">Team best</div>
+                  {(model.bests.metrics || []).map((m) => {
+                    const rec = model.bests.team[m.id];
+                    const val = m.id === "giftAmount" ? money(rec?.value) : Math.round(rec?.value || 0).toLocaleString();
+                    return (
+                      <div key={m.id} className="best-row">
+                        <span>{m.label}</span>
+                        <b className="tabular">{val}</b>
+                        <em>wk {rec?.week ? rec.week.slice(5) : "—"}</em>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </section>
 
-          <section style={{ marginBottom: 28 }}>
-            <h2>All MAs</h2>
-            <table style={{ width: "100%", background: "#fff", borderCollapse: "collapse", fontSize: 13 }}>
+          <section className="section">
+            <h2>
+              Donations Received <span className="section-hint">Virtuous gifts attributed to each MA, plus grand total</span>
+            </h2>
+            <div className="panel">
+              <table className="grid" style={{ marginBottom: 18 }}>
+                <thead>
+                  <tr>
+                    <th>MA</th>
+                    <th>Gifts</th>
+                    <th>Raised</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(model.tableOwners || []).map((o) => (
+                    <tr key={o.name}>
+                      <td>{o.name}</td>
+                      <td className="tabular">{o.gifts ?? 0}</td>
+                      <td className="pts tabular">{money(o.giftAmount)}</td>
+                    </tr>
+                  ))}
+                  <tr className="grand">
+                    <td>Grand total</td>
+                    <td className="tabular">{model.totals?.gifts ?? 0}</td>
+                    <td className="pts tabular">{money(model.totals?.giftAmount)}</td>
+                  </tr>
+                </tbody>
+              </table>
+              {(model.gifts || []).length > 0 ? (
+                <table className="grid">
+                  <thead>
+                    <tr>
+                      <th>MA</th>
+                      <th>Donor</th>
+                      <th>Date</th>
+                      <th>Type</th>
+                      <th>Designation</th>
+                      <th>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...model.gifts]
+                      .sort((a, b) => (b.day || "").localeCompare(a.day || ""))
+                      .map((g, i) => (
+                        <tr key={i}>
+                          <td>{g.owner}</td>
+                          <td>{g.contactName || "—"}</td>
+                          <td className="tabular">{g.day || "—"}</td>
+                          <td>{g.giftType || "—"}</td>
+                          <td>{g.project || "—"}</td>
+                          <td className="pts tabular">{money(g.amount)}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="footnote">
+                  No Virtuous gifts attributed to an MA in this range. Dollars show up when the MA logged a
+                  New Donation / AC / Recurring Gift note on the same contact.
+                </p>
+              )}
+            </div>
+          </section>
+
+          <section className="section two-col">
+            <div>
+              <h2>Daily Team Points</h2>
+              <div className="panel">
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-end",
+                    gap: 3,
+                    height: 160,
+                  }}
+                >
+                  {daily.map((d) => {
+                    const max = Math.max(1, ...daily.map((x) => x.points));
+                    const h = (d.points / max) * 130;
+                    const dt = d.date instanceof Date ? d.date : new Date(d.date);
+                    const weekend = dt.getDay() === 0 || dt.getDay() === 6;
+                    return (
+                      <div
+                        key={d.day || String(d.date)}
+                        title={`${d.day || d.date}: ${d.points}`}
+                        style={{
+                          flex: 1,
+                          height: Math.max(2, h),
+                          background: weekend ? "#c5d0df" : "#0c233f",
+                          borderRadius: 3,
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+                <p className="footnote">Weekday bars are solid; weekend bars are muted. Tiers are evaluated on average points per weekday.</p>
+              </div>
+            </div>
+            <div>
+              <h2>Activity Mix</h2>
+              <div className="panel">
+                {BUCKETS.filter((b: { id: string }) => b.id !== "donation").map((b: { id: string; label: string; color: string }) => {
+                  const v = teamMix[b.id] || 0;
+                  if (!v) return null;
+                  return (
+                    <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                      <div style={{ width: 140, fontSize: 13 }}>{b.label}</div>
+                      <div style={{ flex: 1, height: 14, background: "#eef3fa", borderRadius: 4 }}>
+                        <div
+                          style={{
+                            width: `${(v / mixPeak) * 100}%`,
+                            height: "100%",
+                            background: b.color,
+                            borderRadius: 4,
+                          }}
+                        />
+                      </div>
+                      <div style={{ width: 56, textAlign: "right", fontWeight: 700 }}>{v}</div>
+                    </div>
+                  );
+                })}
+                <p className="footnote">Points contributed by each activity type across the team.</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="section">
+            <h2>All Mission Advancement — Detail</h2>
+            <div className="panel">
+              <table className="grid">
               <thead>
                 <tr>
-                  <th align="left">MA</th>
-                  <th align="right">Points</th>
-                  <th align="right">Avg/wkdy</th>
-                  <th align="left">Tier</th>
-                  <th align="right">Convos</th>
-                  <th align="right">Dials</th>
-                  <th align="right">Rate</th>
-                  <th align="right">Activities</th>
+                  <th>Mission Advancement</th>
+                  <th>Points</th>
+                  <th>Avg/wkdy</th>
+                  <th>Tier</th>
+                  <th>Convos</th>
+                  <th>Dials</th>
+                  <th>Rate</th>
+                  <th>Gifts</th>
+                  <th>Raised</th>
                 </tr>
               </thead>
               <tbody>
@@ -726,23 +964,28 @@ export default function PointsPage() {
                   return (
                     <tr key={o.name}>
                       <td>{o.name}</td>
-                      <td align="right">{o.points}</td>
-                      <td align="right">{(o.avgPerWeekday || 0).toFixed(1)}</td>
-                      <td style={{ color: tier.color }}>{tier.label}</td>
-                      <td align="right">{o.conversations ?? 0}</td>
-                      <td align="right">{o.dials ?? 0}</td>
-                      <td align="right">{(((o.convRate || 0) as number) * 100).toFixed(0)}%</td>
-                      <td align="right">{o.count ?? 0}</td>
+                      <td className="pts tabular">{o.points.toLocaleString()}</td>
+                      <td className="tabular">{Math.round(o.avgPerWeekday || 0)}</td>
+                      <td><span className="tier" style={{ background: tier.color }}>{tier.label.split(" ")[0]}</span></td>
+                      <td className="tabular">{o.conversations ?? 0}</td>
+                      <td className="tabular">{o.dials ?? 0}</td>
+                      <td className="tabular">{pct(o.convRate)}</td>
+                      <td className="tabular">{o.gifts ?? 0}</td>
+                      <td className="pts tabular">{money(o.giftAmount)}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+            </div>
           </section>
 
-          <section style={{ marginBottom: 28 }}>
-            <h2>Events (reference only)</h2>
-            <table style={{ width: "100%", background: "#fff", borderCollapse: "collapse", fontSize: 13 }}>
+          <section className="section">
+            <h2>
+              Events <span className="section-hint">reference only — not attributed to an MA</span>
+            </h2>
+            <div className="panel">
+            <table className="grid">
               <thead>
                 <tr>
                   <th align="left">Event</th>
@@ -764,18 +1007,25 @@ export default function PointsPage() {
                   ))}
               </tbody>
             </table>
+            <p className="footnote">
+              Virtuous events carry no MA owner, so “Ave Near You” (300) and Marketing (75) events are shown here for
+              reference and are not included in any MA’s point total. An MA can take the credit by logging
+              <code> Mission Advancement | Event</code> once that note type exists.
+            </p>
+            </div>
           </section>
 
-          <section>
+          <section className="section">
             <h3>Tiers</h3>
-            <ul>
+            <div className="legend">
               {TIERS.map((t) => (
-                <li key={t.id} style={{ color: t.color }}>
-                  {t.label}: ≥ {t.min} avg pts / weekday
+                <span key={t.id} className="k">
+                  <span className="dot" style={{ background: t.color }} />
+                  {t.label} — {t.min ? `≥${t.min}` : "<100"} pts/wkdy
                   {t.payout != null ? ` · $${t.payout.toLocaleString()}` : ""}
-                </li>
+                </span>
               ))}
-            </ul>
+            </div>
           </section>
           {meta?.generated_at != null && (
             <p style={{ opacity: 0.6, marginTop: 16 }}>Refreshed {String(meta.generated_at)}</p>
