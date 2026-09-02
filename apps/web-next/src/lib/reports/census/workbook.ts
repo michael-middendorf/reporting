@@ -378,7 +378,13 @@ function shareCells(rows: { label: string; n: number; pct: number }[]): CellValu
   return rows.map((r) => [r.label, r.n, r.pct]);
 }
 
-function writeGraduateEnrollment(wb: XlsxWorkbook, students: CensusRawStudent[], prior: CensusRawStudent[], year: number) {
+function writeGraduateEnrollment(
+  wb: XlsxWorkbook,
+  students: CensusRawStudent[],
+  prior: CensusRawStudent[],
+  year: number,
+  graduates: CensusLists["graduates"] = [],
+) {
   const fa = faLabel(year);
   const ws = wb.addSheet(`${fa} Graduate Enrollment`);
   ws.gridLines = false;
@@ -388,10 +394,10 @@ function writeGraduateEnrollment(wb: XlsxWorkbook, students: CensusRawStudent[],
   ws.set(
     2,
     1,
-    "Alumni admits = incoming graduates who were AMU undergraduates on the Fall 2025 census. External admits = incoming graduates who were not. Returning students are not in the admit split.",
+    "Alumni admits = incoming graduates with an AMU undergraduate degree on Graduated All (or UG on last fall's census). External admits = incoming graduates with no AMU bachelor's. Returning students are not in the admit split.",
     NOTE,
   );
-  const blocks = buildGraduateEnrollment(students, prior);
+  const blocks = buildGraduateEnrollment(students, prior, graduates);
   let left = 4;
   let right = 4;
   blocks.forEach((block, i) => {
@@ -1927,7 +1933,7 @@ export async function buildCensusWorkbook(
     sheetName: `${fa} Census Report no Football`,
     titleSuffix: " (Football removed)",
   });
-  writeGraduateEnrollment(wb, lists.students, lists.prior, data.historical.years[0] ?? 2026);
+  writeGraduateEnrollment(wb, lists.students, lists.prior, data.historical.years[0] ?? 2026, lists.graduates);
   writeAttrition(wb, data, ftcaExtras);
   writeAttrition(wb, noFbData, noFbFtcaExtras, {
     sheetName: "FA25 FTCA Attrition no Football",

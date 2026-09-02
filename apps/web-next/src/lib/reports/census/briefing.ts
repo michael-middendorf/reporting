@@ -76,7 +76,7 @@ export function buildCensusBriefing(data: CensusSnapshot, lists: CensusLists): C
     : data.ug;
   const catholicN = ugds.filter(isCatholic).length;
   const onCampus = tables.residency.find((r) => r.label === "On Campus" || r.label === "Resident")?.n ?? 0;
-  const grads = buildGraduateEnrollment(students, lists.prior);
+  const grads = buildGraduateEnrollment(students, lists.prior, lists.graduates);
   const overallGrad = grads[0];
   const ireland = ugds.filter(isIrelandStudent).length;
   const honorsN = ugds.filter((s) => {

@@ -241,15 +241,24 @@ function programStats(program: string, rows: CensusRawStudent[], alumniIds: Set<
   };
 }
 
-/** Overall graduate enrollment plus each Summary program. Alumni = AMU UG on the last census. */
+function isAmuUndergraduateAlum(g: { program?: string; degree?: string }): boolean {
+  const prog = (g.program || "").trim().toUpperCase();
+  if (prog === "UNDERG") return true;
+  const deg = (g.degree || "").trim().toUpperCase();
+  return deg.startsWith("B");
+}
+
+/** Overall graduate enrollment plus each Summary program. Alumni = AMU bachelor's on Graduated All, or UG on last census. */
 export function buildGraduateEnrollment(
   students: CensusRawStudent[],
   prior: CensusRawStudent[] = [],
+  graduates: { pcid: string; program?: string; degree?: string }[] = [],
 ): GraduateProgramStats[] {
   const grads = students.filter((s) => program(s) === "GRAD");
-  const alumniIds = new Set(
-    prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend)).map((s) => normPcid(s.pcid)),
-  );
+  const alumniIds = new Set([
+    ...prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend)).map((s) => normPcid(s.pcid)),
+    ...graduates.filter(isAmuUndergraduateAlum).map((g) => normPcid(g.pcid)),
+  ]);
   const byProgram = new Map<string, CensusRawStudent[]>();
   for (const s of grads) {
     const label = graduateProgramLabel(s) || "Other";

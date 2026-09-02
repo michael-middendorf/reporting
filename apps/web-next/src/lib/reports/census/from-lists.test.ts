@@ -167,6 +167,19 @@ test("graduate enrollment stats split overall and programs; alumni vs external a
   assert.equal(phil?.incomingReturning.find((r) => r.label === "Returning")?.n, 1);
 });
 
+test("graduate alumni admits include AMU bachelor's from Graduated All, not only last fall UG", () => {
+  const rows = [
+    s({ pcid: "NEW1", program: "GRAD", collegeAttend: "GRAD", degree: "MBA", incomingReturning: "Incoming" }),
+    s({ pcid: "EXT1", program: "GRAD", collegeAttend: "GRAD", degree: "MBA", incomingReturning: "Incoming" }),
+  ];
+  const blocks = buildGraduateEnrollment(rows, [], [
+    { pcid: "NEW1", year: "2024", term: "SPRING", program: "UNDERG" },
+  ]);
+  const mba = blocks.find((b) => b.program === "MBA");
+  assert.equal(mba?.admits.find((r) => r.label === "Alumni admits")?.n, 1);
+  assert.equal(mba?.admits.find((r) => r.label === "External admits")?.n, 1);
+});
+
 test("Ireland and Mont Mallary are not On Campus; DE is DUAL not Chesterton", () => {
   const rows = [
     s({ pcid: "1", residency: "On Campus", incomingReturning: "Returning" }),

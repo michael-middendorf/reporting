@@ -765,16 +765,17 @@ def load_graduates(path: Path) -> list[dict]:
         if not pid:
             continue
         year, term = row[header["Graduation Year"]], row[header["Graduation Term"]]
-        if is_ay_grad(year, term):
-            prog_i = header.get("Graduation Program")
-            out.append(
-                {
-                    "pcid": pid,
-                    "year": year,
-                    "term": term,
-                    "program": str(row[prog_i] or "").strip() if prog_i is not None else "",
-                }
-            )
+        prog_i = header.get("Graduation Program")
+        deg_i = header.get("Graduation Degree")
+        out.append(
+            {
+                "pcid": pid,
+                "year": year,
+                "term": term,
+                "program": str(row[prog_i] or "").strip() if prog_i is not None else "",
+                "degree": str(row[deg_i] or "").strip() if deg_i is not None else "",
+            }
+        )
     wb.close()
     if header is None:
         raise RuntimeError(f"No PCID header in {path}")
@@ -1170,7 +1171,7 @@ def main() -> None:
         norm(row["pcid"]) for row in residency_overlay if "ireland" in str(row.get("session") or "").lower()
     }
     graduates = load_graduates(GRADUATES)
-    grad_ids = {norm(g["pcid"]) for g in graduates}
+    grad_ids = {norm(g["pcid"]) for g in graduates if is_ay_grad(g.get("year"), g.get("term"))}
     registered_ids = {norm(s["pcid"]) for s in registered_rows}
 
     students = []

@@ -16,6 +16,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 - Chesterton: extract `20260901-103435.xlsx` column **DE Type**. 76 rows, **1** filled (`Chesterton` = Gianna Cox, not on FA26). Blank is not Chesterton. Summary Chesterton dual = **0**.
 - Housing: eRez + FA25 `Copy of 9.4.2025 CENSUS Fall 25.xlsx` (residence-applications).
 - Unretained notes: `Downloads/Census retention sheet.xlsx` col R (`intend to return/not return`).
+- Grad alumni admits: `Graduated - All-13.xlsx` undergraduate degrees (not only FA25 UG). Incoming grads with an AMU bachelor's = alumni.
 - FA26 entry terms: `Downloads/Roster -_ Housing Report 20260821-155657.xlsx`.
 
 ## Definitions (locked)
