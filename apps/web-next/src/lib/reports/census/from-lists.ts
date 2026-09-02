@@ -364,7 +364,7 @@ export const SUMMARY_DEFS: Record<string, string> = {
   "High School Dual Enrollment":
     "College Attend = DUAL or Degree = HSDE only. About 70 this fall. Early College (EACO) and Chesterton students who are not DUAL are not in this line. FTE is credits/12 when Full/Part is blank.",
   Chesterton:
-    "Chesterton dual enrollment from the Chesterton DE Slate extract, among College Attend DUAL / Degree HSDE.",
+    "Dual enrollment with DE Type = Chesterton on the Chesterton extract (103435). Blank DE Type is not Chesterton.",
   "Non-Degree-Seeking / Personal Enrichment":
     "Everyone who is not UG degree-seeking, not dual enrollment, and not Program = GRAD (ND / PENRIC / NONDEG / EACO).",
   "Lux Mundi Non-Degree-Seeking / Personal Enrichment":

@@ -29,7 +29,7 @@ EOT_FILES = [DOWNLOADS / "End Of Term-6.xlsx", DOWNLOADS / "End Of Term-7.xlsx"]
 # Both years. Filenames still say FA25; 100450 is Fall 2025 incoming, 103105 is Fall 2026 incoming.
 INCOMING_PRIOR = DOWNLOADS / "FA25 Incoming Students Census 20260901-100450.xlsx"
 INCOMING_CURRENT = DOWNLOADS / "FA25 Incoming Students Census 20260901-103105.xlsx"
-# Chesterton dual enrollment roster (DE Type column; blank still means Chesterton on this extract).
+# Chesterton dual enrollment roster. Only DE Type = Chesterton counts; blank is not Chesterton.
 CHESTERTON_DE = DOWNLOADS / "FA25 Incoming Students Census 20260901-103435.xlsx"
 HONORS = DOWNLOADS / "Association Honors-3.xlsx"
 MARINES = DOWNLOADS / "Mary's Marines_As of 9-1-26.xlsx"
@@ -1001,7 +1001,9 @@ def load_chesterton_de(path: Path | None = None) -> dict[str, str]:
             continue
         i_de = _incoming_col(header, ["DE Type", "DEType", "Chesterton"])
         de = str(row[i_de] or "").strip() if i_de is not None else ""
-        out[pid] = de or "Chesterton"
+        if not de:
+            continue
+        out[pid] = de
     wb.close()
     return out
 
