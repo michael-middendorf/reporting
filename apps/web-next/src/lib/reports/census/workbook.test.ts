@@ -229,7 +229,6 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
     "FA26 Census Raw",
     "Not Retained",
     "FA26 LOA",
-    "Verify",
   ]);
   assert.match(files["xl/styles.xml"], /style="thin"/);
   assert.match(files["xl/styles.xml"], /1A3F6F/);

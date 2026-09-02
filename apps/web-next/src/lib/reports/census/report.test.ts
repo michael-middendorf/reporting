@@ -429,6 +429,17 @@ test("sports are A–Z; athlete tables list Athlete before Non-Athlete", () => {
   );
 });
 
+test("CTHSTD majors display as Catholic Studies", () => {
+  const rows = set([
+    raw({ pcid: "1", curriculum: "CTHSTD", curriculumName: "CTHSTD", classLevel: "Junior" }),
+    raw({ pcid: "2", curriculum: "BIOLOG", curriculumName: "Biology", classLevel: "Junior" }),
+  ]);
+  const rpt = buildReport(filterStudents(rows, DEFAULT_FILTERS));
+  assert.equal(rpt.majors.some((m) => m.label === "CTHSTD"), false);
+  assert.equal(rpt.majors.find((m) => m.label === "Catholic Studies")?.total, 1);
+  assert.equal(rpt.majors.find((m) => m.label === "Biology")?.total, 1);
+});
+
 test("B.A. vs B.S. degree type", () => {
   const rows = set([
     raw({ degree: "BARTS" }),

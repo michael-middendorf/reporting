@@ -205,10 +205,22 @@ test("Ireland and Mont Mallary are not On Campus; DE is DUAL not Chesterton", ()
   assert.equal(sum.ireland.headcount, 1);
   assert.equal(sum.montMallary.headcount, 1);
   assert.equal(sum.dualEnrollment.headcount, 2);
-  assert.equal(sum.chestertonDual.headcount, 1);
+  assert.equal(sum.chestertonDual.headcount, 1, "Early College is Chesterton; a Chesterton major is not");
   assert.equal(sum.chesterton.headcount, 1);
   assert.equal(sum.nonDegree.headcount, 1, "EACO is not dual enrollment");
   assert.equal(sum.dualEnrollment.fte, 1); // 4/12 + 8/12
+});
+
+test("Early College (EACO/EACOL) is the Chesterton Summary line", () => {
+  const rows = [
+    s({ pcid: "1", program: "EACOL", collegeAttend: "EACO", degree: "BARTS", incomingReturning: "Incoming" }),
+    s({ pcid: "2", program: "EACOL", collegeAttend: "EACO", degree: "NONDEG", incomingReturning: "Incoming", credits: 4 }),
+    s({ pcid: "3", program: "NDEG", collegeAttend: "DUAL", degree: "HSDE" }),
+  ];
+  const sum = summaryFromStudents(rows);
+  assert.equal(sum.chestertonDual.headcount, 2);
+  assert.equal(sum.dualEnrollment.headcount, 1);
+  assert.equal(sum.nonDegree.headcount, 2);
 });
 
 test("Chesterton DE extract flags dual enrollment on the Chesterton Summary line", () => {

@@ -112,10 +112,15 @@ export function isMallaryStudent(s: CensusRawStudent): boolean {
   return sess.includes("03mm") || sess.includes("mallary") || sess.includes("montmallary");
 }
 
+export function isEarlyCollege(s: CensusRawStudent): boolean {
+  const coll = college(s);
+  const prog = program(s);
+  return coll === "EACO" || prog === "EACO" || prog === "EACOL";
+}
+
 export function isChesterton(s: CensusRawStudent): boolean {
-  if ((s.deType || "").trim().toLowerCase().includes("chesterton")) return true;
-  const blob = `${s.session || ""} ${s.curriculum || ""} ${s.curriculumName || ""} ${s.collegeAttend || ""}`.toLowerCase();
-  return blob.includes("chesterton");
+  if (isEarlyCollege(s)) return true;
+  return (s.deType || "").trim().toLowerCase().includes("chesterton");
 }
 
 function isOnCampus(s: CensusRawStudent): boolean {
@@ -153,7 +158,7 @@ export function summaryFromStudents(students: CensusRawStudent[]): CensusSummary
     degreeSeeking: hcFte(ugds),
     dualEnrollment: hcFte(dual),
     chesterton: hcFte(students.filter((s) => isChesterton(s) && !isDual(s))),
-    chestertonDual: hcFte(dual.filter(isChesterton)),
+    chestertonDual: hcFte(students.filter(isChesterton)),
     nonDegree: hcFte(nonDegree),
     luxMundiNonDegree: hcFte(nonDegree.filter(isLuxMundi)),
     totalUndergraduate: hcFte(ug),
@@ -370,9 +375,9 @@ export const SUMMARY_DEFS: Record<string, string> = {
   "On Campus": "UG degree-seeking in residence halls. Residential = On Campus. Mount Melleray Abbey is separate.",
   "Total Degree-Seeking": "Program = UNDERG and College Attend not DUAL, EACO, or ND. Incoming + Returning.",
   "High School Dual Enrollment":
-    "College Attend = DUAL or Degree = HSDE only. About 70 this fall. Early College (EACO) and Chesterton students who are not DUAL are not in this line. FTE is credits/12 when Full/Part is blank.",
+    "College Attend = DUAL or Degree = HSDE only. About 70 this fall. Early College (EACO) is Chesterton, not this line. FTE is credits/12 when Full/Part is blank.",
   Chesterton:
-    "Dual enrollment with DE Type = Chesterton on the Chesterton extract (103435). Blank DE Type is not Chesterton.",
+    "Early College (Program EACOL / College Attend EACO), plus dual enrollment with DE Type = Chesterton. Breakout only.",
   "Non-Degree-Seeking / Personal Enrichment":
     "Everyone who is not UG degree-seeking, not dual enrollment, and not Program = GRAD (ND / PENRIC / NONDEG / EACO).",
   "Lux Mundi Non-Degree-Seeking / Personal Enrichment":

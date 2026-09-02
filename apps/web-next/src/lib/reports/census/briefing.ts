@@ -254,7 +254,7 @@ function presidentAnswers(args: {
     },
     {
       question: "Dual enrollment and Chesterton?",
-      answer: `High school dual enrollment ${t.dualEnrollment}; Chesterton dual ${t.chestertonDual}. Former DE who are FTCA this fall count as Incoming, not Returning.`,
+      answer: `High school dual enrollment ${t.dualEnrollment}. Chesterton is Early College (EACO/EACOL), ${t.chestertonDual}. Former DE who are FTCA this fall count as Incoming, not Returning.`,
     },
     {
       question: "Graduate enrollment?",

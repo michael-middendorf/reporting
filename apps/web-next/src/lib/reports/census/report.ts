@@ -75,13 +75,22 @@ export const DEGREE_OPTIONS: { id: ReportFilters["degree"]; label: string }[] = 
 
 const NON_DS = new Set(["DUAL", "EACO", "ND"]);
 
+const CURRICULUM_LABELS: Record<string, string> = {
+  CTHSTD: "Catholic Studies",
+};
+
+export function censusMajorLabel(name?: string, code?: string): string {
+  const raw = (name || code || "").trim() || "Undeclared";
+  return CURRICULUM_LABELS[raw.toUpperCase()] || CURRICULUM_LABELS[(code || "").trim().toUpperCase()] || raw;
+}
+
 export function projectReportStudents(rows: CensusRawStudent[]): ReportStudent[] {
   return rows.map((r) => ({
     pcid: (r.pcid || "").trim(),
     gender: (r.gender || "").trim(),
     athlete: canonicalCensusSport(r.sport) ? "Athlete" : "Non-Athlete",
     sport: canonicalCensusSport(r.sport),
-    major: (r.curriculumName || r.curriculum || "").trim() || "Undeclared",
+    major: censusMajorLabel(r.curriculumName, r.curriculum),
     degree: (r.degree || "").trim().toUpperCase(),
     program: (r.program || "").trim().toUpperCase(),
     collegeAttend: (r.collegeAttend || "").trim().toUpperCase(),

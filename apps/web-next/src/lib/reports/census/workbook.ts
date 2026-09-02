@@ -2002,19 +2002,5 @@ export async function buildCensusWorkbook(
     lists.unretained.map(unretainedRow),
   );
   writeListSheet(wb, "FA26 LOA", LOA_HEADERS, LOA_WIDTHS, loaFallForExport(lists).map(loaRow));
-  writeListSheet(
-    wb,
-    "Verify",
-    ["Issue", "PCID", "First", "Last", "Why", "Detail"],
-    [28, 14, 14, 16, 52, 42],
-    buildVerifyList(lists.students, lists.unretained, lists.graduates, housingRows).map((r) => [
-      r.issue,
-      r.pcid,
-      r.first,
-      r.last,
-      r.why,
-      r.detail,
-    ]),
-  );
   return wb.writeBuffer();
 }
