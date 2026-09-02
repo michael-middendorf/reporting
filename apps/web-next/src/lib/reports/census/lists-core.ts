@@ -297,6 +297,16 @@ export function normPcid(pcid: string | null | undefined): string {
   return (pcid || "").trim().toUpperCase();
 }
 
+/** Census Application Decision labels. Blank returning students are Not listed so tables add to the cohort. */
+export function censusAppDecision(raw: string | null | undefined): string {
+  const t = (raw || "").trim().toUpperCase();
+  if (!t || t === "-" || t === "NOT LISTED") return "Not listed";
+  if (t === "AT" || t === "ACCT" || t === "ACCEPT" || t === "ACCEDPT") return "ACCT";
+  if (t === "ADMI" || t === "ADM") return "ADM";
+  if (t === "CMRV" || t === "COMM") return "COMM";
+  return (raw || "").trim() || "Not listed";
+}
+
 /** Fall 2025, Spring 2026, and Summer 2026 — the year between FA25 and FA26 census. */
 export function isInterveningGraduate(year: string | number | null | undefined, term: string | null | undefined): boolean {
   const y = String(year ?? "").trim();

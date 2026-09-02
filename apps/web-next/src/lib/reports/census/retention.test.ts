@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { CensusRawStudent } from "./lists";
+import { censusAppDecision } from "./lists-core";
 import {
   applyLiveRetentionHistory,
   buildAllUgSplit,
@@ -259,7 +260,26 @@ test("All UG, FTCA, sports, and crosstabs use enrolled / (cohort minus graduates
   assert.equal(fb?.retentionPct, 2 / 3);
 });
 
-test("leave of absence stays in the FA25 cohort and is not a leaver", () => {
+test("Application Decisions Retention includes Not listed so the total matches the cohort", () => {
+  const rows = buildCrosstab(
+    [
+      prior({ pcid: "P1", appDecision: "ACCT" }),
+      prior({ pcid: "P2", appDecision: "" }),
+      prior({ pcid: "P3", appDecision: "ADMI" }),
+      prior({ pcid: "P4", appDecision: "-" }),
+    ],
+    ["P1", "P2", "P3"],
+    [],
+    (s) => censusAppDecision(s.appDecision),
+  );
+  const by = Object.fromEntries(rows.map((r) => [r.label, r.students]));
+  assert.equal(by.ACCT, 1);
+  assert.equal(by.ADM, 1);
+  assert.equal(by["Not listed"], 2);
+  assert.equal(rows.reduce((s, r) => s + r.students, 0), 4);
+});
+
+test("leave of absence stays in the FA25 cohort and counts as retained", () => {
   const ug = buildAllUgSplit(
     [
       prior({
@@ -277,9 +297,9 @@ test("leave of absence stays in the FA25 cohort and is not a leaver", () => {
     [],
   );
   assert.equal(ug.all.students, 3, "Gomez LOA stays in the FA25 cohort");
-  assert.equal(ug.all.enrolled, 2, "Trumpore counts as retained; Gomez is LOA not enrolled");
+  assert.equal(ug.all.enrolled, 3, "LOA counts as retained");
   assert.equal(ug.all.notRetained, 0, "LOA is not a leaver");
-  assert.equal(ug.all.retentionPct, 1, "LOA stays in the denominator and is not a leaver");
+  assert.equal(ug.all.retentionPct, 1);
 });
 
 test("FTCA Sport Primary omits Non-Athlete; that is not a sport", () => {
@@ -298,7 +318,7 @@ test("FTCA Sport Primary omits Non-Athlete; that is not a sport", () => {
   assert.equal(a.byAthlete.find((r) => r.label === "Non-Athlete")?.students, 2);
 });
 
-test("athletic retention splits team athletes from associated like S26", () => {
+test("athletic retention splits team athletes from associated like S26 and omits Band", () => {
   const rows = buildSportRetention(
     [
       prior({ pcid: "P1", sport: "Football", athleticType: "Varsity" }),
@@ -311,9 +331,29 @@ test("athletic retention splits team athletes from associated like S26", () => {
   const fb = rows.find((r) => r.sport === "Football");
   assert.equal(fb?.athletes, 1);
   assert.equal(fb?.associated, 2);
-  const band = rows.find((r) => r.sport === "Band");
-  assert.equal(band?.athletes, 0);
-  assert.equal(band?.associated, 1);
+  assert.equal(rows.some((r) => r.sport === "Band"), false, "Band is associated, not a team on Athletic Retention");
+});
+
+test("Athletic Retention FA25 roster matches last year's teams including LOA and deceased", () => {
+  const rows = buildSportRetention(
+    [
+      prior({ pcid: "P000378273", sport: "Swimming-Women", athleticType: "Varsity" }), // Hannah
+      prior({ pcid: "P000341593", sport: "Golf-Men", athleticType: "Non-Varsity" }), // Earnhardt LOA
+      prior({ pcid: "P2", sport: "Swimming-Women", athleticType: "Varsity" }),
+      prior({ pcid: "P3", sport: "Band" }),
+    ],
+    ["P2"],
+    [],
+  );
+  assert.equal(rows.some((r) => r.sport === "Band"), false);
+  const swim = rows.find((r) => r.sport === "Swimming-Women");
+  assert.equal(swim?.associated, 2, "Hannah stays on the FA25 swimming roster");
+  assert.equal(swim?.retained, 1);
+  assert.equal(swim?.notRetained, 0, "deceased is out of the denominator, not a leaver");
+  const golf = rows.find((r) => r.sport === "Golf-Men");
+  assert.equal(golf?.associated, 1, "LOA stays on the FA25 golf roster");
+  assert.equal(golf?.retained, 1, "LOA counts as retained");
+  assert.equal(golf?.notRetained, 0);
 });
 
 test("blank FA25 athletic type on a team is associated, not a team athlete", () => {

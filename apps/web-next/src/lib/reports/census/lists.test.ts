@@ -654,8 +654,8 @@ test("unretained notes take graduates, LOA, and exclude/force-retained off All N
   assert.equal(merged.length, S26_LOA_ROSTER.length + 1);
 });
 
-test("Spring and Fall LOA tabs stay separate so overlapping students appear on both", () => {
-  assert.equal(S26_LOA_ROSTER.some((s) => s.pcid === "P000380481"), true, "Cedeno is on S26 LOA");
+test("Fall 2026 LOA notes are the six intend-to-return students", () => {
+  assert.equal(S26_LOA_ROSTER.some((s) => s.pcid === "P000380481"), true);
   assert.equal(S26_LOA_ROSTER.some((s) => s.pcid === "P000341593"), false, "Earnhardt is FA26 LOA only");
   const fall = loaStudentsFromNotes([
     rawPrior("P000380481"),

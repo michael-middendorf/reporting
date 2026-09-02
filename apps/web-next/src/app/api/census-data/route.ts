@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { attachLoaStatus, isUgDegreeSeekingRow, S26_LOA_ROSTER } from "@/lib/reports/census/lists-core";
+import { attachLoaStatus, isUgDegreeSeekingRow } from "@/lib/reports/census/lists-core";
 import { loadCensusSnapshot } from "@/lib/reports/census/overlay";
 import { projectReportStudents } from "@/lib/reports/census/report";
 import { ayGraduatePcids } from "@/lib/reports/census/retention";
@@ -24,11 +24,6 @@ export async function GET(req: Request) {
     graduates: lists.graduates,
     housingRows,
     ftcaRaw,
-    loaStudents: attachLoaStatus(
-      lists.loa.length ? lists.loa : S26_LOA_ROSTER,
-      lists.students,
-      ayGraduatePcids(lists.graduates),
-    ),
     loaFallStudents: attachLoaStatus(
       lists.loaFall,
       lists.students,

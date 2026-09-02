@@ -1,8 +1,8 @@
 import type { CensusLists, CensusRawStudent, UnretainedStudent } from "./lists";
 import {
   attachLoaStatus,
+  censusAppDecision,
   isUgDegreeSeekingRow,
-  S26_LOA_ROSTER,
   withoutFootballPlayers,
   type LoaStudent,
   type LoaWithStatus,
@@ -397,7 +397,7 @@ function writeGraduateEnrollment(
   graduates: CensusLists["graduates"] = [],
 ) {
   const fa = faLabel(year);
-  const ws = wb.addSheet(`${fa} Graduate Enrollment`);
+  const ws = wb.addSheet(`${fa} Graduate`);
   ws.gridLines = false;
   [28, 14, 14, 4, 28, 14, 14].forEach((w, i) => ws.width(i + 1, w));
   ws.merge(1, 1, 1, 7);
@@ -467,7 +467,7 @@ function writeCensusReport(
 ) {
   const year = data.historical.years[0] ?? 2026;
   const fa = faLabel(year);
-  const ws = wb.addSheet(opts?.sheetName || `${fa} Census Report`);
+  const ws = wb.addSheet(opts?.sheetName || `${fa} Census`);
   ws.gridLines = false;
   [6, 22, 14, 14, 14, 28, 14, 14, 16, 22, 16, 16, 16, 14, 3, 42, 14, 14, 14, 16, 14, 22].forEach((w, i) => {
     ws.width(i + 1, w);
@@ -1105,9 +1105,7 @@ function writeAttrition(
     colN,
     "Application Decision",
     ["Application Decision", "Students", "# Non-Retained", "% Retained"],
-    extras.byAppDecision.every((r) => r.label === "Not listed")
-      ? []
-      : crosstabCells(extras.byAppDecision, false, true),
+    extras.byAppDecision.length ? crosstabCells(extras.byAppDecision, false, true) : [],
     { intCols: [1, 2], pctCols: [3], total: true },
   );
   nRow = writeCountTable(
@@ -1204,7 +1202,7 @@ function writeAttrition(
 function writeFtcaRaw(wb: XlsxWorkbook, rows: FtcaRawRow[]) {
   writeListSheet(
     wb,
-    "F25-F26 FTCA Retention Raw Data",
+    "F25-F26 FTCA Retention Raw",
     [
       "First",
       "Last",
@@ -1534,10 +1532,6 @@ function loaWithStatus(seed: LoaStudent[], lists: CensusLists, filters?: ReportF
   return filters ? filterLoa(withStatus, filters) : withStatus;
 }
 
-function loaSpringForExport(lists: CensusLists, filters?: ReportFilters): LoaWithStatus[] {
-  return loaWithStatus(lists.loa.length ? lists.loa : S26_LOA_ROSTER, lists, filters);
-}
-
 function loaFallForExport(lists: CensusLists, filters?: ReportFilters): LoaWithStatus[] {
   const seed = lists.loaFall.length ? lists.loaFall : loaStudentsFromNotes(lists.prior);
   return loaWithStatus(seed, lists, filters);
@@ -1617,6 +1611,10 @@ function writeSources(
       unretainedCount
         ? `${unretainedCount.toLocaleString()} Fall 2025 census students not in Fall 2026 registration, not 2025–26 graduates, and not the retention-sheet exceptions (AMSOL/enrolled/last credits, deceased, dropped after census, leave of absence).`
         : "Unretained list is not in the census cache yet.",
+    ],
+    [
+      "FA26 LOA",
+      "Fall 2026 leave of absence from the unretained notes (intend to return). On the FA26 LOA sheet. In the FA25 roster and counted as retained. Not on All Not Retained.",
     ],
     ["Still to add", data.pending.length ? data.pending.join("; ") : "None"],
   ];
@@ -1732,7 +1730,6 @@ export async function buildListsWorkbook(
     ? buildSportRetention(prior, enrolledIds, lists.graduates, filters.excludedSports)
     : [];
   const verify = buildVerifyList(enrolled, unretained, lists.graduates, housingRows);
-  const loaSpring = loaSpringForExport(lists, filters);
   const loaFall = loaFallForExport(lists, filters);
   const want = (sheet: ListExportKind | "all") => kind === "filtered" || kind === sheet;
 
@@ -1752,10 +1749,8 @@ export async function buildListsWorkbook(
   ws.set(6, 2, `${enrolled.length.toLocaleString()} registered students after filters`);
   ws.set(7, 1, "Unretained", { bold: true, color: NAVY });
   ws.set(7, 2, `${unretained.length.toLocaleString()} FA25 not back after filters`);
-  ws.set(8, 1, "S26 LOA", { bold: true, color: NAVY });
-  ws.set(8, 2, `${loaSpring.length.toLocaleString()} Spring 2026 leave of absence (${loaSpring.filter((s) => s.status === "Returned").length} returned Fall 2026)`);
-  ws.set(9, 1, "FA26 LOA", { bold: true, color: NAVY });
-  ws.set(9, 2, `${loaFall.length.toLocaleString()} Fall 2026 leave of absence (intend to return; not All Not Retained)`);
+  ws.set(8, 1, "FA26 LOA", { bold: true, color: NAVY });
+  ws.set(8, 2, `${loaFall.length.toLocaleString()} Fall 2026 leave of absence (intend to return; not All Not Retained)`);
   ws.height(4, 36);
 
   if (want("raw")) {
@@ -1822,7 +1817,6 @@ export async function buildListsWorkbook(
     );
   }
   if (want("loa")) {
-    writeListSheet(wb, "S26 LOA", LOA_HEADERS, LOA_WIDTHS, loaSpring.map(loaRow));
     writeListSheet(wb, "FA26 LOA", LOA_HEADERS, LOA_WIDTHS, loaFall.map(loaRow));
   }
   return wb.writeBuffer();
@@ -1881,9 +1875,7 @@ function reportExtras(
   return {
     hasPrior: true,
     sportRetention: buildSportRetention(prior, currentIds, graduates, [], gpa),
-    appDecisionRetention: buildCrosstab(prior, currentIds, graduates, (s) => s.appDecision || "Not listed").filter(
-      (r) => r.label !== "Not listed",
-    ),
+    appDecisionRetention: buildCrosstab(prior, currentIds, graduates, (s) => censusAppDecision(s.appDecision)),
     catholicAthlete: buildCrosstab2On(ugds, currentIds, graduates, catholicOf, athleteOf),
     athleteGender: buildCrosstab2On(ugds, currentIds, graduates, athleteOf, (s) => s.gender || "—"),
     athleteEthnicity: buildCrosstab2On(ugds, currentIds, graduates, athleteOf, whiteOf),
@@ -1959,34 +1951,35 @@ export async function buildCensusWorkbook(
   writeHistorical(wb, data);
   writeCensusReport(wb, data, tables, extra);
   writeCensusReport(wb, noFbData, noFbTables, noFbExtra, {
-    sheetName: `${fa} Census Report no Football`,
+    sheetName: `${fa} Census no Football`,
     titleSuffix: " (Football removed)",
   });
   writeGraduateEnrollment(wb, lists.students, lists.prior, data.historical.years[0] ?? 2026, lists.graduates);
   writeAttrition(wb, data, ftcaExtras);
   writeAttrition(wb, noFbData, noFbFtcaExtras, {
-    sheetName: "FA25 FTCA Attrition no Football",
+    sheetName: "FA25 FTCA no Football",
     titleSuffix: " (Football removed)",
     note: "Same Incoming+FTCA cohort as the main FTCA sheet, with Football players removed from every table. Athletic retention without Football is on Census Report no Football.",
   });
   writeFtcaRaw(wb, ftcaRaw);
   writeListSheet(
     wb,
-    "FA26 Census Raw Data",
+    "FA26 Census Raw",
     CENSUS_RAW_HEADERS,
     CENSUS_RAW_WIDTHS,
     lists.students.map(rawRow),
   );
   writeListSheet(
     wb,
-    "All Not Retained",
+    "Not Retained",
     UNRETAINED_HEADERS,
     [14, 16, 18, 14, 12, 10, 12, 16, 10, 18, 16, 8, 10, 12, 14, 16, 12, 12, 16],
     lists.unretained.map(unretainedRow),
   );
+  writeListSheet(wb, "FA26 LOA", LOA_HEADERS, LOA_WIDTHS, loaFallForExport(lists).map(loaRow));
   writeListSheet(
     wb,
-    "Verify (temporary)",
+    "Verify",
     ["Issue", "PCID", "First", "Last", "Why", "Detail"],
     [28, 14, 14, 16, 52, 42],
     buildVerifyList(lists.students, lists.unretained, lists.graduates, housingRows).map((r) => [
@@ -1998,9 +1991,5 @@ export async function buildCensusWorkbook(
       r.detail,
     ]),
   );
-  writeListSheet(wb, "S26 LOA", LOA_HEADERS, LOA_WIDTHS, loaSpringForExport(lists).map(loaRow));
-  writeListSheet(wb, "FA26 LOA", LOA_HEADERS, LOA_WIDTHS, loaFallForExport(lists).map(loaRow));
-  if (housingRows.length) writeHousing(wb, housingRows);
-  writeSources(wb, data, housingRows.length, lists.students.length, lists.unretained.length);
   return wb.writeBuffer();
 }

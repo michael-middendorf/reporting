@@ -48,13 +48,12 @@ function fmtFte(n: number | null | undefined): string {
   return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
 
-type Tab = "summary" | "historical" | "ug" | "attrition" | "ftca" | "raw" | "unretained" | "loa" | "loa-fall" | "verify";
+type Tab = "summary" | "historical" | "ug" | "attrition" | "ftca" | "raw" | "unretained" | "loa" | "verify";
 
 type CensusPageData = CensusSnapshot & {
   reportStudents?: ReportStudent[];
   rawStudents?: CensusRawStudent[];
   unretainedStudents?: UnretainedStudent[];
-  loaStudents?: LoaWithStatus[];
   loaFallStudents?: LoaWithStatus[];
   priorStudents?: CensusRawStudent[];
   graduates?: { pcid: string; year?: string | number; term?: string; program?: string }[];
@@ -151,10 +150,6 @@ export function CensusDashboard() {
   const filteredUnretained = useMemo(
     () => filterUnretained(data?.unretainedStudents || [], filters),
     [data?.unretainedStudents, filters],
-  );
-  const filteredLoa = useMemo(
-    () => filterLoa(data?.loaStudents || [], filters),
-    [data?.loaStudents, filters],
   );
   const filteredLoaFall = useMemo(
     () => filterLoa(data?.loaFallStudents || [], filters),
@@ -383,8 +378,7 @@ export function CensusDashboard() {
               ["ftca", "FTCA Raw"],
               ["raw", "Census Raw"],
               ["unretained", "All Not Retained"],
-              ["loa", "S26 LOA"],
-              ["loa-fall", "FA26 LOA"],
+              ["loa", "FA26 LOA"],
               ["verify", "Verify"],
             ] as [Tab, string][]
           ).map(([id, label]) => (
@@ -423,18 +417,9 @@ export function CensusDashboard() {
         {tab === "unretained" && <UnretainedSheet students={filteredUnretained} />}
         {tab === "loa" && (
           <LoaSheet
-            rows={filteredLoa}
-            title="Spring 2026 Leave of Absence"
-            note="Spring 2026 LOA census. Status is Fall 2026 registration. Fall 2026 leave of absence is on the FA26 LOA tab, not All Not Retained."
-            classHeader="S26 class"
-            sportHeader="S26 sport"
-          />
-        )}
-        {tab === "loa-fall" && (
-          <LoaSheet
             rows={filteredLoaFall}
             title="Fall 2026 Leave of Absence"
-            note="Leave of absence from the unretained notes (intend to return). Not on All Not Retained and not in the F26 retention cohort. Status is Fall 2026 registration. Anyone also on the Spring 2026 LOA census appears on both tabs."
+            note="Leave of absence from the unretained notes (intend to return). In the FA25 roster and counted as retained. Not on All Not Retained. Only Aiden Wilson and Hannah Nelson are out of the denominator."
             classHeader="FA25 class"
             sportHeader="FA25 sport"
           />
@@ -733,7 +718,7 @@ function AttritionTab({
             </tbody>
           </table>
           <p className="note">
-            Fall 2025 UG includes Fall 2026 leave of absence (intend to return). Only Aiden Wilson
+            Fall 2025 UG includes Fall 2026 leave of absence, counted as retained. Only Aiden Wilson
             (dropped after census) and Hannah Nelson (deceased) are out of this total.
           </p>
         </div>

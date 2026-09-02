@@ -27,9 +27,9 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 - Rugby-Women → Rugby-Men associated (no women’s rugby). Ireland is a campus, not a sport. Pickleball dropped.
 - Catholic = Catholic or Eastern Rite. SAT &lt; 400 missing from means. 0 scores = missing.
 - FTE: FULL 1 / THRE 0.75 / HALF 0.5 / LESS 0.25 else credits/12.
-- Unretained = FA25 − intervening grads − FA26 registration − retention-sheet exceptions (exclude, force retained, force graduated, LOA). LOA is on the S26 LOA and FA26 LOA tabs, not All Not Retained.
+- Unretained = FA25 − intervening grads − FA26 registration − retention-sheet exceptions (exclude, force retained, force graduated, LOA). LOA is on the FA26 LOA tab, not All Not Retained.
 - Retention % = still enrolled / (cohort − intervening graduates). Same formula on All UG, FTCA, sports, and crosstabs.
-- FA25 retention denominator = gold UG DS minus Aiden Wilson and Hannah Nelson only. Fall 2026 LOA stays in that total and is not a leaver.
+- FA25 retention denominator = gold UG DS minus Aiden Wilson and Hannah Nelson only. Fall 2026 LOA stays in that total and counts as retained.
 
 ## Live headcounts (as of last publish)
 
@@ -39,9 +39,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 
 **All UG retention after notes:** prior UG **1341** (1343 − Aiden − Hannah; LOA stays in). Enrolled and graduate counts are live. LOA is not a leaver and not on All Not Retained. Notes sheet 135 “not retained” is the UG DS leaver count.
 
-**S26 LOA tab:** Spring 2026 roster (7). Mondarez returned; 6 did not.
-
-**FA26 LOA tab:** Earnhardt P000341593, Gomez P000346188, Guza P000344532, Cedeno Medrano P000380481, Pena P000343982, Wagner P000380315. Intend to return. In the FA25 cohort. Not All Not Retained. Cedeno is on both S26 and FA26 LOA.
+**FA26 LOA tab:** Earnhardt P000341593, Gomez P000346188, Guza P000344532, Cedeno Medrano P000380481, Pena P000343982, Wagner P000380315. Intend to return. In the FA25 cohort. Counted as retained. Not All Not Retained.
 
 ## Retention notes (col R + extras)
 

@@ -245,9 +245,9 @@ test("gender, athlete, and major filters stack", () => {
 
 test("religion table uses detailed religion; Non-Catholic is not 100% Catholic", () => {
   const rows = set([
-    raw({ pcid: "1", religion: "Catholic", cathGroup: "Catholic", athlete: "Athlete" }),
-    raw({ pcid: "2", religion: "Christian", cathGroup: "Non-Catholic", athlete: "Athlete" }),
-    raw({ pcid: "3", religion: "Eastern Rite Catholic", cathGroup: "Catholic", athlete: "Athlete" }),
+    raw({ pcid: "1", religion: "Catholic", cathGroup: "Catholic", athlete: "Athlete", sport: "Football" }),
+    raw({ pcid: "2", religion: "Christian", cathGroup: "Non-Catholic", athlete: "Athlete", sport: "Football" }),
+    raw({ pcid: "3", religion: "Eastern Rite Catholic", cathGroup: "Catholic", athlete: "Athlete", sport: "Football" }),
     raw({ pcid: "4", religion: "Other", cathGroup: "Non-Catholic" }),
   ]);
   const rpt = buildReport(filterStudents(rows, DEFAULT_FILTERS));
@@ -365,6 +365,9 @@ test("sport table splits team athletes from athletics associated like S26", () =
     undefined,
     "Ireland is a campus, not a sport",
   );
+  const associated = rpt.sports.reduce((s, r) => s + (r.associated ?? 0), 0);
+  assert.equal(rpt.athlete.find((r) => r.label === "Athlete")?.n, associated);
+  assert.equal(associated, 3, "Football 2 + Band 1; Ireland is not athletics associated");
 });
 
 test("blank athletic type and Athletic Associated are associated, not team athletes", () => {

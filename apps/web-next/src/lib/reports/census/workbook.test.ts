@@ -220,19 +220,16 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.deepEqual(names, [
     "Summary",
     "Historical",
-    "FA26 Census Report",
-    "FA26 Census Report no Football",
-    "FA26 Graduate Enrollment",
+    "FA26 Census",
+    "FA26 Census no Football",
+    "FA26 Graduate",
     "FA25 FTCA Cohort Attrition",
-    "FA25 FTCA Attrition no Football",
-    "F25-F26 FTCA Retention Raw Data",
-    "FA26 Census Raw Data",
-    "All Not Retained",
-    "Verify (temporary)",
-    "S26 LOA",
+    "FA25 FTCA no Football",
+    "F25-F26 FTCA Retention Raw",
+    "FA26 Census Raw",
+    "Not Retained",
     "FA26 LOA",
-    "FA26 Housing (eRez)",
-    "Sources",
+    "Verify",
   ]);
   assert.match(files["xl/styles.xml"], /style="thin"/);
   assert.match(files["xl/styles.xml"], /1A3F6F/);
@@ -271,6 +268,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(reportXml, /Row Labels/);
   assert.match(reportXml, /Athletic Retention/);
   assert.match(reportXml, /Application Decisions Retention/);
+  assert.match(reportXml, /Not listed/);
   assert.match(reportXml, /Committee admits and admin overrides/);
   assert.match(reportXml, /Admit type/);
   assert.doesNotMatch(reportXml, /Universe/);
@@ -384,16 +382,14 @@ test("filtered list export includes Unretained and Sports sheets", async () => {
   assert.match(workbook, /All Not Retained/);
   assert.match(workbook, /Sports/);
   assert.match(workbook, /Census Raw/);
-  assert.match(workbook, /S26 LOA/);
   assert.match(workbook, /FA26 LOA/);
+  assert.doesNotMatch(workbook, /S26 LOA/);
   assert.match(files["xl/worksheets/sheet1.xml"], /Unretained/);
   assert.equal(listsFileName("unretained", data, new Date("2026-08-31T12:00:00Z")), "FA26_Census_Unretained_2026-08-31.xlsx");
   assert.equal(listsFileName("loa", data, new Date("2026-08-31T12:00:00Z")), "FA26_Census_LOA_2026-08-31.xlsx");
 });
 
-test("LOA list export writes Spring and Fall sheets separately", async () => {
-  const cedeno = S26_LOA_ROSTER.find((s) => s.pcid === "P000380481");
-  assert.ok(cedeno);
+test("LOA list export writes only the Fall 2026 sheet", async () => {
   const buf = await buildListsWorkbook(
     draft(),
     {
@@ -402,7 +398,15 @@ test("LOA list export writes Spring and Fall sheets separately", async () => {
       prior: [],
       graduates: [],
       loa: S26_LOA_ROSTER,
-      loaFall: [{ ...cedeno, first: "Alexander", last: "Earnhardt", pcid: "P000341593", term: "Fall 2026" }],
+      loaFall: [
+        {
+          ...S26_LOA_ROSTER[0],
+          first: "Alexander",
+          last: "Earnhardt",
+          pcid: "P000341593",
+          term: "Fall 2026",
+        },
+      ],
     },
     [],
     [],
@@ -411,10 +415,8 @@ test("LOA list export writes Spring and Fall sheets separately", async () => {
   );
   const files = unzipEntries(buf);
   const names = [...files["xl/workbook.xml"].matchAll(/name="([^"]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(names, ["Filters", "S26 LOA", "FA26 LOA"]);
-  assert.match(files["xl/worksheets/sheet2.xml"], /Cedeno/);
-  assert.doesNotMatch(files["xl/worksheets/sheet2.xml"], /Earnhardt/);
-  assert.match(files["xl/worksheets/sheet3.xml"], /Earnhardt/);
-  assert.match(files["xl/worksheets/sheet3.xml"], /Fall 2026/);
-  assert.doesNotMatch(files["xl/worksheets/sheet3.xml"], /Cedeno/);
+  assert.deepEqual(names, ["Filters", "FA26 LOA"]);
+  assert.match(files["xl/worksheets/sheet2.xml"], /Earnhardt/);
+  assert.match(files["xl/worksheets/sheet2.xml"], /Fall 2026/);
+  assert.doesNotMatch(files["xl/workbook.xml"], /S26 LOA/);
 });

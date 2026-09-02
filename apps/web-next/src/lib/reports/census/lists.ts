@@ -20,6 +20,7 @@ import {
 export {
   attachLoaStatus,
   canonicalCensusSport,
+  censusAppDecision,
   deriveUnretained,
   dropNonCensusSports,
   isDroppedCensusSport,

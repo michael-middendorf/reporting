@@ -1,5 +1,6 @@
 import {
   canonicalCensusSport,
+  censusAppDecision,
   isInterveningGraduate,
   isSpringOrSummerAdmit,
   isTeamAthlete,
@@ -11,7 +12,12 @@ import {
 } from "./lists-core";
 import { ETHNICITY_NAMES, GPA_ORDER } from "./present";
 import type { AttritionRow, FtcaAttrition } from "./types";
-import { applyCensusRetentionNotes, isLeaveOfAbsence, RETENTION_FORCE_RETAINED } from "./retention-overrides";
+import {
+  applyCensusRetentionNotes,
+  isLeaveOfAbsence,
+  isOutOfRetentionCohort,
+  RETENTION_FORCE_RETAINED,
+} from "./retention-overrides";
 
 export type GraduateRecord = {
   pcid: string;
@@ -96,10 +102,9 @@ function retentionStatus(
   id: string,
   registered: Set<string>,
   graduated: Set<string>,
-): "enrolled" | "left" | "graduated" | "loa" {
+): "enrolled" | "left" | "graduated" {
   if (graduated.has(id)) return "graduated";
-  if (registered.has(id)) return "enrolled";
-  if (isLeaveOfAbsence(id)) return "loa";
+  if (registered.has(id) || isLeaveOfAbsence(id)) return "enrolled";
   return "left";
 }
 
@@ -415,7 +420,7 @@ export function deriveFtcaRaw(
     .sort((a, b) => a.last.localeCompare(b.last) || a.first.localeCompare(b.first));
 }
 
-/** Fall 2025 sport on the prior census. Leavers count against that sport. */
+/** Fall 2025 sport on the prior census. Leavers count against that sport. Band is associated, not a team. */
 export function buildSportRetention(
   prior: CensusRawStudent[],
   currentPcids: Iterable<string>,
@@ -424,7 +429,6 @@ export function buildSportRetention(
   gpaByPcid: Map<string, number> = new Map(),
 ): SportRetentionRow[] {
   const notes = withNotes(prior, currentPcids, grads);
-  prior = notes.rows;
   const registered = notes.registered;
   const graduated = notes.graduated;
   const excluded = new Set(excludedSports.map((s) => s.toLowerCase()));
@@ -436,7 +440,7 @@ export function buildSportRetention(
   for (const s of prior) {
     if (!isUgDegreeSeekingRow(s.program, s.collegeAttend)) continue;
     const sport = sportOf(s);
-    if (!sport) continue;
+    if (!sport || sport.toLowerCase() === "band") continue;
     if (excluded.has(sport.toLowerCase())) continue;
     const row = map.get(sport) || {
       sport,
@@ -460,10 +464,10 @@ export function buildSportRetention(
     const id = normPcid(s.pcid);
     const gpa = gpaByPcid.get(id) ?? Number(s.gpa);
     if (graduated.has(id)) row.graduated += 1;
-    else if (registered.has(id)) {
+    else if (registered.has(id) || isLeaveOfAbsence(id)) {
       row.retained += 1;
       if (Number.isFinite(gpa)) row.retainedGpas.push(gpa);
-    } else if (!isLeaveOfAbsence(id)) {
+    } else if (!isOutOfRetentionCohort(id)) {
       row.notRetained += 1;
       if (Number.isFinite(gpa)) {
         row.leftGpas.push(gpa);
@@ -674,8 +678,8 @@ function sliceOf(
   for (const s of rows) {
     const id = normPcid(s.pcid);
     if (graduated.has(id)) grads += 1;
-    else if (registered.has(id)) enrolled += 1;
-    else if (!isLeaveOfAbsence(id)) notRetained += 1;
+    else if (registered.has(id) || isLeaveOfAbsence(id)) enrolled += 1;
+    else notRetained += 1;
   }
   return {
     students: rows.length,
@@ -733,7 +737,7 @@ function associationFlag(v?: string): boolean {
 function bump(
   map: Map<string, AttritionCounts>,
   label: string,
-  status: "enrolled" | "left" | "graduated" | "loa",
+  status: "enrolled" | "left" | "graduated",
 ) {
   const row = map.get(label) || { students: 0, notRetained: 0, graduated: 0 };
   row.students += 1;
@@ -843,7 +847,7 @@ export function buildFtcaExtras(
       (s) => s.residency || "Not listed",
       (s) => s.gender || "—",
     ),
-    byAppDecision: buildCrosstabOn(cohort, currentPcids, grads, (s) => s.appDecision || "Not listed"),
+    byAppDecision: buildCrosstabOn(cohort, currentPcids, grads, (s) => censusAppDecision(s.appDecision)),
     byMaleFlorida: buildCrosstab2On(
       cohort.filter((s) => s.gender === "Male" && (s.state || "").toUpperCase() === "FL"),
       currentPcids,

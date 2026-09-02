@@ -1,4 +1,4 @@
-import { canonicalCensusSport, isTeamAthlete, type CensusRawStudent, type LoaWithStatus, type UnretainedStudent } from "./lists-core";
+import { canonicalCensusSport, censusAppDecision, isTeamAthlete, type CensusRawStudent, type LoaWithStatus, type UnretainedStudent } from "./lists-core";
 import { CENSUS_RESIDENCY_ORDER, displayCensusResidency } from "./residency";
 import { CLASS_ORDER, COUNTRY_NAMES } from "./present";
 import { isCatholic } from "./retention";
@@ -79,7 +79,7 @@ export function projectReportStudents(rows: CensusRawStudent[]): ReportStudent[]
   return rows.map((r) => ({
     pcid: (r.pcid || "").trim(),
     gender: (r.gender || "").trim(),
-    athlete: (r.athlete || "").trim() || (r.sport ? "Athlete" : "Non-Athlete"),
+    athlete: canonicalCensusSport(r.sport) ? "Athlete" : "Non-Athlete",
     sport: canonicalCensusSport(r.sport),
     major: (r.curriculumName || r.curriculum || "").trim() || "Undeclared",
     degree: (r.degree || "").trim().toUpperCase(),
@@ -172,8 +172,8 @@ export function filterLoa(rows: LoaWithStatus[], f: ReportFilters): LoaWithStatu
   const projected: ReportStudent[] = rows.map((s) => ({
     pcid: s.pcid,
     gender: s.gender,
-    athlete: s.sport ? "Athlete" : "Non-Athlete",
-    sport: s.sport,
+    athlete: canonicalCensusSport(s.sport) ? "Athlete" : "Non-Athlete",
+    sport: canonicalCensusSport(s.sport),
     major: s.curriculum,
     degree: "",
     program: "UNDERG",
@@ -260,12 +260,7 @@ function religionBreakdown(rows: ReportStudent[]): LabeledCount[] {
 const APP_DECISION_ORDER = ["ACCT", "ADM", "COMM", "COND", "Not listed"];
 
 function appDecisionLabel(s: ReportStudent): string {
-  const t = (s.appDecision || "").trim().toUpperCase();
-  if (!t || t === "-" || t === "NOT LISTED") return "Not listed";
-  if (t === "AT" || t === "ACCT" || t === "ACCEPT" || t === "ACCEDPT") return "ACCT";
-  if (t === "ADMI" || t === "ADM") return "ADM";
-  if (t === "CMRV" || t === "COMM") return "COMM";
-  return (s.appDecision || "").trim();
+  return censusAppDecision(s.appDecision);
 }
 
 function counts(rows: ReportStudent[], pick: (s: ReportStudent) => string, blank = ""): LabeledCount[] {
