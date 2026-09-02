@@ -2,8 +2,11 @@ import type { CensusLists, CensusRawStudent, UnretainedStudent } from "./lists";
 import {
   attachLoaStatus,
   censusAppDecision,
+  footballRosterPcids,
+  isCensusFootball,
   isUgDegreeSeekingRow,
   withoutFootballPlayers,
+  withoutFootballRoster,
   type LoaStudent,
   type LoaWithStatus,
 } from "./lists-core";
@@ -463,7 +466,7 @@ function writeCensusReport(
   data: CensusSnapshot,
   tables: ReportTables,
   extra: ReportExtras,
-  opts?: { sheetName?: string; titleSuffix?: string },
+  opts?: { sheetName?: string; titleSuffix?: string; note?: string },
 ) {
   const year = data.historical.years[0] ?? 2026;
   const fa = faLabel(year);
@@ -481,6 +484,11 @@ function writeCensusReport(
     TITLE20,
   );
   ws.height(1, 26);
+  if (opts?.note) {
+    ws.merge(2, 1, 2, 21);
+    ws.set(2, 1, opts.note, NOTE);
+    ws.height(2, 32);
+  }
 
   const t = tables;
   const n = t.n;
@@ -1846,6 +1854,7 @@ function reportExtras(
   graduates: CensusLists["graduates"],
   gpa: ReturnType<typeof collectGpa>,
   fallback: CensusSnapshot["allUgRetention"],
+  excludedSports: string[] = [],
 ): ReportExtras {
   if (!prior.length) {
     return {
@@ -1874,7 +1883,7 @@ function reportExtras(
   const ugds = prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend));
   return {
     hasPrior: true,
-    sportRetention: buildSportRetention(prior, currentIds, graduates, [], gpa),
+    sportRetention: buildSportRetention(prior, currentIds, graduates, excludedSports, gpa),
     appDecisionRetention: buildCrosstab(prior, currentIds, graduates, (s) => censusAppDecision(s.appDecision)),
     catholicAthlete: buildCrosstab2On(ugds, currentIds, graduates, catholicOf, athleteOf),
     athleteGender: buildCrosstab2On(ugds, currentIds, graduates, athleteOf, (s) => s.gender || "—"),
@@ -1922,15 +1931,20 @@ export async function buildCensusWorkbook(
     ? buildFtcaExtras(lists.prior, currentIds, lists.graduates)
     : EMPTY_FTCA_EXTRAS;
 
+  const fa25Football = footballRosterPcids(lists.prior);
+  const fa25FootballUg = lists.prior.filter(
+    (s) => isCensusFootball(s.sport) && isUgDegreeSeekingRow(s.program, s.collegeAttend),
+  ).length;
   const noFbStudents = withoutFootballPlayers(lists.students);
-  const noFbPrior = withoutFootballPlayers(lists.prior);
+  const noFbPrior = withoutFootballRoster(lists.prior, fa25Football);
+  const noFbCurrentIds = currentIds.filter((id) => !fa25Football.has(id.toUpperCase()));
   const noFbTables = lists.students.length
     ? buildReport(filterStudents(projectReportStudents(noFbStudents), NO_FOOTBALL_FILTERS))
     : tables;
   const noFbData = structuredClone(data);
   if (noFbPrior.length) {
-    noFbData.ftcaAttrition = buildFtcaAttritionFromPrior(noFbPrior, currentIds, lists.graduates, gpa);
-    const ug = buildAllUgSplit(noFbPrior, currentIds, lists.graduates);
+    noFbData.ftcaAttrition = buildFtcaAttritionFromPrior(noFbPrior, noFbCurrentIds, lists.graduates, gpa);
+    const ug = buildAllUgSplit(noFbPrior, noFbCurrentIds, lists.graduates);
     noFbData.allUgRetention = {
       priorUg: ug.all.students,
       graduates: ug.all.graduated,
@@ -1941,11 +1955,14 @@ export async function buildCensusWorkbook(
     };
     applyLiveRetentionHistory(noFbData, noFbData.ftcaAttrition.retentionRate, noFbData.allUgRetention.retentionRate);
   }
-  const noFbExtra = reportExtras(noFbPrior, currentIds, lists.graduates, gpa, noFbData.allUgRetention);
+  const noFbExtra = reportExtras(noFbPrior, noFbCurrentIds, lists.graduates, gpa, noFbData.allUgRetention, ["Football"]);
   const noFbFtcaExtras = noFbPrior.length
-    ? buildFtcaExtras(noFbPrior, currentIds, lists.graduates)
+    ? buildFtcaExtras(noFbPrior, noFbCurrentIds, lists.graduates)
     : EMPTY_FTCA_EXTRAS;
   const fa = faLabel(data.historical.years[0] ?? 2026);
+  const noFbNote = fa25FootballUg
+    ? `Retention tables omit the Fall 2025 football roster (${fa25FootballUg} UG on last year's census). This-term tables omit Fall 2026 football.`
+    : "Football removed.";
 
   writeSummary(wb, data);
   writeHistorical(wb, data);
@@ -1953,13 +1970,14 @@ export async function buildCensusWorkbook(
   writeCensusReport(wb, noFbData, noFbTables, noFbExtra, {
     sheetName: `${fa} Census no Football`,
     titleSuffix: " (Football removed)",
+    note: noFbNote,
   });
   writeGraduateEnrollment(wb, lists.students, lists.prior, data.historical.years[0] ?? 2026, lists.graduates);
   writeAttrition(wb, data, ftcaExtras);
   writeAttrition(wb, noFbData, noFbFtcaExtras, {
     sheetName: "FA25 FTCA no Football",
     titleSuffix: " (Football removed)",
-    note: "Same Incoming+FTCA cohort as the main FTCA sheet, with Football players removed from every table. Athletic retention without Football is on Census Report no Football.",
+    note: `${noFbNote} Incoming+FTCA football is the subset of that FA25 roster who were new FTCA last year, not the whole team.`,
   });
   writeFtcaRaw(wb, ftcaRaw);
   writeListSheet(

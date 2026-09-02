@@ -420,7 +420,7 @@ export function deriveFtcaRaw(
     .sort((a, b) => a.last.localeCompare(b.last) || a.first.localeCompare(b.first));
 }
 
-/** Fall 2025 sport on the prior census. Leavers count against that sport. Band is associated, not a team. */
+/** Fall 2025 sport on the prior census. Leavers count against that sport. Band is associated, not a team athlete. */
 export function buildSportRetention(
   prior: CensusRawStudent[],
   currentPcids: Iterable<string>,
@@ -440,7 +440,7 @@ export function buildSportRetention(
   for (const s of prior) {
     if (!isUgDegreeSeekingRow(s.program, s.collegeAttend)) continue;
     const sport = sportOf(s);
-    if (!sport || sport.toLowerCase() === "band") continue;
+    if (!sport) continue;
     if (excluded.has(sport.toLowerCase())) continue;
     const row = map.get(sport) || {
       sport,

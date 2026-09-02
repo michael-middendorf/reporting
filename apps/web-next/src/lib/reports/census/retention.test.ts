@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { CensusRawStudent } from "./lists";
-import { censusAppDecision } from "./lists-core";
+import { censusAppDecision, footballRosterPcids, withoutFootballRoster } from "./lists-core";
 import {
   applyLiveRetentionHistory,
   buildAllUgSplit,
@@ -188,6 +188,27 @@ test("FTCA attrition cohort is Incoming+FTCA", () => {
   assert.equal(a.notRetained, 0);
 });
 
+test("no-football retention drops last year's football roster, not this year's team", () => {
+  const rows = [
+    prior({ pcid: "F1", sport: "Football" }),
+    prior({ pcid: "F2", sport: "Football" }),
+    prior({ pcid: "V1", sport: "Volleyball", gender: "Female" }),
+  ];
+  const fa25Football = footballRosterPcids(rows);
+  assert.equal(fa25Football.size, 2);
+  const noFb = withoutFootballRoster(rows, fa25Football);
+  assert.deepEqual(
+    noFb.map((s) => s.pcid),
+    ["V1"],
+  );
+  const all = buildAllUgSplit(rows, ["F1", "V1"], []);
+  const without = buildAllUgSplit(noFb, ["V1"], []);
+  assert.equal(all.all.students - without.all.students, 2);
+  const sports = buildSportRetention(noFb, ["V1"], [], ["Football"]);
+  assert.equal(sports.some((r) => r.sport === "Football"), false);
+  assert.equal(sports[0]?.sport, "Volleyball");
+});
+
 test("FTCA without football drops football from the cohort and sport table", () => {
   const rows = [
     prior({ pcid: "P1", sport: "Football" }),
@@ -318,7 +339,7 @@ test("FTCA Sport Primary omits Non-Athlete; that is not a sport", () => {
   assert.equal(a.byAthlete.find((r) => r.label === "Non-Athlete")?.students, 2);
 });
 
-test("athletic retention splits team athletes from associated like S26 and omits Band", () => {
+test("athletic retention splits team athletes from associated and keeps Band as associated only", () => {
   const rows = buildSportRetention(
     [
       prior({ pcid: "P1", sport: "Football", athleticType: "Varsity" }),
@@ -331,7 +352,9 @@ test("athletic retention splits team athletes from associated like S26 and omits
   const fb = rows.find((r) => r.sport === "Football");
   assert.equal(fb?.athletes, 1);
   assert.equal(fb?.associated, 2);
-  assert.equal(rows.some((r) => r.sport === "Band"), false, "Band is associated, not a team on Athletic Retention");
+  const band = rows.find((r) => r.sport === "Band");
+  assert.equal(band?.athletes, 0, "Band is associated, not a team athlete");
+  assert.equal(band?.associated, 1);
 });
 
 test("Athletic Retention FA25 roster matches last year's teams including LOA and deceased", () => {
@@ -345,7 +368,9 @@ test("Athletic Retention FA25 roster matches last year's teams including LOA and
     ["P2"],
     [],
   );
-  assert.equal(rows.some((r) => r.sport === "Band"), false);
+  const band = rows.find((r) => r.sport === "Band");
+  assert.equal(band?.athletes, 0);
+  assert.equal(band?.associated, 1);
   const swim = rows.find((r) => r.sport === "Swimming-Women");
   assert.equal(swim?.associated, 2, "Hannah stays on the FA25 swimming roster");
   assert.equal(swim?.retained, 1);

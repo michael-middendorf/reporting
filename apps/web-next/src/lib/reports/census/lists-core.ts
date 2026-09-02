@@ -346,8 +346,20 @@ export function isCensusFootball(sport: string): boolean {
   return canonicalCensusSport(sport).toLowerCase() === "football";
 }
 
+/** PCIDs whose sport on this list is Football (FA25 gold roster is 112 UG associated). */
+export function footballRosterPcids<T extends { pcid?: string; sport?: string }>(rows: T[]): Set<string> {
+  return new Set(
+    rows.filter((s) => isCensusFootball(s.sport || "")).map((s) => normPcid(s.pcid)).filter(Boolean),
+  );
+}
+
 export function withoutFootballPlayers<T extends { sport?: string }>(rows: T[]): T[] {
   return rows.filter((s) => !isCensusFootball(s.sport || ""));
+}
+
+export function withoutFootballRoster<T extends { pcid?: string }>(rows: T[], footballIds: Set<string>): T[] {
+  if (!footballIds.size) return rows;
+  return rows.filter((s) => !footballIds.has(normPcid(s.pcid)));
 }
 
 /** S26 team players: Varsity / Non-Varsity / Non-NAIA. Band and managers are associated only. */
