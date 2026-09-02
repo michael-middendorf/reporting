@@ -12,6 +12,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 - FA25 gold: `Documents/PERSONAL Census Files/Fall 2025 Census Final 9.23.25.xlsx` (Summary FTCA **392**, new UG **459**, UG DS **1343**, total **1500**).
 - FA25 prior JSON is that raw sheet + overlays (roster, housing, incoming 100450 scores). Do not overwrite gold `appDecision` or EOT `gpa` with Official AMU GPA.
 - FA26 spine: `Downloads/Registration Status-27.xlsx` (was -26 through 1 Sep). Unique PCID grand total. Dual UG+GRAD only for Lux Mundi/Ireland extras.
+- Mary's Marines FA26: `Downloads/Mary's Marines_As of 9-1-26.xlsx` (410 unique PCIDs). Replaces the Registration Status Sport flag.
 - Housing: eRez + FA25 `Copy of 9.4.2025 CENSUS Fall 25.xlsx` (residence-applications).
 - Unretained notes: `Downloads/Census retention sheet.xlsx` col R (`intend to return/not return`).
 - FA26 entry terms: `Downloads/Roster -_ Housing Report 20260821-155657.xlsx`.

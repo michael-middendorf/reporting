@@ -32,6 +32,7 @@ INCOMING_CURRENT = DOWNLOADS / "FA25 Incoming Students Census 20260901-103105.xl
 # Chesterton dual enrollment roster (DE Type column; blank still means Chesterton on this extract).
 CHESTERTON_DE = DOWNLOADS / "FA25 Incoming Students Census 20260901-103435.xlsx"
 HONORS = DOWNLOADS / "Association Honors-3.xlsx"
+MARINES = DOWNLOADS / "Mary's Marines_As of 9-1-26.xlsx"
 SCHOLARS = DOWNLOADS / "Scholars Fall 2026.xlsx"
 PRIOR = CENSUS_DIR / "Fall 2025 Census Final 9.23.25.xlsx"
 FA25_ROSTER = CENSUS_DIR / "FA25 Athlete Roster For Slate.xlsx"
@@ -608,6 +609,28 @@ def load_honors(path: Path) -> set[str]:
         pid = pcid_of(row[header.get("PCID", 0)])
         if pid.startswith("P"):
             ids.add(pid)
+    return ids
+
+
+def load_marines(path: Path) -> set[str]:
+    """Official Mary's Marines association roster (PCID column). Dedupes repeat rows."""
+    ids: set[str] = set()
+    if not path.exists():
+        return ids
+    wb = load_workbook(path, data_only=True)
+    ws = wb.active
+    header = None
+    for row in ws.iter_rows(values_only=True):
+        if header is None:
+            keys = [str(c or "").strip() for c in (row or ())]
+            if "PCID" in keys:
+                header = header_map(row)
+            continue
+        i = header.get("PCID")
+        pid = pcid_of(row[i] if i is not None and i < len(row) else "")
+        if pid.startswith("P"):
+            ids.add(pid)
+    wb.close()
     return ids
 
 
@@ -1280,6 +1303,14 @@ def main() -> None:
     n_dec = apply_accept_decisions(students, decisions)
     n_chesterton = apply_chesterton_de(students, load_chesterton_de())
     n_spring = apply_fa26_entry_terms(students)
+    marines_ids = load_marines(MARINES)
+    n_mm = 0
+    for s in students:
+        if norm(s["pcid"]) in marines_ids:
+            s["marines"] = "Mary's Marines"
+            n_mm += 1
+        else:
+            s["marines"] = ""
 
     ug = [s for s in unretained if s.get("program") == "UNDERG" and s.get("collegeAttend") not in NON_DS]
     DATA.mkdir(parents=True, exist_ok=True)
@@ -1345,7 +1376,8 @@ def main() -> None:
         f"fa25 roster overlay {n_fa25_roster}\n"
         f"fa25 housing overlay {n_fa25_housing}\n"
         f"international {len(intl)} on students {n_intl}\n"
-        f"honors file {len(honors)} eot gpas {len(eot_gpa)} scholar roster {len(scholar_emails)} unmatched {len(unmatched_scholars)}"
+        f"honors file {len(honors)} eot gpas {len(eot_gpa)} scholar roster {len(scholar_emails)} unmatched {len(unmatched_scholars)}\n"
+        f"mary's marines roster {len(marines_ids)} on students {n_mm}"
     )
     if unmatched_scholars:
         print("unmatched scholars:", "; ".join(unmatched_scholars))

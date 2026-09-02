@@ -844,7 +844,12 @@ function writeCensusReport(
       : [],
     { intCols: [2, 3, 4], pctCols: [5] },
   );
-  ws.set(p, col.p, "*Mary's Marines / FSP / Households: Needs data if the association column is blank on the raw sheet.", NOTE);
+  ws.set(
+    p,
+    col.p,
+    "*F25–F26 association retention uses last year's census flags. FA26 Mary's Marines is the 9-1-26 association roster, not the Registration Status Sport column.",
+    NOTE,
+  );
 
   // Gender load spans B–G (overlaps F). Athletic retention spans B–K (overlaps F and J).
   const genderEnd = writeGenderLoad(ws, Math.max(b, f) + 2, col.b, t.genderLoad);
@@ -1561,6 +1566,10 @@ function writeSources(
     [
       "Institute scholars",
       "Scholars Fall 2026.xlsx (Y1/Y2/Y3). Matched to Registration Status by email. Institute column is Scholar, same as FA25 Census Raw Data.",
+    ],
+    [
+      "Mary's Marines",
+      "Mary's Marines_As of 9-1-26.xlsx (association extract). 410 unique PCIDs on FA26. Replaces the Registration Status Sport = Mary's Marines flag.",
     ],
     [
       "Raw data",
