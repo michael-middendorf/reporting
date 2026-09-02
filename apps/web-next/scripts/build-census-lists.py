@@ -33,6 +33,10 @@ INCOMING_CURRENT = DOWNLOADS / "FA25 Incoming Students Census 20260901-103105.xl
 CHESTERTON_DE = DOWNLOADS / "FA25 Incoming Students Census 20260901-103435.xlsx"
 HONORS = DOWNLOADS / "Association Honors-3.xlsx"
 MARINES = DOWNLOADS / "Mary's Marines_As of 9-1-26.xlsx"
+FSP_NEW = DOWNLOADS / "Quick Query 20260902-125515.xlsx"
+# Gold FA25 Census Raw has no Mary's Marines column. F24-F25 used spring 2025
+# enrollment; F25-F26 uses the Spring 2026 association extract.
+MARINES_PRIOR = CENSUS_DIR / "S26 Census" / "Mary's Marines_Spring 2026_January 2026.xlsx"
 SCHOLARS = DOWNLOADS / "Scholars Fall 2026.xlsx"
 PRIOR = CENSUS_DIR / "Fall 2025 Census Final 9.23.25.xlsx"
 FA25_ROSTER = CENSUS_DIR / "FA25 Athlete Roster For Slate.xlsx"
@@ -224,6 +228,13 @@ def load_international(paths: list[Path] | None = None) -> dict[str, dict]:
     return out
 
 
+# Band list reused a sibling's PCID. Census raw has the real IDs.
+BAND_PCID_BY_NAME = {
+    ("nathan", "fulmer"): "P000354779",  # listed as P000344039 (Joshua)
+    ("lily", "verburgt"): "P000343257",  # listed as P000343255 (Ivy)
+}
+
+
 def load_fa25_roster(path: Path | None = None) -> dict[str, dict]:
     """FA25 Slate roster: Status = Varsity / Non-Varsity / Non-NAIA; blank = band / manager associated."""
     p = path or FA25_ROSTER
@@ -237,15 +248,21 @@ def load_fa25_roster(path: Path | None = None) -> dict[str, dict]:
     i_id = header.get("PCID")
     i_sport = header.get("Sport")
     i_type = header.get("Status")
+    i_first = header.get("First")
+    i_last = header.get("Last")
     if i_id is None or i_sport is None:
         wb.close()
         return out
     for row in rows:
         pid = pcid_of(row[i_id] if i_id < len(row) else None)
+        sport = dash(row[i_sport] if i_sport < len(row) else None)
+        first = dash(row[i_first] if i_first is not None and i_first < len(row) else None).lower()
+        last = dash(row[i_last] if i_last is not None and i_last < len(row) else None).lower()
+        if sport.strip().lower() in {"band", "marching band"}:
+            pid = BAND_PCID_BY_NAME.get((first, last), pid)
         if not pid.startswith("P"):
             continue
         rec: dict = {}
-        sport = dash(row[i_sport] if i_sport < len(row) else None)
         typ = dash(row[i_type] if i_type is not None and i_type < len(row) else None)
         if sport:
             rec["sport"] = sport
@@ -612,26 +629,44 @@ def load_honors(path: Path) -> set[str]:
     return ids
 
 
-def load_marines(path: Path) -> set[str]:
-    """Official Mary's Marines association roster (PCID column). Dedupes repeat rows."""
+def load_pcids(path: Path) -> set[str]:
+    """Association extract with a PCID column (PCID, ID, or Person PowerCampus ID). Dedupes."""
     ids: set[str] = set()
     if not path.exists():
         return ids
     wb = load_workbook(path, data_only=True)
     ws = wb.active
     header = None
+    pcid_names = {"pcid", "id", "person powercampus id", "student id", "people id"}
     for row in ws.iter_rows(values_only=True):
         if header is None:
             keys = [str(c or "").strip() for c in (row or ())]
-            if "PCID" in keys:
+            if any(k.lower() in pcid_names for k in keys):
                 header = header_map(row)
             continue
-        i = header.get("PCID")
+        i = next((header[k] for k in header if k.lower() in pcid_names), None)
         pid = pcid_of(row[i] if i is not None and i < len(row) else "")
         if pid.startswith("P"):
             ids.add(pid)
     wb.close()
     return ids
+
+
+def load_marines(path: Path) -> set[str]:
+    """Official Mary's Marines association roster (PCID column). Dedupes repeat rows."""
+    return load_pcids(path)
+
+
+def apply_marines(rows: list[dict], ids: set[str], *, replace: bool) -> int:
+    """Tag roster PCIDs as Mary's Marines. replace=True clears anyone not on the roster."""
+    n = 0
+    for s in rows:
+        if norm(s.get("pcid")) in ids:
+            s["marines"] = "Mary's Marines"
+            n += 1
+        elif replace:
+            s["marines"] = ""
+    return n
 
 
 def load_institute_scholars(path: Path) -> tuple[set[str], set[tuple[str, str]], list[tuple[str, str, str]]]:
@@ -1146,6 +1181,8 @@ def main() -> None:
     prior = load_prior(PRIOR)
     n_fa25_roster = apply_fa25_roster(prior, load_fa25_roster())
     n_fa25_housing = apply_fa25_housing(prior)
+    prior_marines_ids = load_marines(MARINES_PRIOR)
+    n_mm_prior = apply_marines(prior, prior_marines_ids, replace=False)
     for s in prior:
         if s["pcid"] in eot_gpa:
             s["gpa"] = eot_gpa[s["pcid"]]
@@ -1307,13 +1344,13 @@ def main() -> None:
     n_chesterton = apply_chesterton_de(students, load_chesterton_de())
     n_spring = apply_fa26_entry_terms(students)
     marines_ids = load_marines(MARINES)
-    n_mm = 0
+    n_mm = apply_marines(students, marines_ids, replace=True)
+    fsp_new_ids = load_pcids(FSP_NEW)
+    n_fsp_new = 0
     for s in students:
-        if norm(s["pcid"]) in marines_ids:
-            s["marines"] = "Mary's Marines"
-            n_mm += 1
-        else:
-            s["marines"] = ""
+        if norm(s.get("pcid")) in fsp_new_ids:
+            s["fsp"] = "FSP"
+            n_fsp_new += 1
 
     ug = [s for s in unretained if s.get("program") == "UNDERG" and s.get("collegeAttend") not in NON_DS]
     DATA.mkdir(parents=True, exist_ok=True)
@@ -1380,7 +1417,8 @@ def main() -> None:
         f"fa25 housing overlay {n_fa25_housing}\n"
         f"international {len(intl)} on students {n_intl}\n"
         f"honors file {len(honors)} eot gpas {len(eot_gpa)} scholar roster {len(scholar_emails)} unmatched {len(unmatched_scholars)}\n"
-        f"mary's marines roster {len(marines_ids)} on students {n_mm}"
+        f"mary's marines roster {len(marines_ids)} on students {n_mm}; FA25 {len(prior_marines_ids)} on prior {n_mm_prior}\n"
+        f"fsp new FA26 {len(fsp_new_ids)} tagged {n_fsp_new}"
     )
     if unmatched_scholars:
         print("unmatched scholars:", "; ".join(unmatched_scholars))

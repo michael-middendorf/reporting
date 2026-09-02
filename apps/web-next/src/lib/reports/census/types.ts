@@ -43,7 +43,7 @@ export type CensusSummary = {
   totalEnrollment: CountFte;
 };
 
-/** Frozen FA25 Historical row list. Do not add Summary-only breakouts here. */
+/** Historical row list. Same Chesterton / Mount Melleray Abbey lines as Summary; prior years may be blank. */
 export const HISTORICAL_ROWS: {
   label: string;
   key?: keyof CensusSummary;
@@ -59,9 +59,11 @@ export const HISTORICAL_ROWS: {
   { label: "SECB", key: "secb", indent: true },
   { label: "Lux Mundi", key: "luxMundiUg", indent: true },
   { label: "Returning Students", key: "returning", bold: true },
+  { label: "Mount Melleray Abbey", key: "ireland", indent: true },
   { label: "Total Degree-Seeking", key: "degreeSeeking", total: true, bold: true },
   { label: "" },
   { label: "High School Dual Enrollment", key: "dualEnrollment", bold: true },
+  { label: "Chesterton", key: "chestertonDual", indent: true },
   { label: "Non-Degree-Seeking / Personal Enrichment", key: "nonDegree", bold: true },
   { label: "Lux Mundi Non-Degree-Seeking / Personal Enrichment", key: "luxMundiNonDegree" },
   { label: "" },

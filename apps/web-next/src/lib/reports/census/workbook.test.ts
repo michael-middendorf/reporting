@@ -252,9 +252,10 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(histXml, /Graduate MEdCl/);
   assert.match(histXml, /Graduate MA Comm/);
   assert.match(histXml, /Lux Mundi Non-Degree-Seeking \/ Personal Enrichment/);
+  assert.match(histXml, /Mount Melleray Abbey/);
+  assert.match(histXml, /Chesterton/);
   assert.doesNotMatch(histXml, /Ireland/);
   assert.doesNotMatch(histXml, /Mont Mallary/);
-  assert.doesNotMatch(histXml, /Chesterton/);
   assert.doesNotMatch(histXml, /MA Philosophy/);
   assert.match(histXml, /1343 \(1334 Full Time\)/);
   const reportXml = files["xl/worksheets/sheet3.xml"];
@@ -281,10 +282,11 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(noFbReportXml, /Undergraduate Statistics/);
   const gradXml = files["xl/worksheets/sheet5.xml"];
   assert.match(gradXml, /Graduate Enrollment/);
-  assert.match(gradXml, /Athlete \/ Non-Athlete/);
-  assert.match(gradXml, /External \/ Alumni admits/);
-  assert.match(gradXml, /Incoming \/ Returning/);
-  assert.match(gradXml, /Catholic \/ Non-Catholic/);
+  assert.match(gradXml, /Program/);
+  assert.match(gradXml, /Alumni admits/);
+  assert.match(gradXml, /AMU Alumni/);
+  assert.match(gradXml, /External admits/);
+  assert.doesNotMatch(gradXml, /Athlete \/ Non-Athlete/);
   const attritionXml = files["xl/worksheets/sheet6.xml"];
   assert.doesNotMatch(attritionXml, /Athletic Retention/);
   assert.match(attritionXml, /Incoming FTCA/);
@@ -309,6 +311,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(rawXml, /01LuxMundi/);
   assert.match(rawXml, /Institute/);
   assert.match(rawXml, /Scholar/);
+  assert.match(rawXml, /AMU Alumni/);
   const unretainedXml = files["xl/worksheets/sheet10.xml"];
   assert.match(unretainedXml, /Religion/);
   assert.doesNotMatch(files["xl/styles.xml"], /vertical="middle"/);

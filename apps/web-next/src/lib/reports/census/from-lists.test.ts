@@ -158,13 +158,14 @@ test("graduate enrollment stats split overall and programs; alumni vs external a
   assert.equal(blocks[0]?.n, 3);
   const mba = blocks.find((b) => b.program === "MBA");
   assert.equal(mba?.n, 2);
-  assert.equal(mba?.athlete.find((r) => r.label === "Athlete")?.n, 1);
-  assert.equal(mba?.admits.find((r) => r.label === "Alumni admits")?.n, 1);
-  assert.equal(mba?.admits.find((r) => r.label === "External admits")?.n, 1);
-  assert.equal(mba?.incomingReturning.find((r) => r.label === "Incoming")?.n, 2);
+  assert.equal(mba?.athlete, 1);
+  assert.equal(mba?.alumniAdmits, 1);
+  assert.equal(mba?.externalAdmits, 1);
+  assert.equal(mba?.amuAlumni, 1);
+  assert.equal(mba?.incoming, 2);
   const phil = blocks.find((b) => b.program === "MA Philosophy");
   assert.equal(phil?.n, 1);
-  assert.equal(phil?.incomingReturning.find((r) => r.label === "Returning")?.n, 1);
+  assert.equal(phil?.returning, 1);
 });
 
 test("graduate alumni admits include AMU bachelor's from Graduated All, not only last fall UG", () => {
@@ -176,8 +177,9 @@ test("graduate alumni admits include AMU bachelor's from Graduated All, not only
     { pcid: "NEW1", year: "2024", term: "SPRING", program: "UNDERG" },
   ]);
   const mba = blocks.find((b) => b.program === "MBA");
-  assert.equal(mba?.admits.find((r) => r.label === "Alumni admits")?.n, 1);
-  assert.equal(mba?.admits.find((r) => r.label === "External admits")?.n, 1);
+  assert.equal(mba?.alumniAdmits, 1);
+  assert.equal(mba?.externalAdmits, 1);
+  assert.equal(mba?.amuAlumni, 1);
 });
 
 test("Ireland and Mont Mallary are not On Campus; DE is DUAL not Chesterton", () => {

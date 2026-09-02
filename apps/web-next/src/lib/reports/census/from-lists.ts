@@ -196,48 +196,39 @@ export function graduateProgramLabel(s: CensusRawStudent): string | null {
   return "Other";
 }
 
-export type GradShareRow = { label: string; n: number; pct: number };
-
 export type GraduateProgramStats = {
   program: string;
   n: number;
-  athlete: GradShareRow[];
-  admits: GradShareRow[];
-  incomingReturning: GradShareRow[];
-  catholic: GradShareRow[];
+  incoming: number;
+  returning: number;
+  athlete: number;
+  nonAthlete: number;
+  alumniAdmits: number;
+  externalAdmits: number;
+  amuAlumni: number;
+  catholic: number;
+  nonCatholic: number;
 };
-
-function shareRows(n: number, pairs: [string, number][]): GradShareRow[] {
-  return pairs.map(([label, c]) => ({ label, n: c, pct: n ? c / n : 0 }));
-}
 
 function programStats(program: string, rows: CensusRawStudent[], alumniIds: Set<string>): GraduateProgramStats {
   const n = rows.length;
   const incoming = rows.filter(isIncoming);
-  const returning = n - incoming.length;
   const athlete = rows.filter((s) => (s.athlete || "").trim() === "Athlete").length;
   const catholic = rows.filter(isCatholic).length;
+  const amuAlumni = rows.filter((s) => alumniIds.has(normPcid(s.pcid))).length;
   const alumniAdmits = incoming.filter((s) => alumniIds.has(normPcid(s.pcid))).length;
-  const externalAdmits = incoming.length - alumniAdmits;
   return {
     program,
     n,
-    athlete: shareRows(n, [
-      ["Athlete", athlete],
-      ["Non-Athlete", n - athlete],
-    ]),
-    admits: shareRows(incoming.length, [
-      ["Alumni admits", alumniAdmits],
-      ["External admits", externalAdmits],
-    ]),
-    incomingReturning: shareRows(n, [
-      ["Incoming", incoming.length],
-      ["Returning", returning],
-    ]),
-    catholic: shareRows(n, [
-      ["Catholic", catholic],
-      ["Non-Catholic", n - catholic],
-    ]),
+    incoming: incoming.length,
+    returning: n - incoming.length,
+    athlete,
+    nonAthlete: n - athlete,
+    alumniAdmits,
+    externalAdmits: incoming.length - alumniAdmits,
+    amuAlumni,
+    catholic,
+    nonCatholic: n - catholic,
   };
 }
 
@@ -248,6 +239,17 @@ function isAmuUndergraduateAlum(g: { program?: string; degree?: string }): boole
   return deg.startsWith("B");
 }
 
+/** PCIDs with an AMU bachelor's on Graduated All, or UG on last fall's census. */
+export function amuUndergraduateAlumniIds(
+  prior: CensusRawStudent[] = [],
+  graduates: { pcid: string; program?: string; degree?: string }[] = [],
+): Set<string> {
+  return new Set([
+    ...prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend)).map((s) => normPcid(s.pcid)),
+    ...graduates.filter(isAmuUndergraduateAlum).map((g) => normPcid(g.pcid)),
+  ]);
+}
+
 /** Overall graduate enrollment plus each Summary program. Alumni = AMU bachelor's on Graduated All, or UG on last census. */
 export function buildGraduateEnrollment(
   students: CensusRawStudent[],
@@ -255,10 +257,7 @@ export function buildGraduateEnrollment(
   graduates: { pcid: string; program?: string; degree?: string }[] = [],
 ): GraduateProgramStats[] {
   const grads = students.filter((s) => program(s) === "GRAD");
-  const alumniIds = new Set([
-    ...prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend)).map((s) => normPcid(s.pcid)),
-    ...graduates.filter(isAmuUndergraduateAlum).map((g) => normPcid(g.pcid)),
-  ]);
+  const alumniIds = amuUndergraduateAlumniIds(prior, graduates);
   const byProgram = new Map<string, CensusRawStudent[]>();
   for (const s of grads) {
     const label = graduateProgramLabel(s) || "Other";

@@ -5,6 +5,7 @@ import {
   footballRosterPcids,
   isCensusFootball,
   isUgDegreeSeekingRow,
+  normPcid,
   withoutFootballPlayers,
   withoutFootballRoster,
   type LoaStudent,
@@ -57,7 +58,7 @@ import {
   type CountFte,
   type LabeledCount,
 } from "./types";
-import { buildGraduateEnrollment } from "./from-lists";
+import { amuUndergraduateAlumniIds, buildGraduateEnrollment, type GraduateProgramStats } from "./from-lists";
 import { cellRef, XlsxSheet, XlsxWorkbook, type CellStyle, type CellValue } from "./xlsx";
 
 const NAVY = "1A3F6F";
@@ -388,8 +389,20 @@ type ReportExtras = {
   ugSplit: ReturnType<typeof buildAllUgSplit>;
 };
 
-function shareCells(rows: { label: string; n: number; pct: number }[]): CellValue[][] {
-  return rows.map((r) => [r.label, r.n, r.pct]);
+function gradProgramRow(block: GraduateProgramStats): CellValue[] {
+  return [
+    block.program,
+    block.n,
+    block.incoming,
+    block.returning,
+    block.alumniAdmits,
+    block.externalAdmits,
+    block.amuAlumni,
+    block.athlete,
+    block.nonAthlete,
+    block.catholic,
+    block.nonCatholic,
+  ];
 }
 
 function writeGraduateEnrollment(
@@ -402,63 +415,44 @@ function writeGraduateEnrollment(
   const fa = faLabel(year);
   const ws = wb.addSheet(`${fa} Graduate`);
   ws.gridLines = false;
-  [28, 14, 14, 4, 28, 14, 14].forEach((w, i) => ws.width(i + 1, w));
-  ws.merge(1, 1, 1, 7);
+  [28, 12, 12, 12, 14, 16, 14, 12, 14, 12, 14].forEach((w, i) => ws.width(i + 1, w));
+  ws.merge(1, 1, 1, 11);
   ws.set(1, 1, `${fa} Graduate Enrollment Statistics`, TITLE18);
+  ws.merge(2, 1, 2, 11);
   ws.set(
     2,
     1,
-    "Alumni admits = incoming graduates with an AMU undergraduate degree on Graduated All (or UG on last fall's census). External admits = incoming graduates with no AMU bachelor's. Returning students are not in the admit split.",
+    "One row per program. Alumni admits / External admits are incoming only. AMU Alumni is any current graduate with an AMU bachelor's (Graduated All or UG on last fall's census), including returning students.",
     NOTE,
   );
   const blocks = buildGraduateEnrollment(students, prior, graduates);
-  let left = 4;
-  let right = 4;
-  blocks.forEach((block, i) => {
-    const col = i % 2 === 0 ? 1 : 5;
-    let r = i % 2 === 0 ? left : right;
-    const enroll: CellValue[][] = [["Headcount", block.n, block.n ? 1 : null]];
-    r = writeCountTable(ws, r, col, block.program, ["", "Students", "Percentage"], enroll, {
-      intCols: [1],
-      pctCols: [2],
-    });
-    r = writeCountTable(ws, r + 1, col, "Athlete / Non-Athlete", ["", "Students", "Percentage"], shareCells(block.athlete), {
-      intCols: [1],
-      pctCols: [2],
-      total: true,
-    });
-    r = writeCountTable(
-      ws,
-      r + 1,
-      col,
-      "External / Alumni admits",
-      ["", "Students", "Percentage"],
-      shareCells(block.admits),
-      { intCols: [1], pctCols: [2], total: true },
-    );
-    r = writeCountTable(
-      ws,
-      r + 1,
-      col,
-      "Incoming / Returning",
-      ["", "Students", "Percentage"],
-      shareCells(block.incomingReturning),
-      { intCols: [1], pctCols: [2], total: true },
-    );
-    r = writeCountTable(
-      ws,
-      r + 1,
-      col,
-      "Catholic / Non-Catholic",
-      ["", "Students", "Percentage"],
-      shareCells(block.catholic),
-      { intCols: [1], pctCols: [2], total: true },
-    );
-    r += 2;
-    if (i % 2 === 0) left = r;
-    else right = r;
-    if (i % 2 === 1) left = right = Math.max(left, right);
-  });
+  const overall = blocks.find((b) => b.program === "Overall");
+  const programs = blocks.filter((b) => b.program !== "Overall");
+  const rows = [
+    ...programs.map(gradProgramRow),
+    ...(overall ? [gradProgramRow({ ...overall, program: "Total" })] : []),
+  ];
+  writeCountTable(
+    ws,
+    4,
+    1,
+    "",
+    [
+      "Program",
+      "Students",
+      "Incoming",
+      "Returning",
+      "Alumni admits",
+      "External admits",
+      "AMU Alumni",
+      "Athlete",
+      "Non-Athlete",
+      "Catholic",
+      "Non-Catholic",
+    ],
+    rows,
+    { intCols: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], total: true },
+  );
 }
 
 function writeCensusReport(
@@ -873,7 +867,7 @@ function writeCensusReport(
   ws.set(
     p,
     col.p,
-    "*F25–F26 association retention uses last year's census flags. FA26 Mary's Marines is the 9-1-26 association roster, not the Registration Status Sport column.",
+    "*F25–F26 association retention uses last year's flags. Mary's Marines FA25 is the Spring 2026 association extract (gold FA25 raw had no Marines column). FA26 is Mary's Marines_As of 9-1-26.xlsx.",
     NOTE,
   );
 
@@ -1391,6 +1385,7 @@ const CENSUS_RAW_HEADERS = [
   "Mary's Marines",
   "Application Decision",
   "Degree",
+  "AMU Alumni",
   "Email",
   "Citizenship",
   "Visa",
@@ -1403,10 +1398,15 @@ const CENSUS_RAW_HEADERS = [
 
 const CENSUS_RAW_WIDTHS = [
   14, 16, 18, 16, 8, 16, 14, 12, 10, 12, 14, 14, 12, 22, 12, 10, 16, 10, 12, 14, 16, 16, 22, 16, 16, 22, 10, 10, 12, 12,
-  14, 16, 10, 32, 12, 12, 10, 8, 8, 8,
+  14, 16, 12, 10, 32, 12, 12, 10, 8, 8, 8,
 ];
 
-function rawRow(s: CensusRawStudent): CellValue[] {
+function amuAlumniCell(s: CensusRawStudent, alumniIds: Set<string>): string {
+  if ((s.program || "").trim().toUpperCase() !== "GRAD") return "";
+  return alumniIds.has(normPcid(s.pcid)) ? "Yes" : "No";
+}
+
+function rawRow(s: CensusRawStudent, alumniIds: Set<string> = new Set()): CellValue[] {
   return [
     s.pcid,
     s.first,
@@ -1440,6 +1440,7 @@ function rawRow(s: CensusRawStudent): CellValue[] {
     s.marines,
     s.appDecision,
     s.degree,
+    amuAlumniCell(s, alumniIds),
     s.email,
     s.citizenship,
     s.visa,
@@ -1602,7 +1603,11 @@ function writeSources(
     ],
     [
       "Mary's Marines",
-      "Mary's Marines_As of 9-1-26.xlsx (association extract). 410 unique PCIDs on FA26. Replaces the Registration Status Sport = Mary's Marines flag.",
+      "FA26: Mary's Marines_As of 9-1-26.xlsx (410 unique PCIDs; replaces Registration Status Sport). FA25: Mary's Marines_Spring 2026_January 2026.xlsx — gold Census Raw had no Marines column.",
+    ],
+    [
+      "FSP",
+      "FA26 FSP keeps Registration Status Sport = FSP and adds Quick Query 20260902-125515.xlsx (new Fall 2026 FSP, 59 PCIDs). Does not replace returning FSP.",
     ],
     [
       "Raw data",
@@ -1762,12 +1767,13 @@ export async function buildListsWorkbook(
   ws.height(4, 36);
 
   if (want("raw")) {
+    const alumniIds = amuUndergraduateAlumniIds(lists.prior, lists.graduates);
     writeListSheet(
       wb,
       "Census Raw",
       CENSUS_RAW_HEADERS,
       CENSUS_RAW_WIDTHS,
-      enrolled.map(rawRow),
+      enrolled.map((s) => rawRow(s, alumniIds)),
     );
   }
   if (want("unretained")) {
@@ -1980,12 +1986,13 @@ export async function buildCensusWorkbook(
     note: `${noFbNote} Incoming+FTCA football is the subset of that FA25 roster who were new FTCA last year, not the whole team.`,
   });
   writeFtcaRaw(wb, ftcaRaw);
+  const alumniIds = amuUndergraduateAlumniIds(lists.prior, lists.graduates);
   writeListSheet(
     wb,
     "FA26 Census Raw",
     CENSUS_RAW_HEADERS,
     CENSUS_RAW_WIDTHS,
-    lists.students.map(rawRow),
+    lists.students.map((s) => rawRow(s, alumniIds)),
   );
   writeListSheet(
     wb,
