@@ -1585,7 +1585,7 @@ function writeSources(
     ],
     [
       "Graduates",
-      "PowerCampus Graduated - All (Graduated %2D All-13.xlsx). Intervening year is Fall 2025, Spring 2026, and Summer 2026.",
+      "PowerCampus Graduated - All (Graduated %2D All-14.xlsx). Intervening year is Fall 2025, Spring 2026, and Summer 2026. Alumni admits use undergraduate degrees on this extract.",
     ],
     [
       "Not retained",

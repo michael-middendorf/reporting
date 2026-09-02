@@ -42,7 +42,7 @@ FA26_ENTRY = DOWNLOADS / "Roster -_ Housing Report 20260821-155657.xlsx"
 FA25_RESIDENCY_FILL = {
     "P000342716": "Other",  # Abigail Rich: LESS, San Diego, Fall 2025 graduate; not in eRez
 }
-GRADUATES = DOWNLOADS / "Graduated %2D All-13.xlsx"
+GRADUATES = DOWNLOADS / "Graduated %2D All-14.xlsx"
 SLATE_ATHLETES = Path("/tmp/slate-athletes.json")
 EXISTING_STUDENTS = DATA / "students.json"
 
