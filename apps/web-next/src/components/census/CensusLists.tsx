@@ -195,7 +195,19 @@ export function FtcaRawSheet({ rows }: { rows: FtcaRawRow[] }) {
   );
 }
 
-export function LoaSheet({ rows }: { rows: LoaWithStatus[] }) {
+export function LoaSheet({
+  rows,
+  title,
+  note,
+  classHeader,
+  sportHeader,
+}: {
+  rows: LoaWithStatus[];
+  title: string;
+  note: string;
+  classHeader: string;
+  sportHeader: string;
+}) {
   const [q, setQ] = useState("");
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -204,6 +216,7 @@ export function LoaSheet({ rows }: { rows: LoaWithStatus[] }) {
       s.pcid,
       s.first,
       s.last,
+      s.term || "—",
       s.status,
       s.classLevel,
       s.incomingReturning,
@@ -226,16 +239,13 @@ export function LoaSheet({ rows }: { rows: LoaWithStatus[] }) {
   return (
     <div className="sheet">
       <div className="sheet-head">
-        <h2>Leave of Absence</h2>
+        <h2>{title}</h2>
         <p className="sheet-n">
           {fmtN(rows.length)} LOA · {fmtN(returned)} returned Fall 2026 · {fmtN(gone)} did not return
           {graduated ? ` · ${fmtN(graduated)} graduated` : ""}
         </p>
       </div>
-      <p className="note">
-        Spring 2026 LOA census plus Fall 2026 leave of absence from the unretained notes (intend to return). Status is
-        Fall 2026 registration. Fall 2026 leave of absence is on this tab, not All Not Retained.
-      </p>
+      <p className="note">{note}</p>
       {!rows.length ? (
         <p className="note">No leave of absence students in the current filter.</p>
       ) : (
@@ -248,11 +258,12 @@ export function LoaSheet({ rows }: { rows: LoaWithStatus[] }) {
               "PCID",
               "First",
               "Last",
+              "Term",
               "FA26 status",
-              "S26 class",
+              classHeader,
               "In/Ret",
               "Curriculum",
-              "S26 sport",
+              sportHeader,
               "GPA",
               "Household",
               "FSP",

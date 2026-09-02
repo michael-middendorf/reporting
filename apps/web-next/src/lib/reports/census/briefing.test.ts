@@ -59,6 +59,7 @@ test("briefing uses live student lists, not a guessed FTCA number", () => {
     unretained: [],
     graduates: [],
     loa: [],
+    loaFall: [],
   };
   const b = buildCensusBriefing(data, lists);
   assert.equal(b.thisFall.ftca, 2);
@@ -75,6 +76,7 @@ test("lookup finds names on FA26 and FA25 lists", () => {
     unretained: [],
     graduates: [],
     loa: [],
+    loaFall: [],
   };
   assert.equal(searchPeople(lists, "snyder")[0]?.pcid, "P0001");
   assert.equal(searchPeople(lists, "snyder")[0]?.list, "FA26");

@@ -209,5 +209,6 @@ export async function loadCensusLists(): Promise<import("./lists-core").CensusLi
     prior: cleanedPrior,
     graduates,
     loa,
+    loaFall: [],
   };
 }

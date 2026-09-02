@@ -29,6 +29,11 @@ export async function GET(req: Request) {
       lists.students,
       ayGraduatePcids(lists.graduates),
     ),
+    loaFallStudents: attachLoaStatus(
+      lists.loaFall,
+      lists.students,
+      ayGraduatePcids(lists.graduates),
+    ),
     unretained: {
       n: lists.unretained.length,
       ug: unretainedUg,

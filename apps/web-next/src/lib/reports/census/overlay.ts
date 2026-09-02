@@ -18,7 +18,7 @@ import {
   toUnretainedSeed,
   type FtcaRawRow,
 } from "./retention";
-import { applyCensusRetentionNotes, loaStudentsFromNotes, markUnretainedNotes, mergeLoaRosters } from "./retention-overrides";
+import { applyCensusRetentionNotes, loaStudentsFromNotes, markUnretainedNotes } from "./retention-overrides";
 import snapshot from "./snapshot.json";
 import { presentSnapshot } from "./present";
 import { housingAssignmentRows, residencyFromErez, type HousingAssignmentRow } from "./residency";
@@ -97,7 +97,6 @@ export async function loadCensusSnapshot(): Promise<{
           };
         }),
       ),
-      loa: mergeLoaRosters(lists.loa, loaStudentsFromNotes(lists.prior)),
     };
     const gpa = collectGpa(lists);
     const currentIds = notes.currentIds;
@@ -113,6 +112,7 @@ export async function loadCensusSnapshot(): Promise<{
     };
     applyLiveRetentionHistory(data, data.ftcaAttrition.retentionRate, data.allUgRetention.retentionRate);
   }
+  lists = { ...lists, loaFall: loaStudentsFromNotes(lists.prior) };
   const ftcaRaw = lists.prior.length
     ? deriveFtcaRaw(lists.prior, lists.students, lists.graduates)
     : [];

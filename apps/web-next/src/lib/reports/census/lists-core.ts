@@ -285,7 +285,10 @@ export type CensusLists = {
   unretained: UnretainedStudent[];
   prior: CensusRawStudent[];
   graduates: { pcid: string; year?: string | number; term?: string; program?: string }[];
+  /** Spring 2026 LOA census roster. */
   loa: LoaStudent[];
+  /** Fall 2026 LOA from unretained notes (intend to return). */
+  loaFall: LoaStudent[];
 };
 
 const NON_DS = new Set(["DUAL", "EACO", "ND"]);
@@ -379,7 +382,7 @@ export function deriveUnretained(
     .map((s) => ({ ...s, retention: "Not Retained" }));
 }
 
-/** Match S26 LOA roster to this fall's registration and intervening graduates. */
+/** Match an LOA roster to this fall's registration and intervening graduates. */
 export function attachLoaStatus(
   loa: LoaStudent[],
   registered: CensusRawStudent[],

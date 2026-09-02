@@ -35,7 +35,7 @@ export const RETENTION_FORCE_GRADUATED: GraduateRecord[] = [
 
 /**
  * Unretained notes col R: leave of absence (intend to return).
- * Off All Not Retained and out of the F26 retention cohort; they stay on the LOA tab.
+ * Off All Not Retained and out of the F26 retention cohort; they stay on the FA26 LOA tab.
  */
 export const RETENTION_LOA = new Set(
   [
@@ -83,6 +83,7 @@ export function loaStudentsFromNotes(prior: CensusRawStudent[]): LoaStudent[] {
     }));
 }
 
+/** Combined view only. Dashboard and Excel keep Spring and Fall LOA on separate tabs (Cedeno is on both). */
 export function mergeLoaRosters(spring: LoaStudent[], fallNotes: LoaStudent[]): LoaStudent[] {
   const have = new Set(spring.map((s) => normPcid(s.pcid)));
   return [...spring, ...fallNotes.filter((s) => !have.has(normPcid(s.pcid)))];

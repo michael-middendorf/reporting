@@ -1,5 +1,13 @@
 import type { CensusLists, CensusRawStudent, UnretainedStudent } from "./lists";
-import { attachLoaStatus, isUgDegreeSeekingRow, S26_LOA_ROSTER, withoutFootballPlayers, type LoaWithStatus } from "./lists-core";
+import {
+  attachLoaStatus,
+  isUgDegreeSeekingRow,
+  S26_LOA_ROSTER,
+  withoutFootballPlayers,
+  type LoaStudent,
+  type LoaWithStatus,
+} from "./lists-core";
+import { loaStudentsFromNotes } from "./retention-overrides";
 import {
   applyLiveRetentionHistory,
   athleteOf,
@@ -1458,9 +1466,10 @@ const LOA_HEADERS = [
   "PCID",
   "First",
   "Last",
+  "Term",
   "FA26 status",
-  "S26 sport",
-  "FA25 class",
+  "Sport",
+  "Class",
   "Incoming/Returning",
   "College Attend",
   "Curriculum",
@@ -1480,11 +1489,14 @@ const LOA_HEADERS = [
   "FA26 credits",
 ];
 
+const LOA_WIDTHS = [14, 14, 18, 14, 16, 16, 14, 16, 12, 18, 10, 10, 16, 8, 8, 10, 12, 12, 16, 18, 12, 14, 10, 10];
+
 function loaRow(s: LoaWithStatus): CellValue[] {
   return [
     s.pcid,
     s.first,
     s.last,
+    s.term,
     s.status,
     s.sport,
     s.classLevel,
@@ -1508,14 +1520,22 @@ function loaRow(s: LoaWithStatus): CellValue[] {
   ];
 }
 
-function loaForExport(lists: CensusLists, filters?: ReportFilters): LoaWithStatus[] {
-  const seed = lists.loa.length ? lists.loa : S26_LOA_ROSTER;
+function loaWithStatus(seed: LoaStudent[], lists: CensusLists, filters?: ReportFilters): LoaWithStatus[] {
   const withStatus = attachLoaStatus(
     seed,
     lists.students,
     lists.graduates.map((g) => g.pcid),
   );
   return filters ? filterLoa(withStatus, filters) : withStatus;
+}
+
+function loaSpringForExport(lists: CensusLists, filters?: ReportFilters): LoaWithStatus[] {
+  return loaWithStatus(lists.loa.length ? lists.loa : S26_LOA_ROSTER, lists, filters);
+}
+
+function loaFallForExport(lists: CensusLists, filters?: ReportFilters): LoaWithStatus[] {
+  const seed = lists.loaFall.length ? lists.loaFall : loaStudentsFromNotes(lists.prior);
+  return loaWithStatus(seed, lists, filters);
 }
 
 function unretainedRow(s: UnretainedStudent): CellValue[] {
@@ -1619,7 +1639,7 @@ export function listsFileName(kind: ListExportKind, data: CensusSnapshot, export
     sports: "Sports",
     ftca: "FTCA_Raw",
     verify: "Verify",
-    loa: "S26_LOA",
+    loa: "LOA",
   };
   return `${fa}_Census_${labels[kind]}_${stamp}.xlsx`;
 }
@@ -1707,7 +1727,8 @@ export async function buildListsWorkbook(
     ? buildSportRetention(prior, enrolledIds, lists.graduates, filters.excludedSports)
     : [];
   const verify = buildVerifyList(enrolled, unretained, lists.graduates, housingRows);
-  const loa = loaForExport(lists, filters);
+  const loaSpring = loaSpringForExport(lists, filters);
+  const loaFall = loaFallForExport(lists, filters);
   const want = (sheet: ListExportKind | "all") => kind === "filtered" || kind === sheet;
 
   const wb = new XlsxWorkbook();
@@ -1726,8 +1747,10 @@ export async function buildListsWorkbook(
   ws.set(6, 2, `${enrolled.length.toLocaleString()} registered students after filters`);
   ws.set(7, 1, "Unretained", { bold: true, color: NAVY });
   ws.set(7, 2, `${unretained.length.toLocaleString()} FA25 not back after filters`);
-  ws.set(8, 1, "LOA", { bold: true, color: NAVY });
-  ws.set(8, 2, `${loa.length.toLocaleString()} leave of absence (${loa.filter((s) => s.status === "Returned").length} returned Fall 2026)`);
+  ws.set(8, 1, "S26 LOA", { bold: true, color: NAVY });
+  ws.set(8, 2, `${loaSpring.length.toLocaleString()} Spring 2026 leave of absence (${loaSpring.filter((s) => s.status === "Returned").length} returned Fall 2026)`);
+  ws.set(9, 1, "FA26 LOA", { bold: true, color: NAVY });
+  ws.set(9, 2, `${loaFall.length.toLocaleString()} Fall 2026 leave of absence (intend to return; not All Not Retained)`);
   ws.height(4, 36);
 
   if (want("raw")) {
@@ -1794,7 +1817,8 @@ export async function buildListsWorkbook(
     );
   }
   if (want("loa")) {
-    writeListSheet(wb, "S26 LOA", LOA_HEADERS, [14, 14, 18, 16, 16, 14, 16, 12, 18, 10, 10, 16, 8, 8, 10, 12, 12, 16, 18, 12, 14, 10, 10], loa.map(loaRow));
+    writeListSheet(wb, "S26 LOA", LOA_HEADERS, LOA_WIDTHS, loaSpring.map(loaRow));
+    writeListSheet(wb, "FA26 LOA", LOA_HEADERS, LOA_WIDTHS, loaFall.map(loaRow));
   }
   return wb.writeBuffer();
 }
@@ -1874,7 +1898,7 @@ function reportExtras(
 export async function buildCensusWorkbook(
   data: CensusSnapshot,
   housingRows: HousingAssignmentRow[] = [],
-  lists: CensusLists = { students: [], unretained: [], prior: [], graduates: [], loa: [] },
+  lists: CensusLists = { students: [], unretained: [], prior: [], graduates: [], loa: [], loaFall: [] },
   ftcaRaw: FtcaRawRow[] = [],
 ): Promise<Buffer> {
   const wb = new XlsxWorkbook();
@@ -1969,13 +1993,8 @@ export async function buildCensusWorkbook(
       r.detail,
     ]),
   );
-  writeListSheet(
-    wb,
-    "S26 LOA",
-    LOA_HEADERS,
-    [14, 14, 18, 16, 16, 14, 16, 12, 18, 10, 10, 16, 8, 8, 10, 12, 12, 16, 18, 12, 14, 10, 10],
-    loaForExport(lists).map(loaRow),
-  );
+  writeListSheet(wb, "S26 LOA", LOA_HEADERS, LOA_WIDTHS, loaSpringForExport(lists).map(loaRow));
+  writeListSheet(wb, "FA26 LOA", LOA_HEADERS, LOA_WIDTHS, loaFallForExport(lists).map(loaRow));
   if (housingRows.length) writeHousing(wb, housingRows);
   writeSources(wb, data, housingRows.length, lists.students.length, lists.unretained.length);
   return wb.writeBuffer();

@@ -5,6 +5,7 @@ import { presentSnapshot } from "./present";
 import { applyHousingOverlay } from "./overlay";
 import { censusFileName, buildCensusWorkbook, buildListsWorkbook, listsFileName, crosstabCells } from "./workbook";
 import { DEFAULT_FILTERS } from "./report";
+import { S26_LOA_ROSTER } from "./lists-core";
 import { unzipEntries } from "./xlsx";
 import type { CensusSnapshot } from "./types";
 import type { Resident } from "../housing/types";
@@ -210,6 +211,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
         },
       ],
       loa: [],
+      loaFall: [],
     },
   );
   assert.equal(buf.subarray(0, 2).toString(), "PK");
@@ -228,6 +230,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
     "All Not Retained",
     "Verify (temporary)",
     "S26 LOA",
+    "FA26 LOA",
     "FA26 Housing (eRez)",
     "Sources",
   ]);
@@ -359,7 +362,7 @@ test("filtered list export includes Unretained and Sports sheets", async () => {
   const data = draft();
   const buf = await buildListsWorkbook(
     data,
-    { students: [], unretained: [], prior: [], graduates: [], loa: [] },
+    { students: [], unretained: [], prior: [], graduates: [], loa: [], loaFall: [] },
     [],
     [],
     { ...DEFAULT_FILTERS, retention: "unretained", includedSports: ["Football"] },
@@ -371,6 +374,36 @@ test("filtered list export includes Unretained and Sports sheets", async () => {
   assert.match(workbook, /Sports/);
   assert.match(workbook, /Census Raw/);
   assert.match(workbook, /S26 LOA/);
+  assert.match(workbook, /FA26 LOA/);
   assert.match(files["xl/worksheets/sheet1.xml"], /Unretained/);
   assert.equal(listsFileName("unretained", data, new Date("2026-08-31T12:00:00Z")), "FA26_Census_Unretained_2026-08-31.xlsx");
+  assert.equal(listsFileName("loa", data, new Date("2026-08-31T12:00:00Z")), "FA26_Census_LOA_2026-08-31.xlsx");
+});
+
+test("LOA list export writes Spring and Fall sheets separately", async () => {
+  const cedeno = S26_LOA_ROSTER.find((s) => s.pcid === "P000380481");
+  assert.ok(cedeno);
+  const buf = await buildListsWorkbook(
+    draft(),
+    {
+      students: [],
+      unretained: [],
+      prior: [],
+      graduates: [],
+      loa: S26_LOA_ROSTER,
+      loaFall: [{ ...cedeno, first: "Alexander", last: "Earnhardt", pcid: "P000341593", term: "Fall 2026" }],
+    },
+    [],
+    [],
+    DEFAULT_FILTERS,
+    "loa",
+  );
+  const files = unzipEntries(buf);
+  const names = [...files["xl/workbook.xml"].matchAll(/name="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(names, ["Filters", "S26 LOA", "FA26 LOA"]);
+  assert.match(files["xl/worksheets/sheet2.xml"], /Cedeno/);
+  assert.doesNotMatch(files["xl/worksheets/sheet2.xml"], /Earnhardt/);
+  assert.match(files["xl/worksheets/sheet3.xml"], /Earnhardt/);
+  assert.match(files["xl/worksheets/sheet3.xml"], /Fall 2026/);
+  assert.doesNotMatch(files["xl/worksheets/sheet3.xml"], /Cedeno/);
 });
