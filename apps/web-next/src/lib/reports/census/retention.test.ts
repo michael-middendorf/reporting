@@ -4,6 +4,7 @@ import type { CensusRawStudent } from "./lists";
 import {
   applyLiveRetentionHistory,
   buildAllUgSplit,
+  buildCrosstab,
   buildFtcaAttritionFromPrior,
   buildFtcaExtras,
   buildSportRetention,
@@ -17,6 +18,7 @@ import {
   hasTestScore,
   isCatholic,
   isFtcaIncoming,
+  retentionPct,
   withLiveCurrentYearRate,
 } from "./retention";
 
@@ -217,9 +219,47 @@ test("retention notes exclude Aiden Wilson, count Parks as retained, and treat l
   assert.equal(a.cohort, 2);
   assert.equal(a.enrolledThisFall, 1, "Seth Parks forced retained");
   assert.equal(a.notRetained, 0, "Berns is a summer graduate, not a leaver");
+  assert.equal(a.graduated, 1);
+  assert.equal(a.retentionRate, 1, "graduate is out of the denominator, same as All UG");
 });
 
-test("leave of absence notes are out of the retention cohort, not leavers", () => {
+test("All UG, FTCA, sports, and crosstabs use enrolled / (cohort minus graduates)", () => {
+  assert.equal(retentionPct(4, 1, 1), 2 / 3);
+  assert.equal(retentionPct(4, 1, 0), 3 / 4);
+  const rows = [
+    prior({ pcid: "P1" }),
+    prior({ pcid: "P2" }),
+    prior({ pcid: "P3" }),
+    prior({ pcid: "P4" }),
+  ];
+  const grads = [{ pcid: "P3", year: "2026", term: "SPRING" }];
+  const current = ["P1", "P2"];
+  const ug = buildAllUgSplit(rows, current, grads);
+  assert.equal(ug.all.students, 4);
+  assert.equal(ug.all.enrolled, 2);
+  assert.equal(ug.all.graduated, 1);
+  assert.equal(ug.all.notRetained, 1);
+  assert.equal(ug.all.retentionPct, 2 / 3);
+  const ftca = buildFtcaAttritionFromPrior(rows, current, grads);
+  assert.equal(ftca.cohort, 4);
+  assert.equal(ftca.enrolledThisFall, 2);
+  assert.equal(ftca.graduated, 1);
+  assert.equal(ftca.notRetained, 1);
+  assert.equal(ftca.retentionRate, 2 / 3);
+  assert.equal(ftca.byAthlete.find((r) => r.label === "Athlete")?.retainedPct, 2 / 3);
+  const tab = buildCrosstab(rows, current, grads, () => "All");
+  assert.equal(tab[0]?.students, 4);
+  assert.equal(tab[0]?.notRetained, 1);
+  assert.equal(tab[0]?.graduated, 1);
+  assert.equal(tab[0]?.retentionPct, 2 / 3);
+  const fb = buildSportRetention(rows, current, grads).find((r) => r.sport === "Football");
+  assert.equal(fb?.retained, 2);
+  assert.equal(fb?.graduated, 1);
+  assert.equal(fb?.notRetained, 1);
+  assert.equal(fb?.retentionPct, 2 / 3);
+});
+
+test("leave of absence stays in the FA25 cohort and is not a leaver", () => {
   const ug = buildAllUgSplit(
     [
       prior({
@@ -236,9 +276,10 @@ test("leave of absence notes are out of the retention cohort, not leavers", () =
     ["P1"],
     [],
   );
-  assert.equal(ug.all.students, 2, "Gomez LOA is out of the FA25 retention cohort");
-  assert.equal(ug.all.enrolled, 2, "Trumpore counts as retained");
-  assert.equal(ug.all.notRetained, 0);
+  assert.equal(ug.all.students, 3, "Gomez LOA stays in the FA25 cohort");
+  assert.equal(ug.all.enrolled, 2, "Trumpore counts as retained; Gomez is LOA not enrolled");
+  assert.equal(ug.all.notRetained, 0, "LOA is not a leaver");
+  assert.equal(ug.all.retentionPct, 1, "LOA stays in the denominator and is not a leaver");
 });
 
 test("FTCA Sport Primary omits Non-Athlete; that is not a sport", () => {

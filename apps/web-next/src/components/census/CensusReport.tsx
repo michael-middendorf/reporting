@@ -230,6 +230,7 @@ export function CensusReport({
             rows={[
               ["Fall 2025 FTCA Cohort", fmtN(a.cohort)],
               ["Fall 2025 Cohort Enrolled for Fall 2026", fmtN(a.enrolledThisFall)],
+              ["Minus Fall, Spring, Summer Graduates", fmtN(a.graduated ?? 0)],
               ["Retention Rate F25-F26", fmtPct(a.retentionRate)],
             ]}
           />

@@ -90,6 +90,7 @@ export type FtcaAttrition = {
   cohort: number;
   enrolledThisFall: number;
   notRetained: number;
+  graduated: number;
   retentionRate: number;
   byState: AttritionRow[];
   byAthlete: AttritionRow[];
@@ -103,6 +104,7 @@ export type AttritionRow = {
   label: string;
   students: number;
   notRetained: number;
+  graduated?: number;
   retainedPct: number;
   shareOfNotRetained: number;
 };

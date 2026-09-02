@@ -356,6 +356,17 @@ test("Census Report retention crosstabs append a Total row", () => {
     true,
   );
   assert.deepEqual(maleFl.at(-1)?.slice(0, 4), ["Total", "", 51, 15]);
+  const withGrads = crosstabCells(
+    [
+      { label: "A", students: 3, notRetained: 1, graduated: 1, retentionPct: 0.5 },
+      { label: "B", students: 1, notRetained: 0, graduated: 0, retentionPct: 1 },
+    ],
+    false,
+    true,
+  );
+  assert.equal(withGrads.at(-1)?.[1], 4);
+  assert.equal(withGrads.at(-1)?.[2], 1);
+  assert.equal(withGrads.at(-1)?.[3], 2 / 3);
 });
 
 test("filtered list export includes Unretained and Sports sheets", async () => {

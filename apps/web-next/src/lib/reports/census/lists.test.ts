@@ -15,9 +15,11 @@ import {
 import { applyErezResidency, markIrelandReturning, markSpringAdmitsReturning, promoteFormerDualFtca, resolveCensusResidency } from "./lists";
 import {
   applyCensusRetentionNotes,
+  isOutOfRetentionCohort,
   loaStudentsFromNotes,
   markUnretainedNotes,
   mergeLoaRosters,
+  omitLeaveOfAbsence,
   RETENTION_LOA,
 } from "./retention-overrides";
 
@@ -586,17 +588,22 @@ test("unretained notes take graduates, LOA, and exclude/force-retained off All N
   );
   assert.deepEqual(
     notes.prior.map((s) => s.pcid).sort(),
-    ["P000347161", "P000352989", "P1"].sort(),
+    ["P000346188", "P000347161", "P000352989", "P1"].sort(),
   );
+  assert.equal(isOutOfRetentionCohort("P000384377"), true, "Aiden is out of the denominator");
+  assert.equal(isOutOfRetentionCohort("P000378273"), true, "Hannah is out of the denominator");
+  assert.equal(isOutOfRetentionCohort("P000346188"), false, "LOA stays in the FA25 total");
   assert.equal(notes.currentIds.includes("P000352989"), true);
   assert.equal(
     notes.graduates.some((g) => g.pcid === "P000347161"),
     true,
   );
-  const left = deriveUnretained(
-    notes.prior.map((s) => prior(s.pcid)),
-    notes.currentIds,
-    notes.graduates.map((g) => g.pcid),
+  const left = omitLeaveOfAbsence(
+    deriveUnretained(
+      notes.prior.map((s) => prior(s.pcid)),
+      notes.currentIds,
+      notes.graduates.map((g) => g.pcid),
+    ),
   );
   assert.deepEqual(
     left.map((s) => s.pcid),

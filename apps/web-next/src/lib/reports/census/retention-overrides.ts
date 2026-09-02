@@ -35,7 +35,7 @@ export const RETENTION_FORCE_GRADUATED: GraduateRecord[] = [
 
 /**
  * Unretained notes col R: leave of absence (intend to return).
- * Off All Not Retained and out of the F26 retention cohort; they stay on the FA26 LOA tab.
+ * Stay in the FA25 cohort (denominator). Off All Not Retained; they stay on the FA26 LOA tab.
  */
 export const RETENTION_LOA = new Set(
   [
@@ -48,9 +48,17 @@ export const RETENTION_LOA = new Set(
   ].map(normPcid),
 );
 
+export function isLeaveOfAbsence(pcid: string): boolean {
+  return RETENTION_LOA.has(normPcid(pcid));
+}
+
+export function omitLeaveOfAbsence<T extends { pcid: string }>(rows: T[]): T[] {
+  return rows.filter((s) => !isLeaveOfAbsence(s.pcid));
+}
+
 export function markUnretainedNotes(rows: UnretainedStudent[]): UnretainedStudent[] {
   return rows.map((s) =>
-    RETENTION_LOA.has(normPcid(s.pcid)) ? { ...s, retention: "Leave of Absence" } : s,
+    isLeaveOfAbsence(s.pcid) ? { ...s, retention: "Leave of Absence" } : s,
   );
 }
 
@@ -89,10 +97,9 @@ export function mergeLoaRosters(spring: LoaStudent[], fallNotes: LoaStudent[]): 
   return [...spring, ...fallNotes.filter((s) => !have.has(normPcid(s.pcid)))];
 }
 
-/** Dropped after census, deceased, or approved LOA — not in the F26 retention cohort. */
+/** Dropped after census or deceased — the only people out of the FA25 retention denominator. */
 export function isOutOfRetentionCohort(pcid: string): boolean {
-  const id = normPcid(pcid);
-  return RETENTION_EXCLUDE.has(id) || RETENTION_LOA.has(id);
+  return RETENTION_EXCLUDE.has(normPcid(pcid));
 }
 
 export function applyCensusRetentionNotes(

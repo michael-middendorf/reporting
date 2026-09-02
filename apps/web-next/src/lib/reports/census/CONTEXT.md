@@ -28,6 +28,8 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 - Catholic = Catholic or Eastern Rite. SAT &lt; 400 missing from means. 0 scores = missing.
 - FTE: FULL 1 / THRE 0.75 / HALF 0.5 / LESS 0.25 else credits/12.
 - Unretained = FA25 − intervening grads − FA26 registration − retention-sheet exceptions (exclude, force retained, force graduated, LOA). LOA is on the S26 LOA and FA26 LOA tabs, not All Not Retained.
+- Retention % = still enrolled / (cohort − intervening graduates). Same formula on All UG, FTCA, sports, and crosstabs.
+- FA25 retention denominator = gold UG DS minus Aiden Wilson and Hannah Nelson only. Fall 2026 LOA stays in that total and is not a leaver.
 
 ## Live headcounts (as of last publish)
 
@@ -35,11 +37,11 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 
 **FA25 FTCA attrition:** cohort **391**, enrolled **322**, not retained **69**, **82.4%**. (None of the six FA26 LOA are Incoming+FTCA.)
 
-**All UG retention after notes:** prior UG **1335** (1343 − Aiden − Hannah − 6 LOA), enrolled **908**, graduates **292**, not retained **135**, **87.1%**. All Not Retained **175** (135 UG DS + 40 GRAD/NDEG/DUAL). Notes sheet 135 “not retained” is the UG DS leaver count.
+**All UG retention after notes:** prior UG **1341** (1343 − Aiden − Hannah; LOA stays in). Enrolled and graduate counts are live. LOA is not a leaver and not on All Not Retained. Notes sheet 135 “not retained” is the UG DS leaver count.
 
 **S26 LOA tab:** Spring 2026 roster (7). Mondarez returned; 6 did not.
 
-**FA26 LOA tab:** Earnhardt P000341593, Gomez P000346188, Guza P000344532, Cedeno Medrano P000380481, Pena P000343982, Wagner P000380315. Intend to return. Out of All Not Retained and out of the F26 retention cohort. Cedeno is on both S26 and FA26 LOA.
+**FA26 LOA tab:** Earnhardt P000341593, Gomez P000346188, Guza P000344532, Cedeno Medrano P000380481, Pena P000343982, Wagner P000380315. Intend to return. In the FA25 cohort. Not All Not Retained. Cedeno is on both S26 and FA26 LOA.
 
 ## Retention notes (col R + extras)
 

@@ -21,6 +21,7 @@ import {
   buildSportRetention,
   catholicOf,
   collectGpa,
+  retentionPct,
   whiteOf,
   type CrosstabRow,
   type FtcaRawRow,
@@ -165,7 +166,8 @@ export function crosstabCells(rows: CrosstabRow[], twoLabels = false, withTotal 
   if (!withTotal) return body;
   const students = rows.reduce((s, r) => s + r.students, 0);
   const notRetained = rows.reduce((s, r) => s + r.notRetained, 0);
-  const rate = students ? (students - notRetained) / students : null;
+  const graduated = rows.reduce((s, r) => s + r.graduated, 0);
+  const rate = retentionPct(students, notRetained, graduated);
   if (twoLabels) body.push(["Total", "", students, notRetained, rate]);
   else body.push(["Total", students, notRetained, rate]);
   return body;
@@ -190,11 +192,12 @@ function attritionRows(rows: AttritionRow[]): CellValue[][] {
   ]);
   const students = rows.reduce((s, row) => s + row.students, 0);
   const notRetained = rows.reduce((s, row) => s + row.notRetained, 0);
+  const graduated = rows.reduce((s, row) => s + (row.graduated ?? 0), 0);
   out.push([
     "Total",
     students,
     notRetained,
-    students ? (students - notRetained) / students : null,
+    retentionPct(students, notRetained, graduated),
     students ? 1 : null,
   ]);
   return out;
@@ -742,6 +745,7 @@ function writeCensusReport(
     [
       ["Fall 2025 FTCA Cohort (Incoming + FTCA)", data.ftcaAttrition.cohort],
       ["Fall 2025 Cohort Enrolled for Fall 2026", data.ftcaAttrition.enrolledThisFall],
+      ["Minus Fall, Spring, Summer Graduates", data.ftcaAttrition.graduated ?? 0],
       ["Retention Rate F25-F26", data.ftcaAttrition.retentionRate],
     ],
     { intCols: [1] },
@@ -929,7 +933,8 @@ function writeCensusReport(
 function subsetRetention(rows: AttritionRow[]): number {
   const students = rows.reduce((s, r) => s + r.students, 0);
   const notRetained = rows.reduce((s, r) => s + r.notRetained, 0);
-  return students ? (students - notRetained) / students : 0;
+  const graduated = rows.reduce((s, r) => s + (r.graduated ?? 0), 0);
+  return retentionPct(students, notRetained, graduated) ?? 0;
 }
 
 function attritionWithTotal(

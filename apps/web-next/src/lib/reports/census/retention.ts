@@ -11,7 +11,7 @@ import {
 } from "./lists-core";
 import { ETHNICITY_NAMES, GPA_ORDER } from "./present";
 import type { AttritionRow, FtcaAttrition } from "./types";
-import { applyCensusRetentionNotes, RETENTION_FORCE_RETAINED } from "./retention-overrides";
+import { applyCensusRetentionNotes, isLeaveOfAbsence, RETENTION_FORCE_RETAINED } from "./retention-overrides";
 
 export type GraduateRecord = {
   pcid: string;
@@ -81,6 +81,27 @@ export type RetentionSlice = {
   notRetained: number;
   retentionPct: number | null;
 };
+
+/**
+ * Still enrolled this fall / (cohort minus intervening graduates).
+ * Same formula for All UG, FTCA, sports, and every crosstab. Graduates are not leavers and not in the denominator.
+ */
+export function retentionPct(students: number, notRetained: number, graduated = 0): number | null {
+  const pool = students - graduated;
+  if (pool <= 0) return null;
+  return (pool - notRetained) / pool;
+}
+
+function retentionStatus(
+  id: string,
+  registered: Set<string>,
+  graduated: Set<string>,
+): "enrolled" | "left" | "graduated" | "loa" {
+  if (graduated.has(id)) return "graduated";
+  if (registered.has(id)) return "enrolled";
+  if (isLeaveOfAbsence(id)) return "loa";
+  return "left";
+}
 
 export type FtcaExtras = {
   byAthleteGender: CrosstabRow[];
@@ -442,7 +463,7 @@ export function buildSportRetention(
     else if (registered.has(id)) {
       row.retained += 1;
       if (Number.isFinite(gpa)) row.retainedGpas.push(gpa);
-    } else {
+    } else if (!isLeaveOfAbsence(id)) {
       row.notRetained += 1;
       if (Number.isFinite(gpa)) {
         row.leftGpas.push(gpa);
@@ -456,7 +477,6 @@ export function buildSportRetention(
 
   return [...map.values()]
     .map((r) => {
-      const pool = r.roster - r.graduated;
       return {
         sport: r.sport,
         roster: r.roster,
@@ -465,7 +485,7 @@ export function buildSportRetention(
         notRetained: r.notRetained,
         retained: r.retained,
         graduated: r.graduated,
-        retentionPct: pool > 0 ? r.retained / pool : null,
+        retentionPct: retentionPct(r.roster, r.notRetained, r.graduated),
         graduatedPct: r.roster > 0 ? r.graduated / r.roster : null,
         retainedAvgGpa: avg(r.retainedGpas),
         notRetainedAvgGpa: avg(r.leftGpas),
@@ -476,7 +496,7 @@ export function buildSportRetention(
 }
 
 function leftWithoutGrad(id: string, registered: Set<string>, graduated: Set<string>): boolean {
-  return !registered.has(id) && !graduated.has(id);
+  return !registered.has(id) && !graduated.has(id) && !isLeaveOfAbsence(id);
 }
 
 function withNotes(
@@ -514,7 +534,7 @@ export function buildCrosstabOn(
     map.set(label, row);
   }
   return [...map.values()]
-    .map((r) => ({ ...r, retentionPct: r.students ? (r.students - r.notRetained) / r.students : null }))
+    .map((r) => ({ ...r, retentionPct: retentionPct(r.students, r.notRetained, r.graduated) }))
     .sort((a, b) => b.students - a.students || a.label.localeCompare(b.label));
 }
 
@@ -575,7 +595,7 @@ export function buildAdmitOverrideRetention(
         students: rows.length,
         notRetained,
         graduated: graduatedN,
-        retentionPct: rows.length ? (rows.length - notRetained) / rows.length : null,
+        retentionPct: retentionPct(rows.length, notRetained, graduatedN),
       });
     }
   }
@@ -605,7 +625,7 @@ export function buildCrosstab2On(
     map.set(key, row);
   }
   return [...map.values()]
-    .map((r) => ({ ...r, retentionPct: r.students ? (r.students - r.notRetained) / r.students : null }))
+    .map((r) => ({ ...r, retentionPct: retentionPct(r.students, r.notRetained, r.graduated) }))
     .sort((a, b) => a.label.localeCompare(b.label) || (a.label2 || "").localeCompare(b.label2 || ""));
 }
 
@@ -630,14 +650,13 @@ export function buildAssociationRetention(
       const subset = members.filter((s) => s.gender === gender);
       const graduatedN = subset.filter((s) => graduated.has(normPcid(s.pcid))).length;
       const notRetained = subset.filter((s) => leftWithoutGrad(normPcid(s.pcid), registered, graduated)).length;
-      const pool = subset.length - graduatedN;
       rows.push({
         label: b.label,
         label2: gender,
         students: subset.length,
         notRetained,
         graduated: graduatedN,
-        retentionPct: pool > 0 ? (pool - notRetained) / pool : null,
+        retentionPct: retentionPct(subset.length, notRetained, graduatedN),
       });
     }
   }
@@ -656,15 +675,14 @@ function sliceOf(
     const id = normPcid(s.pcid);
     if (graduated.has(id)) grads += 1;
     else if (registered.has(id)) enrolled += 1;
-    else notRetained += 1;
+    else if (!isLeaveOfAbsence(id)) notRetained += 1;
   }
-  const pool = rows.length - grads;
   return {
     students: rows.length,
     enrolled,
     graduated: grads,
     notRetained,
-    retentionPct: pool > 0 ? enrolled / pool : null,
+    retentionPct: retentionPct(rows.length, notRetained, grads),
   };
 }
 
@@ -692,16 +710,16 @@ export function buildAllUgSplit(
   };
 }
 
-function attritionFromMap(
-  map: Map<string, { students: number; notRetained: number }>,
-  notRetainedTotal: number,
-): AttritionRow[] {
+type AttritionCounts = { students: number; notRetained: number; graduated: number };
+
+function attritionFromMap(map: Map<string, AttritionCounts>, notRetainedTotal: number): AttritionRow[] {
   return [...map.entries()]
     .map(([label, r]) => ({
       label,
       students: r.students,
       notRetained: r.notRetained,
-      retainedPct: r.students ? (r.students - r.notRetained) / r.students : 0,
+      graduated: r.graduated,
+      retainedPct: retentionPct(r.students, r.notRetained, r.graduated) ?? 0,
       shareOfNotRetained: notRetainedTotal ? r.notRetained / notRetainedTotal : 0,
     }))
     .sort((a, b) => a.label.localeCompare(b.label));
@@ -712,14 +730,19 @@ function associationFlag(v?: string): boolean {
   return Boolean(t) && t !== "-";
 }
 
-function bump(map: Map<string, { students: number; notRetained: number }>, label: string, left: boolean) {
-  const row = map.get(label) || { students: 0, notRetained: 0 };
+function bump(
+  map: Map<string, AttritionCounts>,
+  label: string,
+  status: "enrolled" | "left" | "graduated" | "loa",
+) {
+  const row = map.get(label) || { students: 0, notRetained: 0, graduated: 0 };
   row.students += 1;
-  if (left) row.notRetained += 1;
+  if (status === "left") row.notRetained += 1;
+  if (status === "graduated") row.graduated += 1;
   map.set(label, row);
 }
 
-/** FA25 Incoming AND FTCA only. Headline rate is enrolled / cohort, like the workbook. */
+/** FA25 Incoming AND FTCA only. Rate is enrolled / (cohort minus graduates), same as All UG. */
 export function buildFtcaAttritionFromPrior(
   prior: CensusRawStudent[],
   currentPcids: Iterable<string>,
@@ -732,25 +755,27 @@ export function buildFtcaAttritionFromPrior(
   const graduated = notes.graduated;
   let enrolledThisFall = 0;
   let notRetained = 0;
-  const byState = new Map<string, { students: number; notRetained: number }>();
-  const byAthlete = new Map<string, { students: number; notRetained: number }>();
-  const bySport = new Map<string, { students: number; notRetained: number }>();
-  const byGpa = new Map<string, { students: number; notRetained: number }>();
-  const byEthnicity = new Map<string, { students: number; notRetained: number }>();
-  const byCatholicAthlete = new Map<string, { students: number; notRetained: number }>();
+  let graduatedN = 0;
+  const byState = new Map<string, AttritionCounts>();
+  const byAthlete = new Map<string, AttritionCounts>();
+  const bySport = new Map<string, AttritionCounts>();
+  const byGpa = new Map<string, AttritionCounts>();
+  const byEthnicity = new Map<string, AttritionCounts>();
+  const byCatholicAthlete = new Map<string, AttritionCounts>();
 
   for (const s of cohort) {
     const id = normPcid(s.pcid);
-    const left = leftWithoutGrad(id, registered, graduated);
-    if (registered.has(id)) enrolledThisFall += 1;
-    if (left) notRetained += 1;
-    bump(byState, s.state || "International", left);
-    bump(byAthlete, athleteOf(s), left);
+    const status = retentionStatus(id, registered, graduated);
+    if (status === "enrolled") enrolledThisFall += 1;
+    if (status === "left") notRetained += 1;
+    if (status === "graduated") graduatedN += 1;
+    bump(byState, s.state || "International", status);
+    bump(byAthlete, athleteOf(s), status);
     const sport = sportOf(s);
-    if (sport) bump(bySport, sport, left);
-    bump(byGpa, gpaBucket(gpaByPcid.get(id) ?? s.gpa), left);
-    bump(byEthnicity, ethnicityLabel(s.ethnicity), left);
-    bump(byCatholicAthlete, `${catholicOf(s)} / ${athleteOf(s)}`, left);
+    if (sport) bump(bySport, sport, status);
+    bump(byGpa, gpaBucket(gpaByPcid.get(id) ?? s.gpa), status);
+    bump(byEthnicity, ethnicityLabel(s.ethnicity), status);
+    bump(byCatholicAthlete, `${catholicOf(s)} / ${athleteOf(s)}`, status);
   }
 
   const gpaSorted = attritionFromMap(byGpa, notRetained).sort((a, b) => {
@@ -765,7 +790,8 @@ export function buildFtcaAttritionFromPrior(
     cohort: cohort.length,
     enrolledThisFall,
     notRetained,
-    retentionRate: cohort.length ? enrolledThisFall / cohort.length : 0,
+    graduated: graduatedN,
+    retentionRate: retentionPct(cohort.length, notRetained, graduatedN) ?? 0,
     byState: attritionFromMap(byState, notRetained),
     byAthlete: attritionFromMap(byAthlete, notRetained),
     bySport: attritionFromMap(bySport, notRetained).filter((r) => r.label && r.label !== "Non-Athlete"),
@@ -784,27 +810,27 @@ export function buildFtcaExtras(
   const cohort = notes.rows.filter(isFtcaIncoming);
   const registered = notes.registered;
   const graduated = notes.graduated;
-  const byHsGpa = new Map<string, { students: number; notRetained: number }>();
-  const byHsGpaAthletes = new Map<string, { students: number; notRetained: number }>();
-  const byHsGpaFine = new Map<string, { students: number; notRetained: number }>();
-  const byHsGpaFineAthletes = new Map<string, { students: number; notRetained: number }>();
-  const byActConverted = new Map<string, { students: number; notRetained: number }>();
-  const byTestScore = new Map<string, { students: number; notRetained: number }>();
-  const byHonors = new Map<string, { students: number; notRetained: number }>();
-  const byFsp = new Map<string, { students: number; notRetained: number }>();
+  const byHsGpa = new Map<string, AttritionCounts>();
+  const byHsGpaAthletes = new Map<string, AttritionCounts>();
+  const byHsGpaFine = new Map<string, AttritionCounts>();
+  const byHsGpaFineAthletes = new Map<string, AttritionCounts>();
+  const byActConverted = new Map<string, AttritionCounts>();
+  const byTestScore = new Map<string, AttritionCounts>();
+  const byHonors = new Map<string, AttritionCounts>();
+  const byFsp = new Map<string, AttritionCounts>();
   for (const s of cohort) {
-    const left = leftWithoutGrad(normPcid(s.pcid), registered, graduated);
-    bump(byHsGpa, hsGpaBucket(s.hsGpa), left);
+    const status = retentionStatus(normPcid(s.pcid), registered, graduated);
+    bump(byHsGpa, hsGpaBucket(s.hsGpa), status);
     const fine = hsGpaFineBucket(s.hsGpa);
-    if (fine) bump(byHsGpaFine, fine, left);
+    if (fine) bump(byHsGpaFine, fine, status);
     if (athleteOf(s) === "Athlete") {
-      bump(byHsGpaAthletes, hsGpaBucket(s.hsGpa), left);
-      if (fine) bump(byHsGpaFineAthletes, fine, left);
+      bump(byHsGpaAthletes, hsGpaBucket(s.hsGpa), status);
+      if (fine) bump(byHsGpaFineAthletes, fine, status);
     }
-    bump(byActConverted, actConvertedBucket(s), left);
-    bump(byTestScore, hasTestScore(s) ? "Has test score" : "No test score", left);
-    bump(byHonors, associationFlag(s.honors) ? "Honors" : "No honors", left);
-    bump(byFsp, associationFlag(s.fsp) ? "FSP" : "No FSP", left);
+    bump(byActConverted, actConvertedBucket(s), status);
+    bump(byTestScore, hasTestScore(s) ? "Has test score" : "No test score", status);
+    bump(byHonors, associationFlag(s.honors) ? "Honors" : "No honors", status);
+    bump(byFsp, associationFlag(s.fsp) ? "FSP" : "No FSP", status);
   }
   const notRetained = cohort.filter((s) => leftWithoutGrad(normPcid(s.pcid), registered, graduated)).length;
   return {

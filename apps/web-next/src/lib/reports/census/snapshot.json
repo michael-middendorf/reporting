@@ -1630,6 +1630,7 @@
     "cohort": 392,
     "enrolledThisFall": 325,
     "notRetained": 67,
+    "graduated": 0,
     "retentionRate": 0.8291,
     "byState": [
       {

@@ -168,8 +168,8 @@ export function buildCensusBriefing(data: CensusSnapshot, lists: CensusLists): C
     definitions: [
       "FTCA on Summary = Incoming UG degree-seeking with College Attend FTCA, any class. Spring/summer starters are Returning.",
       "FA25 FTCA attrition cohort = Incoming+FTCA on the gold FA25 census (392), minus Aiden Wilson (391).",
-      "Retention notes (Census retention sheet col R): intervening graduates, AMSOL/enrolled/last credits as retained, deceased/dropped-after-census out, leave of absence on the S26 LOA and FA26 LOA tabs not All Not Retained.",
-      "Retention % on FTCA attrition = still enrolled this fall / cohort (graduates are not leavers).",
+      "Retention notes (Census retention sheet col R): intervening graduates, AMSOL/enrolled/last credits as retained. Only Aiden Wilson (dropped after census) and Hannah Nelson (deceased) are out of the FA25 denominator. Leave of absence stays in the cohort, on the S26 LOA and FA26 LOA tabs, not All Not Retained.",
+      "Retention % = still enrolled this fall / (cohort minus intervening graduates). Same formula on All UG, FTCA, sports, and crosstabs. Graduates are not leavers and not in the denominator.",
       "Athletes on sport tables = Varsity / Non-Varsity / Non-NAIA. Band and managers are Associated only.",
       "Catholic = Catholic or Eastern Rite. Christian is Non-Catholic.",
       "ACT converted = higher of verified ACT and SAT via College Board concordance. CLT-only is a test score but not ACT converted.",

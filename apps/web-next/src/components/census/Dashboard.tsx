@@ -692,6 +692,10 @@ function AttritionTab({
                 <td className="num">{fmtN(a.enrolledThisFall)}</td>
               </tr>
               <tr>
+                <td>Fall / Spring / Summer graduates</td>
+                <td className="num">{fmtN(a.graduated ?? 0)}</td>
+              </tr>
+              <tr>
                 <td>Not retained</td>
                 <td className="num">{fmtN(a.notRetained)}</td>
               </tr>
@@ -728,6 +732,10 @@ function AttritionTab({
               </tr>
             </tbody>
           </table>
+          <p className="note">
+            Fall 2025 UG includes Fall 2026 leave of absence (intend to return). Only Aiden Wilson
+            (dropped after census) and Hannah Nelson (deceased) are out of this total.
+          </p>
         </div>
       </div>
       <div className="grid-2 section">
