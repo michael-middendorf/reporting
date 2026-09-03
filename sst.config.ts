@@ -24,8 +24,13 @@ export default $config({
     const resendApiKey = new sst.Secret("ResendApiKey");
     // The hostname we send people. Must stay in step with APP_BASE_URL in
     // infra/lib/reporting-ecs-stack.ts. Do not add sst.aws.Nextjs("Web"): CI
-    // would recreate the leftover Lambda, and SST state still names
-    // WebCdnDistribution as E21ZFV7FXYGILQ (live reporting.avemaria.edu).
+    // would recreate the leftover Lambda. After #194, leftover SST state
+    // parents Web (sst:aws:Nextjs) and WebLinkRef (sst:sst:LinkRef) have no
+    // AWS ids. This production SST deploy should drop those parents. Live
+    // CDN remains untracked E21ZFV7FXYGILQ (reporting.avemaria.edu). Do not
+    // disable deletion protection or delete Dynamo
+    // amu-reporting-production-WebRevalidationTable-bdsurfmw (untracked,
+    // 15856 items).
     const reportingUrl = "https://reporting.avemaria.edu";
     const virtuousApiKey = new sst.Secret("VirtuousApiKey");
     const qlikApiKey = new sst.Secret("QlikApiKey");
