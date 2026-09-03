@@ -21,5 +21,5 @@ export default async function CoachingTeamPage({
   if (!canAccessReport(email, "athletics-coaching") || !canAccessSport(email, sport.key)) {
     return <CoachingDenied message="You do not have access to this team dashboard." />;
   }
-  return <CoachingBands sportLabel={sport.label} />;
+  return <CoachingBands sportKey={sport.key} sportLabel={sport.label} />;
 }

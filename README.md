@@ -45,7 +45,7 @@ sources/_catalog.json
 | Source | Datasets | Publisher cron |
 |--------|----------|----------------|
 | `slate` | admissions, psw, messages, campus_visits, … | EnrollmentRefresh |
-| `athletics` | applications, prospects | AthleticsRefresh (hourly) |
+| `athletics` | applications, prospects, roster (optional) | AthleticsRefresh (hourly) |
 | `virtuous` | contact_notes, gifts, events, contacts | VirtuousRawRefresh |
 | `erez` | housing_occupancy | HousingRefresh (eRezLife assignments) |
 | `qlik` | housing_occupancy | HousingRefresh (mirror of eRez occupancy during cutover) |
@@ -63,14 +63,28 @@ npx sst secret set InstituteSlateQueries "$(cat slate_queries.json)" --stage pro
 
 (`slate_queries.json` shape: `{"queries":[{"name":"q1","query_id":"...","token":"...","timeout":600}, ...]}` for q1–q6.)
 
-Athletics uses the same secret-only pattern; its two service tokens must never be
+Athletics uses the same secret-only pattern; its service tokens must never be
 committed to the repository:
 
 ```bash
 npx sst secret set AthleticsSlateQueries "$(cat athletics_queries.json)" --stage production
 ```
 
-The JSON shape is `{"queries":[{"name":"applications","query_id":"...","token":"...","auth":"bearer","timeout":900},{"name":"prospects","query_id":"...","token":"...","auth":"query","timeout":900}]}`. Applications sends its token in the `Authorization: Bearer` header; prospects uses Slate's `h` query parameter.
+The JSON shape is `{"queries":[{"name":"applications","query_id":"...","token":"...","auth":"bearer","timeout":900},{"name":"prospects","query_id":"...","token":"...","auth":"query","timeout":900},{"name":"roster","query_id":"...","token":"...","auth":"query","timeout":900}]}`. Applications sends its token in the `Authorization: Bearer` header; prospects and roster use Slate's `h` query parameter.
+
+`roster` is optional. Until ops adds that key, AthleticsRefresh logs `athletics_dataset_skipped` and does not write `sources/athletics/roster/`. The coaching Enrollment band then shows "Awaiting roster secret" instead of a headcount. Signed/deposited and application counts still come from the existing applications feed.
+
+Add roster by copying the live secret JSON and appending:
+
+```json
+{"name":"roster","query_id":"674fb1b4-4fef-4f26-9816-b42a5ae8265e","token":"<Slate service token>","auth":"query","timeout":900}
+```
+
+That query id is Athletics - Roster Feed (same feed as enrollment-dashboard `athletics_roster`). Put the service token in locally, never commit `athletics_queries.json`, then:
+
+```bash
+npx sst secret set AthleticsSlateQueries "$(cat athletics_queries.json)" --stage production
+```
 
 ## Layout
 

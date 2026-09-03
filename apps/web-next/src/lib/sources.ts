@@ -24,6 +24,19 @@ export async function readJson<T = unknown>(key: string): Promise<T> {
   return JSON.parse(Buffer.from(bytes).toString("utf-8")) as T;
 }
 
+export function isMissingSource(error: unknown): boolean {
+  const err = error as { name?: string; Code?: string; $metadata?: { httpStatusCode?: number } };
+  const code = err?.name || err?.Code || "";
+  const http = err?.$metadata?.httpStatusCode;
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    code === "NoSuchKey" ||
+    code === "NotFound" ||
+    http === 404 ||
+    /NoSuchKey|NotFound/i.test(message)
+  );
+}
+
 export async function loadLatestPointer(source: string, dataset: string): Promise<LatestPointer> {
   return readJson<LatestPointer>(`sources/${source}/${dataset}/_latest.json`);
 }
@@ -45,4 +58,17 @@ export async function loadSourceRows<T = Record<string, unknown>>(
     rows.push(JSON.parse(trimmed) as T);
   }
   return { rows, latest };
+}
+
+/** Load a dataset, or null when `_latest` / the JSONL object is not in the bucket yet. */
+export async function loadSourceRowsOptional<T = Record<string, unknown>>(
+  source: string,
+  dataset: string,
+): Promise<{ rows: T[]; latest: LatestPointer } | null> {
+  try {
+    return await loadSourceRows<T>(source, dataset);
+  } catch (error) {
+    if (isMissingSource(error)) return null;
+    throw error;
+  }
 }

@@ -261,6 +261,34 @@ a.ath-hub-card:hover { box-shadow: 0 8px 26px rgba(10, 34, 64, .12); transform: 
   font-size: 13px;
   line-height: 1.5;
 }
+.ath-coach-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.ath-coach-kpis .ath-kpi {
+  min-height: 0;
+  padding: 12px 14px;
+}
+.ath-coach-kpis .ath-kpi strong { font-size: 28px; }
+.ath-coach-mix {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.ath-coach-mix div {
+  min-width: 110px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--ath-line);
+  border-radius: 6px;
+  font-size: 12px;
+}
+.ath-coach-mix strong { color: var(--ath-green-dark); }
 
 .ath-roster-summary { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px; border-bottom: 1px solid var(--ath-line); }
 .ath-roster-summary div { min-width: 115px; display: flex; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 1px solid var(--ath-line); border-radius: 6px; font-size: 12px; }
