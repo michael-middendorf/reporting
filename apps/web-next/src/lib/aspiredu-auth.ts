@@ -16,6 +16,7 @@ const AUTHORIZED = new Set([
   "cole.j.cantu@avemaria.edu",
   "regina.m.pirolli@avemaria.edu",
   "michael.t.middendorf@avemaria.edu",
+  "daniel.davy@avemaria.edu",
 ]);
 
 const region = process.env.AWS_REGION || "us-east-2";

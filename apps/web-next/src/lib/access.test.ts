@@ -103,6 +103,31 @@ describe("housing grant for existing enrollment viewer", () => {
   });
 });
 
+describe("aspiredu grant for Daniel Davy", () => {
+  const DANIEL = "Daniel.Davy@avemaria.edu";
+  const DAN = "Dan.Donaldson@avemaria.edu";
+
+  it("lets Daniel sign in and open Academic Affairs only", () => {
+    assert.equal(canLogin(DANIEL), true);
+    assert.equal(canAccessReport(DANIEL, "aspiredu"), true);
+    assert.equal(canAccessReport(DANIEL, "enrollment"), false);
+    assert.equal(canAccessReport(DANIEL, "census"), false);
+    assert.equal(canAccessReport(DANIEL, "athletics"), false);
+    assert.equal(canAccessReport(DANIEL, "housing"), false);
+    assert.equal(canAccessReport(DANIEL, "institute"), false);
+    assert.equal(canAccessReport(DANIEL, "advancement"), false);
+    assert.equal(canAccessReport(DANIEL, "chapel"), false);
+    assert.equal(canAccessReport(DANIEL, "points"), false);
+    assert.equal(canAccessReport(DANIEL, "annunciation"), false);
+    assert.equal(reportsForEmail(DANIEL).includes("aspiredu"), true);
+    assert.deepEqual(reportsForEmail(DANIEL), ["aspiredu"]);
+  });
+
+  it("does not grant aspiredu to a known non-grantee", () => {
+    assert.equal(canAccessReport(DAN, "aspiredu"), false);
+  });
+});
+
 describe("Fall Appeal viewers", () => {
   const people = [
     "cassandra.l.bournos@avemaria.edu",
