@@ -14,7 +14,9 @@ export type SportDef = {
 /**
  * Stable slugs. Giving form slugs where they exist. Golf has no giving page.
  * Marching Band is not a coaching-athletics sport.
- * virtuousProjectCode is filled in the fundraising PR.
+ * virtuousProjectCode is the live Virtuous GET /api/Project/Code value.
+ * Cross Country stays null (two funds 6578MXC and 6580WXC). Women's Golf has no project.
+ * Do not assign 6117AthGEN or 6644 to any sport.
  */
 export const SPORTS: SportDef[] = [
   {
@@ -23,7 +25,7 @@ export const SPORTS: SportDef[] = [
     gender: "mixed",
     slateNames: ["Cheerleading", "Cheer"],
     givingSlug: "cheerleading",
-    virtuousProjectCode: null,
+    virtuousProjectCode: "6625Cheer",
   },
   {
     key: "cross-country",
@@ -31,6 +33,7 @@ export const SPORTS: SportDef[] = [
     gender: "mixed",
     slateNames: ["Cross Country", "Cross Country/Track", "XC"],
     givingSlug: "cross-country",
+    // Two funds 6578MXC and 6580WXC; do not pick one.
     virtuousProjectCode: null,
   },
   {
@@ -39,7 +42,7 @@ export const SPORTS: SportDef[] = [
     gender: "W",
     slateNames: ["Competitive Dance", "Dance", "Dance Team"],
     givingSlug: "dance-team",
-    virtuousProjectCode: null,
+    virtuousProjectCode: "6596Dance",
   },
   {
     key: "football",
@@ -47,7 +50,7 @@ export const SPORTS: SportDef[] = [
     gender: "M",
     slateNames: ["Football"],
     givingSlug: "football",
-    virtuousProjectCode: null,
+    virtuousProjectCode: "6552FB",
   },
   {
     key: "mens-baseball",
@@ -55,7 +58,7 @@ export const SPORTS: SportDef[] = [
     gender: "M",
     slateNames: ["Baseball", "Baseball-Men", "M Baseball", "Men's Baseball"],
     givingSlug: "mens-baseball",
-    virtuousProjectCode: null,
+    virtuousProjectCode: "6543MBase",
   },
   {
     key: "mens-basketball",
@@ -63,14 +66,14 @@ export const SPORTS: SportDef[] = [
     gender: "M",
     slateNames: ["Basketball-Men", "M Basketball", "Men's Basketball", "Mens Basketball"],
     givingSlug: "mens-basketball",
-    virtuousProjectCode: null,
+    virtuousProjectCode: "6530MBB",
   },
   {
     key: "mens-golf",
     label: "Men's Golf",
     gender: "M",
     slateNames: ["Golf-Men", "M Golf", "Men's Golf", "Mens Golf"],
-    virtuousProjectCode: null,
+    virtuousProjectCode: "6622MGolf",
   },
   {
     key: "mens-soccer",
@@ -78,7 +81,7 @@ export const SPORTS: SportDef[] = [
     gender: "M",
     slateNames: ["Soccer-Men", "M Soccer", "Men's Soccer", "Mens Soccer"],
     givingSlug: "mens-soccer",
-    virtuousProjectCode: null,
+    virtuousProjectCode: "6569MSoc",
   },
   {
     key: "rugby",
@@ -86,7 +89,8 @@ export const SPORTS: SportDef[] = [
     gender: "mixed",
     slateNames: ["Rugby", "Rugby-Men", "Rugby-Women", "M Rugby", "W Rugby", "Men's Rugby", "Women's Rugby"],
     givingSlug: "rugby",
-    virtuousProjectCode: null,
+    // Men's Rugby project. Catalog sport is mixed; this is not a women's project.
+    virtuousProjectCode: "6540MRugby",
   },
   {
     key: "swim-team",
@@ -94,7 +98,7 @@ export const SPORTS: SportDef[] = [
     gender: "mixed",
     slateNames: ["Swimming", "Swim Team", "M Swimming", "W Swimming", "Swimming-Men", "Swimming-Women", "Men's Swimming", "Women's Swimming"],
     givingSlug: "swim-team",
-    virtuousProjectCode: null,
+    virtuousProjectCode: "6201Swim",
   },
   {
     key: "tennis",
@@ -102,7 +106,7 @@ export const SPORTS: SportDef[] = [
     gender: "mixed",
     slateNames: ["Tennis", "M Tennis", "W Tennis", "Tennis-Men", "Tennis-Women", "Men's Tennis", "Women's Tennis"],
     givingSlug: "tennis",
-    virtuousProjectCode: null,
+    virtuousProjectCode: "6563Tennis",
   },
   {
     key: "track-and-field",
@@ -110,7 +114,7 @@ export const SPORTS: SportDef[] = [
     gender: "mixed",
     slateNames: ["Track and Field", "Track & Field", "Track", "Track-and-Field"],
     givingSlug: "track-and-field",
-    virtuousProjectCode: null,
+    virtuousProjectCode: "6683Track",
   },
   {
     key: "ultimate-frisbee",
@@ -118,7 +122,8 @@ export const SPORTS: SportDef[] = [
     gender: "mixed",
     slateNames: ["Ultimate Frisbee", "Frisbee", "Ultimate"],
     givingSlug: "ultimate-frisbee",
-    virtuousProjectCode: null,
+    // Men's Ultimate (6251FrisM). Catalog sport is mixed; this is not a women's project.
+    virtuousProjectCode: "6251FrisM",
   },
   {
     key: "womens-basketball",
@@ -126,13 +131,14 @@ export const SPORTS: SportDef[] = [
     gender: "W",
     slateNames: ["Basketball-Women", "W Basketball", "Women's Basketball", "Womens Basketball"],
     givingSlug: "womens-basketball",
-    virtuousProjectCode: null,
+    virtuousProjectCode: "6514WBB",
   },
   {
     key: "womens-golf",
     label: "Women's Golf",
     gender: "W",
     slateNames: ["Golf-Women", "W Golf", "Women's Golf", "Womens Golf"],
+    // No Virtuous project found.
     virtuousProjectCode: null,
   },
   {
@@ -141,7 +147,7 @@ export const SPORTS: SportDef[] = [
     gender: "W",
     slateNames: ["Lacrosse", "Lacrosse-Women", "W Lacrosse", "Women's Lacrosse", "Womens Lacrosse"],
     givingSlug: "womens-lacrosse",
-    virtuousProjectCode: null,
+    virtuousProjectCode: "6654WLACR",
   },
   {
     key: "womens-soccer",
@@ -149,7 +155,7 @@ export const SPORTS: SportDef[] = [
     gender: "W",
     slateNames: ["Soccer-Women", "W Soccer", "Women's Soccer", "Womens Soccer"],
     givingSlug: "womens-soccer",
-    virtuousProjectCode: null,
+    virtuousProjectCode: "6572WSoc",
   },
   {
     key: "womens-softball",
@@ -157,7 +163,7 @@ export const SPORTS: SportDef[] = [
     gender: "W",
     slateNames: ["Softball", "Softball-Women", "W Softball", "Women's Softball"],
     givingSlug: "womens-softball",
-    virtuousProjectCode: null,
+    virtuousProjectCode: "6557WSoft",
   },
   {
     key: "womens-volleyball",
@@ -165,7 +171,7 @@ export const SPORTS: SportDef[] = [
     gender: "W",
     slateNames: ["Volleyball", "Volleyball-Women", "W Volleyball", "Women's Volleyball"],
     givingSlug: "womens-volleyball",
-    virtuousProjectCode: null,
+    virtuousProjectCode: "6573WVB",
   },
 ];
 
