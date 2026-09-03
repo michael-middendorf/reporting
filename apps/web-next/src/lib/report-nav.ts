@@ -1,4 +1,5 @@
 import type { ReportId } from "@/lib/access";
+import { sportByKey } from "@/lib/reports/athletics-coaching/sports";
 
 export type ReportNavItem = {
   href: string;
@@ -45,6 +46,12 @@ export const ATHLETICS_NAV: ReportNavItem[] = [
   { href: "/athletics/master/recruiting/sectors", label: "Sector Boards", report: "athletics" },
   { href: "/athletics/master/recruiting/applications", label: "Applications", report: "athletics" },
   { href: "/athletics/master/recruiting/prospects", label: "Prospects / Inquiries", report: "athletics" },
+  { href: "/athletics/coaching", label: "Coaching", exact: true, report: "athletics-coaching" },
+  { href: "/athletics/coaching/overview", label: "Overview", report: "athletics-coaching" },
+];
+
+export const ATHLETICS_COACHING_NAV: ReportNavItem[] = [
+  { href: "/athletics/coaching/overview", label: "Overview", report: "athletics-coaching" },
 ];
 
 export const ASPIREDU_NAV: ReportNavItem[] = [
@@ -153,8 +160,17 @@ export function reportCrumbs(pathname: string): Crumb[] {
 
   if (crumbs[crumbs.length - 1]?.href !== pathname) {
     const extra = EXTRA_LEAVES.find((leaf) => leaf.href === pathname);
+    const coachingKey = pathname.startsWith("/athletics/coaching/")
+      ? pathname.slice("/athletics/coaching/".length)
+      : "";
+    const sport = coachingKey && !coachingKey.includes("/") ? sportByKey[coachingKey] : undefined;
     const leaf = pathname.split("/").filter(Boolean).pop() || "Page";
-    crumbs.push(extra ?? { href: pathname, label: titleCaseSegment(leaf) });
+    crumbs.push(
+      extra ??
+        (sport
+          ? { href: pathname, label: sport.label }
+          : { href: pathname, label: titleCaseSegment(leaf) }),
+    );
   }
   return crumbs;
 }

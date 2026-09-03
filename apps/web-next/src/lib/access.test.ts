@@ -5,6 +5,11 @@ import {
   canLogin,
   reportsForEmail,
 } from "./access";
+import {
+  canAccessSport,
+  coachSportKeys,
+  isCoachingLeadership,
+} from "./reports/athletics-coaching/access";
 
 const ROBERT = "Robert.Musselman@avemaria.edu";
 const ZENA = "zena.weist@avemaria.edu";
@@ -34,6 +39,7 @@ describe("chapel-only grant", () => {
     assert.equal(canAccessReport(ANNIE, "chapel"), false);
     assert.equal(canAccessReport(ANNIE, "advancement"), false);
     assert.equal(canAccessReport(ANNIE, "athletics"), false);
+    assert.equal(canAccessReport(ANNIE, "athletics-coaching"), false);
   });
 });
 
@@ -52,6 +58,7 @@ describe("institute-only grant", () => {
     assert.equal(canAccessReport(GABRIEL, "annunciation"), false);
     assert.equal(canAccessReport(GABRIEL, "aspiredu"), false);
     assert.equal(canAccessReport(GABRIEL, "athletics"), false);
+    assert.equal(canAccessReport(GABRIEL, "athletics-coaching"), false);
     assert.deepEqual(reportsForEmail(GABRIEL), ["institute"]);
   });
 });
@@ -68,9 +75,10 @@ describe("music board moved to hub", () => {
 describe("athletics-only grant", () => {
   const ERIC = "Eric.Vanheusen@avemaria.edu";
 
-  it("lets Eric sign in and open only Athletics Master", () => {
+  it("lets Eric sign in and open Athletics Master and coaching only", () => {
     assert.equal(canLogin(ERIC), true);
     assert.equal(canAccessReport(ERIC, "athletics"), true);
+    assert.equal(canAccessReport(ERIC, "athletics-coaching"), true);
     assert.equal(canAccessReport(ERIC, "enrollment"), false);
     assert.equal(canAccessReport(ERIC, "census"), false);
     assert.equal(canAccessReport(ERIC, "housing"), false);
@@ -80,7 +88,65 @@ describe("athletics-only grant", () => {
     assert.equal(canAccessReport(ERIC, "points"), false);
     assert.equal(canAccessReport(ERIC, "annunciation"), false);
     assert.equal(canAccessReport(ERIC, "aspiredu"), false);
-    assert.deepEqual(reportsForEmail(ERIC), ["athletics"]);
+    assert.deepEqual(reportsForEmail(ERIC), ["athletics", "athletics-coaching"]);
+  });
+});
+
+describe("athletics coaching access", () => {
+  const ERIC = "Eric.Vanheusen@avemaria.edu";
+  const COACH = "coach.a@avemaria.edu";
+  const OTHER = "annie.esposito@avemaria.edu";
+  const prevCoaches = process.env.ATHLETICS_COACHING_COACHES;
+  const prevLead = process.env.ATHLETICS_COACHING_LEADERSHIP_EMAILS;
+
+  it("gives leadership every sport and keeps recruiting plus coaching", () => {
+    assert.equal(isCoachingLeadership(ERIC), true);
+    assert.equal(coachSportKeys(ERIC), "all");
+    assert.equal(canAccessSport(ERIC, "football"), true);
+    assert.equal(canAccessSport(ERIC, "mens-soccer"), true);
+    assert.equal(canAccessSport(ERIC, "mens-golf"), true);
+    assert.equal(canAccessReport(ERIC, "athletics"), true);
+    assert.equal(canAccessReport(ERIC, "aspiredu"), false);
+  });
+
+  it("lets a mapped coach open only listed sports", () => {
+    process.env.ATHLETICS_COACHING_COACHES = JSON.stringify({
+      [COACH]: ["football"],
+    });
+    try {
+      assert.equal(canLogin(COACH), true);
+      assert.equal(canAccessReport(COACH, "athletics-coaching"), true);
+      assert.equal(canAccessReport(COACH, "athletics"), false);
+      assert.equal(canAccessReport(COACH, "aspiredu"), false);
+      assert.equal(isCoachingLeadership(COACH), false);
+      assert.deepEqual(coachSportKeys(COACH), ["football"]);
+      assert.equal(canAccessSport(COACH, "football"), true);
+      assert.equal(canAccessSport(COACH, "mens-soccer"), false);
+      assert.equal(canAccessSport(COACH, "womens-soccer"), false);
+    } finally {
+      if (prevCoaches === undefined) delete process.env.ATHLETICS_COACHING_COACHES;
+      else process.env.ATHLETICS_COACHING_COACHES = prevCoaches;
+    }
+  });
+
+  it("does not grant coaching to an unrelated report user", () => {
+    assert.equal(canAccessReport(OTHER, "athletics-coaching"), false);
+    assert.equal(canAccessSport(OTHER, "football"), false);
+    assert.equal(reportsForEmail(OTHER).includes("athletics-coaching"), false);
+  });
+
+  it("adds leadership from ATHLETICS_COACHING_LEADERSHIP_EMAILS", () => {
+    const extra = "pat.ad@avemaria.edu";
+    process.env.ATHLETICS_COACHING_LEADERSHIP_EMAILS = extra;
+    try {
+      assert.equal(isCoachingLeadership(extra), true);
+      assert.equal(canAccessReport(extra, "athletics-coaching"), true);
+      assert.equal(canAccessSport(extra, "womens-volleyball"), true);
+      assert.equal(canAccessReport(extra, "aspiredu"), false);
+    } finally {
+      if (prevLead === undefined) delete process.env.ATHLETICS_COACHING_LEADERSHIP_EMAILS;
+      else process.env.ATHLETICS_COACHING_LEADERSHIP_EMAILS = prevLead;
+    }
   });
 });
 
@@ -93,6 +159,7 @@ describe("housing grant for existing enrollment viewer", () => {
     assert.equal(canAccessReport(DAN, "housing"), true);
     assert.equal(canAccessReport(DAN, "census"), false);
     assert.equal(canAccessReport(DAN, "athletics"), false);
+    assert.equal(canAccessReport(DAN, "athletics-coaching"), false);
     assert.equal(canAccessReport(DAN, "institute"), false);
     assert.equal(canAccessReport(DAN, "advancement"), false);
     assert.equal(canAccessReport(DAN, "chapel"), false);
@@ -170,5 +237,6 @@ describe("full Advancement grants", () => {
     assert.equal(canAccessReport(leslie, "census"), false);
     assert.equal(canAccessReport(leslie, "enrollment"), false);
     assert.equal(canAccessReport(leslie, "athletics"), false);
+    assert.equal(canAccessReport(leslie, "athletics-coaching"), false);
   });
 });

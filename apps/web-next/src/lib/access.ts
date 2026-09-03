@@ -1,10 +1,12 @@
 import { normalizeEmail } from "@/lib/auth";
+import { coachingGrantEmails, hasCoachingGrant } from "./reports/athletics-coaching/access";
 
 /** Report ids used in routes and ACL checks. */
 export const REPORT_IDS = [
   "enrollment",
   "census",
   "athletics",
+  "athletics-coaching",
   "housing",
   "institute",
   "advancement",
@@ -48,6 +50,8 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
   athletics:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu,eric.vanheusen@avemaria.edu",
+  "athletics-coaching":
+    "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu,eric.vanheusen@avemaria.edu",
   housing:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,susan.gallagher@avemaria.edu,mark.middendorf@avemaria.edu,dan.donaldson@avemaria.edu",
   institute:
@@ -69,6 +73,7 @@ const ENV_KEYS: Record<ReportId, string> = {
   enrollment: "ENROLLMENT_ALLOWED_EMAILS",
   census: "CENSUS_ALLOWED_EMAILS",
   athletics: "ATHLETICS_ALLOWED_EMAILS",
+  "athletics-coaching": "ATHLETICS_COACHING_ALLOWED_EMAILS",
   housing: "HOUSING_ALLOWED_EMAILS",
   institute: "INSTITUTE_ALLOWED_EMAILS",
   advancement: "ADVANCEMENT_ALLOWED_EMAILS",
@@ -107,6 +112,8 @@ export function canAccessReport(email: string, report: ReportId): boolean {
   if (allowedEmailsForReport(report).has(e)) return true;
   // Advancement includes the chapel subset (naming + stained glass).
   if (report === "chapel" && allowedEmailsForReport("advancement").has(e)) return true;
+  // Coaches in the sport map get this report without an allowlist CSV row.
+  if (report === "athletics-coaching" && hasCoachingGrant(e)) return true;
   return false;
 }
 
@@ -115,7 +122,8 @@ export function canLogin(email: string): boolean {
   const e = normalizeEmail(email);
   if (!e) return false;
   if (isAdmin(e)) return true;
-  return REPORT_IDS.some((r) => allowedEmailsForReport(r).has(e));
+  if (REPORT_IDS.some((r) => allowedEmailsForReport(r).has(e))) return true;
+  return hasCoachingGrant(e);
 }
 
 export function reportsForEmail(email: string): ReportId[] {
@@ -128,6 +136,7 @@ export function allLoginEmails(): string[] {
   for (const r of REPORT_IDS) {
     for (const e of allowedEmailsForReport(r)) set.add(e);
   }
+  for (const e of coachingGrantEmails()) set.add(e);
   return [...set].sort();
 }
 
