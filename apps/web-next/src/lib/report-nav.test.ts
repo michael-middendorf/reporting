@@ -182,6 +182,12 @@ describe("reportCrumbs", () => {
       { href: "/athletics/coaching", label: "Coaching" },
       { href: "/athletics/coaching/mens-soccer", label: "Men's Soccer" },
     ]);
+    assert.deepEqual(reportCrumbs("/athletics/coaching/mfa"), [
+      { href: "/", label: "Reports" },
+      { href: "/athletics", label: "Athletics" },
+      { href: "/athletics/coaching", label: "Coaching" },
+      { href: "/athletics/coaching/mfa", label: "Authenticator" },
+    ]);
   });
 });
 

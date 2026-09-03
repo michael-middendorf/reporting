@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { canAccessReport } from "@/lib/access";
 import { currentUserEmail } from "@/lib/auth";
 import { aspireduPrivateHeaders, getAspireduMfaSession } from "@/lib/aspiredu-auth";
 import { invokeProcessor } from "@/lib/process-invoke";
@@ -6,6 +7,9 @@ import { invokeProcessor } from "@/lib/process-invoke";
 export async function GET(req: Request, context: { params: Promise<{ studentKey: string }> }) {
   const email = currentUserEmail(req);
   if (!email) return NextResponse.json({ error: "Authentication required" }, { status: 401, headers: aspireduPrivateHeaders });
+  if (!canAccessReport(email, "aspiredu")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: aspireduPrivateHeaders });
+  }
   const mfa = await getAspireduMfaSession(req, email);
   if (!mfa) return NextResponse.json({ error: "MFA required" }, { status: 401, headers: aspireduPrivateHeaders });
   const functionName = process.env.ASPIREDU_STUDENTS_FUNCTION?.trim();

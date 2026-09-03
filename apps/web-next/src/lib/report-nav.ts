@@ -109,6 +109,7 @@ export const REPORT_FOLDERS: ReportFolder[] = [
 
 const EXTRA_LEAVES: Crumb[] = [
   { href: "/aspiredu/mfa", label: "Authenticator" },
+  { href: "/athletics/coaching/mfa", label: "Authenticator" },
   { href: "/enrollment/activity", label: "Activity" },
 ];
 

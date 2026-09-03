@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import type { AcademicsSummary } from "@/lib/reports/athletics-coaching/academics";
 import type { EnrollmentSummary } from "@/lib/reports/athletics-coaching/enrollment";
 import type { SportFundraising } from "@/lib/reports/athletics-coaching/fundraising";
 import type { SportDef } from "@/lib/reports/athletics-coaching/sports";
@@ -216,22 +217,166 @@ function EnrollmentBand({ sportKey }: { sportKey: string }) {
   );
 }
 
+function formatWhen(value: string | null): string {
+  if (!value) return "—";
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? value : new Date(parsed).toLocaleDateString();
+}
+
+function pulseLabel(band: "attending" | "watch" | "inactive"): string {
+  if (band === "attending") return "Attending";
+  if (band === "watch") return "Watch";
+  return "Inactive";
+}
+
+function AcademicsBand({ sportKey }: { sportKey: string }) {
+  const [data, setData] = useState<AcademicsSummary | null>(null);
+  const [mfaUrl, setMfaUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setMfaUrl(null);
+    apiFetch(`/api/athletics-coaching/academics?sport=${encodeURIComponent(sportKey)}`, { cache: "no-store" })
+      .then(async (response) => {
+        const body = await response.json();
+        if (response.status === 401 && body.mfaUrl) {
+          if (!cancelled) setMfaUrl(String(body.mfaUrl));
+          return;
+        }
+        if (!response.ok) throw new Error(body.error || "Unable to load academics");
+        if (!cancelled) setData(body as AcademicsSummary);
+      })
+      .catch((reason) => {
+        if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sportKey]);
+
+  return (
+    <section className="ath-coach-band">
+      <h2>Academics</h2>
+      {loading ? <p>Loading academic snapshots…</p> : null}
+      {mfaUrl ? (
+        <p>
+          Named athlete academics need an authenticator code.{" "}
+          <Link href={mfaUrl}>Continue with authenticator</Link>
+        </p>
+      ) : null}
+      {error ? <p>{error}</p> : null}
+      {!loading && !error && !mfaUrl && data && !data.rosterAvailable ? (
+        <p>The roster feed is not in yet. Named student academics cannot be shown until the roster lands.</p>
+      ) : null}
+      {!loading && !error && !mfaUrl && data?.rosterAvailable ? (
+        <>
+          <p>
+            {data.matchedCount} of {data.rosterCount} rostered athletes have an academic snapshot
+            {data.asOf ? ` as of ${formatWhen(data.asOf)}` : ""}.
+          </p>
+          {data.athletes.length ? (
+            <div className="ath-table-scroll ath-coach-academics">
+              <table className="ath-table">
+                <thead>
+                  <tr>
+                    <th>Athlete</th>
+                    <th>Risk</th>
+                    <th>Attendance pulse</th>
+                    <th>Last attended</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.athletes.map((athlete) => {
+                    const key = athlete.email || athlete.pcid || athlete.name;
+                    const expanded = open === key;
+                    return (
+                      <Fragment key={key}>
+                        <tr>
+                          <td>
+                            <button
+                              type="button"
+                              className="ath-text-btn"
+                              onClick={() => setOpen(expanded ? null : key)}
+                              disabled={!athlete.matched}
+                            >
+                              {athlete.name}
+                            </button>
+                            {!athlete.matched ? (
+                              <span className="ath-badge">no academic snapshot</span>
+                            ) : null}
+                          </td>
+                          <td>{athlete.matched ? athlete.risk || "—" : "—"}</td>
+                          <td>
+                            {athlete.pulse ? pulseLabel(athlete.pulse.band) : "—"}
+                          </td>
+                          <td>{formatWhen(athlete.lastAttended)}</td>
+                        </tr>
+                        {expanded ? (
+                          <tr className="ath-coach-courses">
+                            <td colSpan={4}>
+                              {athlete.courses.length ? (
+                                <table className="ath-table">
+                                  <thead>
+                                    <tr>
+                                      <th>Course</th>
+                                      <th>Grade</th>
+                                      <th>Missing</th>
+                                      <th>Last access</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {athlete.courses.map((course, index) => (
+                                      <tr key={`${key}-course-${index}`}>
+                                        <td>{course.course}</td>
+                                        <td>{course.grade ?? "—"}</td>
+                                        <td>{course.missing ?? "—"}</td>
+                                        <td>{formatWhen(course.lastAccess)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              ) : (
+                                <p>No course rows in this snapshot.</p>
+                              )}
+                            </td>
+                          </tr>
+                        ) : null}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p>No rostered athletes for this team.</p>
+          )}
+        </>
+      ) : null}
+    </section>
+  );
+}
+
 export function CoachingBands({ sportKey, sportLabel }: { sportKey: string; sportLabel: string }) {
   return (
     <main className="ath-page">
       <div className="ath-page-heading">
         <div>
           <h1>{sportLabel}</h1>
-          <p>Team dashboard. Academics are not in the report yet.</p>
+          <p>Team dashboard.</p>
         </div>
       </div>
       <div className="ath-coach-bands">
         <FundraisingBand sportKey={sportKey} />
         <EnrollmentBand sportKey={sportKey} />
-        <section className="ath-coach-band">
-          <h2>Academics</h2>
-          <p>Academic standing for this team is coming. Named student rows are not part of this report yet.</p>
-        </section>
+        <AcademicsBand sportKey={sportKey} />
       </div>
     </main>
   );

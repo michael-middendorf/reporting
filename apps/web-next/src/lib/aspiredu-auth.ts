@@ -8,6 +8,7 @@ import {
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { CognitoJwtVerifier } from "aws-jwt-verify";
+import { canAccessReport } from "@/lib/access";
 import { normalizeEmail } from "@/lib/auth";
 import { generateTotpSecret, otpauthUrl, verifyTotp } from "@/lib/totp";
 
@@ -83,13 +84,20 @@ export function isAspireduStudentViewer(email: string) {
   return AUTHORIZED.has(normalizeEmail(email));
 }
 
+/** FERPA TOTP for campus Academic Affairs viewers and coaching dashboards. */
+export function canUseFerpaTotp(email: string) {
+  const normalized = normalizeEmail(email);
+  if (!normalized) return false;
+  return isAspireduStudentViewer(normalized) || canAccessReport(normalized, "athletics-coaching");
+}
+
 function totpKey(email: string, kind: "enrolled" | "pending") {
   return `totp#${kind}#${normalizeEmail(email)}`;
 }
 
 export async function aspireduTotpStatus(email: string) {
   const normalized = normalizeEmail(email);
-  if (!isAspireduStudentViewer(normalized)) throw new Error("not authorized for student-level AspireDU data");
+  if (!canUseFerpaTotp(normalized)) throw new Error("not authorized for student-level AspireDU data");
   const response = await ddb.send(new GetCommand({
     TableName: required("ASPIREDU_SESSION_TABLE"),
     Key: { sessionId: totpKey(normalized, "enrolled") },
@@ -100,7 +108,7 @@ export async function aspireduTotpStatus(email: string) {
 
 export async function beginAspireduTotpEnrollment(email: string) {
   const normalized = normalizeEmail(email);
-  if (!isAspireduStudentViewer(normalized)) throw new Error("not authorized for student-level AspireDU data");
+  if (!canUseFerpaTotp(normalized)) throw new Error("not authorized for student-level AspireDU data");
   const existing = await aspireduTotpStatus(normalized);
   if (existing.enrolled) throw new Error("authenticator is already enrolled");
   const secret = generateTotpSecret();
@@ -120,7 +128,7 @@ export async function beginAspireduTotpEnrollment(email: string) {
 
 export async function completeAspireduTotp(email: string, code: string) {
   const normalized = normalizeEmail(email);
-  if (!isAspireduStudentViewer(normalized)) throw new Error("not authorized for student-level AspireDU data");
+  if (!canUseFerpaTotp(normalized)) throw new Error("not authorized for student-level AspireDU data");
   const table = required("ASPIREDU_SESSION_TABLE");
   const enrolled = await ddb.send(new GetCommand({
     TableName: table,
@@ -319,7 +327,7 @@ export async function getAspireduMfaSession(req: Request, expectedEmail?: string
   const now = Math.floor(Date.now() / 1000);
   if (!item || item.type !== "SESSION" || item.expiresAt <= now) return null;
   const email = normalizeEmail(String(item.email || ""));
-  if (!isAspireduStudentViewer(email) || (expectedEmail && email !== normalizeEmail(expectedEmail))) return null;
+  if (!canUseFerpaTotp(email) || (expectedEmail && email !== normalizeEmail(expectedEmail))) return null;
   if (item.auth !== "totp" && Number(item.tokenExpiresAt || 0) <= now + 60) {
     item = await refreshSession(item) || undefined;
     if (!item) return null;
@@ -346,12 +354,34 @@ export async function endAspireduMfa(req: Request) {
   }
 }
 
+function mfaCookie(value: string, path: string, maxAge: number) {
+  const expire = maxAge === 0 ? "Expires=Thu, 01 Jan 1970 00:00:00 GMT; " : "";
+  return `${ASPIREDU_MFA_COOKIE}=${value}; Path=${path}; Max-Age=${maxAge}; ${expire}HttpOnly; Secure; SameSite=Strict`;
+}
+
+/**
+ * Path=/ so one amu_aspiredu_mfa session is sent on /aspiredu and
+ * /athletics/coaching. Path=/aspiredu is not sent on coaching APIs.
+ */
 export function aspireduSessionCookie(sessionId: string) {
-  return `${ASPIREDU_MFA_COOKIE}=${encodeURIComponent(sessionId)}; Path=/aspiredu; Max-Age=${8 * 60 * 60}; HttpOnly; Secure; SameSite=Strict`;
+  return mfaCookie(encodeURIComponent(sessionId), "/", 8 * 60 * 60);
 }
 
 export function clearAspireduSessionCookie() {
-  return `${ASPIREDU_MFA_COOKIE}=; Path=/aspiredu; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; SameSite=Strict`;
+  return mfaCookie("", "/", 0);
+}
+
+/** Expire leftover Path=/aspiredu cookies from the previous MFA cookie. */
+export function clearLegacyAspireduSessionCookie() {
+  return mfaCookie("", "/aspiredu", 0);
+}
+
+export function aspireduSessionSetCookieHeaders(sessionId: string) {
+  return [aspireduSessionCookie(sessionId), clearLegacyAspireduSessionCookie()];
+}
+
+export function aspireduSessionClearCookieHeaders() {
+  return [clearAspireduSessionCookie(), clearLegacyAspireduSessionCookie()];
 }
 
 export const aspireduPrivateHeaders = {
