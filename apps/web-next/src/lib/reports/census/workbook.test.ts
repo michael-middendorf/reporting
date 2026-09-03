@@ -268,6 +268,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(reportXml, /Other\(THRE\)/);
   assert.match(reportXml, /Row Labels/);
   assert.match(reportXml, /Athletic Retention/);
+  assert.match(files["xl/styles.xml"], /formatCode="0.00"/);
   assert.match(reportXml, /Application Decisions Retention/);
   assert.match(reportXml, /Not listed/);
   assert.match(reportXml, /Committee admits and admin overrides/);

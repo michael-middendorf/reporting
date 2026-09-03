@@ -19,7 +19,7 @@ export type CellStyle = {
   size?: number;
   color?: string;
   fill?: string;
-  numFmt?: "int" | "fte" | "pct";
+  numFmt?: "int" | "fte" | "pct" | "dec2";
   indent?: number;
   hAlign?: "center" | "left";
   vAlign?: "center" | "top" | "bottom";
@@ -195,6 +195,7 @@ const NUM_FMTS: Record<string, string> = {
   int: "#,##0",
   fte: "#,##0.0",
   pct: "0.0%",
+  dec2: "0.00",
 };
 
 function packXlsx(sheets: XlsxSheet[]): Buffer {
@@ -415,7 +416,9 @@ function stylesXml(styles: CellStyle[]): string {
   const numFmts = Object.entries(NUM_FMTS)
     .map(([k, fmt], i) => `<numFmt numFmtId="${164 + i}" formatCode="${xmlEscape(fmt)}"/>`)
     .join("");
-  const numFmtId: Record<string, number> = { int: 164, fte: 165, pct: 166 };
+  const numFmtId: Record<string, number> = Object.fromEntries(
+    Object.keys(NUM_FMTS).map((k, i) => [k, 164 + i]),
+  );
 
   const xfs = styles
     .map((s) => {

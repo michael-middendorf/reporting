@@ -132,7 +132,7 @@ function writeCountTable(
   title: string,
   headers: string[],
   rows: CellValue[][],
-  opts?: { pctCols?: number[]; intCols?: number[]; total?: boolean },
+  opts?: { pctCols?: number[]; intCols?: number[]; decCols?: number[]; total?: boolean },
 ): number {
   const body = rows.length ? rows : needsPlaceholder(headers.length);
   const empty = !rows.length;
@@ -154,6 +154,7 @@ function writeCountTable(
     if (!empty) {
       for (const c of opts?.intCols || []) applyFmt(ws, r, startCol + c, "int");
       for (const c of opts?.pctCols || []) applyFmt(ws, r, startCol + c, "pct");
+      for (const c of opts?.decCols || []) applyFmt(ws, r, startCol + c, "dec2");
     }
     r += 1;
   }
@@ -969,7 +970,7 @@ function writeCensusReport(
       "Non-Retained 3.0+ GPA",
     ],
     sportRetentionRows,
-    { intCols: [1, 2, 3, 4, 5, 10], pctCols: [6, 7], total: true },
+    { intCols: [1, 2, 3, 4, 5, 10], pctCols: [6, 7], decCols: [8, 9], total: true },
   );
   ws.set(
     athEnd,
