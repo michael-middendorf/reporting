@@ -28,6 +28,10 @@ export const RETENTION_FORCE_GRADUATED: GraduateRecord[] = [
     "P000383151",
     "P000358530",
   ].map((pcid) => ({ pcid, year: "2026", term: "SUMMER" })),
+  // Extract term Spring 2025; conferral Dec 13 2025 is Fall.
+  { pcid: "P000358025", year: "2025", term: "FALL", date: "2025-12-13" }, // Clayton Mather
+  { pcid: "P000341586", year: "2025", term: "FALL", date: "2025-12-13" }, // Joseph Suchomski
+  { pcid: "P000342817", year: "2025", term: "FALL", date: "2025-12-13" }, // Brenden Wilson
 ];
 
 /**

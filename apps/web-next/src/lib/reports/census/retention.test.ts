@@ -283,6 +283,56 @@ test("FTCA without football drops football from the cohort and sport table", () 
   assert.equal(noFb.bySport[0]?.label, "Volleyball");
 });
 
+test("December 2025 conferrals labeled Spring 2025 count in All UG graduates", () => {
+  const rows = [
+    prior({
+      pcid: "P000358025",
+      first: "Clayton",
+      last: "Mather",
+      incomingReturning: "Returning",
+      collegeAttend: "TRAN",
+      classLevel: "Senior",
+      athlete: "Non-Athlete",
+      sport: "",
+    }),
+    prior({
+      pcid: "P000341586",
+      first: "Joseph",
+      last: "Suchomski",
+      incomingReturning: "Returning",
+      collegeAttend: "FTCA",
+      classLevel: "Senior",
+      athlete: "Non-Athlete",
+      sport: "",
+    }),
+    prior({
+      pcid: "P000342817",
+      first: "Brenden",
+      last: "Wilson",
+      incomingReturning: "Returning",
+      collegeAttend: "FTCA",
+      classLevel: "Senior",
+      athlete: "Non-Athlete",
+      sport: "",
+    }),
+    prior({ pcid: "P1", incomingReturning: "Incoming" }),
+  ];
+  const extract = [
+    { pcid: "P000358025", year: "2025", term: "SPRING", date: "2025-12-13" },
+    { pcid: "P000341586", year: "2025", term: "SPRING", date: "2025-12-13" },
+    { pcid: "P000342817", year: "2025", term: "SPRING", date: "2025-12-13" },
+  ];
+  const withDate = buildAllUgSplit(rows, ["P1"], extract);
+  assert.equal(withDate.all.graduated, 3);
+  assert.equal(withDate.nonAthletes.graduated, 3);
+  const termOnly = buildAllUgSplit(
+    rows,
+    ["P1"],
+    extract.map(({ pcid, year, term }) => ({ pcid, year, term })),
+  );
+  assert.equal(termOnly.all.graduated, 3, "force list covers S25 extract when conferral date is missing");
+});
+
 test("retention notes exclude Aiden Wilson, count Parks as retained, and treat listed graduates as grads", () => {
   const a = buildFtcaAttritionFromPrior(
     [
