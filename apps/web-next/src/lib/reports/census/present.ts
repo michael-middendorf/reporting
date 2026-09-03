@@ -76,6 +76,9 @@ function sortStatesAlpha(rows: AttritionRow[]): AttritionRow[] {
   return [...rows].sort((a, b) => {
     if (a.label === "Total") return 1;
     if (b.label === "Total") return -1;
+    const aLast = a.label === "International" ? 1 : 0;
+    const bLast = b.label === "International" ? 1 : 0;
+    if (aLast !== bLast) return aLast - bLast;
     return a.label.localeCompare(b.label);
   });
 }

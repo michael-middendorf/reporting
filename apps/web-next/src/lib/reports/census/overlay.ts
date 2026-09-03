@@ -86,7 +86,7 @@ export async function loadCensusSnapshot(): Promise<{
     applyRegistrationTotals(data, lists.students);
   }
   if (lists.prior.length) {
-    lists = { ...lists, prior: applyCensusVerifyNotes(lists.prior) };
+    lists = { ...lists, prior: applyCensusVerifyNotes(lists.prior, { incomingNotes: false }) };
   }
   if (lists.prior.length && lists.students.length) {
     const notes = applyCensusRetentionNotes(lists.prior, lists.students.map((s) => s.pcid), lists.graduates);

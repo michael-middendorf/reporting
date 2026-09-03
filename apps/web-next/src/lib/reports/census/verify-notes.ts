@@ -1,4 +1,4 @@
-import { normPcid, type CensusRawStudent } from "./lists-core";
+import { isBlankCensusState, normPcid, type CensusRawStudent } from "./lists-core";
 
 /**
  * Fall 2026 Verify-tab notes (last column). Applied after eRez / Ireland
@@ -45,19 +45,35 @@ export const CENSUS_SPORT_NOTES: Record<string, string> = {
   P000382172: "Rugby-Men", // Christopher Peloso
 };
 
-export function applyCensusVerifyNotes(students: CensusRawStudent[]): CensusRawStudent[] {
+/**
+ * US state from FA25 Incoming Students Census 20260903-135650 Person State.
+ * Canadians and FC stay blank so tables list them as International.
+ * Fills blank/"-" only. Does not overwrite a filled state.
+ */
+export const CENSUS_STATE_NOTES: Record<string, string> = {
+  P000384774: "UT", // Zachary Szymakowski
+};
+
+export function applyCensusVerifyNotes(
+  students: CensusRawStudent[],
+  opts?: { incomingNotes?: boolean },
+): CensusRawStudent[] {
+  const useIncoming = opts?.incomingNotes !== false;
   return dropGraduateIfUndergOnly(
     students.map((s) => {
       const id = normPcid(s.pcid);
       const residency = CENSUS_RESIDENCY_NOTES[id];
-      const incomingReturning = CENSUS_INCOMING_NOTES[id];
+      const incomingReturning = useIncoming ? CENSUS_INCOMING_NOTES[id] : undefined;
       const sport = CENSUS_SPORT_NOTES[id];
-      if (!residency && !incomingReturning && !sport) return s;
+      const stateNote = CENSUS_STATE_NOTES[id];
+      const state = stateNote && isBlankCensusState(s.state) ? stateNote : undefined;
+      if (!residency && !incomingReturning && !sport && !state) return s;
       return {
         ...s,
         ...(residency ? { residency } : {}),
         ...(incomingReturning ? { incomingReturning } : {}),
         ...(sport ? { sport, athlete: "Athlete" } : {}),
+        ...(state ? { state } : {}),
       };
     }),
   );

@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { applyErezResidency, markIrelandReturning, markSpringAdmitsReturning } from "./lists";
 import type { CensusRawStudent } from "./lists-core";
 import { applyCensusVerifyNotes, omitExcludedHousing } from "./verify-notes";
+import { buildFtcaAttritionFromPrior } from "./retention";
 import { buildVerifyList } from "./verify";
 
 function raw(partial: Partial<CensusRawStudent>): CensusRawStudent {
@@ -115,6 +116,43 @@ test("verify notes count new-program graduates as Incoming even if spring/summer
   assert.equal(out[0]?.incomingReturning, "Incoming");
   assert.equal(out[1]?.incomingReturning, "Returning");
   assert.equal(out[2]?.incomingReturning, "Incoming");
+});
+
+test("US missing state fills from the incoming extract; Canadians stay blank", () => {
+  const out = applyCensusVerifyNotes(
+    [
+      raw({ pcid: "P000384823", first: "Maya", last: "Bassi", state: "-", incomingReturning: "Incoming" }),
+      raw({ pcid: "P000384774", first: "Zachary", last: "Szymakowski", state: "", incomingReturning: "Incoming" }),
+    ],
+    { incomingNotes: false },
+  );
+  assert.equal(out.find((s) => s.pcid === "P000384823")?.state, "-", "Welland ON is international, not a US state");
+  assert.equal(out.find((s) => s.pcid === "P000384774")?.state, "UT");
+});
+
+test("incoming notes do not rewrite last year's FTCA cohort", () => {
+  const fa25 = [
+    raw({
+      pcid: "P000343255",
+      first: "Ivy",
+      last: "Verburgt",
+      incomingReturning: "Returning",
+      collegeAttend: "FTCA",
+      classLevel: "Senior",
+    }),
+    raw({
+      pcid: "P000380001",
+      first: "New",
+      last: "Ftca",
+      incomingReturning: "Incoming",
+      collegeAttend: "FTCA",
+      classLevel: "Freshman",
+    }),
+  ];
+  const prior = applyCensusVerifyNotes(fa25, { incomingNotes: false });
+  assert.equal(prior.find((s) => s.pcid === "P000343255")?.incomingReturning, "Returning");
+  const a = buildFtcaAttritionFromPrior(prior, ["P000380001"], []);
+  assert.equal(a.cohort, 1);
 });
 
 test("Pankratz is dropped from census housing after the verify note", () => {

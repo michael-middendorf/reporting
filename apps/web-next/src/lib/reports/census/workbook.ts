@@ -61,7 +61,6 @@ import {
 import {
   amuUndergraduateAlumniIds,
   buildGraduateEnrollment,
-  summerGraduateCounts,
   summaryFromStudents,
   type GraduateProgramStats,
 } from "./from-lists";
@@ -444,7 +443,7 @@ function writeGraduateEnrollment(
     ...programs.map(gradProgramRow),
     ...(overall ? [gradProgramRow({ ...overall, program: "Total" })] : []),
   ];
-  let r = writeCountTable(
+  writeCountTable(
     ws,
     4,
     1,
@@ -464,26 +463,6 @@ function writeGraduateEnrollment(
     ],
     rows,
     { intCols: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], total: true },
-  );
-  const summer = summerGraduateCounts(graduates);
-  const summerN = summer.reduce((s, row) => s + row.n, 0);
-  const summerRows: CellValue[][] = summer.length
-    ? [...summer.map((row) => [row.program, row.n]), ["Total", summerN]]
-    : [];
-  r = writeCountTable(
-    ws,
-    r + 2,
-    1,
-    "Summer 2026 graduates",
-    ["Program", "Graduates"],
-    summerRows,
-    { intCols: [1], total: true },
-  );
-  ws.set(
-    r,
-    1,
-    "Everyone with Graduation Term Summer 2026 on Graduated All-15. Counted as graduated this year (F25–F26 intervening). Not fall enrollment.",
-    NOTE,
   );
 }
 

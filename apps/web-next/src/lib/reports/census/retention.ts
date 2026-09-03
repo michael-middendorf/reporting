@@ -1,6 +1,7 @@
 import {
   canonicalCensusSport,
   censusAppDecision,
+  censusStateLabel,
   isInterveningGraduate,
   isSpringOrSummerAdmit,
   isTeamAthlete,
@@ -422,7 +423,7 @@ export function deriveFtcaRaw(
         ethnicity: s.ethnicity || "",
         hsGpa: s.hsGpa ?? "",
         city: s.city || "",
-        state: s.state || "",
+        state: censusStateLabel(s.state),
         institute: s.institute || "",
       };
     })
@@ -652,11 +653,9 @@ export function buildAssociationRetention(
   const registered = notes.registered;
   const graduated = notes.graduated;
   const buckets: { label: string; test: (s: CensusRawStudent) => boolean }[] = [
-    { label: "Households", test: (s) => Boolean(blank(s.household)) },
     { label: "FSP", test: (s) => Boolean(blank(s.fsp)) },
-    { label: "Institute", test: (s) => Boolean(blank(s.institute)) },
-    { label: "Mary's Marines", test: (s) => Boolean(blank(s.marines)) },
     { label: "Institute", test: (s) => associationFlag(s.institute) },
+    { label: "Mary's Marines", test: (s) => Boolean(blank(s.marines)) },
   ];
   const rows: CrosstabRow[] = [];
   for (const b of buckets) {
@@ -784,7 +783,7 @@ export function buildFtcaAttritionFromPrior(
     if (status === "enrolled") enrolledThisFall += 1;
     if (status === "left") notRetained += 1;
     if (status === "graduated") graduatedN += 1;
-    bump(byState, s.state || "International", status);
+    bump(byState, censusStateLabel(s.state), status);
     bump(byAthlete, athleteOf(s), status);
     const sport = sportOf(s);
     if (sport) bump(bySport, sport, status);

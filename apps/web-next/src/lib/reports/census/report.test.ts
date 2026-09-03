@@ -356,6 +356,25 @@ test("country percentages are of international students, like the FA25 sheet", (
   assert.equal(rpt.states.find((r) => r.label === "International")?.n, 4);
 });
 
+test("dash, Canadian provinces, and FC are International, not a '-' row", () => {
+  const rpt = buildReport(
+    filterStudents(
+      set([
+        raw({ pcid: "1", state: "-" }),
+        raw({ pcid: "2", state: "ON" }),
+        raw({ pcid: "3", state: "FC" }),
+        raw({ pcid: "4", state: "UT" }),
+      ]),
+      DEFAULT_FILTERS,
+    ),
+  );
+  assert.equal(rpt.states.some((r) => r.label === "-"), false);
+  assert.equal(rpt.states.some((r) => r.label === "ON"), false);
+  assert.equal(rpt.states.some((r) => r.label === "FC"), false);
+  assert.equal(rpt.states.find((r) => r.label === "International")?.n, 3);
+  assert.equal(rpt.states.find((r) => r.label === "UT")?.n, 1);
+});
+
 test("sport table splits team athletes from athletics associated like S26", () => {
   const rows = set([
     raw({ pcid: "1", sport: "Football", athlete: "Athlete", athleticType: "Varsity" }),

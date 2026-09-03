@@ -1,6 +1,7 @@
 import {
   canonicalCensusSport,
   censusAppDecision,
+  censusStateLabel,
   isBachelorDegree,
   isTeamAthlete,
   isUgDegreeSeekingRow,
@@ -405,7 +406,7 @@ export function buildReport(rows: ReportStudent[]): ReportTables {
   const states = alphaStates(
     counts(rows, (s) => {
       if (isF1International(s)) return "International";
-      return s.state || "International";
+      return censusStateLabel(s.state);
     }),
   );
 

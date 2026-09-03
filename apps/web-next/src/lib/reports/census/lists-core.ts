@@ -308,6 +308,26 @@ export function censusAppDecision(raw: string | null | undefined): string {
   return (raw || "").trim() || "Not listed";
 }
 
+/** Canadian provinces. Not US states. "CA" is California, not Canada. */
+const CANADIAN_PROVINCES = new Set(["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT"]);
+
+/** Blank and "-" are missing, not a state. */
+export function isBlankCensusState(state?: string | null): boolean {
+  const t = (state || "").trim();
+  return !t || t === "-";
+}
+
+/** FC (foreign country) and Canadian provinces count as International, not a US state. */
+export function isInternationalCensusState(state?: string | null): boolean {
+  const t = (state || "").trim().toUpperCase();
+  return isBlankCensusState(state) || t === "FC" || CANADIAN_PROVINCES.has(t);
+}
+
+/** Table label: internationals and missing states are International. */
+export function censusStateLabel(state?: string | null, blank = "International"): string {
+  return isInternationalCensusState(state) ? blank : (state || "").trim();
+}
+
 /** Conferral date wins over extract term. Dec = Fall, Jun–Aug = Summer, Jan–May = Spring. */
 export function academicTermFromDate(
   raw: string | Date | null | undefined,

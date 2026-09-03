@@ -7,6 +7,7 @@ import {
   buildAllUgSplit,
   buildCrosstab,
   buildAdmitOverrideRetention,
+  buildAssociationRetention,
   buildFtcaAttritionFromPrior,
   buildFtcaExtras,
   buildSportRetention,
@@ -172,6 +173,33 @@ test("FTCA raw is Incoming+FTCA from last fall, any class, not spring admits", (
     ),
     false,
   );
+});
+
+test("FTCA state tables list internationals as International, not dash/ON/FC", () => {
+  const a = buildFtcaAttritionFromPrior(
+    [
+      prior({ pcid: "P1", state: "-" }),
+      prior({ pcid: "P2", state: "ON" }),
+      prior({ pcid: "P3", state: "FC" }),
+      prior({ pcid: "P4", state: "UT" }),
+      prior({ pcid: "P5", state: "FL" }),
+    ],
+    ["P1", "P2", "P3", "P4", "P5"],
+    [],
+  );
+  assert.equal(a.byState.some((r) => r.label === "-"), false);
+  assert.equal(a.byState.some((r) => r.label === "ON"), false);
+  assert.equal(a.byState.some((r) => r.label === "FC"), false);
+  assert.equal(a.byState.find((r) => r.label === "International")?.students, 3);
+  assert.equal(a.byState.find((r) => r.label === "UT")?.students, 1);
+  assert.equal(a.byState.find((r) => r.label === "FL")?.students, 1);
+  const rawRows = deriveFtcaRaw(
+    [prior({ pcid: "P1", state: "-" }), prior({ pcid: "P4", state: "UT" })],
+    [],
+    [],
+  );
+  assert.equal(rawRows.find((r) => r.pcid === "P1")?.state, "International");
+  assert.equal(rawRows.find((r) => r.pcid === "P4")?.state, "UT");
 });
 
 test("FTCA attrition cohort is Incoming+FTCA", () => {
@@ -343,6 +371,25 @@ test("committee admits and admin overrides split Overall, FTCA, gender, and athl
   assert.equal(adm.find((r) => r.label2 === "FTCA")?.students, 1);
   assert.equal(comm.find((r) => r.label2 === "Overall")?.students, 1);
   assert.equal(comm.find((r) => r.label2 === "FTCA")?.students, 1);
+});
+
+test("association retention omits Households and lists Institute once per gender", () => {
+  const rows = buildAssociationRetention(
+    [
+      prior({ pcid: "H1", gender: "Female", household: "Called By Name" }),
+      prior({ pcid: "I1", gender: "Female", institute: "Scholar" }),
+      prior({ pcid: "I2", gender: "Male", institute: "Scholar" }),
+      prior({ pcid: "F1", gender: "Male", fsp: "FSP" }),
+    ],
+    ["H1", "I1", "I2", "F1"],
+    [],
+  );
+  assert.equal(rows.some((r) => r.label === "Households"), false);
+  const institute = rows.filter((r) => r.label === "Institute");
+  assert.equal(institute.length, 2);
+  assert.equal(institute.find((r) => r.label2 === "Female")?.students, 1);
+  assert.equal(institute.find((r) => r.label2 === "Male")?.students, 1);
+  assert.equal(rows.filter((r) => r.label === "FSP").length, 2);
 });
 
 test("leave of absence stays in the FA25 cohort and counts as retained", () => {
