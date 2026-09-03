@@ -165,6 +165,23 @@ describe("reportCrumbs", () => {
       { href: "/athletics/master", label: "Master" },
       { href: "/athletics/master/rosters", label: "Rosters" },
     ]);
+    assert.deepEqual(reportCrumbs("/athletics/coaching"), [
+      { href: "/", label: "Reports" },
+      { href: "/athletics", label: "Athletics" },
+      { href: "/athletics/coaching", label: "Coaching" },
+    ]);
+    assert.deepEqual(reportCrumbs("/athletics/coaching/overview"), [
+      { href: "/", label: "Reports" },
+      { href: "/athletics", label: "Athletics" },
+      { href: "/athletics/coaching", label: "Coaching" },
+      { href: "/athletics/coaching/overview", label: "Overview" },
+    ]);
+    assert.deepEqual(reportCrumbs("/athletics/coaching/mens-soccer"), [
+      { href: "/", label: "Reports" },
+      { href: "/athletics", label: "Athletics" },
+      { href: "/athletics/coaching", label: "Coaching" },
+      { href: "/athletics/coaching/mens-soccer", label: "Men's Soccer" },
+    ]);
   });
 });
 
@@ -185,5 +202,7 @@ describe("isDepartmentHub", () => {
     assert.equal(isDepartmentHub("/athletics"), true);
     assert.equal(isDepartmentHub("/athletics/master"), false);
     assert.equal(isDepartmentHub("/athletics/master/recruiting"), false);
+    assert.equal(isDepartmentHub("/athletics/coaching"), false);
+    assert.equal(isDepartmentHub("/athletics/coaching/overview"), false);
   });
 });

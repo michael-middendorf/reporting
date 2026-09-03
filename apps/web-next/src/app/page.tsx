@@ -29,7 +29,7 @@ const REPORTS: {
     id: "athletics",
     href: "/athletics",
     title: "Athletics",
-    desc: "Gyrene recruiting, sector boards, applications, and prospects.",
+    desc: "Gyrene recruiting and coaching dashboards.",
   },
   {
     id: "housing",
@@ -105,6 +105,9 @@ export default function HomePage() {
     // Chapel-only and Points-only users still land on the Advancement folder
     // (cards inside are filtered to what they can open).
     if (r.id === "advancement" && (allowed.includes("chapel") || allowed.includes("points"))) {
+      return true;
+    }
+    if (r.id === "athletics" && allowed.includes("athletics-coaching")) {
       return true;
     }
     return false;

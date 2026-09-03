@@ -1,0 +1,44 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { createSessionToken } from "../../../../lib/auth";
+import { GET } from "./route";
+
+const SECRET = "enrollment-route-test-secret";
+const COACH = "coach.a@avemaria.edu";
+const OTHER = "annie.esposito@avemaria.edu";
+
+function authRequest(email: string | null, sport: string | null) {
+  process.env.AUTH_SECRET = SECRET;
+  const url = new URL("https://reporting.avemaria.edu/api/athletics-coaching/enrollment");
+  if (sport !== null) url.searchParams.set("sport", sport);
+  const headers = new Headers();
+  if (email) headers.set("Authorization", `Bearer ${createSessionToken(email, SECRET, 1)}`);
+  return new Request(url, { headers });
+}
+
+describe("GET /api/athletics-coaching/enrollment access deny", () => {
+  const prevSecret = process.env.AUTH_SECRET;
+  const prevCoaches = process.env.ATHLETICS_COACHING_COACHES;
+
+  it("returns 401 without a session and 403 for the wrong sport or report", async () => {
+    process.env.ATHLETICS_COACHING_COACHES = JSON.stringify({ [COACH]: ["football"] });
+    try {
+      const anon = await GET(authRequest(null, "football"));
+      assert.equal(anon.status, 401);
+
+      const unrelated = await GET(authRequest(OTHER, "football"));
+      assert.equal(unrelated.status, 403);
+
+      const wrongSport = await GET(authRequest(COACH, "mens-soccer"));
+      assert.equal(wrongSport.status, 403);
+
+      const unknown = await GET(authRequest(COACH, "not-a-sport"));
+      assert.equal(unknown.status, 400);
+    } finally {
+      if (prevSecret === undefined) delete process.env.AUTH_SECRET;
+      else process.env.AUTH_SECRET = prevSecret;
+      if (prevCoaches === undefined) delete process.env.ATHLETICS_COACHING_COACHES;
+      else process.env.ATHLETICS_COACHING_COACHES = prevCoaches;
+    }
+  });
+});

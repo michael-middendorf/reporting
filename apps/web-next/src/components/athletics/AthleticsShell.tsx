@@ -19,7 +19,7 @@ import {
   type FilterKey,
   type FilterState,
 } from "@/lib/reports/athletics/types";
-import { ATHLETICS_RECRUITING_NAV } from "@/lib/report-nav";
+import { ATHLETICS_COACHING_NAV, ATHLETICS_RECRUITING_NAV } from "@/lib/report-nav";
 import gyreneG from "@/assets/athletics/gyrene-g.png";
 import gyreneG2x from "@/assets/athletics/gyrene-g@2x.png";
 import gyreneG3x from "@/assets/athletics/gyrene-g@3x.png";
@@ -132,6 +132,7 @@ export function useAthletics() {
 export function AthleticsProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [access, setAccess] = useState<"loading" | "allowed" | "denied">("loading");
+  const [canLoadRecruiting, setCanLoadRecruiting] = useState(false);
   const [payload, setPayload] = useState<AthleticsPayload | null>(null);
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [loading, setLoading] = useState(true);
@@ -144,12 +145,28 @@ export function AthleticsProvider({ children }: { children: ReactNode }) {
         window.location.href = "/login";
         return;
       }
-      setAccess(me.reports?.includes("athletics") ? "allowed" : "denied");
+      const reports = me.reports || [];
+      const hasAthletics = reports.includes("athletics");
+      const hasCoaching = reports.includes("athletics-coaching");
+      const path = pathname || "";
+      const coachingPath = path.startsWith("/athletics/coaching");
+      const hubPath = path === "/athletics";
+      const allowed = coachingPath
+        ? hasCoaching
+        : hubPath
+          ? hasAthletics || hasCoaching
+          : hasAthletics;
+      setCanLoadRecruiting(hasAthletics);
+      setAccess(allowed ? "allowed" : "denied");
     });
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     if (access !== "allowed") return;
+    if (!canLoadRecruiting) {
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     apiFetch("/api/athletics-data")
       .then(async (response) => {
@@ -164,7 +181,7 @@ export function AthleticsProvider({ children }: { children: ReactNode }) {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [access, tick]);
+  }, [access, canLoadRecruiting, tick]);
 
   const applications = useMemo(() => payload?.applications || [], [payload]);
   const prospects = useMemo(() => payload?.prospects || [], [payload]);
@@ -239,7 +256,15 @@ export function AthleticsProvider({ children }: { children: ReactNode }) {
     payload?.generatedAt, filters, options, activeFilterCount, loading, error]);
 
   if (access === "loading") return <div className="ath-state">Checking access…</div>;
-  if (access === "denied") return <div className="ath-state"><p>You do not have access to Athletics Master.</p><Link href="/">← Hub</Link></div>;
+  if (access === "denied") {
+    const coachingPath = (pathname || "").startsWith("/athletics/coaching");
+    return (
+      <div className="ath-state">
+        <p>{coachingPath ? "You do not have access to the coaching dashboard." : "You do not have access to Athletics Master."}</p>
+        <Link href="/">← Hub</Link>
+      </div>
+    );
+  }
   return <AthleticsContext.Provider value={value}>{children}</AthleticsContext.Provider>;
 }
 
@@ -248,11 +273,37 @@ export function AthleticsChrome({ children }: { children: ReactNode }) {
   const { generatedAt, refresh, loading } = useAthletics();
   const isHub = pathname === "/athletics" || pathname === "/athletics/master";
   const isRecruiting = pathname === "/athletics/master/recruiting" || pathname.startsWith("/athletics/master/recruiting/");
+  const isCoaching = (pathname || "").startsWith("/athletics/coaching");
+  const [coachingLeadership, setCoachingLeadership] = useState(false);
+
+  useEffect(() => {
+    if (!isCoaching) {
+      setCoachingLeadership(false);
+      return;
+    }
+    let cancelled = false;
+    apiFetch("/api/athletics-coaching/me")
+      .then(async (response) => (response.ok ? response.json() : null))
+      .then((body) => {
+        if (!cancelled) setCoachingLeadership(body?.role === "leadership");
+      })
+      .catch(() => {
+        if (!cancelled) setCoachingLeadership(false);
+      });
+    return () => { cancelled = true; };
+  }, [isCoaching]);
+
+  const nav = isCoaching
+    ? (coachingLeadership ? ATHLETICS_COACHING_NAV : [])
+    : isHub || !isRecruiting
+      ? []
+      : ATHLETICS_RECRUITING_NAV;
+
   return (
     <div className="ath-root">
       <ReportTopBar
         title="Athletics"
-        nav={isHub || !isRecruiting ? [] : ATHLETICS_RECRUITING_NAV}
+        nav={nav}
         wordmark={
           <img
             className="ath-rc-mark"
@@ -264,12 +315,14 @@ export function AthleticsChrome({ children }: { children: ReactNode }) {
           />
         }
         actions={
-          <>
-            <span className="rc-meta">
-              {loading ? "Loading…" : generatedAt ? `As of ${new Date(generatedAt).toLocaleString()}` : ""}
-            </span>
-            <button type="button" className="rc-btn" onClick={refresh}>Refresh</button>
-          </>
+          isCoaching ? undefined : (
+            <>
+              <span className="rc-meta">
+                {loading ? "Loading…" : generatedAt ? `As of ${new Date(generatedAt).toLocaleString()}` : ""}
+              </span>
+              <button type="button" className="rc-btn" onClick={refresh}>Refresh</button>
+            </>
+          )
         }
       />
       {isRecruiting || pathname.startsWith("/athletics/master/rosters") ? <AthleticsFilters /> : null}
