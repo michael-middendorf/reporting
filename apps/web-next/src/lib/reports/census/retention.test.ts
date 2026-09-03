@@ -623,8 +623,8 @@ test("FTCA extras fill HS GPA ranges and copy scores onto FTCA raw", () => {
     [
       prior({ pcid: "P1", act: 26 }),
       prior({ pcid: "P2", sat: 1100, sport: "" }),
-      prior({ pcid: "P3", clt: 90, sport: "" }),
-      prior({ pcid: "P4", honors: "Hons", sport: "" }),
+      prior({ pcid: "P3", clt: 90, athlete: "Athlete" }),
+      prior({ pcid: "P4", honors: "Hons", athlete: "Non-Athlete", sport: "" }),
     ],
     ["P1", "P4"],
     [],
@@ -634,6 +634,8 @@ test("FTCA extras fill HS GPA ranges and copy scores onto FTCA raw", () => {
   assert.equal(scored.byActConverted.find((r) => r.label === "No ACT converted")?.students, 2);
   assert.equal(scored.byTestScore.find((r) => r.label === "Has test score")?.students, 2);
   assert.equal(scored.byTestScore.find((r) => r.label === "No test score")?.students, 2);
+  assert.equal(scored.byNoTestScoreAthlete.find((r) => r.label === "Athlete")?.students, 1);
+  assert.equal(scored.byNoTestScoreAthlete.find((r) => r.label === "Non-Athlete")?.students, 1);
   assert.equal(scored.byHonors.find((r) => r.label === "Honors College")?.students, 1);
   const withInst = buildFtcaExtras(
     [

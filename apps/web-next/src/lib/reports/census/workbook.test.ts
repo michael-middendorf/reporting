@@ -298,6 +298,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(attritionXml, /HS GPA Ranges/);
   assert.match(attritionXml, /ACT Converted/);
   assert.match(attritionXml, /Test Score/);
+  assert.match(attritionXml, /No Test Score/);
   assert.match(attritionXml, /Application Decision/);
   assert.match(attritionXml, /Committee admits and admin overrides/);
   assert.match(attritionXml, /Honors College/);

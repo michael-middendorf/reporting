@@ -1191,6 +1191,17 @@ function writeAttrition(
     ws,
     nRow + 2,
     colN,
+    "No Test Score",
+    ["Athlete / Non-Athlete", "Students", "# Non-Retained", "% Retained"],
+    extras.byNoTestScoreAthlete.length
+      ? attritionWithTotal(extras.byNoTestScoreAthlete, subsetRetention(extras.byNoTestScoreAthlete), "gpa")
+      : [],
+    { intCols: [1, 2], pctCols: [3], total: true },
+  );
+  nRow = writeCountTable(
+    ws,
+    nRow + 2,
+    colN,
     "ACT Converted",
     ["ACT Converted", "Students", "# Non-Retained", "% Retained"],
     extras.byActConverted.length ? attritionWithTotal(extras.byActConverted, a.retentionRate, "gpa") : [],
@@ -1935,6 +1946,7 @@ const EMPTY_FTCA_EXTRAS: ReturnType<typeof buildFtcaExtras> = {
   byHsGpaFineAthletes: [],
   byActConverted: [],
   byTestScore: [],
+  byNoTestScoreAthlete: [],
   byHonors: [],
   byFsp: [],
   byInstitute: [],
