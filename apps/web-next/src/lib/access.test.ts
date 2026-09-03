@@ -10,6 +10,7 @@ import {
   coachSportKeys,
   isCoachingLeadership,
 } from "./reports/athletics-coaching/access";
+import { SPORTS } from "./reports/athletics-coaching/sports";
 
 const ROBERT = "Robert.Musselman@avemaria.edu";
 const ZENA = "zena.weist@avemaria.edu";
@@ -146,6 +147,24 @@ describe("athletics coaching access", () => {
     } finally {
       if (prevLead === undefined) delete process.env.ATHLETICS_COACHING_LEADERSHIP_EMAILS;
       else process.env.ATHLETICS_COACHING_LEADERSHIP_EMAILS = prevLead;
+    }
+  });
+
+  it("gives Weisbrod, Feger, and Lewis coaching leadership over every sport", () => {
+    const leaders = [
+      "John.Weisbrod@avemaria.edu",
+      "Elizabeth.Feger@avemaria.edu",
+      "Joshua.Lewis@avemaria.edu",
+    ];
+    for (const email of leaders) {
+      assert.equal(canLogin(email), true, email);
+      assert.equal(isCoachingLeadership(email), true, email);
+      assert.equal(coachSportKeys(email), "all", email);
+      assert.equal(canAccessReport(email, "athletics-coaching"), true, email);
+      assert.equal(canAccessReport(email, "aspiredu"), false, email);
+      for (const sport of SPORTS) {
+        assert.equal(canAccessSport(email, sport.key), true, `${email} ${sport.key}`);
+      }
     }
   });
 });

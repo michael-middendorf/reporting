@@ -2,7 +2,12 @@ import { ADMIN_EMAILS, isAdmin, parseEmailCsv } from "../../access";
 import { normalizeEmail } from "../../auth";
 import { resolveSportKey, SPORTS, sportByKey, type SportDef } from "./sports";
 
-const HARDCODED_LEADERSHIP = ["eric.vanheusen@avemaria.edu"] as const;
+const HARDCODED_LEADERSHIP = [
+  "eric.vanheusen@avemaria.edu",
+  "john.weisbrod@avemaria.edu",
+  "elizabeth.feger@avemaria.edu",
+  "joshua.lewis@avemaria.edu",
+] as const;
 
 /** v1: no named coaches. Add emails here or via ATHLETICS_COACHING_COACHES JSON. */
 const HARDCODED_COACHES: Record<string, string[]> = {};
