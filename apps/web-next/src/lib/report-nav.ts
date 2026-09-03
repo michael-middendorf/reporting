@@ -110,6 +110,8 @@ export const REPORT_FOLDERS: ReportFolder[] = [
 const EXTRA_LEAVES: Crumb[] = [
   { href: "/aspiredu/mfa", label: "Authenticator" },
   { href: "/athletics/coaching/mfa", label: "Authenticator" },
+  { href: "/auth/mfa", label: "Authenticator" },
+  { href: "/settings/security", label: "Security" },
   { href: "/enrollment/activity", label: "Activity" },
 ];
 
@@ -141,8 +143,9 @@ export function reportCrumbs(pathname: string): Crumb[] {
 
   const folder = folderForPath(pathname);
   if (!folder) {
+    const extra = EXTRA_LEAVES.find((leaf) => leaf.href === pathname);
     const leaf = pathname.split("/").filter(Boolean).pop() || "Page";
-    crumbs.push({ href: pathname, label: titleCaseSegment(leaf) });
+    crumbs.push(extra ?? { href: pathname, label: titleCaseSegment(leaf) });
     return crumbs;
   }
 

@@ -1,13 +1,24 @@
 import { NextResponse } from "next/server";
+import { canLogin, sessionDecisionAtComplete } from "@/lib/access";
+import { clearAspireduSessionCookie } from "@/lib/aspiredu-auth";
 import {
+  clearMfaPendingCookie,
+  clearSessionCookie,
+  cookieSecureFromRequest,
+  createMfaPendingToken,
   createSessionToken,
+  currentMfaPendingEmail,
   getSessionFromRequest,
+  MFA_PENDING_TTL_MINUTES,
+  mfaPendingCookie,
+  reportingSessionTtlDays,
   sessionCookie,
   verifyMagicToken,
   verifySessionToken,
 } from "@/lib/auth";
-import { canLogin } from "@/lib/access";
 import { claimMagicNonce } from "@/lib/magic-nonce";
+
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   let body: { token?: string };
@@ -45,10 +56,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Email is not permitted." }, { status: 403 });
   }
 
-  // A page reload / double-submit re-POSTs the same magic token while the
-  // caller already holds the session it minted. Treat that as a no-op
-  // instead of "token already used" — only a request with NO valid session
-  // for this email needs to actually claim the nonce.
   const existingSessionToken = getSessionFromRequest(req);
   const alreadySignedIn =
     !!existingSessionToken &&
@@ -59,8 +66,12 @@ export async function POST(req: Request) {
         return false;
       }
     })();
+  const alreadyPending = currentMfaPendingEmail(req) === email;
+  const decision = sessionDecisionAtComplete(email, alreadySignedIn);
+  // Skip nonce only for a pending refresh, or a non-AA hub session. AA always claims.
+  const skipNonce = alreadyPending || (alreadySignedIn && decision !== "mfa_pending");
 
-  if (!alreadySignedIn) {
+  if (!skipNonce) {
     if (!nonce) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
@@ -68,8 +79,6 @@ export async function POST(req: Request) {
     try {
       claim = await claimMagicNonce(nonce, exp);
     } catch {
-      // The nonce store is the only thing preventing replay — fail closed
-      // rather than silently let a mint-time DynamoDB blip re-open it.
       return NextResponse.json(
         { error: "Authentication is temporarily unavailable. Please try again." },
         { status: 503 },
@@ -80,16 +89,21 @@ export async function POST(req: Request) {
     }
   }
 
-  const ttlDays = Math.max(parseInt(process.env.AUTH_SESSION_TTL_DAYS || "14", 10), 1);
+  const secure = cookieSecureFromRequest(req);
+  if (decision === "mfa_pending") {
+    const pending = createMfaPendingToken(email, secret, MFA_PENDING_TTL_MINUTES);
+    const res = NextResponse.json({ ok: true, mfaRequired: true, redirect: "/auth/mfa" });
+    res.headers.append("Set-Cookie", mfaPendingCookie(pending, MFA_PENDING_TTL_MINUTES * 60, secure));
+    res.headers.append("Set-Cookie", clearSessionCookie(secure));
+    res.headers.append("Set-Cookie", clearAspireduSessionCookie("/aspiredu"));
+    res.headers.append("Set-Cookie", clearAspireduSessionCookie("/"));
+    return res;
+  }
+
+  const ttlDays = reportingSessionTtlDays();
   const session = createSessionToken(email, secret, ttlDays);
-  const host = (req.headers.get("x-forwarded-host") || req.headers.get("host") || "")
-    .split(",")[0]
-    ?.trim();
-  const proto =
-    req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
-    (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
-  const secure = proto === "https";
   const res = NextResponse.json({ ok: true, email, redirect: "/", session });
   res.headers.append("Set-Cookie", sessionCookie(session, ttlDays * 86400, secure));
+  res.headers.append("Set-Cookie", clearMfaPendingCookie(secure));
   return res;
 }

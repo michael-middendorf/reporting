@@ -117,6 +117,19 @@ export function canAccessReport(email: string, report: ReportId): boolean {
   return false;
 }
 
+/** Academic Affairs users finish TOTP or passkey at sign-in. Others do not. */
+export function needsMfaAtSignIn(email: string): boolean {
+  return canAccessReport(email, "aspiredu");
+}
+
+/** Magic-link complete: Academic Affairs always pending MFA, even with a hub session. */
+export function sessionDecisionAtComplete(
+  email: string,
+  _alreadySignedIn: boolean,
+): "session" | "mfa_pending" {
+  return needsMfaAtSignIn(email) ? "mfa_pending" : "session";
+}
+
 /** Union of all report lists + admins — who may request a magic link. */
 export function canLogin(email: string): boolean {
   const e = normalizeEmail(email);

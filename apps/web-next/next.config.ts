@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  serverExternalPackages: ["@simplewebauthn/server"],
   async redirects() {
     return [
       { source: "/points", destination: "/advancement/points", permanent: true },

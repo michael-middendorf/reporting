@@ -32,6 +32,11 @@ function MagicInner() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      if (data.mfaRequired) {
+        setBearer(null);
+        window.location.replace("/auth/mfa");
+        return;
+      }
       if (data.session) setBearer(data.session);
       setStatus({ kind: "ok", text: "Signed in. Redirecting…" });
       router.replace(data.redirect || "/");

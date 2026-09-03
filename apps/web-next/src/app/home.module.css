@@ -41,7 +41,8 @@
   color: var(--t2);
 }
 
-.user button {
+.user button,
+.security {
   border: 1px solid var(--bdr);
   background: #fff;
   border-radius: 6px;
@@ -49,6 +50,7 @@
   font: 700 12px/1 inherit;
   color: var(--blue);
   cursor: pointer;
+  text-decoration: none;
 }
 
 .grid {

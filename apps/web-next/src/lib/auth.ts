@@ -1,6 +1,8 @@
 import { createHmac, timingSafeEqual, randomBytes } from "crypto";
 
 export const SESSION_COOKIE_NAME = "amu_reporting_session";
+export const MFA_PENDING_COOKIE = "amu_reporting_mfa_pending";
+export const MFA_PENDING_TTL_MINUTES = 10;
 
 function b64url(buf: Buffer | string) {
   const b = typeof buf === "string" ? Buffer.from(buf, "utf8") : buf;
@@ -99,6 +101,45 @@ export function verifySessionToken(token: string, secret: string) {
   return { ...p, email };
 }
 
+export function createMfaPendingToken(email: string, secret: string, ttlMinutes = MFA_PENDING_TTL_MINUTES) {
+  return createSignedToken(
+    {
+      email: normalizeEmail(email),
+      exp: Math.floor(Date.now() / 1000) + Math.max(ttlMinutes, 1) * 60,
+      type: "mfa_pending",
+    },
+    secret,
+  );
+}
+
+export function verifyMfaPendingToken(token: string, secret: string) {
+  const p = verifySignedToken(token, secret);
+  if (p.type !== "mfa_pending") throw new Error("Invalid token type");
+  const email = normalizeEmail(String(p.email || ""));
+  if (!isValidEmail(email)) throw new Error("Invalid token email");
+  return { ...p, email };
+}
+
+export function reportingSessionTtlDays() {
+  return Math.max(parseInt(process.env.AUTH_SESSION_TTL_DAYS || "14", 10), 1);
+}
+
+export function cookieSecureFromRequest(req: Request) {
+  const host = (req.headers.get("x-forwarded-host") || req.headers.get("host") || "")
+    .split(",")[0]
+    ?.trim();
+  const proto =
+    req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
+    (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
+  return proto === "https";
+}
+
+export function readCookie(req: Request, name: string): string | null {
+  const raw = req.headers.get("cookie") || "";
+  const match = raw.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
+  return match?.[1] ? decodeURIComponent(match[1]) : null;
+}
+
 export function sessionCookie(token: string, maxAge: number, secure: boolean) {
   const parts = [
     `${SESSION_COOKIE_NAME}=${token}`,
@@ -122,6 +163,43 @@ export function clearSessionCookie(secure: boolean) {
   ];
   if (secure) parts.push("Secure");
   return parts.join("; ");
+}
+
+export function mfaPendingCookie(token: string, maxAge: number, secure: boolean) {
+  const parts = [
+    `${MFA_PENDING_COOKIE}=${token}`,
+    "Path=/",
+    `Max-Age=${maxAge}`,
+    "HttpOnly",
+    "SameSite=Lax",
+  ];
+  if (secure) parts.push("Secure");
+  return parts.join("; ");
+}
+
+export function clearMfaPendingCookie(secure: boolean) {
+  const parts = [
+    `${MFA_PENDING_COOKIE}=`,
+    "Path=/",
+    "Max-Age=0",
+    "Expires=Thu, 01 Jan 1970 00:00:00 GMT",
+    "HttpOnly",
+    "SameSite=Lax",
+  ];
+  if (secure) parts.push("Secure");
+  return parts.join("; ");
+}
+
+export function currentMfaPendingEmail(req: Request): string | null {
+  const secret = (process.env.AUTH_SECRET || "").trim();
+  if (!secret) return null;
+  const token = readCookie(req, MFA_PENDING_COOKIE);
+  if (!token) return null;
+  try {
+    return verifyMfaPendingToken(token, secret).email;
+  } catch {
+    return null;
+  }
 }
 
 export function getSessionFromRequest(req: Request): string | null {

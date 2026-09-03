@@ -26,22 +26,22 @@ const REPORTS = [
   {
     href: "/aspiredu/provisional/summer-1",
     title: "Summer 1 Athletic Provisional",
-    desc: "Course-level AspireDU rows whose term looks like Summer 1 / SU 1. MFA required.",
+    desc: "Course-level AspireDU rows whose term looks like Summer 1 / SU 1.",
   },
   {
     href: "/aspiredu/provisional/athletics",
     title: "Athletics Provisional",
-    desc: "All courses in the latest AspireDU statistics file. MFA required.",
+    desc: "All courses in the latest AspireDU statistics file.",
   },
   {
     href: "/aspiredu/eot/spring",
     title: "Spring EOT Grade Report",
-    desc: "Spring course rows plus a letter-grade distribution from AspireDU numeric grades. MFA required.",
+    desc: "Spring course rows plus a letter-grade distribution from AspireDU numeric grades.",
   },
   {
     href: "/aspiredu/students",
     title: "Student follow-up",
-    desc: "MFA student search grouped from the same statistics snapshot.",
+    desc: "Student search grouped from the same statistics snapshot.",
   },
 ];
 
@@ -72,17 +72,11 @@ export default function AcademicAffairsHubPage() {
   }
 
   async function downloadSss() {
-    setDownloadStatus("Checking authenticator…");
+    setDownloadStatus("Loading current AspireDU course rows…");
     try {
-      const auth = await apiFetch("/aspiredu/api/auth/status", { cache: "no-store" });
-      if (!auth.ok) {
-        setDownloadStatus("Authenticator required for the SSS Internal Master download.");
-        return;
-      }
-      setDownloadStatus("Loading current AspireDU course rows…");
       const result = await loadAllCourses();
       if (result.mfaRequired) {
-        setDownloadStatus("Authenticator required for the SSS Internal Master download.");
+        setDownloadStatus("Authentication required. Sign in again.");
         return;
       }
       triggerXlsxDownload(
@@ -102,9 +96,9 @@ export default function AcademicAffairsHubPage() {
         <main className={styles.content}>
           <h1>Academic Affairs</h1>
           <p className={styles.notice}>
-            Deidentified totals below. Student names and course rows require a separate MFA session. Excel templates
-            keep every original column. Dropout Detective fields fill from this AspireDU feed. PowerCampus values
-            (sport, GPA, credits, and the rest) stay blank until those extracts are supplied.
+            Deidentified totals below. Signed-in Academic Affairs users can open student and course reports. Excel
+            templates keep every original column. Dropout Detective fields fill from this AspireDU feed. PowerCampus
+            values (sport, GPA, credits, and the rest) stay blank until those extracts are supplied.
           </p>
           {status && <p>{status}</p>}
           {latest && (
@@ -131,7 +125,7 @@ export default function AcademicAffairsHubPage() {
               <button className={`${styles.button} ${styles.secondary}`} type="button" onClick={downloadGap}>
                 Download PowerCampus fields needed
               </button>
-              <a className={`${styles.button} ${styles.secondary}`} href="/aspiredu/mfa">Authenticator</a>
+              <a className={`${styles.button} ${styles.secondary}`} href="/settings/security">Security</a>
             </div>
             {downloadStatus && <p>{downloadStatus}</p>}
           </section>

@@ -133,6 +133,14 @@ describe("reportCrumbs", () => {
       { href: "/aspiredu", label: "Academic Affairs" },
       { href: "/aspiredu/mfa", label: "Authenticator" },
     ]);
+    assert.deepEqual(reportCrumbs("/auth/mfa"), [
+      { href: "/", label: "Reports" },
+      { href: "/auth/mfa", label: "Authenticator" },
+    ]);
+    assert.deepEqual(reportCrumbs("/settings/security"), [
+      { href: "/", label: "Reports" },
+      { href: "/settings/security", label: "Security" },
+    ]);
     assert.deepEqual(reportCrumbs("/housing"), [
       { href: "/", label: "Reports" },
       { href: "/housing", label: "Housing" },

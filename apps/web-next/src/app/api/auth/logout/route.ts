@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
-import { clearSessionCookie } from "@/lib/auth";
+import { clearAspireduSessionCookie } from "@/lib/aspiredu-auth";
+import { clearMfaPendingCookie, clearSessionCookie, cookieSecureFromRequest } from "@/lib/auth";
 
 export async function POST(req: Request) {
-  const host = (req.headers.get("x-forwarded-host") || req.headers.get("host") || "")
-    .split(",")[0]
-    ?.trim();
-  const proto =
-    req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
-    (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
-  const secure = proto === "https";
+  const secure = cookieSecureFromRequest(req);
   const res = NextResponse.json({ ok: true });
   res.headers.append("Set-Cookie", clearSessionCookie(secure));
+  res.headers.append("Set-Cookie", clearMfaPendingCookie(secure));
+  res.headers.append("Set-Cookie", clearAspireduSessionCookie("/aspiredu"));
+  res.headers.append("Set-Cookie", clearAspireduSessionCookie("/"));
   return res;
 }
