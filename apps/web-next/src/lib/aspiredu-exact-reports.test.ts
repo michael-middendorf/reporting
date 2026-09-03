@@ -23,6 +23,7 @@ import {
   courseIdPlus,
   gapRowsFor,
   headersOf,
+  isSpringTerm,
   letterFromPercent,
   mapRows,
   professorGradeRows,
@@ -516,14 +517,37 @@ describe("letter bins and student grain", () => {
   });
 
   it("drops a SU1 term row and keeps a Spring term", () => {
-    const spring = row({ ...ADA, courseTerm: "Spring 2026" });
+    const spring = row({ ...ADA, courseTerm: "2026/SP" });
     const summer = row({ ...CHARLES, courseTerm: "SU1" });
     const filtered = springTermRows([summer, spring]);
     assert.equal(filtered.length, 1);
-    assert.equal(filtered[0].courseTerm, "Spring 2026");
+    assert.equal(filtered[0].courseTerm, "2026/SP");
     const files = unzipStore(buildAthleticsGradeWorkbook([summer, spring]));
     const sheet = files["xl/worksheets/sheet1.xml"];
-    assert.ok(sheet.includes(">Spring 2026<"));
+    assert.ok(sheet.includes(">2026/SP<"));
+    assert.equal(sheet.includes("SU1"), false);
+  });
+
+  it("keeps vendor 2026/SP and other spring labels, and drops summer and fall", () => {
+    for (const term of ["2026/SP", "2026-SP", "SP26", "SP 26", "Spring 2026", "spring"]) {
+      assert.equal(isSpringTerm(term), true, term);
+    }
+    for (const term of ["SU1", "2026/SU1", "Summer 1", "2026/FA", "FA26"]) {
+      assert.equal(isSpringTerm(term), false, term);
+    }
+    const kept = springTermRows([row({ ...ADA, courseTerm: "2026/SP" })]);
+    const dropped = springTermRows([row({ ...CHARLES, courseTerm: "2026/SU1" })]);
+    assert.equal(kept.length, 1);
+    assert.equal(kept[0].courseTerm, "2026/SP");
+    assert.equal(dropped.length, 0);
+    const files = unzipStore(
+      buildAthleticsGradeWorkbook([
+        row({ ...ADA, courseTerm: "2026/SP" }),
+        row({ ...CHARLES, courseTerm: "2026/SU1" }),
+      ]),
+    );
+    const sheet = files["xl/worksheets/sheet1.xml"];
+    assert.ok(sheet.includes(">2026/SP<"));
     assert.equal(sheet.includes("SU1"), false);
   });
 

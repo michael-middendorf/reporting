@@ -546,10 +546,14 @@ export function uniqueStudents(rows: CourseRow[]): CourseRow[] {
   return out;
 }
 
-const SPRING_TERM_RE = /\bsp(?:ring)?[\s'’.-]*0?26\b|\bspring\b/i;
+const SPRING_TERM_RE = /\bsp(?:ring)?[\s'’.-]*0?26\b|\bspring\b|\b20\d{2}\s*[\/.-]\s*SP\b/i;
+
+export function isSpringTerm(term: string): boolean {
+  return SPRING_TERM_RE.test(text(term));
+}
 
 export function springTermRows(rows: CourseRow[]): CourseRow[] {
-  return rows.filter((row) => SPRING_TERM_RE.test(text(row.courseTerm)));
+  return rows.filter((row) => isSpringTerm(text(row.courseTerm)));
 }
 
 export function professorGradeRows(rows: CourseRow[]): CellValue[][] {
