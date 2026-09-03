@@ -4,31 +4,18 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AccessGate, ReportTopBar } from "@/components/AccessGate";
 import { ASPIREDU_NAV } from "@/lib/report-nav";
 import { apiFetch } from "@/lib/api";
+import {
+  LETTERS,
+  courseIdPlus,
+  letterFromPercent,
+  triggerXlsxDownload,
+  type CourseRow,
+  type ExcelDownloadSpec,
+} from "@/lib/aspiredu-exact-reports";
+import { loadAllCourses } from "@/lib/aspiredu-load-courses";
 import styles from "../aspiredu.module.css";
 
-export type CourseRow = {
-  studentKey: string;
-  studentHmac?: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  studentSisId?: string;
-  course?: string;
-  courseSisId?: string;
-  sectionSisId?: string;
-  courseTerm?: string;
-  courseGrade?: number;
-  courseRiskScore?: number;
-  courseRiskTrend?: number;
-  risk?: number;
-  riskTrend?: number;
-  missingAssignments?: number;
-  zeroAssignments?: number;
-  courseLda?: string;
-  courseLastAccess?: string;
-  latestAttendance?: string;
-  lastLogin?: string;
-};
+export type { CourseRow };
 
 const CSV_COLUMNS: { key: keyof CourseRow; header: string }[] = [
   { key: "firstName", header: "Stu First Name" },
@@ -69,32 +56,16 @@ function studentName(row: CourseRow) {
   return [row.firstName, row.lastName].filter(Boolean).join(" ") || "Unnamed";
 }
 
-const LETTERS = ["A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"] as const;
-
-function letterFromPercent(grade: number): (typeof LETTERS)[number] | undefined {
-  if (grade >= 93) return "A";
-  if (grade >= 90) return "A-";
-  if (grade >= 87) return "B+";
-  if (grade >= 83) return "B";
-  if (grade >= 80) return "B-";
-  if (grade >= 77) return "C+";
-  if (grade >= 73) return "C";
-  if (grade >= 70) return "C-";
-  if (grade >= 67) return "D+";
-  if (grade >= 63) return "D";
-  if (grade >= 60) return "D-";
-  if (grade >= 0) return "F";
-  return undefined;
-}
-
 function gradeDistribution(rows: CourseRow[]) {
   const byCourse = new Map<string, Record<(typeof LETTERS)[number], number>>();
   for (const row of rows) {
     if (row.courseGrade === undefined) continue;
     const letter = letterFromPercent(row.courseGrade);
     if (!letter) continue;
-    const course = row.course || "Unknown course";
-    const current = byCourse.get(course) || Object.fromEntries(LETTERS.map((key) => [key, 0])) as Record<(typeof LETTERS)[number], number>;
+    const course = courseIdPlus(row) || "Unknown course";
+    const current =
+      byCourse.get(course) ||
+      (Object.fromEntries(LETTERS.map((key) => [key, 0])) as Record<(typeof LETTERS)[number], number>);
     current[letter] += 1;
     byCourse.set(course, current);
   }
@@ -119,10 +90,12 @@ export function CourseReport({
   heading,
   termGroup,
   showGradeDistribution = false,
+  excelDownloads = [],
 }: {
   heading: string;
   termGroup?: "summer1" | "spring";
   showGradeDistribution?: boolean;
+  excelDownloads?: ExcelDownloadSpec[];
 }) {
   const [mfa, setMfa] = useState<"checking" | "required" | "ok">("checking");
   const [courses, setCourses] = useState<CourseRow[]>([]);
@@ -143,44 +116,22 @@ export function CourseReport({
   const load = useCallback(async () => {
     setError("");
     setStatus("Loading…");
-    const collected: CourseRow[] = [];
-    let cursor: string | undefined;
-    let nextTerms: string[] = [];
-    let nextCourseCount = 0;
-    let nextStudentCount = 0;
-    let delivery = "";
     try {
-      for (let page = 0; page < 200; page += 1) {
-        const params = new URLSearchParams();
-        if (query.trim()) params.set("query", query.trim());
-        if (term) params.set("term", term);
-        if (termGroup) params.set("termGroup", termGroup);
-        if (cursor) params.set("cursor", cursor);
-        const response = await apiFetch(`/aspiredu/api/courses?${params}`, { cache: "no-store" });
-        if (response.status === 401) {
-          setMfa("required");
-          setStatus("");
-          return;
-        }
-        if (!response.ok) throw new Error("Unable to load course records.");
-        const body = await response.json();
-        delivery = body.status || "";
-        collected.push(...(body.courses || []));
-        nextTerms = body.terms || nextTerms;
-        nextCourseCount = body.courseCount ?? collected.length;
-        nextStudentCount = body.studentCount ?? nextStudentCount;
-        if (!body.cursor) break;
-        cursor = body.cursor;
+      const result = await loadAllCourses({ query, term, termGroup });
+      if (result.mfaRequired) {
+        setMfa("required");
+        setStatus("");
+        return;
       }
-      setCourses(collected);
-      setTerms(nextTerms);
-      setCourseCount(nextCourseCount);
-      setStudentCount(nextStudentCount);
-      if (delivery === "awaiting_first_delivery") {
+      setCourses(result.courses);
+      setTerms(result.terms);
+      setCourseCount(result.courseCount);
+      setStudentCount(result.studentCount);
+      if (result.delivery === "awaiting_first_delivery") {
         setStatus("Awaiting the first AspireDU statistics delivery.");
-      } else if (emptyTermStatus(termGroup, nextTerms.length > 0, collected.length === 0)) {
-        setStatus(emptyTermStatus(termGroup, nextTerms.length > 0, collected.length === 0));
-      } else if (collected.length === 0) {
+      } else if (emptyTermStatus(termGroup, result.terms.length > 0, result.courses.length === 0)) {
+        setStatus(emptyTermStatus(termGroup, result.terms.length > 0, result.courses.length === 0));
+      } else if (result.courses.length === 0) {
         setStatus("No matching course rows in the latest AspireDU statistics file.");
       } else {
         setStatus("");
@@ -192,7 +143,9 @@ export function CourseReport({
   }, [query, term, termGroup]);
 
   useEffect(() => {
-    if (mfa === "ok") void load();
+    if (mfa !== "ok") return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- MFA-gated course fetch; Search retriggers via load
+    void load();
   }, [mfa, load]);
 
   async function endMfa() {
@@ -203,13 +156,17 @@ export function CourseReport({
 
   const csvHref = useMemo(() => {
     const lines = [CSV_COLUMNS.map((column) => csvCell(column.header)).join(",")];
-    for (const row of courses) {
-      lines.push(CSV_COLUMNS.map((column) => csvCell(row[column.key])).join(","));
+    for (const course of courses) {
+      lines.push(CSV_COLUMNS.map((column) => csvCell(course[column.key])).join(","));
     }
     return URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" }));
   }, [courses]);
 
   useEffect(() => () => URL.revokeObjectURL(csvHref), [csvHref]);
+
+  function downloadExcel(spec: ExcelDownloadSpec) {
+    triggerXlsxDownload(spec.filename, spec.build(courses));
+  }
 
   return (
     <AccessGate report="aspiredu">
@@ -218,7 +175,9 @@ export function CourseReport({
         <main className={styles.content}>
           <h1>{heading}</h1>
           <p className={styles.notice}>
-            Every student in the latest AspireDU statistics file. Sport, GPA, credits, and other Colleague fields are not in this feed.
+            Excel downloads keep every original template column. Dropout Detective fields fill from this AspireDU feed.
+            PowerCampus values (sport, GPA, credits, and the rest) stay blank until those extracts are supplied. The
+            compact table below is still AspireDU-only.
           </p>
           {mfa === "checking" && <p>Checking MFA session…</p>}
           {mfa === "required" && (
@@ -240,6 +199,16 @@ export function CourseReport({
                 </select>
                 <button className={styles.button} type="button" onClick={() => void load()}>Search</button>
                 <a className={`${styles.button} ${styles.secondary}`} href={csvHref} download={`${heading.replaceAll(" ", "-").toLowerCase()}.csv`}>Download CSV</a>
+                {excelDownloads.map((spec) => (
+                  <button
+                    key={spec.filename}
+                    className={`${styles.button} ${styles.secondary}`}
+                    type="button"
+                    onClick={() => downloadExcel(spec)}
+                  >
+                    {spec.label}
+                  </button>
+                ))}
                 <button className={`${styles.button} ${styles.secondary}`} type="button" onClick={() => void endMfa()}>End MFA session</button>
               </div>
               <p className={styles.meta}>{studentCount} students · {courseCount} courses</p>
@@ -261,17 +230,17 @@ export function CourseReport({
                     </tr>
                   </thead>
                   <tbody>
-                    {courses.map((row) => (
-                      <tr key={row.studentKey}>
-                        <td>{studentName(row)}</td>
-                        <td>{row.email || "—"}</td>
-                        <td>{row.course || "—"}</td>
-                        <td>{row.courseTerm || "—"}</td>
-                        <td>{row.courseGrade ?? "—"}</td>
-                        <td>{row.courseRiskScore ?? "—"}</td>
-                        <td>{row.risk ?? "—"}</td>
-                        <td>{row.missingAssignments ?? "—"}</td>
-                        <td>{formatWhen(row.courseLastAccess)}</td>
+                    {courses.map((course, index) => (
+                      <tr key={`${course.studentKey}-${course.courseSisId || course.course || index}-${course.sectionSisId || ""}`}>
+                        <td>{studentName(course)}</td>
+                        <td>{course.email || "—"}</td>
+                        <td>{course.course || "—"}</td>
+                        <td>{course.courseTerm || "—"}</td>
+                        <td>{course.courseGrade ?? "—"}</td>
+                        <td>{course.courseRiskScore ?? "—"}</td>
+                        <td>{course.risk ?? "—"}</td>
+                        <td>{course.missingAssignments ?? "—"}</td>
+                        <td>{formatWhen(course.courseLastAccess)}</td>
                       </tr>
                     ))}
                   </tbody>

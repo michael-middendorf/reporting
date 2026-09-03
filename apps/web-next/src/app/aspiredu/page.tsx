@@ -5,6 +5,13 @@ import { useEffect, useState } from "react";
 import { AccessGate, ReportTopBar } from "@/components/AccessGate";
 import { ASPIREDU_NAV } from "@/lib/report-nav";
 import { apiFetch } from "@/lib/api";
+import {
+  GAP_WORKBOOK_FILENAME,
+  buildPowerCampusGapWorkbook,
+  buildSssMasterWorkbook,
+  triggerXlsxDownload,
+} from "@/lib/aspiredu-exact-reports";
+import { loadAllCourses } from "@/lib/aspiredu-load-courses";
 import styles from "./aspiredu.module.css";
 
 type Summary = {
@@ -42,6 +49,7 @@ export default function AcademicAffairsHubPage() {
   const [latest, setLatest] = useState<Summary | null>(null);
   const [history, setHistory] = useState<Summary[]>([]);
   const [status, setStatus] = useState("Loading daily risk summary…");
+  const [downloadStatus, setDownloadStatus] = useState("");
 
   useEffect(() => {
     apiFetch("/aspiredu/api/summary", { cache: "no-store" })
@@ -59,6 +67,34 @@ export default function AcademicAffairsHubPage() {
 
   const risk = latest?.riskScores || latest?.riskBands || {};
 
+  function downloadGap() {
+    triggerXlsxDownload(GAP_WORKBOOK_FILENAME, buildPowerCampusGapWorkbook());
+  }
+
+  async function downloadSss() {
+    setDownloadStatus("Checking authenticator…");
+    try {
+      const auth = await apiFetch("/aspiredu/api/auth/status", { cache: "no-store" });
+      if (!auth.ok) {
+        setDownloadStatus("Authenticator required for the SSS Internal Master download.");
+        return;
+      }
+      setDownloadStatus("Loading current AspireDU course rows…");
+      const result = await loadAllCourses();
+      if (result.mfaRequired) {
+        setDownloadStatus("Authenticator required for the SSS Internal Master download.");
+        return;
+      }
+      triggerXlsxDownload(
+        "Student Support Services Internal Master Sheet.xlsx",
+        buildSssMasterWorkbook(result.courses),
+      );
+      setDownloadStatus("");
+    } catch (error) {
+      setDownloadStatus(error instanceof Error ? error.message : "Unable to build the SSS workbook.");
+    }
+  }
+
   return (
     <AccessGate report="aspiredu">
       <div className={styles.shell}>
@@ -66,7 +102,9 @@ export default function AcademicAffairsHubPage() {
         <main className={styles.content}>
           <h1>Academic Affairs</h1>
           <p className={styles.notice}>
-            Deidentified totals below. Student names and course rows require a separate MFA session. These reports use AspireDU statistics only — sport, GPA, and credits are not in this feed.
+            Deidentified totals below. Student names and course rows require a separate MFA session. Excel templates
+            keep every original column. Dropout Detective fields fill from this AspireDU feed. PowerCampus values
+            (sport, GPA, credits, and the rest) stay blank until those extracts are supplied.
           </p>
           {status && <p>{status}</p>}
           {latest && (
@@ -80,6 +118,23 @@ export default function AcademicAffairsHubPage() {
               ))}
             </div>
           )}
+          <section className={styles.panel}>
+            <h2>Template downloads</h2>
+            <p className={styles.meta}>
+              The SSS Internal Master uses current AspireDU rows only (no historical dated tabs). The PowerCampus
+              workbook is schema only: no student rows.
+            </p>
+            <div className={styles.toolbar}>
+              <button className={styles.button} type="button" onClick={() => void downloadSss()}>
+                Download SSS Internal Master
+              </button>
+              <button className={`${styles.button} ${styles.secondary}`} type="button" onClick={downloadGap}>
+                Download PowerCampus fields needed
+              </button>
+              <a className={`${styles.button} ${styles.secondary}`} href="/aspiredu/mfa">Authenticator</a>
+            </div>
+            {downloadStatus && <p>{downloadStatus}</p>}
+          </section>
           <div className={styles.cardGrid}>
             {REPORTS.map((report) => (
               <Link key={report.href} href={report.href} className={styles.card}>
