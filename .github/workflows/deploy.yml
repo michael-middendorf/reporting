@@ -61,6 +61,7 @@ jobs:
         # The publisher crons (Annunciation, Enrollment, Housing, Virtuous)
         # and the on-demand report Lambdas (Institute/MAS/Alumni) live in the
         # SST stack, separate from the ECS web app above.
+        # Do not add sst.aws.Nextjs Web; the public site is ECS.
         # Deploy them here so publisher/handler changes actually ship on merge
         # to main. This runs as the CI deploy role (secrets.AWS_DEPLOY_ROLE_ARN),
         # which -- unlike a personal PlatformEngineer user -- is not blocked by

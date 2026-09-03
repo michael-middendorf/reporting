@@ -1,7 +1,8 @@
 /// <reference path="./.sst/platform/config.d.ts" />
 
 /**
- * AMU Reporting — Next.js + SST.
+ * AMU Reporting: SST publishers and crons.
+ * The public Next.js site is ECS (infra/lib/reporting-ecs-stack.ts), not SST.
  * Publishers write canonical sources/{source}/{dataset}/ raw only.
  * MAS/Alumni processors derive on-read (no derived S3 writes).
  */
@@ -16,11 +17,15 @@ export default $config({
     };
   },
   async run() {
-    const authSecret = new sst.Secret("AuthSecret");
+    // Keep AuthSecret and AllowedEmails declared. ECS reads Secrets Manager,
+    // not these links; dropping the constructors would still be a config change
+    // against retained production secrets.
+    new sst.Secret("AuthSecret");
     const resendApiKey = new sst.Secret("ResendApiKey");
     // The hostname we send people. Must stay in step with APP_BASE_URL in
-    // infra/lib/reporting-ecs-stack.ts. Do NOT use the SST `Web` component's
-    // own Function URL, and do not email the CloudFront hostname.
+    // infra/lib/reporting-ecs-stack.ts. Do not add sst.aws.Nextjs("Web"): CI
+    // would recreate the leftover Lambda, and SST state still names
+    // WebCdnDistribution as E21ZFV7FXYGILQ (live reporting.avemaria.edu).
     const reportingUrl = "https://reporting.avemaria.edu";
     const virtuousApiKey = new sst.Secret("VirtuousApiKey");
     const qlikApiKey = new sst.Secret("QlikApiKey");
@@ -30,17 +35,13 @@ export default $config({
     const slateDepositsUrl = new sst.Secret("SlateDepositsUrl");
     const instituteSlateQueries = new sst.Secret("InstituteSlateQueries");
     const athleticsSlateQueries = new sst.Secret("AthleticsSlateQueries");
-    const allowedEmails = new sst.Secret("AllowedEmails");
+    new sst.Secret("AllowedEmails");
 
     const data = new sst.aws.Bucket("ReportData");
 
-    // Single-use tracking for magic-link sign-in tokens (replay prevention).
-    // Fixed name — the table itself is created in infra/lib/reporting-ecs-stack.ts
-    // (that stack deploys first in CI, before "Deploy SST runtime") and both
-    // deployments of this app (this Lambda "Web" component and the ECS
-    // container) reference it by this same known name/ARN.
-    const magicNonceTableName = "amu-reporting-magic-link-nonces";
-    const magicNonceTableArn = `arn:aws:dynamodb:us-east-2:905418447941:table/${magicNonceTableName}`;
+    // Magic-link nonce table lives in infra/lib/reporting-ecs-stack.ts (deployed
+    // before "Deploy SST runtime"). ECS is the only web runtime that writes it.
+    // SST publishers do not need the table name or ARN.
 
     const reportDataPerms = [
       {
@@ -288,59 +289,6 @@ export default $config({
       permissions: reportDataPerms,
     });
 
-    const site = new sst.aws.Nextjs("Web", {
-      path: "apps/web-next",
-      // SST 4.17.1 defaults to OpenNext 3.9.14, whose Node 24 image
-      // optimizer fails before Sharp runs. Pin the canary-verified wrapper
-      // and the patched native dependency used by the production bundle.
-      openNextVersion: "4.1.0",
-      // Do not `link` publisher Functions onto Web. SST serializes each
-      // linked resource into Lambda environment metadata, and this function
-      // already sits on the 4KB limit (#104 4204; #164 4105; #173 4159).
-      // Invoke by function name; ECS reads latest.json from S3. Report grants
-      // live in apps/web-next/src/lib/access.ts — do not duplicate
-      // *_ALLOWED_EMAILS here.
-      link: [data],
-      // The /api/institute-data route waits on the ~15-25s live Slate fetch.
-      server: { timeout: "60 seconds" },
-      environment: {
-        SHARP_VERSION: "0.35.3",
-        AUTH_SECRET: authSecret.value,
-        RESEND_API_KEY: resendApiKey.value,
-        VIRTUOUS_API_KEY: virtuousApiKey.value,
-        EREZLIFE_API_KEY: erezlifeApiKey.value,
-        API_KEY: erezlifeApiKey.value,
-        QLIK_API_KEY: qlikApiKey.value,
-        QLIK_TENANT: qlikTenant.value,
-        SLATE_QUERY_URL: slateQueryUrl.value,
-        SLATE_DEPOSITS_URL: slateDepositsUrl.value,
-        ALLOWED_EMAILS: allowedEmails.value,
-        DATA_BUCKET: data.name,
-        MAS_PROCESS_FUNCTION: masProcess.name,
-        ALUMNI_PROCESS_FUNCTION: alumniProcess.name,
-        INSTITUTE_FN_NAME: instituteData.name,
-        HOUSING_PROCESS_FUNCTION: housingProcess.name,
-        CHAPEL_NAMING_FN_NAME: chapelNaming.name,
-        ADVANCEMENT_OVERVIEW_FN_NAME: advancementOverview.name,
-        // Cache keys stay as route defaults. Putting them on Web as well
-        // pushed Lambda env over the 4KB limit (SST deploy of #112 measured
-        // 4166 bytes). ECS reads the same S3 keys without these vars.
-        MAGIC_NONCE_TABLE: magicNonceTableName,
-        EMAIL_FROM:
-          "AMU Project Manager <noreply@notifications.avemaria.edu>",
-      },
-      permissions: [
-        {
-          actions: ["lambda:InvokeFunction"],
-          resources: [masProcess.arn, alumniProcess.arn, instituteData.arn, housingProcess.arn, chapelNaming.arn, advancementOverview.arn],
-        },
-        {
-          actions: ["dynamodb:PutItem"],
-          resources: [magicNonceTableArn],
-        },
-      ],
-    });
-
     new sst.aws.Cron("EnrollmentRefresh", {
       schedule: "rate(15 minutes)",
       function: {
@@ -473,15 +421,14 @@ export default $config({
     });
 
     // Hourly is enough: appeal figures do not need 15-minute freshness, and
-    // geography does a bounded per-donor fetch. Do not `link` FallAppealData
-    // onto Web (SST Web env is at the 4KB Lambda limit).
+    // geography does a bounded per-donor fetch.
     new sst.aws.Cron("FallAppealRefresh", {
       schedule: "rate(1 hour)",
       function: fallAppeal,
     });
 
     return {
-      url: site.url,
+      url: reportingUrl,
       dataBucket: data.name,
       masProcess: masProcess.name,
       alumniProcess: alumniProcess.name,

@@ -1,6 +1,6 @@
 # AMU Reporting
 
-Single web app for Ave Maria University internal reports, deployed with **SST**.
+Single web app for Ave Maria University internal reports. The public site is **ECS**; SST deploys publishers and crons only.
 
 Remote: https://github.com/colecantu904/reporting
 
@@ -89,4 +89,4 @@ npm run dev --prefix apps/web-next
 
 ## Deploy
 
-Push to `main` runs `sst deploy --stage production`.
+Push to `main` deploys the ECS web app, then SST publishers (`npx sst deploy --stage production`). SST does not host the web app.
