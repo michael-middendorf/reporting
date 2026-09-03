@@ -16,6 +16,7 @@ import {
   SSS_MASTER,
   SUMMER1_PROVISIONAL_COLUMNS,
   allGapRows,
+  buildAthleticsGradeWorkbook,
   buildAthleticsProvisionalWorkbook,
   buildPowerCampusGapWorkbook,
   buildSpringEotWorkbook,
@@ -25,6 +26,7 @@ import {
   letterFromPercent,
   mapRows,
   professorGradeRows,
+  springTermRows,
   uniqueStudents,
   type CourseRow,
 } from "./aspiredu-exact-reports";
@@ -476,6 +478,16 @@ describe("mapping", () => {
     assert.equal(mapped[11], "");
     assert.equal(mapped[13], "");
   });
+
+  it("leaves SSS Attendance as a blank class code, not latestAttendance", () => {
+    const attendanceIndex = SSS_ATTENDANCE_COLUMNS.findIndex((column) => column.header === "Attendance");
+    assert.ok(attendanceIndex >= 0);
+    assert.equal(SSS_ATTENDANCE_COLUMNS[attendanceIndex].status, "kept blank: DD file not ingested");
+    assert.equal(SSS_ATTENDANCE_COLUMNS[attendanceIndex].from, undefined);
+    const mapped = mapRows(SSS_ATTENDANCE_COLUMNS, [ADA])[0];
+    assert.equal(mapped[attendanceIndex], "");
+    assert.equal(mapped.includes("2026-03-01T12:00:00Z"), false);
+  });
 });
 
 describe("letter bins and student grain", () => {
@@ -489,7 +501,7 @@ describe("letter bins and student grain", () => {
     assert.equal(letterFromPercent(-1), undefined);
   });
 
-  it("groups professor tables by COURSE ID+ and leaves I/W at zero", () => {
+  it("groups professor tables by COURSE ID+ and leaves I/W blank", () => {
     const table = professorGradeRows([ADA, ADA_SECOND, CHARLES]);
     assert.deepEqual(
       table.map((entry) => entry[0]),
@@ -498,9 +510,21 @@ describe("letter bins and student grain", () => {
     const math = table.find((entry) => entry[0] === "MATH 101")!;
     assert.equal(math[1], 1);
     assert.equal(math[8], 1);
-    assert.equal(math[13], 0);
-    assert.equal(math[14], 0);
+    assert.equal(math[13], "");
+    assert.equal(math[14], "");
     assert.equal(courseIdPlus(ADA), "MATH 101");
+  });
+
+  it("drops a SU1 term row and keeps a Spring term", () => {
+    const spring = row({ ...ADA, courseTerm: "Spring 2026" });
+    const summer = row({ ...CHARLES, courseTerm: "SU1" });
+    const filtered = springTermRows([summer, spring]);
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0].courseTerm, "Spring 2026");
+    const files = unzipStore(buildAthleticsGradeWorkbook([summer, spring]));
+    const sheet = files["xl/worksheets/sheet1.xml"];
+    assert.ok(sheet.includes(">Spring 2026<"));
+    assert.equal(sheet.includes("SU1"), false);
   });
 
   it("dedupes student-grain rows by SIS id then studentKey", () => {
@@ -545,6 +569,22 @@ describe("gap sheet", () => {
     assert.ok(rows.some((row) => row.status === "SSS operational"));
     assert.ok(rows.some((row) => row.status === "kept blank: DD file not ingested"));
     assert.ok(rows.some((row) => row.column === "Fall Semester Tutoring Interest Form"));
+    assert.ok(
+      rows.some(
+        (row) =>
+          row.column === "latestAttendance" &&
+          row.sheet === "Attendance" &&
+          row.status === "not mapped into this template's Attendance column",
+      ),
+    );
+    assert.ok(
+      rows.some(
+        (row) =>
+          row.column === "Attendance" &&
+          row.sheet === "Attendance" &&
+          row.status === "kept blank: DD file not ingested",
+      ),
+    );
     assert.ok(rows.some((row) => row.sheet === "Tables By GPA"));
     assert.deepEqual([...GAP_HEADERS], ["Report", "Sheet", "Column", "Status"]);
   });

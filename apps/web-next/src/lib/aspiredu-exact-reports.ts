@@ -433,7 +433,7 @@ export const SSS_ATTENDANCE_COLUMNS: ColumnDef[] = [
   nofile("Class Date"),
   dd("SIS Student ID", (row) => sisId(row)),
   pc("PCID+"),
-  dd("Attendance", (row) => text(row.latestAttendance)),
+  nofile("Attendance"),
   nofile("Timestamp"),
 ];
 
@@ -500,6 +500,12 @@ export const SSS_MASTER: ReportDef = {
       column: "Fall Semester Tutoring Interest Form",
       status: "not generated (Microsoft Form)",
     },
+    {
+      report: "Student Support Services Internal Master",
+      sheet: "Attendance",
+      column: "latestAttendance",
+      status: "not mapped into this template's Attendance column",
+    },
   ],
 };
 
@@ -540,14 +546,19 @@ export function uniqueStudents(rows: CourseRow[]): CourseRow[] {
   return out;
 }
 
+const SPRING_TERM_RE = /\bsp(?:ring)?[\s'’.-]*0?26\b|\bspring\b/i;
+
+export function springTermRows(rows: CourseRow[]): CourseRow[] {
+  return rows.filter((row) => SPRING_TERM_RE.test(text(row.courseTerm)));
+}
+
 export function professorGradeRows(rows: CourseRow[]): CellValue[][] {
-  const letters = [...LETTERS, "I", "W"] as const;
-  const byCourse = new Map<string, Record<string, number>>();
+  const byCourse = new Map<string, Record<LetterGrade, number>>();
   for (const row of rows) {
     const id = courseIdPlus(row);
     if (!id) continue;
     if (!byCourse.has(id)) {
-      byCourse.set(id, Object.fromEntries(letters.map((letter) => [letter, 0])));
+      byCourse.set(id, Object.fromEntries(LETTERS.map((letter) => [letter, 0])) as Record<LetterGrade, number>);
     }
     if (typeof row.courseGrade !== "number") continue;
     const letter = letterFromPercent(row.courseGrade);
@@ -559,8 +570,8 @@ export function professorGradeRows(rows: CourseRow[]): CellValue[][] {
     .map(([id, counts]) => [
       id,
       ...LETTERS.map((letter) => counts[letter] || 0),
-      counts.I || 0,
-      counts.W || 0,
+      "",
+      "",
     ]);
 }
 
@@ -621,7 +632,7 @@ export function buildSummer1ProvisionalWorkbook(rows: CourseRow[]): Uint8Array {
 }
 
 export function buildAthleticsGradeWorkbook(rows: CourseRow[]): Uint8Array {
-  return buildReportWorkbook(ATHLETICS_GRADE, rows);
+  return buildReportWorkbook(ATHLETICS_GRADE, springTermRows(rows));
 }
 
 export function buildSpringEotWorkbook(rows: CourseRow[]): Uint8Array {
