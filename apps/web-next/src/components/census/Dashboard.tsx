@@ -211,7 +211,7 @@ export function CensusDashboard() {
   if (!data) return <p style={{ padding: 24 }}>Loading…</p>;
 
   const tables = filteredReport.length ? buildReport(filteredReport) : null;
-  const ugds = filteredAll.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend));
+  const ugds = filteredAll.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend, s.degree));
   const k = {
     ...data.kpis,
     allStudents: rawStudents.length ? uniqueStudentCount(filteredAll) : data.kpis.allStudents,

@@ -155,7 +155,7 @@ export function promoteFormerDualFtca(
     if ((s.incomingReturning || "").trim().toLowerCase().startsWith("incoming")) return s;
     const prev = priorById.get(normPcid(s.pcid));
     if (!prev) return { ...s, incomingReturning: "Incoming" };
-    if (isUgDegreeSeekingRow(prev.program, prev.collegeAttend)) return s;
+    if (isUgDegreeSeekingRow(prev.program, prev.collegeAttend, prev.degree)) return s;
     return { ...s, incomingReturning: "Incoming" };
   });
 }

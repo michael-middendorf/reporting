@@ -155,8 +155,8 @@ export function CensusReport({
             rows={countRows(nonFl)}
           />
           <SheetTable
-            title="Honors Program"
-            headers={["Honors Program", "Students", "Percentage"]}
+            title="Honors College"
+            headers={["Honors College", "Students", "Percentage"]}
             rows={countRows(honorsByClass)}
             note={`${fmtN(honorsN)} honors students`}
           />

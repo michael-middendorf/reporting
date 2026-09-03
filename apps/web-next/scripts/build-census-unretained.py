@@ -14,7 +14,7 @@ from openpyxl import load_workbook
 CENSUS_DIR = Path("/Users/regina.m.pirolli/Documents/PERSONAL Census Files")
 PRIOR = CENSUS_DIR / "Fall 2025 Census Final 9.23.25.xlsx"
 REGISTRATION = Path("/Users/regina.m.pirolli/Downloads/Registration Status-23.xlsx")
-GRADUATES = Path("/Users/regina.m.pirolli/Downloads/Graduated %2D All-14.xlsx")
+GRADUATES = Path("/Users/regina.m.pirolli/Downloads/Graduated %2D All-15.xlsx")
 DATA = Path(__file__).resolve().parents[1] / "src/lib/reports/census/data"
 OUT = DATA / "unretained.json"
 PRIOR_OUT = DATA / "prior.json"
@@ -30,15 +30,10 @@ RETENTION_UNRETAINED_SKIP = {
     "P000380426",
     "P000343155",
     "P000379038",  # force retained
-    "P000358025",
-    "P000341586",
-    "P000342817",
-    "P000346202",
     "P000347161",
     "P000354952",
     "P000357988",
     "P000345243",
-    "P000379261",
     "P000343142",
     "P000354723",
     "P000346640",
@@ -63,9 +58,27 @@ def norm(v) -> str:
     return str(v or "").strip().upper()
 
 
-def is_ay_grad(year, term) -> bool:
-    y = str(year or "").strip()
-    t = str(term or "").strip().upper()
+def is_ay_grad(year, term, conferral=None) -> bool:
+    from datetime import date as date_cls
+    from datetime import datetime as datetime_cls
+
+    d = None
+    if conferral is not None:
+        if isinstance(conferral, datetime_cls):
+            d = conferral.date()
+        elif isinstance(conferral, date_cls):
+            d = conferral
+        else:
+            try:
+                d = date_cls.fromisoformat(str(conferral).strip()[:10])
+            except ValueError:
+                d = None
+    if d is not None:
+        y = str(d.year)
+        t = "FALL" if d.month >= 9 else "SUMMER" if d.month >= 6 else "SPRING"
+    else:
+        y = str(year or "").strip()
+        t = str(term or "").strip().upper()
     return (y == "2025" and t == "FALL") or (y == "2026" and t in {"SPRING", "SUMMER"})
 
 
@@ -116,7 +129,8 @@ def load_graduates(path: Path) -> list[dict]:
             continue
         year = row[header["Graduation Year"]]
         term = row[header["Graduation Term"]]
-        if is_ay_grad(year, term):
+        conferral = row[header["Graduation Date"]] if "Graduation Date" in header and header["Graduation Date"] < len(row) else None
+        if is_ay_grad(year, term, conferral):
             prog_i = header.get("Graduation Program")
             out.append(
                 {

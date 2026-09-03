@@ -289,6 +289,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(gradXml, /Alumni admits/);
   assert.match(gradXml, /AMU Alumni/);
   assert.match(gradXml, /External admits/);
+  assert.match(gradXml, /Summer 2026 graduates/);
   assert.doesNotMatch(gradXml, /Athlete \/ Non-Athlete/);
   const attritionXml = files["xl/worksheets/sheet6.xml"];
   assert.doesNotMatch(attritionXml, /Athletic Retention/);
@@ -300,6 +301,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(attritionXml, /Committee admits and admin overrides/);
   assert.match(attritionXml, /Honors College/);
   assert.match(attritionXml, /Institute/);
+  assert.match(attritionXml, /col min="18" max="18" width="14"/);
   assert.match(attritionXml, /Needs data/);
   const noFbFtcaXml = files["xl/worksheets/sheet7.xml"];
   assert.match(noFbFtcaXml, /Football removed/);
@@ -376,6 +378,20 @@ test("Census Report retention crosstabs append a Total row", () => {
   assert.equal(withGrads.at(-1)?.[1], 4);
   assert.equal(withGrads.at(-1)?.[2], 1);
   assert.equal(withGrads.at(-1)?.[3], 2 / 3);
+  const admit = crosstabCells(
+    [
+      { label: "Admin override (ADM)", label2: "Overall", students: 8, notRetained: 3, graduated: 0, retentionPct: 0.625 },
+      { label: "Admin override (ADM)", label2: "FTCA", students: 4, notRetained: 3, graduated: 0, retentionPct: 0.25 },
+      { label: "Admin override (ADM)", label2: "Male", students: 4, notRetained: 1, graduated: 0, retentionPct: 0.75 },
+      { label: "Committee admit (COMM)", label2: "Overall", students: 9, notRetained: 2, graduated: 0, retentionPct: 0.778 },
+      { label: "Committee admit (COMM)", label2: "FTCA", students: 4, notRetained: 1, graduated: 0, retentionPct: 0.75 },
+    ],
+    true,
+    true,
+    (r) => r.label2 === "Overall",
+  );
+  assert.deepEqual(admit.at(-1)?.slice(0, 4), ["Total", "", 17, 5]);
+  assert.equal(admit.at(-1)?.[4], 12 / 17);
 });
 
 test("filtered list export includes Unretained and Sports sheets", async () => {

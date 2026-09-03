@@ -229,12 +229,12 @@ export function isDegreeSeekingUg(row: {
   College_Attend?: string | null;
   Degree?: string | null;
 }): boolean {
-  if (row.Program !== "UNDERG") return false;
   const college = row.College_Attend || "";
   const degree = row.Degree || "";
   if (college === "DUAL" || college === "EACO" || college === "ND") return false;
   if (degree === "HSDE" || degree === "PENRIC" || degree === "NONDEG") return false;
-  return true;
+  if (row.Program === "UNDERG") return true;
+  return row.Program === "GRAD" && degree.startsWith("B") && degree !== "B";
 }
 
 export function historicalSeries(

@@ -1,4 +1,13 @@
-import { canonicalCensusSport, censusAppDecision, isTeamAthlete, type CensusRawStudent, type LoaWithStatus, type UnretainedStudent } from "./lists-core";
+import {
+  canonicalCensusSport,
+  censusAppDecision,
+  isBachelorDegree,
+  isTeamAthlete,
+  isUgDegreeSeekingRow,
+  type CensusRawStudent,
+  type LoaWithStatus,
+  type UnretainedStudent,
+} from "./lists-core";
 import { CENSUS_RESIDENCY_ORDER, displayCensusResidency } from "./residency";
 import { CLASS_ORDER, COUNTRY_NAMES } from "./present";
 import { isCatholic } from "./retention";
@@ -74,8 +83,6 @@ export const DEGREE_OPTIONS: { id: ReportFilters["degree"]; label: string }[] = 
   { id: "all", label: "All students" },
 ];
 
-const NON_DS = new Set(["DUAL", "EACO", "ND"]);
-
 const CURRICULUM_LABELS: Record<string, string> = {
   CTHSTD: "Catholic Studies",
 };
@@ -146,7 +153,7 @@ export function projectUnretained(rows: UnretainedStudent[]): ReportStudent[] {
 }
 
 export function isUgDegreeSeeking(s: ReportStudent): boolean {
-  return s.program === "UNDERG" && !NON_DS.has(s.collegeAttend);
+  return isUgDegreeSeekingRow(s.program, s.collegeAttend, s.degree);
 }
 
 export function matchesDegree(s: ReportStudent, degree: ReportFilters["degree"]): boolean {
@@ -160,7 +167,7 @@ export function matchesDegree(s: ReportStudent, degree: ReportFilters["degree"])
     case "BS":
       return isUgDegreeSeeking(s) && s.degree === "BSCIEN";
     case "grad":
-      return s.program === "GRAD";
+      return s.program === "GRAD" && !isBachelorDegree(s.degree);
     case "dual":
       return s.collegeAttend === "DUAL" || s.degree === "HSDE";
     default:

@@ -61,7 +61,7 @@ export type CensusBriefing = {
 export function buildCensusBriefing(data: CensusSnapshot, lists: CensusLists): CensusBriefing {
   const students = lists.students;
   const summary = students.length ? summaryFromStudents(students) : data.summary;
-  const ugds = students.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend));
+  const ugds = students.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend, s.degree));
   const incoming = ugds.filter((s) => (s.incomingReturning || "").toLowerCase().startsWith("incoming"));
   const currentIds = students.map((s) => s.pcid);
   const extras = lists.prior.length ? buildFtcaExtras(lists.prior, currentIds, lists.graduates) : null;
@@ -173,7 +173,7 @@ export function buildCensusBriefing(data: CensusSnapshot, lists: CensusLists): C
       "Retention % = still enrolled this fall / (cohort minus intervening graduates). Same formula on All UG, FTCA, sports, and crosstabs. Graduates are not leavers and not in the denominator.",
       "Athletes on sport tables = Varsity / Non-Varsity / Non-NAIA. Band and managers are Associated only.",
       "Catholic = Catholic or Eastern Rite. Christian is Non-Catholic.",
-      "ACT converted = higher of verified ACT and SAT via College Board concordance. CLT-only is a test score but not ACT converted.",
+      "ACT converted = higher of verified ACT and SAT via College Board concordance. Has test score is that same pool. CLT-only is not converted and is No test score.",
     ],
     thisFall,
     lastFall,

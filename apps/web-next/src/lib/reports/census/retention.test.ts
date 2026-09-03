@@ -189,6 +189,32 @@ test("FTCA attrition cohort is Incoming+FTCA", () => {
   assert.equal(a.notRetained, 0);
 });
 
+test("FA25 FTCA attrition is 391: Incoming+FTCA minus Aiden, not returning FTCA graduates", () => {
+  const returningGrads = [
+    "P000343255",
+    "P000343257",
+    "P000343989",
+    "P000344149",
+    "P000344159",
+    "P000345086",
+    "P000346438",
+  ].map((pcid) =>
+    prior({ pcid, incomingReturning: "Returning", collegeAttend: "FTCA", classLevel: "Senior" }),
+  );
+  const a = buildFtcaAttritionFromPrior(
+    [
+      prior({ pcid: "P000384377", first: "Aiden", last: "Wilson", incomingReturning: "Incoming", collegeAttend: "FTCA" }),
+      prior({ pcid: "P000380001", incomingReturning: "Incoming", collegeAttend: "FTCA" }),
+      ...returningGrads,
+    ],
+    ["P000380001"],
+    returningGrads.map((s) => ({ pcid: s.pcid, year: "2026", term: "SPRING" })),
+  );
+  assert.equal(a.cohort, 1);
+  assert.equal(a.graduated, 0);
+  assert.equal(a.enrolledThisFall, 1);
+});
+
 test("no-football retention drops last year's football roster, not this year's team", () => {
   const rows = [
     prior({ pcid: "F1", sport: "Football" }),
@@ -509,8 +535,19 @@ test("FTCA extras fill HS GPA ranges and copy scores onto FTCA raw", () => {
   assert.equal(scored.byActConverted.find((r) => r.label === "25-27")?.students, 1);
   assert.equal(scored.byActConverted.find((r) => r.label === "22-24")?.students, 1);
   assert.equal(scored.byActConverted.find((r) => r.label === "No ACT converted")?.students, 2);
-  assert.equal(scored.byTestScore.find((r) => r.label === "Has test score")?.students, 3);
+  assert.equal(scored.byTestScore.find((r) => r.label === "Has test score")?.students, 2);
+  assert.equal(scored.byTestScore.find((r) => r.label === "No test score")?.students, 2);
   assert.equal(scored.byHonors.find((r) => r.label === "Honors College")?.students, 1);
+  const withInst = buildFtcaExtras(
+    [
+      prior({ pcid: "P1", institute: "Scholar" }),
+      prior({ pcid: "P2", institute: "", sport: "" }),
+    ],
+    ["P1"],
+    [],
+  );
+  assert.equal(withInst.byInstitute.find((r) => r.label === "Institute")?.students, 1);
+  assert.equal(withInst.byInstitute.find((r) => r.label === "No Institute")?.students, 1);
   const raw = deriveFtcaRaw(
     [prior({ pcid: "P1", hsGpa: 3.8, dob: "03/28/2007", act: 26 })],
     [prior({ pcid: "P1" })],

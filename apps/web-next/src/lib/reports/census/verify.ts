@@ -38,13 +38,13 @@ function nameOf(h: HousingAssignmentRow): { first: string; last: string } {
 export function buildVerifyList(
   students: CensusRawStudent[],
   unretained: UnretainedStudent[],
-  graduates: { pcid: string; year?: string | number; term?: string; program?: string }[],
+  graduates: { pcid: string; year?: string | number; term?: string; program?: string; date?: string }[],
   housing: HousingAssignmentRow[],
 ): VerifyRow[] {
   const registered = new Map(students.map((s) => [normPcid(s.pcid), s]));
   const housingBy = new Map(housing.map((h) => [normPcid(h.pcid), h]));
   const gradIds = new Set(
-    graduates.filter((g) => isInterveningGraduate(g.year, g.term)).map((g) => normPcid(g.pcid)),
+    graduates.filter((g) => isInterveningGraduate(g.year, g.term, g.date)).map((g) => normPcid(g.pcid)),
   );
   const rows: VerifyRow[] = [];
   const programsByPcid = new Map<string, CensusRawStudent[]>();

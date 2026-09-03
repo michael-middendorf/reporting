@@ -24,6 +24,8 @@ export type GraduateRecord = {
   year?: string | number;
   term?: string;
   program?: string;
+  degree?: string;
+  date?: string;
 };
 
 export type FtcaRawRow = {
@@ -55,6 +57,7 @@ export type FtcaRawRow = {
   hsGpa: number | string;
   city: string;
   state: string;
+  institute: string;
 };
 
 export type SportRetentionRow = {
@@ -368,7 +371,7 @@ function sportOf(s: { sport?: string }): string {
 export function ayGraduatePcids(grads: GraduateRecord[]): Set<string> {
   const ids = new Set<string>();
   for (const g of grads) {
-    if (isInterveningGraduate(g.year, g.term)) ids.add(normPcid(g.pcid));
+    if (isInterveningGraduate(g.year, g.term, g.date)) ids.add(normPcid(g.pcid));
   }
   return ids;
 }
@@ -420,6 +423,7 @@ export function deriveFtcaRaw(
         hsGpa: s.hsGpa ?? "",
         city: s.city || "",
         state: s.state || "",
+        institute: s.institute || "",
       };
     })
     .sort((a, b) => a.last.localeCompare(b.last) || a.first.localeCompare(b.first));
@@ -443,7 +447,7 @@ export function buildSportRetention(
   >();
 
   for (const s of prior) {
-    if (!isUgDegreeSeekingRow(s.program, s.collegeAttend)) continue;
+    if (!isUgDegreeSeekingRow(s.program, s.collegeAttend, s.degree)) continue;
     const sport = sportOf(s);
     if (!sport) continue;
     if (excluded.has(sport.toLowerCase())) continue;
@@ -554,7 +558,7 @@ export function buildCrosstab(
   pick: (s: CensusRawStudent) => string,
 ): CrosstabRow[] {
   return buildCrosstabOn(
-    prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend)),
+    prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend, s.degree)),
     currentPcids,
     grads,
     pick,
@@ -568,7 +572,7 @@ export function buildAdmitOverrideRetention(
   grads: GraduateRecord[],
 ): CrosstabRow[] {
   const notes = withNotes(prior, currentPcids, grads);
-  const ug = notes.rows.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend));
+  const ug = notes.rows.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend, s.degree));
   const registered = notes.registered;
   const graduated = notes.graduated;
   const decision = (s: CensusRawStudent) => {
@@ -650,12 +654,13 @@ export function buildAssociationRetention(
   const buckets: { label: string; test: (s: CensusRawStudent) => boolean }[] = [
     { label: "Households", test: (s) => Boolean(blank(s.household)) },
     { label: "FSP", test: (s) => Boolean(blank(s.fsp)) },
+    { label: "Institute", test: (s) => Boolean(blank(s.institute)) },
     { label: "Mary's Marines", test: (s) => Boolean(blank(s.marines)) },
     { label: "Institute", test: (s) => associationFlag(s.institute) },
   ];
   const rows: CrosstabRow[] = [];
   for (const b of buckets) {
-    const members = prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend) && b.test(s));
+    const members = prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend, s.degree) && b.test(s));
     for (const gender of ["Female", "Male"]) {
       const subset = members.filter((s) => s.gender === gender);
       const graduatedN = subset.filter((s) => graduated.has(normPcid(s.pcid))).length;
@@ -702,7 +707,7 @@ export function buildAllUgSplit(
   grads: GraduateRecord[],
 ): { all: RetentionSlice; athletes: RetentionSlice; nonAthletes: RetentionSlice } {
   const notes = withNotes(prior, currentPcids, grads);
-  const ug = notes.rows.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend));
+  const ug = notes.rows.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend, s.degree));
   const registered = notes.registered;
   const graduated = notes.graduated;
   return {
@@ -839,7 +844,7 @@ export function buildFtcaExtras(
       if (fine) bump(byHsGpaFineAthletes, fine, status);
     }
     bump(byActConverted, actConvertedBucket(s), status);
-    bump(byTestScore, hasTestScore(s) ? "Has test score" : "No test score", status);
+    bump(byTestScore, actConverted(s) != null ? "Has test score" : "No test score", status);
     bump(byHonors, associationFlag(s.honors) ? "Honors College" : "No honors", status);
     bump(byFsp, associationFlag(s.fsp) ? "FSP" : "No FSP", status);
     bump(byInstitute, associationFlag(s.institute) ? "Institute" : "No Institute", status);
@@ -895,6 +900,7 @@ export function toUnretainedSeed(prior: CensusRawStudent[]): UnretainedStudent[]
     collegeAttend: s.collegeAttend,
     incomingReturning: s.incomingReturning,
     program: s.program,
+    institute: s.institute,
     credits: s.credits,
     earnedCredits: s.earnedCredits,
   }));

@@ -58,7 +58,13 @@ import {
   type CountFte,
   type LabeledCount,
 } from "./types";
-import { amuUndergraduateAlumniIds, buildGraduateEnrollment, summaryFromStudents, type GraduateProgramStats } from "./from-lists";
+import {
+  amuUndergraduateAlumniIds,
+  buildGraduateEnrollment,
+  summerGraduateCounts,
+  summaryFromStudents,
+  type GraduateProgramStats,
+} from "./from-lists";
 import { cellRef, XlsxSheet, XlsxWorkbook, type CellStyle, type CellValue } from "./xlsx";
 
 const NAVY = "1A3F6F";
@@ -162,15 +168,21 @@ function writeCountTable(
   return r;
 }
 
-export function crosstabCells(rows: CrosstabRow[], twoLabels = false, withTotal = false): CellValue[][] {
+export function crosstabCells(
+  rows: CrosstabRow[],
+  twoLabels = false,
+  withTotal = false,
+  includeInTotal?: (r: CrosstabRow) => boolean,
+): CellValue[][] {
   if (!rows.length) return [];
   const body: CellValue[][] = twoLabels
     ? rows.map((r) => [r.label, r.label2 || "", r.students, r.notRetained, r.retentionPct])
     : rows.map((r) => [r.label, r.students, r.notRetained, r.retentionPct]);
   if (!withTotal) return body;
-  const students = rows.reduce((s, r) => s + r.students, 0);
-  const notRetained = rows.reduce((s, r) => s + r.notRetained, 0);
-  const graduated = rows.reduce((s, r) => s + r.graduated, 0);
+  const summed = includeInTotal ? rows.filter(includeInTotal) : rows;
+  const students = summed.reduce((s, r) => s + r.students, 0);
+  const notRetained = summed.reduce((s, r) => s + r.notRetained, 0);
+  const graduated = summed.reduce((s, r) => s + r.graduated, 0);
   const rate = retentionPct(students, notRetained, graduated);
   if (twoLabels) body.push(["Total", "", students, notRetained, rate]);
   else body.push(["Total", students, notRetained, rate]);
@@ -432,7 +444,7 @@ function writeGraduateEnrollment(
     ...programs.map(gradProgramRow),
     ...(overall ? [gradProgramRow({ ...overall, program: "Total" })] : []),
   ];
-  writeCountTable(
+  let r = writeCountTable(
     ws,
     4,
     1,
@@ -452,6 +464,26 @@ function writeGraduateEnrollment(
     ],
     rows,
     { intCols: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], total: true },
+  );
+  const summer = summerGraduateCounts(graduates);
+  const summerN = summer.reduce((s, row) => s + row.n, 0);
+  const summerRows: CellValue[][] = summer.length
+    ? [...summer.map((row) => [row.program, row.n]), ["Total", summerN]]
+    : [];
+  r = writeCountTable(
+    ws,
+    r + 2,
+    1,
+    "Summer 2026 graduates",
+    ["Program", "Graduates"],
+    summerRows,
+    { intCols: [1], total: true },
+  );
+  ws.set(
+    r,
+    1,
+    "Everyone with Graduation Term Summer 2026 on Graduated All-15. Counted as graduated this year (F25–F26 intervening). Not fall enrollment.",
+    NOTE,
   );
 }
 
@@ -642,8 +674,8 @@ function writeCensusReport(
     col.j,
     "Committee admits and admin overrides",
     ["Admit type", "Type", "Students", "# Non-Retained", "Retention %"],
-    crosstabCells(extra.admitOverride, true, false),
-    { intCols: [2, 3], pctCols: [4] },
+    crosstabCells(extra.admitOverride, true, true, (r) => r.label2 === "Overall"),
+    { intCols: [2, 3], pctCols: [4], total: true },
   );
   j = writeCountTable(
     ws,
@@ -1001,17 +1033,22 @@ function writeAttrition(
   wb: XlsxWorkbook,
   data: CensusSnapshot,
   extras: ReturnType<typeof buildFtcaExtras>,
-  opts?: { sheetName?: string; titleSuffix?: string; note?: string },
+  opts?: { sheetName?: string; titleSuffix?: string; note?: string; admitOverride?: CrosstabRow[] },
 ) {
   const ws = wb.addSheet(opts?.sheetName || "FA25 FTCA Cohort Attrition");
   ws.gridLines = false;
-  [18, 12, 16, 12, 16, 3, 24, 18, 14, 14, 14, 14, 3, 22, 12, 14, 14, 3, 3, 22, 16, 14, 14].forEach((w, i) => {
+  // R is Retention % on the 5-column Committee admits table (N–R). S stays a spacer before T.
+  [18, 12, 16, 12, 16, 3, 24, 18, 14, 14, 14, 14, 3, 22, 12, 14, 14, 14, 3, 22, 16, 14, 14].forEach((w, i) => {
     ws.width(i + 1, w);
   });
   ws.set(1, 1, `Fall 2025 Incoming FTCA Cohort Attrition${opts?.titleSuffix ?? ""}`, TITLE18);
-  if (opts?.note) {
-    ws.set(2, 1, opts.note, NOTE);
-  }
+  ws.set(
+    2,
+    1,
+    opts?.note ||
+      "Cohort = FA25 Incoming+FTCA 392 minus Aiden Wilson (dropped after census) = 391. Returning FTCA, including intervening graduates, are not in this pool. Spring/summer admits are out. Athletic retention is on the Census Report sheet.",
+    NOTE,
+  );
 
   const a = data.ftcaAttrition;
   const colA = 1;
@@ -1157,8 +1194,10 @@ function writeAttrition(
     colN,
     "Committee admits and admin overrides",
     ["Admit type", "Type", "Students", "# Non-Retained", "Retention %"],
-    extras.admitOverride.length ? crosstabCells(extras.admitOverride, true, false) : [],
-    { intCols: [2, 3], pctCols: [4] },
+    extras.admitOverride.length
+      ? crosstabCells(extras.admitOverride, true, true, (r) => r.label2 === "Overall")
+      : [],
+    { intCols: [2, 3], pctCols: [4], total: true },
   );
   nRow = writeCountTable(
     ws,
@@ -1181,7 +1220,7 @@ function writeAttrition(
   ws.set(
     nRow,
     colN,
-    "*ACT converted is the higher of verified ACT and SAT (College Board concordance). CLT-only students are in Has test score, not ACT converted.",
+    "*ACT converted is the higher of verified ACT and SAT (College Board concordance). Has / No test score is that same SAT/ACT pool. CLT-only is not a converted score.",
     NOTE,
   );
 
@@ -1293,9 +1332,10 @@ function writeFtcaRaw(wb: XlsxWorkbook, rows: FtcaRawRow[]) {
       "HS GPA",
       "City",
       "State",
+      "Institute",
       "PCID",
     ],
-    [14, 16, 14, 14, 10, 18, 18, 16, 16, 22, 16, 14, 12, 12, 14, 22, 16, 12, 14, 12, 12, 14, 14, 10, 12, 10, 14, 8, 14],
+    [14, 16, 14, 14, 10, 18, 18, 16, 16, 22, 16, 14, 12, 12, 14, 22, 16, 12, 14, 12, 12, 14, 14, 10, 12, 10, 14, 8, 14, 14],
     rows.map((r) => [
       r.first,
       r.last,
@@ -1325,6 +1365,7 @@ function writeFtcaRaw(wb: XlsxWorkbook, rows: FtcaRawRow[]) {
       r.hsGpa,
       r.city,
       r.state,
+      r.institute,
       r.pcid,
     ]),
   );
@@ -1523,6 +1564,7 @@ const UNRETAINED_HEADERS = [
   "Household",
   "Mary's Marines",
   "Honors",
+  "Institute",
   "Sport",
   "Religion",
   "State",
@@ -1618,6 +1660,7 @@ function unretainedRow(s: UnretainedStudent): CellValue[] {
     s.household,
     s.marines,
     s.honors,
+    s.institute || "",
     s.sport,
     s.religion || "",
     s.state,
@@ -1678,7 +1721,7 @@ function writeSources(
     ],
     [
       "Graduates",
-      "PowerCampus Graduated - All (Graduated %2D All-14.xlsx). Intervening year is Fall 2025, Spring 2026, and Summer 2026. Alumni admits use undergraduate degrees on this extract.",
+      "PowerCampus Graduated - All (Graduated %2D All-15.xlsx). Intervening year is Fall 2025, Spring 2026, and Summer 2026. Everyone with Graduation Term Summer 2026 is graduated this year.",
     ],
     [
       "Not retained",
@@ -1751,6 +1794,7 @@ function ftcaRawCells(r: FtcaRawRow): CellValue[] {
     r.hsGpa,
     r.city,
     r.state,
+    r.institute,
     r.pcid,
   ];
 }
@@ -1784,6 +1828,7 @@ const FTCA_RAW_HEADERS = [
   "HS GPA",
   "City",
   "State",
+  "Institute",
   "PCID",
 ];
 
@@ -1844,7 +1889,7 @@ export async function buildListsWorkbook(
       wb,
       "All Not Retained",
       UNRETAINED_HEADERS,
-      [14, 16, 18, 14, 12, 10, 12, 16, 10, 18, 16, 8, 10, 12, 14, 16, 12, 12, 16],
+      [14, 16, 18, 14, 12, 10, 12, 16, 10, 16, 18, 16, 8, 10, 12, 14, 16, 12, 12, 16],
       unretained.map(unretainedRow),
     );
   }
@@ -1882,7 +1927,7 @@ export async function buildListsWorkbook(
     );
   }
   if (want("ftca")) {
-    writeListSheet(wb, "FTCA Raw", FTCA_RAW_HEADERS, [14, 16, 14, 14, 10, 18, 18, 16, 16, 22, 16, 14, 12, 12, 14, 22, 16, 12, 14, 12, 12, 14, 14, 10, 12, 10, 14, 8, 14], ftca.map(ftcaRawCells));
+    writeListSheet(wb, "FTCA Raw", FTCA_RAW_HEADERS, [14, 16, 14, 14, 10, 18, 18, 16, 16, 22, 16, 14, 12, 12, 14, 22, 16, 12, 14, 12, 12, 14, 14, 10, 12, 10, 14, 8, 14, 14], ftca.map(ftcaRawCells));
   }
   if (want("verify")) {
     writeListSheet(
@@ -1951,7 +1996,7 @@ function reportExtras(
       },
     };
   }
-  const ugds = prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend));
+  const ugds = prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend, s.degree));
   return {
     hasPrior: true,
     sportRetention: buildSportRetention(prior, currentIds, graduates, excludedSports, gpa),
@@ -2004,7 +2049,7 @@ export async function buildCensusWorkbook(
 
   const fa25Football = footballRosterPcids(lists.prior);
   const fa25FootballUg = lists.prior.filter(
-    (s) => isCensusFootball(s.sport) && isUgDegreeSeekingRow(s.program, s.collegeAttend),
+    (s) => isCensusFootball(s.sport) && isUgDegreeSeekingRow(s.program, s.collegeAttend, s.degree),
   ).length;
   const noFbStudents = withoutFootballPlayers(lists.students);
   const noFbPrior = withoutFootballRoster(lists.prior, fa25Football);
@@ -2045,10 +2090,11 @@ export async function buildCensusWorkbook(
     yoy: noFootballYoY(noFbPrior, noFbStudents),
   });
   writeGraduateEnrollment(wb, lists.students, lists.prior, data.historical.years[0] ?? 2026, lists.graduates);
-  writeAttrition(wb, data, ftcaExtras);
+  writeAttrition(wb, data, ftcaExtras, { admitOverride: extra.admitOverride });
   writeAttrition(wb, noFbData, noFbFtcaExtras, {
     sheetName: "FA25 FTCA no Football",
     titleSuffix: " (Football removed)",
+    note: `${noFbNote} Incoming+FTCA football is the subset of that FA25 roster who were new FTCA last year, not the whole team.`,
   });
   writeFtcaRaw(wb, ftcaRaw);
   const alumniIds = amuUndergraduateAlumniIds(lists.prior, lists.graduates);
@@ -2063,7 +2109,7 @@ export async function buildCensusWorkbook(
     wb,
     "Not Retained",
     UNRETAINED_HEADERS,
-    [14, 16, 18, 14, 12, 10, 12, 16, 10, 18, 16, 8, 10, 12, 14, 16, 12, 12, 16],
+    [14, 16, 18, 14, 12, 10, 12, 16, 10, 16, 18, 16, 8, 10, 12, 14, 16, 12, 12, 16],
     lists.unretained.map(unretainedRow),
   );
   writeListSheet(wb, "FA26 LOA", LOA_HEADERS, LOA_WIDTHS, loaFallForExport(lists).map(loaRow));

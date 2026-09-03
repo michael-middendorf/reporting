@@ -568,7 +568,8 @@ test("S26 LOA roster marks Mondarez returned and the other six as not returned",
 });
 
 test("unretained notes take graduates, LOA, and exclude/force-retained off All Not Retained", () => {
-  assert.equal(RETENTION_LOA.size, 6);
+  assert.equal(RETENTION_LOA.size, 5);
+  assert.equal(RETENTION_LOA.has("P000344532"), false, "Derrick Guza is not retained, not LOA");
   const tagged = markUnretainedNotes([
     prior("P000346188", { first: "Sophia", last: "Gomez" }),
     prior("P1"),
@@ -654,7 +655,7 @@ test("unretained notes take graduates, LOA, and exclude/force-retained off All N
   assert.equal(merged.length, S26_LOA_ROSTER.length + 1);
 });
 
-test("Fall 2026 LOA notes are the six intend-to-return students", () => {
+test("Fall 2026 LOA notes are the five intend-to-return students", () => {
   assert.equal(S26_LOA_ROSTER.some((s) => s.pcid === "P000380481"), true);
   assert.equal(S26_LOA_ROSTER.some((s) => s.pcid === "P000341593"), false, "Earnhardt is FA26 LOA only");
   const fall = loaStudentsFromNotes([
@@ -672,7 +673,13 @@ test("Fall 2026 LOA notes are the six intend-to-return students", () => {
 
 test("unretained is last census minus graduates minus this-term registration", () => {
   const rows = deriveUnretained(
-    [prior("P1"), prior("P2"), prior("P3"), prior("P4", { program: "GRAD", collegeAttend: "GRAD" })],
+    [
+      prior("P1"),
+      prior("P2"),
+      prior("P3"),
+      prior("P4", { program: "GRAD", collegeAttend: "GRAD" }),
+      prior("P5", { program: "GRAD", collegeAttend: "GRAD" }),
+    ],
     ["P2", "p4"],
     ["P3"],
   );
@@ -681,6 +688,7 @@ test("unretained is last census minus graduates minus this-term registration", (
     ["P1"],
   );
   assert.equal(rows[0].retention, "Not Retained");
+  assert.equal(rows.some((r) => r.pcid === "P5"), false, "graduate program leavers are not All Not Retained");
 });
 
 test("Fall 2025 / Spring 2026 / Summer 2026 count as intervening graduates", () => {
@@ -689,7 +697,12 @@ test("Fall 2025 / Spring 2026 / Summer 2026 count as intervening graduates", () 
   assert.equal(isInterveningGraduate(2026, "SUMMER"), true);
   assert.equal(isInterveningGraduate(2025, "SPRING"), false);
   assert.equal(isInterveningGraduate(2025, "SUMMER"), false);
+  assert.equal(isInterveningGraduate(2025, "SPRING", "2025-12-13"), true, "December conferral is Fall, not extract Spring");
+  assert.equal(isInterveningGraduate("", "", "2026-05-06"), true, "May commencement with blank term is Spring 2026");
+  assert.equal(isInterveningGraduate(2025, "SPRING", "2025-05-10"), false);
   assert.equal(isUgDegreeSeekingRow("UNDERG", "FTCA"), true);
   assert.equal(isUgDegreeSeekingRow("UNDERG", "DUAL"), false);
   assert.equal(isUgDegreeSeekingRow("GRAD", "GRAD"), false);
+  assert.equal(isUgDegreeSeekingRow("GRAD", "GRAD", "BARTS"), true, "dual BA coded GRAD still UG");
+  assert.equal(isUgDegreeSeekingRow("GRAD", "GRAD", "MBA"), false);
 });

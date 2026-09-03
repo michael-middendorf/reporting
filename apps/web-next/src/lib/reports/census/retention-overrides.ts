@@ -11,14 +11,11 @@ export const RETENTION_FORCE_RETAINED = new Set(
 
 /** Intervening graduates missing from the PowerCampus graduate extract. */
 export const RETENTION_FORCE_GRADUATED: GraduateRecord[] = [
-  ...["P000358025", "P000341586", "P000342817"].map((pcid) => ({ pcid, year: "2025", term: "FALL" })),
-  { pcid: "P000346202", year: "2026", term: "SPRING" },
   ...[
     "P000347161",
     "P000354952",
     "P000357988",
     "P000345243",
-    "P000379261",
     "P000343142",
     "P000354723",
     "P000346640",
@@ -44,7 +41,6 @@ export const RETENTION_LOA = new Set(
   [
     "P000341593", // Alexander Earnhardt
     "P000346188", // Sophia Gomez
-    "P000344532", // Derrick Guza
     "P000380481", // Domenica Cedeno Medrano
     "P000343982", // Matthew Pena
     "P000380315", // Charles Wagner

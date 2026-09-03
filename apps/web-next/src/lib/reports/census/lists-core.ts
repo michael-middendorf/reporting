@@ -63,6 +63,7 @@ export type UnretainedStudent = {
   collegeAttend: string;
   incomingReturning: string;
   program?: string;
+  institute?: string;
   credits?: number | string;
   earnedCredits?: number | string;
   athleticType?: string;
@@ -284,7 +285,7 @@ export type CensusLists = {
   students: CensusRawStudent[];
   unretained: UnretainedStudent[];
   prior: CensusRawStudent[];
-  graduates: { pcid: string; year?: string | number; term?: string; program?: string }[];
+  graduates: { pcid: string; year?: string | number; term?: string; program?: string; degree?: string; date?: string }[];
   /** Spring 2026 LOA census roster. */
   loa: LoaStudent[];
   /** Fall 2026 LOA from unretained notes (intend to return). */
@@ -307,15 +308,52 @@ export function censusAppDecision(raw: string | null | undefined): string {
   return (raw || "").trim() || "Not listed";
 }
 
+/** Conferral date wins over extract term. Dec = Fall, Jun–Aug = Summer, Jan–May = Spring. */
+export function academicTermFromDate(
+  raw: string | Date | null | undefined,
+): { year: string; term: "FALL" | "SPRING" | "SUMMER" } | null {
+  if (raw == null || raw === "") return null;
+  let year = 0;
+  let month = 0;
+  if (raw instanceof Date && !Number.isNaN(+raw)) {
+    year = raw.getUTCFullYear();
+    month = raw.getUTCMonth() + 1;
+  } else {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(raw).trim());
+    if (!m) return null;
+    year = Number(m[1]);
+    month = Number(m[2]);
+  }
+  if (!year || !month) return null;
+  const y = String(year);
+  if (month >= 9) return { year: y, term: "FALL" };
+  if (month >= 6) return { year: y, term: "SUMMER" };
+  return { year: y, term: "SPRING" };
+}
+
 /** Fall 2025, Spring 2026, and Summer 2026 — the year between FA25 and FA26 census. */
-export function isInterveningGraduate(year: string | number | null | undefined, term: string | null | undefined): boolean {
-  const y = String(year ?? "").trim();
-  const t = String(term ?? "").trim().toUpperCase();
+export function isInterveningGraduate(
+  year: string | number | null | undefined,
+  term: string | null | undefined,
+  date?: string | Date | null,
+): boolean {
+  const fromDate = academicTermFromDate(date);
+  const y = fromDate?.year ?? String(year ?? "").trim();
+  const t = (fromDate?.term ?? String(term ?? "").trim()).toUpperCase();
   return (y === "2025" && t === "FALL") || (y === "2026" && (t === "SPRING" || t === "SUMMER"));
 }
 
-export function isUgDegreeSeekingRow(program: string, collegeAttend: string): boolean {
-  return (program || "").trim().toUpperCase() === "UNDERG" && !NON_DS.has((collegeAttend || "").trim().toUpperCase());
+/** BARTS / BSCIEN / BPHIL — UG even when Registration Status Program is GRAD (dual BA). */
+export function isBachelorDegree(degree?: string): boolean {
+  const d = (degree || "").trim().toUpperCase();
+  return d.startsWith("B") && d !== "B";
+}
+
+export function isUgDegreeSeekingRow(program: string, collegeAttend: string, degree?: string): boolean {
+  if (NON_DS.has((collegeAttend || "").trim().toUpperCase())) return false;
+  const prog = (program || "").trim().toUpperCase();
+  if (prog === "UNDERG") return true;
+  return prog === "GRAD" && isBachelorDegree(degree);
 }
 
 /** Slate/eRez Entry Term like "Spring 2026" or "2025SPRING01". */
@@ -399,7 +437,8 @@ export function deriveUnretained(
   return prior
     .filter((s) => {
       const id = normPcid(s.pcid);
-      return Boolean(id) && !registered.has(id) && !graduated.has(id);
+      if (!id || registered.has(id) || graduated.has(id)) return false;
+      return isUgDegreeSeekingRow(s.program || "", s.collegeAttend || "");
     })
     .map((s) => ({ ...s, retention: "Not Retained" }));
 }

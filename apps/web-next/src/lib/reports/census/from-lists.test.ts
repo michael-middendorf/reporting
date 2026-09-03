@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { applyRegistrationTotals, buildGraduateEnrollment, meanPositive, sumCredits, summaryFromStudents } from "./from-lists";
+import { applyRegistrationTotals, buildGraduateEnrollment, meanPositive, summerGraduateCounts, sumCredits, summaryFromStudents } from "./from-lists";
 import { markSpringAdmitsReturning, promoteFormerDualFtca } from "./lists";
 import snapshot from "./snapshot.json";
 import type { CensusRawStudent } from "./lists-core";
@@ -145,6 +145,23 @@ test("graduate summary splits Philosophy, Theology, PhD, MBA, M.Ed, and CRW", ()
   assert.equal(sum.totalGraduate.headcount, 7);
 });
 
+test("GRAD program with BARTS is UG, not Other on the graduate tab", () => {
+  const rows = [
+    s({ pcid: "P1", program: "GRAD", collegeAttend: "GRAD", degree: "BARTS", curriculum: "THE", curriculumName: "Theology", incomingReturning: "Incoming" }),
+    s({ pcid: "P2", program: "GRAD", collegeAttend: "GRAD", degree: "BARTS", curriculum: "BUS", classLevel: "Senior", incomingReturning: "Returning" }),
+    s({ pcid: "P3", program: "GRAD", collegeAttend: "GRAD", degree: "MBA", incomingReturning: "Incoming" }),
+  ];
+  const sum = summaryFromStudents(rows);
+  assert.equal(sum.degreeSeeking.headcount, 2);
+  assert.equal(sum.newStudents.headcount, 1);
+  assert.equal(sum.returning.headcount, 1);
+  assert.equal(sum.totalGraduate.headcount, 1);
+  assert.equal(sum.gradMba.headcount, 1);
+  const blocks = buildGraduateEnrollment(rows);
+  assert.equal(blocks[0]?.n, 1);
+  assert.equal(blocks.some((b) => b.program === "Other"), false);
+});
+
 test("graduate enrollment stats split overall and programs; alumni vs external admits", () => {
   const rows = [
     s({ pcid: "A1", program: "GRAD", collegeAttend: "GRAD", degree: "MBA", incomingReturning: "Incoming", athlete: "Athlete", religion: "Catholic", cathGroup: "Catholic" }),
@@ -276,4 +293,24 @@ test("a student in UG and Lux Mundi MA counts in both, once in all-student headc
   assert.equal(sum.totalGraduate.headcount, 1);
   assert.equal(sum.totalUndergraduate.headcount, 1);
   assert.equal(sum.totalEnrollment.headcount, 1);
+});
+
+test("summer graduate counts include every Summer 2026 degree", () => {
+  const rows = summerGraduateCounts([
+    { pcid: "G1", year: "2026", term: "SUMMER", program: "GRAD", degree: "MBA" },
+    { pcid: "G2", year: "2026", term: "SUMMER", program: "GRAD", degree: "MBA" },
+    { pcid: "G3", year: "2026", term: "SUMMER", program: "GRAD", degree: "MARTS" },
+    { pcid: "U1", year: "2026", term: "SUMMER", program: "UNDERG", degree: "BARTS" },
+    { pcid: "U2", year: "2026", term: "SUMMER", program: "UNDERG", degree: "BSCIEN" },
+    { pcid: "G4", year: "2026", term: "SPRING", program: "GRAD", degree: "MBA" },
+  ]);
+  assert.deepEqual(
+    rows,
+    [
+      { program: "B.A.", n: 1 },
+      { program: "B.S.", n: 1 },
+      { program: "MA Theology", n: 1 },
+      { program: "MBA", n: 2 },
+    ],
+  );
 });

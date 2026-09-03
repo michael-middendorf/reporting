@@ -1,4 +1,4 @@
-import { isUgDegreeSeekingRow, normPcid, type CensusRawStudent } from "./lists-core";
+import { isBachelorDegree, isUgDegreeSeekingRow, normPcid, type CensusRawStudent } from "./lists-core";
 import { DEFAULT_FILTERS, buildReport, filterStudents, projectReportStudents } from "./report";
 import { isCatholic } from "./retention";
 import { fteFromStudent, fullTimeUg, historicalSeries, type CensusSnapshot, type CensusSummary, type CountFte } from "./types";
@@ -81,7 +81,7 @@ function isDual(s: CensusRawStudent): boolean {
 }
 
 function isGrad(s: CensusRawStudent): boolean {
-  return program(s) === "GRAD";
+  return program(s) === "GRAD" && !isBachelorDegree(degree(s));
 }
 
 function curriculumCode(s: CensusRawStudent): string {
@@ -98,7 +98,7 @@ function isMaCrw(s: CensusRawStudent): boolean {
 }
 
 function isUgDs(s: CensusRawStudent): boolean {
-  return isUgDegreeSeekingRow(s.program, s.collegeAttend) && !NON_DS_DEGREE.has(degree(s));
+  return isUgDegreeSeekingRow(s.program, s.collegeAttend, degree(s)) && !NON_DS_DEGREE.has(degree(s));
 }
 
 export function isIrelandStudent(s: CensusRawStudent): boolean {
@@ -189,7 +189,7 @@ export const GRAD_PROGRAM_ORDER = [
 ] as const;
 
 export function graduateProgramLabel(s: CensusRawStudent): string | null {
-  if (program(s) !== "GRAD") return null;
+  if (program(s) !== "GRAD" || isBachelorDegree(degree(s))) return null;
   if (isLuxMundi(s)) return "Lux Mundi MA Theology";
   const d = degree(s);
   if (isMaPhil(s)) return "MA Philosophy";
@@ -250,7 +250,7 @@ export function amuUndergraduateAlumniIds(
   graduates: { pcid: string; program?: string; degree?: string }[] = [],
 ): Set<string> {
   return new Set([
-    ...prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend)).map((s) => normPcid(s.pcid)),
+    ...prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend, s.degree)).map((s) => normPcid(s.pcid)),
     ...graduates.filter(isAmuUndergraduateAlum).map((g) => normPcid(g.pcid)),
   ]);
 }
@@ -261,7 +261,7 @@ export function buildGraduateEnrollment(
   prior: CensusRawStudent[] = [],
   graduates: { pcid: string; program?: string; degree?: string }[] = [],
 ): GraduateProgramStats[] {
-  const grads = students.filter((s) => program(s) === "GRAD");
+  const grads = students.filter(isGrad);
   const alumniIds = amuUndergraduateAlumniIds(prior, graduates);
   const byProgram = new Map<string, CensusRawStudent[]>();
   for (const s of grads) {
@@ -277,6 +277,52 @@ export function buildGraduateEnrollment(
     blocks.push(programStats(label, rows, alumniIds));
   }
   return blocks;
+}
+
+const SUMMER_DEGREE_ORDER = ["B.A.", "B.S.", ...GRAD_PROGRAM_ORDER];
+
+/** Every Summer 2026 degree on Graduated All — UG bachelor's and graduate programs. */
+export function summerGraduateDegreeLabel(g: { program?: string; degree?: string }): string | null {
+  const prog = (g.program || "").trim().toUpperCase();
+  const d = (g.degree || "").trim().toUpperCase();
+  if (prog === "UNDERG") {
+    if (d === "BSCIEN") return "B.S.";
+    if (d === "BARTS") return "B.A.";
+    return d || "Undergraduate";
+  }
+  if (prog !== "GRAD") return d || prog || null;
+  if (d === "PHD") return "PhD Theology";
+  if (d === "MBA") return "MBA";
+  if (d === "MEDCL") return "M. Education";
+  if (d === "MARTS") return "MA Theology";
+  if (d === "MAPHIL") return "MA Philosophy";
+  return d || "Other";
+}
+
+export function summerGraduateCounts(
+  graduates: { year?: string | number; term?: string; program?: string; degree?: string }[],
+): { program: string; n: number }[] {
+  const map = new Map<string, number>();
+  for (const g of graduates) {
+    if (String(g.year ?? "").trim() !== "2026") continue;
+    if (String(g.term ?? "").trim().toUpperCase() !== "SUMMER") continue;
+    const label = summerGraduateDegreeLabel(g);
+    if (!label) continue;
+    map.set(label, (map.get(label) || 0) + 1);
+  }
+  const rows: { program: string; n: number }[] = [];
+  const seen = new Set<string>();
+  for (const label of SUMMER_DEGREE_ORDER) {
+    const n = map.get(label);
+    if (n) {
+      rows.push({ program: label, n });
+      seen.add(label);
+    }
+  }
+  for (const [label, n] of map) {
+    if (!seen.has(label)) rows.push({ program: label, n });
+  }
+  return rows;
 }
 
 function patchYear0(data: CensusSnapshot, key: keyof CensusSummary, c: CountFte) {

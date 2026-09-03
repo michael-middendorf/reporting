@@ -75,6 +75,17 @@ test("default degree filter is UG degree-seeking, dual enrollment is out", () =>
   assert.equal(filterStudents(rows, { ...DEFAULT_FILTERS, degree: "dual" }).length, 1);
 });
 
+test("GRAD program with a bachelor's degree is UG, not graduate", () => {
+  const rows = set([
+    raw({ pcid: "1", program: "GRAD", collegeAttend: "GRAD", degree: "BARTS" }),
+    raw({ pcid: "2", program: "GRAD", collegeAttend: "GRAD", degree: "MBA" }),
+  ]);
+  assert.equal(filterStudents(rows, DEFAULT_FILTERS).length, 1);
+  assert.equal(filterStudents(rows, DEFAULT_FILTERS)[0]?.pcid, "1");
+  assert.equal(filterStudents(rows, { ...DEFAULT_FILTERS, degree: "grad" }).length, 1);
+  assert.equal(filterStudents(rows, { ...DEFAULT_FILTERS, degree: "grad" })[0]?.pcid, "2");
+});
+
 test("census raw includes graduate rows when the default degree filter is UG", () => {
   const rows = [
     raw({ pcid: "1", program: "UNDERG", collegeAttend: "FTCA", degree: "BARTS" }),

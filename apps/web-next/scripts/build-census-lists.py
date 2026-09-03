@@ -49,7 +49,7 @@ FA26_ENTRY = DOWNLOADS / "Roster -_ Housing Report 20260821-155657.xlsx"
 FA25_RESIDENCY_FILL = {
     "P000342716": "Other",  # Abigail Rich: LESS, San Diego, Fall 2025 graduate; not in eRez
 }
-GRADUATES = DOWNLOADS / "Graduated %2D All-14.xlsx"
+GRADUATES = DOWNLOADS / "Graduated %2D All-15.xlsx"
 SLATE_ATHLETES = Path("/tmp/slate-athletes.json")
 EXISTING_STUDENTS = DATA / "students.json"
 
@@ -59,15 +59,10 @@ NON_DS = {"DUAL", "EACO", "ND"}
 RETENTION_EXCLUDE = {"P000384377", "P000378273"}  # Aiden Wilson; Hannah Nelson (deceased)
 RETENTION_FORCE_RETAINED = {"P000352989", "P000380426", "P000343155", "P000379038"}  # Trumpore; Harrell; Pritchard; Parks
 RETENTION_FORCE_GRADUATED = {
-    "P000358025",
-    "P000341586",
-    "P000342817",  # December 2025
-    "P000346202",  # Spring 2026
     "P000347161",
     "P000354952",
     "P000357988",
     "P000345243",
-    "P000379261",
     "P000343142",
     "P000354723",
     "P000346640",
@@ -148,9 +143,33 @@ def dash(v) -> str:
     return t if t else ""
 
 
-def is_ay_grad(year, term) -> bool:
-    y = str(year or "").strip()
-    t = str(term or "").strip().upper()
+def academic_term_from_date(raw) -> tuple[str, str] | None:
+    """Dec = Fall, Jun–Aug = Summer, Jan–May = Spring. Conferral date wins over extract term."""
+    if raw is None:
+        return None
+    if isinstance(raw, datetime):
+        d = raw.date()
+    elif isinstance(raw, date):
+        d = raw
+    else:
+        try:
+            d = date.fromisoformat(str(raw).strip()[:10])
+        except ValueError:
+            return None
+    if d.month >= 9:
+        return str(d.year), "FALL"
+    if d.month >= 6:
+        return str(d.year), "SUMMER"
+    return str(d.year), "SPRING"
+
+
+def is_ay_grad(year, term, conferral=None) -> bool:
+    from_date = academic_term_from_date(conferral)
+    if from_date:
+        y, t = from_date
+    else:
+        y = str(year or "").strip()
+        t = str(term or "").strip().upper()
     return (y == "2025" and t == "FALL") or (y == "2026" and t in {"SPRING", "SUMMER"})
 
 
@@ -805,16 +824,32 @@ def load_graduates(path: Path) -> list[dict]:
         pid = pcid_of(row[header["PCID"]] if header["PCID"] < len(row) else "")
         if not pid:
             continue
-        year, term = row[header["Graduation Year"]], row[header["Graduation Term"]]
-        prog_i = header.get("Graduation Program")
-        deg_i = header.get("Graduation Degree")
+        def cell(key: str):
+            i = header.get(key)
+            if i is None or i >= len(row):
+                return None
+            return row[i]
+
+        year, term = cell("Graduation Year"), cell("Graduation Term")
+        conferral = cell("Graduation Date")
+        conferral_s = None
+        if conferral is not None:
+            if isinstance(conferral, datetime):
+                conferral_s = conferral.date().isoformat()
+            elif isinstance(conferral, date):
+                conferral_s = conferral.isoformat()
+            else:
+                conferral_s = str(conferral).strip()[:10] or None
+        prog = cell("Graduation Program")
+        deg = cell("Graduation Degree")
         out.append(
             {
                 "pcid": pid,
                 "year": year,
                 "term": term,
-                "program": str(row[prog_i] or "").strip() if prog_i is not None else "",
-                "degree": str(row[deg_i] or "").strip() if deg_i is not None else "",
+                "date": conferral_s,
+                "program": str(prog or "").strip(),
+                "degree": str(deg or "").strip(),
             }
         )
     wb.close()
@@ -1222,7 +1257,7 @@ def main() -> None:
         norm(row["pcid"]) for row in residency_overlay if "ireland" in str(row.get("session") or "").lower()
     }
     graduates = load_graduates(GRADUATES)
-    grad_ids = {norm(g["pcid"]) for g in graduates if is_ay_grad(g.get("year"), g.get("term"))}
+    grad_ids = {norm(g["pcid"]) for g in graduates if is_ay_grad(g.get("year"), g.get("term"), g.get("date"))}
     registered_ids = {norm(s["pcid"]) for s in registered_rows}
 
     students = []

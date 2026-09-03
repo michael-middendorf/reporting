@@ -17,7 +17,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 - Chesterton: extract `20260901-103435.xlsx` column **DE Type**. 76 rows, **1** filled (`Chesterton` = Gianna Cox, not on FA26). Blank is not Chesterton. Summary Chesterton dual = **0**.
 - Housing: eRez + FA25 `Copy of 9.4.2025 CENSUS Fall 25.xlsx` (residence-applications).
 - Unretained notes: `Downloads/Census retention sheet.xlsx` col R (`intend to return/not return`).
-- Graduates / alumni: `Graduated %2D All-14.xlsx` (was -13). Intervening year for unretained; all UG degrees for graduate alumni admits.
+- Graduates / alumni: `Graduated %2D All-15.xlsx` (was -14). Intervening year is Fall 2025, Spring 2026, and Summer 2026. Alumni admits use undergraduate degrees on this extract.
 - FA26 entry terms: `Downloads/Roster -_ Housing Report 20260821-155657.xlsx`.
 - Incoming states: `Downloads/FA25 Incoming Students Census 20260903-135650.xlsx` (Person State / Address 1 Region). Fills blank FA25/FA26 state only; does not overwrite a filled state.
 - Institute scholars: `Downloads/Scholars Fall 2026 (1).xlsx` (Y1/Y2/Y3). Michael Gotlund removed vs the 8-28 file. Six roster names are not on Registration Status.
@@ -42,13 +42,13 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 
 **All UG retention after notes:** prior UG **1341** (1343 − Aiden − Hannah; LOA stays in). Enrolled and graduate counts are live. LOA is not a leaver and not on All Not Retained. Notes sheet 135 “not retained” is the UG DS leaver count.
 
-**FA26 LOA tab:** Earnhardt P000341593, Gomez P000346188, Guza P000344532, Cedeno Medrano P000380481, Pena P000343982, Wagner P000380315. Intend to return. In the FA25 cohort. Counted as retained. Not All Not Retained.
+**FA26 LOA tab:** Earnhardt P000341593, Gomez P000346188, Cedeno Medrano P000380481, Pena P000343982, Wagner P000380315. Intend to return. In the FA25 cohort. Counted as retained. Not All Not Retained. Derrick Guza is not retained.
 
 ## Retention notes (col R + extras)
 
 - Exclude: Aiden Wilson P000384377 (dropped after FA25 census), Hannah Nelson P000378273 (deceased).
 - Force retained: Trumpore AMSOL, Harrell enrolled, Pritchard last credits, Parks AMSOL.
-- Force graduated: Dec 2025 Mather/Suchomski/B.Wilson; Spring Landry; Summer list in `retention-overrides.ts`.
+- Conferral date wins over extract term (December = Fall). Mather/Suchomski/B.Wilson Dec 13 2025 count as Fall 2025 from All-15. Force-graduated is the remaining Summer list in `retention-overrides.ts`.
 
 ## Verify-tab notes (last column)
 
