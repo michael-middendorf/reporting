@@ -629,7 +629,8 @@ describe("gap sheet", () => {
     assert.ok(sheet);
     assert.equal((sheet.match(/<row r="/g) || []).length, allGapRows().length + 1);
     assert.equal(sheet.includes("Ada"), false);
-    assert.equal(sheet.includes("example.edu"), false);
+    assert.equal(sheet.includes("Lovelace"), false);
+    assert.equal(sheet.includes("ada@"), false);
   });
 });
 
