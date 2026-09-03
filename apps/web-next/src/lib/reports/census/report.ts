@@ -204,6 +204,7 @@ export function filterLoa(rows: LoaWithStatus[], f: ReportFilters): LoaWithStatu
     appDecision: "",
     athleticType: "",
     rosterStatus: "",
+    institute: (s.institute || "").trim(),
   }));
   const keep = new Set(filterStudents(projected, { ...f, majors: [] }).map((s) => s.pcid.toUpperCase()));
   return rows.filter((s) => {
