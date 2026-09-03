@@ -48,6 +48,7 @@ export type FtcaRawRow = {
   fa26Credits: number | string;
   fa26Gpa: number | string;
   fa26Residency: string;
+  appDecision: string;
   dob: string;
   gender: string;
   ethnicity: string;
@@ -122,6 +123,8 @@ export type FtcaExtras = {
   byTestScore: AttritionRow[];
   byHonors: AttritionRow[];
   byFsp: AttritionRow[];
+  byInstitute: AttritionRow[];
+  admitOverride: CrosstabRow[];
 };
 
 /** Catholic or Eastern Rite Catholic. Does not treat "Non-Catholic" as Catholic. */
@@ -172,8 +175,9 @@ const HS_GPA_ORDER = ["<2.0", "2.0 - 2.49", "2.5 - 2.99", "3.0 - 3.49", "3.5 - 4
 const HS_GPA_FINE_ORDER = ["2.9- 2.99", "3.0 - 3.09", "3.1 - 3.19", "3.2 - 3.29", "3.3 - 3.39", "3.4 - 3.49"];
 const ACT_CONVERTED_ORDER = ["<18", "18-21", "22-24", "25-27", "28-30", "31-36", "No ACT converted"];
 const TEST_SCORE_ORDER = ["Has test score", "No test score"];
-const HONORS_ORDER = ["Honors", "No honors"];
+const HONORS_ORDER = ["Honors College", "No honors"];
 const FSP_ORDER = ["FSP", "No FSP"];
+const INSTITUTE_ORDER = ["Institute", "No Institute"];
 
 /** College Board 2018 SAT total → ACT concordance. SAT below 400 is missing. */
 const SAT_TO_ACT: [number, number][] = [
@@ -409,6 +413,7 @@ export function deriveFtcaRaw(
         fa26Credits: now?.credits ?? "",
         fa26Gpa: now?.gpa ?? "",
         fa26Residency: now?.residency || "",
+        appDecision: censusAppDecision(s.appDecision),
         dob: s.dob || "",
         gender: s.gender || "",
         ethnicity: s.ethnicity || "",
@@ -646,6 +651,7 @@ export function buildAssociationRetention(
     { label: "Households", test: (s) => Boolean(blank(s.household)) },
     { label: "FSP", test: (s) => Boolean(blank(s.fsp)) },
     { label: "Mary's Marines", test: (s) => Boolean(blank(s.marines)) },
+    { label: "Institute", test: (s) => associationFlag(s.institute) },
   ];
   const rows: CrosstabRow[] = [];
   for (const b of buckets) {
@@ -822,6 +828,7 @@ export function buildFtcaExtras(
   const byTestScore = new Map<string, AttritionCounts>();
   const byHonors = new Map<string, AttritionCounts>();
   const byFsp = new Map<string, AttritionCounts>();
+  const byInstitute = new Map<string, AttritionCounts>();
   for (const s of cohort) {
     const status = retentionStatus(normPcid(s.pcid), registered, graduated);
     bump(byHsGpa, hsGpaBucket(s.hsGpa), status);
@@ -833,8 +840,9 @@ export function buildFtcaExtras(
     }
     bump(byActConverted, actConvertedBucket(s), status);
     bump(byTestScore, hasTestScore(s) ? "Has test score" : "No test score", status);
-    bump(byHonors, associationFlag(s.honors) ? "Honors" : "No honors", status);
+    bump(byHonors, associationFlag(s.honors) ? "Honors College" : "No honors", status);
     bump(byFsp, associationFlag(s.fsp) ? "FSP" : "No FSP", status);
+    bump(byInstitute, associationFlag(s.institute) ? "Institute" : "No Institute", status);
   }
   const notRetained = cohort.filter((s) => leftWithoutGrad(normPcid(s.pcid), registered, graduated)).length;
   return {
@@ -863,6 +871,8 @@ export function buildFtcaExtras(
     byTestScore: sortHsGpa(attritionFromMap(byTestScore, notRetained), TEST_SCORE_ORDER),
     byHonors: sortHsGpa(attritionFromMap(byHonors, notRetained), HONORS_ORDER),
     byFsp: sortHsGpa(attritionFromMap(byFsp, notRetained), FSP_ORDER),
+    byInstitute: sortHsGpa(attritionFromMap(byInstitute, notRetained), INSTITUTE_ORDER),
+    admitOverride: buildAdmitOverrideRetention(prior, currentPcids, grads),
   };
 }
 

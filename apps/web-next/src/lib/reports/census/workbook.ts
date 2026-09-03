@@ -11,7 +11,7 @@ import {
   type LoaStudent,
   type LoaWithStatus,
 } from "./lists-core";
-import { loaStudentsFromNotes } from "./retention-overrides";
+import { deceasedStudentsFromNotes, loaStudentsFromNotes } from "./retention-overrides";
 import {
   applyLiveRetentionHistory,
   athleteOf,
@@ -58,7 +58,7 @@ import {
   type CountFte,
   type LabeledCount,
 } from "./types";
-import { amuUndergraduateAlumniIds, buildGraduateEnrollment, type GraduateProgramStats } from "./from-lists";
+import { amuUndergraduateAlumniIds, buildGraduateEnrollment, summaryFromStudents, type GraduateProgramStats } from "./from-lists";
 import { cellRef, XlsxSheet, XlsxWorkbook, type CellStyle, type CellValue } from "./xlsx";
 
 const NAVY = "1A3F6F";
@@ -455,12 +455,26 @@ function writeGraduateEnrollment(
   );
 }
 
+function noFootballYoY(prior: CensusRawStudent[], current: CensusRawStudent[]): CellValue[][] {
+  const fa25 = summaryFromStudents(prior);
+  const fa26 = summaryFromStudents(current);
+  return [
+    ["UG degree-seeking", fa25.degreeSeeking.headcount, fa26.degreeSeeking.headcount],
+    ["New students", fa25.newStudents.headcount, fa26.newStudents.headcount],
+    ["FTCA", fa25.ftca.headcount, fa26.ftca.headcount],
+    ["Returning", fa25.returning.headcount, fa26.returning.headcount],
+    ["On Campus", fa25.onCampus.headcount, fa26.onCampus.headcount],
+    ["Total undergraduate", fa25.totalUndergraduate.headcount, fa26.totalUndergraduate.headcount],
+    ["All students", fa25.totalEnrollment.headcount, fa26.totalEnrollment.headcount],
+  ];
+}
+
 function writeCensusReport(
   wb: XlsxWorkbook,
   data: CensusSnapshot,
   tables: ReportTables,
   extra: ReportExtras,
-  opts?: { sheetName?: string; titleSuffix?: string; note?: string },
+  opts?: { sheetName?: string; titleSuffix?: string; note?: string; yoy?: CellValue[][] },
 ) {
   const year = data.historical.years[0] ?? 2026;
   const fa = faLabel(year);
@@ -566,9 +580,18 @@ function writeCensusReport(
     ws,
     f + 2,
     col.f,
-    "Honors Program",
-    ["Honors Program", "Students", "Percentage"],
+    "Honors College",
+    ["Honors College", "Students", "Percentage"],
     labeledRows(t.honorsByClass),
+    { intCols: [1], pctCols: [2], total: true },
+  );
+  f = writeCountTable(
+    ws,
+    f + 2,
+    col.f,
+    "Institute",
+    ["Institute", "Students", "Percentage"],
+    labeledRows(t.instituteByClass),
     { intCols: [1], pctCols: [2], total: true },
   );
 
@@ -673,9 +696,22 @@ function writeCensusReport(
         ],
       ]
     : [];
-  let p = writeCountTable(
+  let p = 3;
+  if (opts?.yoy?.length) {
+    p = writeCountTable(
+      ws,
+      3,
+      col.p,
+      "Year over year (football removed)",
+      ["", "Fall 2025", "Fall 2026"],
+      opts.yoy,
+      { intCols: [1, 2] },
+    );
+    p += 2;
+  }
+  p = writeCountTable(
     ws,
-    3,
+    p,
     col.p,
     "",
     ["Class Level", "Students", "Full Time", "Incoming", "Percentage"],
@@ -850,7 +886,7 @@ function writeCensusReport(
     majorRows,
     { intCols: [1, 2, 3, 4, 5], pctCols: [6], total: true },
   );
-  ws.set(p, col.p, "*Includes all declared majors, students with more than one major will be counted multiple times.", NOTE);
+  ws.set(p, col.p, "*Declared majors only (primary curriculum). Minors are not counted. Students with more than one major are counted multiple times.", NOTE);
   p += 2;
 
   p = writeCountTable(
@@ -973,13 +1009,9 @@ function writeAttrition(
     ws.width(i + 1, w);
   });
   ws.set(1, 1, `Fall 2025 Incoming FTCA Cohort Attrition${opts?.titleSuffix ?? ""}`, TITLE18);
-  ws.set(
-    2,
-    1,
-    opts?.note ||
-      "Cohort = Fall 2025 census Incoming+FTCA (392 on the FA25 Summary). Class level does not matter. Spring/summer admits are not in this pool. Aiden Wilson excluded (dropped after FA25 census). Athletic retention is on the Census Report sheet.",
-    NOTE,
-  );
+  if (opts?.note) {
+    ws.set(2, 1, opts.note, NOTE);
+  }
 
   const a = data.ftcaAttrition;
   const colA = 1;
@@ -1107,8 +1139,26 @@ function writeAttrition(
     colN,
     "Application Decision",
     ["Application Decision", "Students", "# Non-Retained", "% Retained"],
-    extras.byAppDecision.length ? crosstabCells(extras.byAppDecision, false, true) : [],
+    extras.byAppDecision.length
+      ? crosstabCells(
+          [...extras.byAppDecision].sort((a, b) => {
+            const order = ["ACCT", "ADM", "COMM", "COND", "Not listed"];
+            return (order.indexOf(a.label) === -1 ? 99 : order.indexOf(a.label)) - (order.indexOf(b.label) === -1 ? 99 : order.indexOf(b.label));
+          }),
+          false,
+          true,
+        )
+      : [],
     { intCols: [1, 2], pctCols: [3], total: true },
+  );
+  nRow = writeCountTable(
+    ws,
+    nRow + 2,
+    colN,
+    "Committee admits and admin overrides",
+    ["Admit type", "Type", "Students", "# Non-Retained", "Retention %"],
+    extras.admitOverride.length ? crosstabCells(extras.admitOverride, true, false) : [],
+    { intCols: [2, 3], pctCols: [4] },
   );
   nRow = writeCountTable(
     ws,
@@ -1185,18 +1235,27 @@ function writeAttrition(
     ws,
     tRow + 2,
     colT,
-    "Honors",
-    ["Honors", "Students", "# Non-Retained", "% Retained"],
+    "Honors College",
+    ["Honors College", "Students", "# Non-Retained", "% Retained"],
     extras.byHonors.length ? attritionWithTotal(extras.byHonors, a.retentionRate, "gpa") : [],
     { intCols: [1, 2], pctCols: [3], total: true },
   );
-  writeCountTable(
+  tRow = writeCountTable(
     ws,
     tRow + 2,
     colT,
     "FSP",
     ["FSP", "Students", "# Non-Retained", "% Retained"],
     extras.byFsp.length ? attritionWithTotal(extras.byFsp, a.retentionRate, "gpa") : [],
+    { intCols: [1, 2], pctCols: [3], total: true },
+  );
+  writeCountTable(
+    ws,
+    tRow + 2,
+    colT,
+    "Institute",
+    ["Institute", "Students", "# Non-Retained", "% Retained"],
+    extras.byInstitute.length ? attritionWithTotal(extras.byInstitute, a.retentionRate, "gpa") : [],
     { intCols: [1, 2], pctCols: [3], total: true },
   );
 }
@@ -1214,6 +1273,7 @@ function writeFtcaRaw(wb: XlsxWorkbook, rows: FtcaRawRow[]) {
       "Religious Affiliation",
       "Catholic, Christian, Other",
       "Catholic Non-Catholic",
+      "Application Decision",
       "Fall 25 Athletic Association",
       "Fall 25 Curriculum",
       "Fall 25 FULL PART TIME",
@@ -1235,7 +1295,7 @@ function writeFtcaRaw(wb: XlsxWorkbook, rows: FtcaRawRow[]) {
       "State",
       "PCID",
     ],
-    [14, 16, 14, 14, 10, 18, 18, 16, 22, 16, 14, 12, 12, 14, 22, 16, 12, 14, 12, 12, 14, 14, 10, 12, 10, 14, 8, 14],
+    [14, 16, 14, 14, 10, 18, 18, 16, 16, 22, 16, 14, 12, 12, 14, 22, 16, 12, 14, 12, 12, 14, 14, 10, 12, 10, 14, 8, 14],
     rows.map((r) => [
       r.first,
       r.last,
@@ -1245,6 +1305,7 @@ function writeFtcaRaw(wb: XlsxWorkbook, rows: FtcaRawRow[]) {
       r.religion,
       r.cathGroup,
       r.catholicNonCatholic,
+      r.appDecision,
       r.fa25Sport,
       r.fa25Curriculum,
       r.fa25FullPart,
@@ -1595,11 +1656,11 @@ function writeSources(
     ],
     [
       "Registration",
-      "Fall 2026 Registration Status-27.xlsx plus Registration Status w Residency-2.xlsx (Mount Melleray Abbey) and Residency-5.xlsx (Lux Mundi). Mount Melleray Abbey and Lux Mundi stay in the main totals, with separate Summary lines.",
+      "Fall 2026 Registration Status-29.xlsx plus Registration Status w Residency-8.xlsx (Mount Melleray Abbey) and Residency-7.xlsx (Lux Mundi). Mount Melleray Abbey and Lux Mundi stay in the main totals, with separate Summary lines.",
     ],
     [
       "Institute scholars",
-      "Scholars Fall 2026.xlsx (Y1/Y2/Y3). Matched to Registration Status by email. Institute column is Scholar, same as FA25 Census Raw Data.",
+      "Scholars Fall 2026 (1).xlsx (Y1/Y2/Y3). Matched to Registration Status by email. Institute column is Scholar, same as FA25 Census Raw Data.",
     ],
     [
       "Mary's Marines",
@@ -1670,6 +1731,7 @@ function ftcaRawCells(r: FtcaRawRow): CellValue[] {
     r.religion,
     r.cathGroup,
     r.catholicNonCatholic,
+    r.appDecision,
     r.fa25Sport,
     r.fa25Curriculum,
     r.fa25FullPart,
@@ -1702,6 +1764,7 @@ const FTCA_RAW_HEADERS = [
   "Religious Affiliation",
   "Catholic, Christian, Other",
   "Catholic Non-Catholic",
+  "Application Decision",
   "Fall 25 Athletic Association",
   "Fall 25 Curriculum",
   "Fall 25 FULL PART TIME",
@@ -1819,7 +1882,7 @@ export async function buildListsWorkbook(
     );
   }
   if (want("ftca")) {
-    writeListSheet(wb, "FTCA Raw", FTCA_RAW_HEADERS, [14, 16, 14, 14, 10, 18, 18, 16, 22, 16, 14, 12, 12, 14, 22, 16, 12, 14, 12, 12, 14, 14, 10, 12, 10, 14, 8, 14], ftca.map(ftcaRawCells));
+    writeListSheet(wb, "FTCA Raw", FTCA_RAW_HEADERS, [14, 16, 14, 14, 10, 18, 18, 16, 16, 22, 16, 14, 12, 12, 14, 22, 16, 12, 14, 12, 12, 14, 14, 10, 12, 10, 14, 8, 14], ftca.map(ftcaRawCells));
   }
   if (want("verify")) {
     writeListSheet(
@@ -1850,6 +1913,8 @@ const EMPTY_FTCA_EXTRAS: ReturnType<typeof buildFtcaExtras> = {
   byTestScore: [],
   byHonors: [],
   byFsp: [],
+  byInstitute: [],
+  admitOverride: [],
 };
 
 const NO_FOOTBALL_FILTERS = { ...DEFAULT_FILTERS, excludedSports: ["Football"] };
@@ -1977,13 +2042,13 @@ export async function buildCensusWorkbook(
     sheetName: `${fa} Census no Football`,
     titleSuffix: " (Football removed)",
     note: noFbNote,
+    yoy: noFootballYoY(noFbPrior, noFbStudents),
   });
   writeGraduateEnrollment(wb, lists.students, lists.prior, data.historical.years[0] ?? 2026, lists.graduates);
   writeAttrition(wb, data, ftcaExtras);
   writeAttrition(wb, noFbData, noFbFtcaExtras, {
     sheetName: "FA25 FTCA no Football",
     titleSuffix: " (Football removed)",
-    note: `${noFbNote} Incoming+FTCA football is the subset of that FA25 roster who were new FTCA last year, not the whole team.`,
   });
   writeFtcaRaw(wb, ftcaRaw);
   const alumniIds = amuUndergraduateAlumniIds(lists.prior, lists.graduates);
@@ -2002,5 +2067,26 @@ export async function buildCensusWorkbook(
     lists.unretained.map(unretainedRow),
   );
   writeListSheet(wb, "FA26 LOA", LOA_HEADERS, LOA_WIDTHS, loaFallForExport(lists).map(loaRow));
+  writeListSheet(
+    wb,
+    "Deceased",
+    ["PCID", "First", "Last", "Status", "Sport", "Class", "Incoming/Returning", "College Attend", "Program", "GPA", "State", "Gender", "Religion"],
+    [14, 14, 16, 12, 16, 12, 16, 14, 12, 10, 8, 10, 14],
+    deceasedStudentsFromNotes(lists.prior).map((s) => [
+      s.pcid,
+      s.first,
+      s.last,
+      "Deceased",
+      s.sport,
+      s.classLevel,
+      s.incomingReturning,
+      s.collegeAttend,
+      s.program,
+      s.gpa,
+      s.state,
+      s.gender,
+      s.religion,
+    ]),
+  );
   return wb.writeBuffer();
 }

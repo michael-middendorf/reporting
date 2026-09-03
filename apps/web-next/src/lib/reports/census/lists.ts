@@ -185,12 +185,13 @@ export function applyErezResidency(
 }
 
 export async function loadCensusLists(): Promise<import("./lists-core").CensusLists> {
-  let students = await fromS3<CensusRawStudent>(CENSUS_STUDENTS_KEY);
-  let unretained = await fromS3<UnretainedStudent>(CENSUS_UNRETAINED_KEY);
-  let prior = await fromS3<CensusRawStudent>(CENSUS_PRIOR_KEY);
-  let graduates = await fromS3<{ pcid: string; year?: string | number; term?: string; program?: string }>(
-    CENSUS_GRADUATES_KEY,
-  );
+  const preferLocal = process.env.CENSUS_LOCAL === "1";
+  let students = preferLocal ? [] : await fromS3<CensusRawStudent>(CENSUS_STUDENTS_KEY);
+  let unretained = preferLocal ? [] : await fromS3<UnretainedStudent>(CENSUS_UNRETAINED_KEY);
+  let prior = preferLocal ? [] : await fromS3<CensusRawStudent>(CENSUS_PRIOR_KEY);
+  let graduates = preferLocal
+    ? []
+    : await fromS3<{ pcid: string; year?: string | number; term?: string; program?: string }>(CENSUS_GRADUATES_KEY);
   const localDir = join(process.cwd(), "src/lib/reports/census/data");
   if (!students.length) students = fromFile<CensusRawStudent>(join(localDir, "students.json"));
   if (!students.length) students = fromFile<CensusRawStudent>("/tmp/census-lists/students.json");
@@ -202,7 +203,7 @@ export async function loadCensusLists(): Promise<import("./lists-core").CensusLi
       join(localDir, "graduates.json"),
     );
   }
-  let loa = await fromS3<LoaStudent>(CENSUS_LOA_KEY);
+  let loa = preferLocal ? [] : await fromS3<LoaStudent>(CENSUS_LOA_KEY);
   if (!loa.length) loa = fromFile<LoaStudent>(join(localDir, "loa.json"));
   if (!loa.length) loa = S26_LOA_ROSTER;
   const cleanedPrior = dropNonCensusSports(prior);

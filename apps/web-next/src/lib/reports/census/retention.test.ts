@@ -6,6 +6,7 @@ import {
   applyLiveRetentionHistory,
   buildAllUgSplit,
   buildCrosstab,
+  buildAdmitOverrideRetention,
   buildFtcaAttritionFromPrior,
   buildFtcaExtras,
   buildSportRetention,
@@ -300,6 +301,24 @@ test("Application Decisions Retention includes Not listed so the total matches t
   assert.equal(rows.reduce((s, r) => s + r.students, 0), 4);
 });
 
+test("committee admits and admin overrides split Overall, FTCA, gender, and athlete", () => {
+  const rows = buildAdmitOverrideRetention(
+    [
+      prior({ pcid: "P1", appDecision: "ADM", collegeAttend: "FTCA", incomingReturning: "Incoming", gender: "Male", athlete: "Athlete" }),
+      prior({ pcid: "P2", appDecision: "ADM", collegeAttend: "TRAN", incomingReturning: "Incoming", gender: "Female", athlete: "Non-Athlete", sport: "" }),
+      prior({ pcid: "P3", appDecision: "COMM", collegeAttend: "FTCA", incomingReturning: "Incoming", gender: "Male", athlete: "Non-Athlete", sport: "" }),
+    ],
+    ["P1", "P3"],
+    [],
+  );
+  const adm = rows.filter((r) => r.label.startsWith("Admin"));
+  const comm = rows.filter((r) => r.label.startsWith("Committee"));
+  assert.equal(adm.find((r) => r.label2 === "Overall")?.students, 2);
+  assert.equal(adm.find((r) => r.label2 === "FTCA")?.students, 1);
+  assert.equal(comm.find((r) => r.label2 === "Overall")?.students, 1);
+  assert.equal(comm.find((r) => r.label2 === "FTCA")?.students, 1);
+});
+
 test("leave of absence stays in the FA25 cohort and counts as retained", () => {
   const ug = buildAllUgSplit(
     [
@@ -491,7 +510,7 @@ test("FTCA extras fill HS GPA ranges and copy scores onto FTCA raw", () => {
   assert.equal(scored.byActConverted.find((r) => r.label === "22-24")?.students, 1);
   assert.equal(scored.byActConverted.find((r) => r.label === "No ACT converted")?.students, 2);
   assert.equal(scored.byTestScore.find((r) => r.label === "Has test score")?.students, 3);
-  assert.equal(scored.byHonors.find((r) => r.label === "Honors")?.students, 1);
+  assert.equal(scored.byHonors.find((r) => r.label === "Honors College")?.students, 1);
   const raw = deriveFtcaRaw(
     [prior({ pcid: "P1", hsGpa: 3.8, dob: "03/28/2007", act: 26 })],
     [prior({ pcid: "P1" })],

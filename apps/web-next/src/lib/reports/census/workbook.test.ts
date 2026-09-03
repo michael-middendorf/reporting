@@ -229,6 +229,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
     "FA26 Census Raw",
     "Not Retained",
     "FA26 LOA",
+    "Deceased",
   ]);
   assert.match(files["xl/styles.xml"], /style="thin"/);
   assert.match(files["xl/styles.xml"], /1A3F6F/);
@@ -275,10 +276,13 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(reportXml, /Catholic\/Non-Catholic/);
   assert.match(reportXml, /Residence Type/);
   assert.match(reportXml, /Association Retention/);
+  assert.match(reportXml, /Honors College/);
+  assert.match(reportXml, /Institute/);
   assert.match(reportXml, /Needs data/);
   const noFbReportXml = files["xl/worksheets/sheet4.xml"];
   assert.match(noFbReportXml, /Football removed/);
   assert.match(noFbReportXml, /Undergraduate Statistics/);
+  assert.match(noFbReportXml, /Year over year \(football removed\)/);
   const gradXml = files["xl/worksheets/sheet5.xml"];
   assert.match(gradXml, /Graduate Enrollment/);
   assert.match(gradXml, /Program/);
@@ -292,6 +296,10 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(attritionXml, /HS GPA Ranges/);
   assert.match(attritionXml, /ACT Converted/);
   assert.match(attritionXml, /Test Score/);
+  assert.match(attritionXml, /Application Decision/);
+  assert.match(attritionXml, /Committee admits and admin overrides/);
+  assert.match(attritionXml, /Honors College/);
+  assert.match(attritionXml, /Institute/);
   assert.match(attritionXml, /Needs data/);
   const noFbFtcaXml = files["xl/worksheets/sheet7.xml"];
   assert.match(noFbFtcaXml, /Football removed/);
@@ -300,6 +308,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(ftcaRawXml, /DOB \(Needs data\)/);
   assert.match(ftcaRawXml, /HS GPA \(Needs data\)/);
   assert.match(ftcaRawXml, /Religious Affiliation/);
+  assert.match(ftcaRawXml, /Application Decision/);
   const rawXml = files["xl/worksheets/sheet9.xml"];
   assert.match(rawXml, /Religion/);
   assert.match(rawXml, /Application Decision/);

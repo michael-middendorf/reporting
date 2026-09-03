@@ -13,22 +13,25 @@ from pathlib import Path
 from openpyxl import load_workbook
 
 DOWNLOADS = Path("/Users/regina.m.pirolli/Downloads")
-CENSUS_DIR = Path("/Users/regina.m.pirolli/Documents/PERSONAL Census Files")
+_PERSONAL = Path("/Users/regina.m.pirolli/Documents/PERSONAL Census Files")
+CENSUS_DIR = _PERSONAL if _PERSONAL.exists() else Path("/Users/regina.m.pirolli/Documents/Census Files")
 DATA = Path(__file__).resolve().parents[1] / "src/lib/reports/census/data"
 
-REGISTRATION = DOWNLOADS / "Registration Status-27.xlsx"
+REGISTRATION = DOWNLOADS / "Registration Status-29.xlsx"
 INTERNATIONAL_GLOB = "Registration Status*International*.xlsx"
-# -4 = session 01 with Res Comm (R on campus, C commuter, O other).
-# -2 = 03Ireland (not on -4). -5 = 01LuxMundi (replaces -3; adds Bates).
+# -6 = session 01 with Res Comm (R on campus, C commuter, O other).
+# -8 = 03Ireland (not on -6). -7 = 01LuxMundi.
 RESIDENCY_OVERLAYS = [
-    DOWNLOADS / "Registration Status w Residency-4.xlsx",
-    DOWNLOADS / "Registration Status w Residency-2.xlsx",
-    DOWNLOADS / "Registration Status w Residency-5.xlsx",
+    DOWNLOADS / "Registration Status w Residency-6.xlsx",
+    DOWNLOADS / "Registration Status w Residency-8.xlsx",
+    DOWNLOADS / "Registration Status w Residency-7.xlsx",
 ]
 EOT_FILES = [DOWNLOADS / "End Of Term-6.xlsx", DOWNLOADS / "End Of Term-7.xlsx"]
 # Both years. Filenames still say FA25; 100450 is Fall 2025 incoming, 103105 is Fall 2026 incoming.
 INCOMING_PRIOR = DOWNLOADS / "FA25 Incoming Students Census 20260901-100450.xlsx"
 INCOMING_CURRENT = DOWNLOADS / "FA25 Incoming Students Census 20260901-103105.xlsx"
+# Person State / Address 1 Region — fills blank FA25/FA26 states (ON, SK, AB, UT, etc.).
+INCOMING_REGION = DOWNLOADS / "FA25 Incoming Students Census 20260903-135650.xlsx"
 # Chesterton dual enrollment roster. Only DE Type = Chesterton counts; blank is not Chesterton.
 CHESTERTON_DE = DOWNLOADS / "FA25 Incoming Students Census 20260901-103435.xlsx"
 HONORS = DOWNLOADS / "Association Honors-3.xlsx"
@@ -37,7 +40,7 @@ FSP_NEW = DOWNLOADS / "Quick Query 20260902-125515.xlsx"
 # Gold FA25 Census Raw has no Mary's Marines column. F24-F25 used spring 2025
 # enrollment; F25-F26 uses the Spring 2026 association extract.
 MARINES_PRIOR = CENSUS_DIR / "S26 Census" / "Mary's Marines_Spring 2026_January 2026.xlsx"
-SCHOLARS = DOWNLOADS / "Scholars Fall 2026.xlsx"
+SCHOLARS = DOWNLOADS / "Scholars Fall 2026 (1).xlsx"
 PRIOR = CENSUS_DIR / "Fall 2025 Census Final 9.23.25.xlsx"
 FA25_ROSTER = CENSUS_DIR / "FA25 Athlete Roster For Slate.xlsx"
 FA25_HOUSING = CENSUS_DIR / "Copy of 9.4.2025 CENSUS Fall 25.xlsx"
@@ -426,6 +429,9 @@ def load_registration(path: Path) -> list[dict]:
 
         pid = pcid_of(col("ID"))
         if not pid.startswith("P"):
+            continue
+        primary = dash(col("Primary Flag")).upper()
+        if primary in {"N", "NO", "0"}:
             continue
         assoc = str(col("Sport") or "").strip()
         extra = {"marines": "", "fsp": "", "household": "", "institute": ""}
@@ -888,6 +894,7 @@ def _dob(v) -> str:
 
 def incoming_paths(prior: bool = False) -> list[Path]:
     files = [INCOMING_PRIOR] if prior else [INCOMING_PRIOR, INCOMING_CURRENT, CHESTERTON_DE]
+    files.append(INCOMING_REGION)
     return [p for p in files if p.exists() and not p.name.startswith("~$")]
 
 
@@ -919,6 +926,7 @@ def load_incoming_scores(paths: list[Path] | None = None) -> dict[str, dict]:
             i_sat = _incoming_col(header, ["SAT Superscore (verified only)", "SAT Superscore", "SAT"])
             i_clt = _incoming_col(header, ["CLT Superscore (verified only)", "CLT Superscore", "CLT"])
             i_dob = _incoming_col(header, ["Person Birthdate", "Birthdate", "DOB"])
+            i_state = _incoming_col(header, ["Person State", "Address 1 Region"])
             gpa = _hs_gpa(row[i_gpa] if i_gpa is not None else None)
             act = _num_score(row[i_act] if i_act is not None else None)
             sat = _num_score(row[i_sat] if i_sat is not None else None)
@@ -934,6 +942,9 @@ def load_incoming_scores(paths: list[Path] | None = None) -> dict[str, dict]:
                 rec["clt"] = clt
             if dob:
                 rec["dob"] = dob
+            st = dash(row[i_state] if i_state is not None else "").upper()
+            if st and st not in {"-", "NONE", "NULL"}:
+                rec["state"] = st
             if rec:
                 prev = out.get(pid, {})
                 prev.update(rec)
@@ -983,6 +994,9 @@ def apply_incoming_scores(rows: list[dict], scores: dict[str, dict]) -> int:
             if v in (None, ""):
                 continue
             s[k] = v
+        st = rec.get("state")
+        if st and dash(s.get("state")) in {"", "-"}:
+            s["state"] = st
         n += 1
     return n
 
@@ -1269,7 +1283,7 @@ def main() -> None:
                 "program": r["program"],
                 "collegeAttend": r["collegeAttend"],
                 "curriculum": r["curriculum"],
-                "curriculumName": cmap.get(r["curriculum"], r["curriculum"]),
+                "curriculumName": {"CTHSTD": "Catholic Studies"}.get(r["curriculum"], cmap.get(r["curriculum"], r["curriculum"])),
                 "classLevel": CLASS_MAP.get(r["classRaw"].upper(), r["classRaw"].strip()),
                 "fullPart": r["fullPart"],
                 "city": r["city"],
@@ -1295,6 +1309,18 @@ def main() -> None:
                 "visa": "",
             }
         )
+
+    sport_notes = {"P000382172": "Rugby-Men"}
+    underg_only = {"P000390750"}
+    for s in students:
+        if s["pcid"] in sport_notes:
+            s["sport"] = sport_notes[s["pcid"]]
+            s["athlete"] = "Athlete"
+    students = [s for s in students if not (s["pcid"] in underg_only and str(s.get("program") or "").upper() == "GRAD")]
+    for s in prior:
+        if s["pcid"] in sport_notes:
+            s["sport"] = sport_notes[s["pcid"]]
+            s["athlete"] = "Athlete"
 
     unretained = []
     for s in prior:

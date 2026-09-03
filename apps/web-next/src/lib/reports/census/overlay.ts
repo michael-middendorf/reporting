@@ -24,6 +24,7 @@ import {
   markUnretainedNotes,
   omitLeaveOfAbsence,
 } from "./retention-overrides";
+import { applyCensusVerifyNotes, omitExcludedHousing } from "./verify-notes";
 import snapshot from "./snapshot.json";
 import { presentSnapshot } from "./present";
 import { housingAssignmentRows, residencyFromErez, type HousingAssignmentRow } from "./residency";
@@ -65,9 +66,10 @@ export async function loadCensusSnapshot(): Promise<{
     const payload = await readResidents();
     const residents = (payload?.residents || []) as Resident[];
     if (residents.length) {
-      housingRows = housingAssignmentRows(residents);
+      const kept = omitExcludedHousing(residents);
+      housingRows = housingAssignmentRows(kept);
       lists = { ...lists, students: applyErezResidency(lists.students, housingRows) };
-      applyHousingOverlay(data, residents, {
+      applyHousingOverlay(data, kept, {
         generated: payload?.generated ?? payload?.cached_at ?? null,
         session: payload?.session ?? null,
       });
@@ -80,7 +82,11 @@ export async function loadCensusSnapshot(): Promise<{
     if (lists.prior.length) {
       lists = { ...lists, students: promoteFormerDualFtca(lists.students, lists.prior) };
     }
+    lists = { ...lists, students: applyCensusVerifyNotes(lists.students) };
     applyRegistrationTotals(data, lists.students);
+  }
+  if (lists.prior.length) {
+    lists = { ...lists, prior: applyCensusVerifyNotes(lists.prior) };
   }
   if (lists.prior.length && lists.students.length) {
     const notes = applyCensusRetentionNotes(lists.prior, lists.students.map((s) => s.pcid), lists.graduates);

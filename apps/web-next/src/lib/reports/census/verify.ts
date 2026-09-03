@@ -74,7 +74,7 @@ export function buildVerifyList(
     const h = housingBy.get(id);
     const irelandSess = (s.session || "").toLowerCase().includes("ireland");
     const irelandHouse = h ? isIrelandHouse(h) : false;
-    if (irelandSess && !irelandHouse) {
+    if (irelandSess && !irelandHouse && (s.residency || "").trim() !== "Commuter") {
       rows.push({
         issue: "Ireland session, not Ireland housing",
         why: "Registration session is 03Ireland (Ireland campus from the residency extract). eRez is not Ciara/Malachy. Census residency stays Ireland.",

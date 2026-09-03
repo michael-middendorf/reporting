@@ -27,6 +27,7 @@ export type ReportStudent = {
   appDecision: string;
   athleticType: string;
   rosterStatus: string;
+  institute: string;
 };
 
 export type ReportFilters = {
@@ -108,6 +109,7 @@ export function projectReportStudents(rows: CensusRawStudent[]): ReportStudent[]
     appDecision: (r.appDecision || "").trim() || "Not listed",
     athleticType: (r.athleticType || "").trim(),
     rosterStatus: (r.rosterStatus || "").trim(),
+    institute: (r.institute || "").trim(),
   }));
 }
 
@@ -138,6 +140,7 @@ export function projectUnretained(rows: UnretainedStudent[]): ReportStudent[] {
       appDecision: "",
       athleticType: (s.athleticType || "").trim(),
       rosterStatus: (s.rosterStatus || "").trim(),
+      institute: "",
     };
   });
 }
@@ -357,6 +360,8 @@ export type ReportTables = {
   appDecisions: LabeledCount[];
   honorsByClass: LabeledCount[];
   honorsN: number;
+  instituteByClass: LabeledCount[];
+  instituteN: number;
   athleticReligion: LabeledCount[];
   floridaAthlete: LabeledCount[];
   floridaCatholic: LabeledCount[];
@@ -387,6 +392,7 @@ export function buildReport(rows: ReportStudent[]): ReportTables {
   const florida = rows.filter((s) => s.state === "FL");
   const nonFlCath = rows.filter((s) => s.state !== "FL" && isCatholic(s));
   const honors = rows.filter((s) => s.honors);
+  const institute = rows.filter((s) => s.institute && s.institute !== "-");
 
   const states = alphaStates(
     counts(rows, (s) => {
@@ -476,6 +482,8 @@ export function buildReport(rows: ReportStudent[]): ReportTables {
     appDecisions: namedOrder(counts(rows, appDecisionLabel, "Not listed"), APP_DECISION_ORDER),
     honorsByClass: counts(honors, (s) => s.classLevel || "—").sort((a, b) => classRank(a.label) - classRank(b.label)),
     honorsN: honors.length,
+    instituteByClass: counts(institute, (s) => s.classLevel || "—").sort((a, b) => classRank(a.label) - classRank(b.label)),
+    instituteN: institute.length,
     athleticReligion: religionBreakdown(athletes),
     floridaAthlete: namedOrder(counts(florida, (s) => s.athlete || "Non-Athlete"), ["Athlete", "Non-Athlete"]),
     floridaCatholic: catholicSplit(florida),
@@ -559,6 +567,8 @@ export function tablesFromSnapshot(data: CensusSnapshot): ReportTables {
     appDecisions: [],
     honorsByClass: data.ug.honorsByClass,
     honorsN: data.ug.honorsN,
+    instituteByClass: [],
+    instituteN: 0,
     athleticReligion: data.ug.athleticReligion,
     floridaAthlete: data.ug.floridaAthlete,
     floridaCatholic: data.ug.floridaCatholic,

@@ -169,6 +169,7 @@ export function buildCensusBriefing(data: CensusSnapshot, lists: CensusLists): C
       "FTCA on Summary = Incoming UG degree-seeking with College Attend FTCA, any class. Spring/summer starters are Returning.",
       "FA25 FTCA attrition cohort = Incoming+FTCA on the gold FA25 census (392), minus Aiden Wilson (391).",
       "Retention notes (Census retention sheet col R): intervening graduates, AMSOL/enrolled/last credits as retained. Only Aiden Wilson (dropped after census) and Hannah Nelson (deceased) are out of the FA25 denominator. Leave of absence stays in the cohort and counts as retained. On the FA26 LOA tab, not All Not Retained.",
+      "Verify-tab notes: Trumpore Commuter (AMSOL), Shephard Commuter at MM, Pankratz out of halls and not retained. Intervening graduates on Fall 2026 registration use the note for Incoming vs Returning.",
       "Retention % = still enrolled this fall / (cohort minus intervening graduates). Same formula on All UG, FTCA, sports, and crosstabs. Graduates are not leavers and not in the denominator.",
       "Athletes on sport tables = Varsity / Non-Varsity / Non-NAIA. Band and managers are Associated only.",
       "Catholic = Catholic or Eastern Rite. Christian is Non-Catholic.",
@@ -210,7 +211,7 @@ function presidentAnswers(args: {
   const test = args.extras?.byTestScore || [];
   const hasTest = test.find((r) => r.label === "Has test score");
   const noTest = test.find((r) => r.label === "No test score");
-  const honors = args.extras?.byHonors.find((r) => r.label === "Honors");
+  const honors = args.extras?.byHonors.find((r) => r.label === "Honors College");
   const football = args.ftca.bySport.find((r) => r.label.toLowerCase() === "football");
   const athlete = args.ftca.byAthlete.find((r) => r.label === "Athlete");
   const nonAth = args.ftca.byAthlete.find((r) => r.label === "Non-Athlete");

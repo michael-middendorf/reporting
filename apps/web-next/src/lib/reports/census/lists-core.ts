@@ -210,7 +210,7 @@ export const S26_LOA_ROSTER: LoaStudent[] = [
     pcid: "P000382172",
     first: "Christopher",
     last: "Peloso",
-    sport: "Ultimate Frisbee",
+    sport: "Rugby-Men",
     classLevel: "Sophomore",
     incomingReturning: "Returning",
     collegeAttend: "FTCA",

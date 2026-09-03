@@ -37,6 +37,9 @@ export const RETENTION_FORCE_GRADUATED: GraduateRecord[] = [
  * Unretained notes col R: leave of absence (intend to return).
  * Stay in the FA25 cohort (denominator). Off All Not Retained; they stay on the FA26 LOA tab.
  */
+/** Deceased — out of the FA25 retention denominator; listed on the Deceased tab. */
+export const RETENTION_DECEASED = new Set(["P000378273"].map(normPcid)); // Hannah Nelson
+
 export const RETENTION_LOA = new Set(
   [
     "P000341593", // Alexander Earnhardt
@@ -60,6 +63,10 @@ export function markUnretainedNotes(rows: UnretainedStudent[]): UnretainedStuden
   return rows.map((s) =>
     isLeaveOfAbsence(s.pcid) ? { ...s, retention: "Leave of Absence" } : s,
   );
+}
+
+export function deceasedStudentsFromNotes(prior: CensusRawStudent[]): CensusRawStudent[] {
+  return prior.filter((s) => RETENTION_DECEASED.has(normPcid(s.pcid)));
 }
 
 export function loaStudentsFromNotes(prior: CensusRawStudent[]): LoaStudent[] {
