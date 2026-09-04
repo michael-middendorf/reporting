@@ -22,6 +22,7 @@ export type ReportStudent = {
   athlete: string;
   sport: string;
   major: string;
+  declaredMajors?: string[];
   degree: string;
   program: string;
   collegeAttend: string;
@@ -102,6 +103,7 @@ export function projectReportStudents(rows: CensusRawStudent[]): ReportStudent[]
     athlete: canonicalCensusSport(r.sport) ? "Athlete" : "Non-Athlete",
     sport: canonicalCensusSport(r.sport),
     major: censusMajorLabel(r.curriculumName, r.curriculum),
+    declaredMajors: (r.declaredMajors || []).map((m) => censusMajorLabel(m, m)),
     degree: (r.degree || "").trim().toUpperCase(),
     program: (r.program || "").trim().toUpperCase(),
     collegeAttend: (r.collegeAttend || "").trim().toUpperCase(),
@@ -237,7 +239,8 @@ export function filterStudents(rows: ReportStudent[], f: ReportFilters): ReportS
     const sport = (s.sport || "").toLowerCase();
     if (included.size && (!sport || !included.has(sport))) return false;
     if (excluded.size && sport && excluded.has(sport)) return false;
-    if (majors.size && !majors.has(s.major)) return false;
+    const studentMajors = [s.major, ...(s.declaredMajors || [])];
+    if (majors.size && !studentMajors.some((m) => majors.has(m))) return false;
     if (religions.size && !religions.has(s.religion)) return false;
     return true;
   });
@@ -469,14 +472,17 @@ export function buildReport(rows: ReportStudent[]): ReportTables {
 
   const majorMap = new Map<string, { label: string; freshman: number; sophomore: number; junior: number; senior: number; total: number }>();
   for (const s of rows) {
-    const label = s.major || "Undeclared";
-    const row = majorMap.get(label) || { label, freshman: 0, sophomore: 0, junior: 0, senior: 0, total: 0 };
-    if (s.classLevel === "Freshman") row.freshman += 1;
-    else if (s.classLevel === "Sophomore") row.sophomore += 1;
-    else if (s.classLevel === "Junior") row.junior += 1;
-    else if (s.classLevel === "Senior") row.senior += 1;
-    row.total += 1;
-    majorMap.set(label, row);
+    const labels = s.declaredMajors?.length ? s.declaredMajors : [s.major || "Undeclared"];
+    for (const raw of labels) {
+      const label = censusMajorLabel(raw, raw) || "Undeclared";
+      const row = majorMap.get(label) || { label, freshman: 0, sophomore: 0, junior: 0, senior: 0, total: 0 };
+      if (s.classLevel === "Freshman") row.freshman += 1;
+      else if (s.classLevel === "Sophomore") row.sophomore += 1;
+      else if (s.classLevel === "Junior") row.junior += 1;
+      else if (s.classLevel === "Senior") row.senior += 1;
+      row.total += 1;
+      majorMap.set(label, row);
+    }
   }
 
   return {

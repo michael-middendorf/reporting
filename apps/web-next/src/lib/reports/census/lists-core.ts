@@ -14,6 +14,8 @@ export type CensusRawStudent = {
   collegeAttend: string;
   curriculum: string;
   curriculumName: string;
+  /** Bachelor majors from AMU Students by Curriculum, excluding minors. */
+  declaredMajors?: string[];
   classLevel: string;
   fullPart: string;
   city: string;

@@ -919,7 +919,7 @@ function writeCensusReport(
     majorRows,
     { intCols: [1, 2, 3, 4, 5], pctCols: [6], total: true },
   );
-  ws.set(p, col.p, "*Primary curriculum only. One count per student.", NOTE);
+  ws.set(p, col.p, "*All declared majors except minors. Double majors counted twice.", NOTE);
   p += 2;
 
   p = writeCountTable(

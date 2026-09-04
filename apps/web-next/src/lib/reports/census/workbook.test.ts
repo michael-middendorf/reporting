@@ -307,8 +307,8 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(reportXml, /Ireland/);
   assert.match(files["xl/worksheets/sheet1.xml"], /Mount Melleray Abbey/);
   assert.match(reportXml, /FA26 Majors/);
-  assert.match(reportXml, /Primary curriculum only\. One count per student/);
-  assert.doesNotMatch(reportXml, /counted twice/);
+  assert.match(reportXml, /All declared majors except minors\. Double majors counted twice/);
+  assert.doesNotMatch(reportXml, /Primary curriculum only/);
   assert.match(reportXml, /Other\(THRE\)/);
   assert.match(reportXml, /Row Labels/);
   assert.match(reportXml, /Athletic Retention/);

@@ -16,6 +16,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 - Mary's Marines FA26: `Downloads/Mary's Marines_As of 9-1-26.xlsx` (410 unique PCIDs). Replaces the Registration Status Sport flag.
 - Households FA26: `Downloads/Household Roster.xlsx` (Fall sheets; match email then name). FA25 household is the gold Census Raw column.
 - Dual enrollment: College Attend DUAL / Degree HSDE. Chesterton = Early College EACO/EACOL (or DE Type Chesterton). Chesterton is its own count, not inside dual enrollment and not inside Non-Degree.
+- Majors table: `Downloads/AMU Students by Curriculum-12.xlsx`. Bachelor of Arts / Bachelor of Science only. Degree Minor is out. Same major twice on a person is one count. Double majors count twice. Census Raw still shows primary curriculum from Registration Status. Rebuild: `build-census-lists.py --majors-only`.
 - Housing: eRez + FA25 `Copy of 9.4.2025 CENSUS Fall 25.xlsx` (residence-applications).
 - Unretained notes: `Downloads/Census retention sheet.xlsx` col R (`intend to return/not return`).
 - Graduates / alumni: `Graduated %2D All-15.xlsx` (was -14). Intervening year is Fall 2025, Spring 2026, and Summer 2026. Alumni admits use undergraduate degrees on this extract.

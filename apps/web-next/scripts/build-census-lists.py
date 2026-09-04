@@ -50,6 +50,9 @@ FA25_HOUSING = CENSUS_DIR / "Copy of 9.4.2025 CENSUS Fall 25.xlsx"
 FA26_ENTRY = DOWNLOADS / "Roster -_ Housing Report 20260821-155657.xlsx"
 # This-fall FA26 roster only. FA25 gold stays FA25_ROSTER.
 FA26_ROSTER = DOWNLOADS / "Census athletes 20260904-133052.xlsx"
+# All curriculums including second majors. Degree Minor is excluded from the majors table.
+CURRICULUM_EXTRACT = DOWNLOADS / "AMU Students by Curriculum-12.xlsx"
+BACHELOR_DEGREES = {"bachelor of arts", "bachelor of science", "barts", "bscien"}
 ROSTER_KEEP = {
     "Roster - Athlete",
     "Roster - Athletic Associated",
@@ -1103,6 +1106,63 @@ def apply_class_notes(rows: list[dict], notes: dict[str, str] | None = None) -> 
     return n
 
 
+def load_declared_majors(path: Path | None = None) -> dict[str, list[str]]:
+    """Bachelor curriculums per PCID. Skip minors. Dedupes the same major twice."""
+    p = path or CURRICULUM_EXTRACT
+    out: dict[str, list[tuple[bool, str]]] = {}
+    seen: dict[str, set[str]] = {}
+    if not p.exists():
+        print(f"no {p}; skipping declared majors")
+        return {}
+    for header, row in iter_sheet_rows(p):
+        pid = pcid_of(_col(header, row, "PCID", "ID"))
+        if not pid.startswith("P"):
+            continue
+        degree = dash(_col(header, row, "Degree"))
+        if "minor" in degree.lower():
+            continue
+        if degree.strip().lower() not in BACHELOR_DEGREES:
+            continue
+        name = dash(_col(header, row, "Curriculum"))
+        if not name:
+            continue
+        key = name.lower()
+        have = seen.setdefault(pid, set())
+        if key in have:
+            continue
+        have.add(key)
+        primary = dash(_col(header, row, "Primary Flag")).upper() == "Y"
+        out.setdefault(pid, []).append((primary, name))
+    majors: dict[str, list[str]] = {}
+    for pid, items in out.items():
+        items.sort(key=lambda it: (not it[0], it[1].lower()))
+        majors[pid] = [name for _, name in items]
+    return majors
+
+
+def apply_declared_majors(rows: list[dict], majors: dict[str, list[str]] | None = None) -> int:
+    src = majors if majors is not None else load_declared_majors()
+    n = 0
+    for s in rows:
+        names = src.get(norm(s.get("pcid")))
+        if names:
+            s["declaredMajors"] = names
+            n += 1
+        else:
+            s.pop("declaredMajors", None)
+    return n
+
+
+def patch_majors_only() -> None:
+    path = DATA / "students.json"
+    payload = json.loads(path.read_text())
+    students = payload.get("students") or []
+    n = apply_declared_majors(students)
+    payload["students"] = students
+    path.write_text(json.dumps(payload, default=str))
+    print(f"declared majors stamped {n} of {len(students)}")
+
+
 def apply_college_notes(rows: list[dict], notes: dict[str, str] | None = None) -> int:
     src = notes if notes is not None else {"P000384840": "FTCA"}
     n = 0
@@ -1559,6 +1619,9 @@ def main() -> None:
     if "--roster-only" in sys.argv:
         patch_roster_only()
         return
+    if "--majors-only" in sys.argv:
+        patch_majors_only()
+        return
     cmap = load_curriculum_map()
     registered_rows = load_registration(REGISTRATION)
     residency_overlay: list[dict] = []
@@ -1694,6 +1757,7 @@ def main() -> None:
     n_class_notes = apply_class_notes(students)
     n_college_notes = apply_college_notes(students)
     n_grad_spine = apply_campus_grad_spine(students)
+    n_declared_majors = apply_declared_majors(students)
     underg_only = {"P000390750"}
     students = [s for s in students if not (s["pcid"] in underg_only and str(s.get("program") or "").upper() == "GRAD")]
     apply_sport_notes(prior)
@@ -1817,7 +1881,7 @@ def main() -> None:
         f"chesterton DE {n_chesterton}\n"
         f"spring/summer admits marked Returning {n_spring}\n"
         f"fa25 roster overlay {n_fa25_roster}\n"
-        f"fa26 roster overlay stamped {n_roster_stamp} cleared {n_roster_clear} sport notes {n_sport_notes} class notes {n_class_notes} college notes {n_college_notes} campus grad spine {n_grad_spine}\n"
+        f"fa26 roster overlay stamped {n_roster_stamp} cleared {n_roster_clear} sport notes {n_sport_notes} class notes {n_class_notes} college notes {n_college_notes} campus grad spine {n_grad_spine} declared majors {n_declared_majors}\n"
         f"fa25 housing overlay {n_fa25_housing}\n"
         f"international {len(intl)} on students {n_intl}\n"
         f"honors file {len(honors)} eot gpas {len(eot_gpa)} scholar roster {len(scholar_emails)} unmatched {len(unmatched_scholars)}\n"

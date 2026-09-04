@@ -287,7 +287,7 @@ export function CensusReport({
                 "",
               ],
             ]}
-            note="*Primary curriculum only. One count per student."
+            note="*All declared majors except minors. Double majors counted twice."
           />
         </div>
       </div>
