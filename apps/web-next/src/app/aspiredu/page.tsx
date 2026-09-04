@@ -18,15 +18,13 @@ type Summary = {
   asOf?: string;
   studentCount?: number;
   courseCount?: number;
-  riskBands?: Record<string, number>;
-  riskScores?: Record<string, number>;
 };
 
 const REPORTS = [
   {
-    href: "/aspiredu/provisional/summer-1",
-    title: "Summer 1 Athletic Provisional",
-    desc: "Course-level AspireDU rows whose term looks like Summer 1 / SU 1.",
+    href: "/aspiredu/provisional/fall",
+    title: "Fall Athletic Provisional",
+    desc: "Course-level AspireDU rows whose term looks like 2026 FALL 01 / FALL.",
   },
   {
     href: "/aspiredu/provisional/athletics",
@@ -47,7 +45,6 @@ const REPORTS = [
 
 export default function AcademicAffairsHubPage() {
   const [latest, setLatest] = useState<Summary | null>(null);
-  const [history, setHistory] = useState<Summary[]>([]);
   const [status, setStatus] = useState("Loading daily risk summary…");
   const [downloadStatus, setDownloadStatus] = useState("");
 
@@ -59,13 +56,10 @@ export default function AcademicAffairsHubPage() {
       })
       .then((body) => {
         setLatest(body.latest || null);
-        setHistory(body.history || []);
         setStatus(body.latest ? "" : "Awaiting the first AspireDU statistics delivery.");
       })
       .catch((error) => setStatus(error instanceof Error ? error.message : "Unable to load summary"));
   }, []);
-
-  const risk = latest?.riskScores || latest?.riskBands || {};
 
   function downloadGap() {
     triggerXlsxDownload(GAP_WORKBOOK_FILENAME, buildPowerCampusGapWorkbook());
@@ -95,22 +89,35 @@ export default function AcademicAffairsHubPage() {
         <ReportTopBar title="Academic Affairs" nav={ASPIREDU_NAV} />
         <main className={styles.content}>
           <h1>Academic Affairs</h1>
-          <p className={styles.notice}>
-            Deidentified totals below. Signed-in Academic Affairs users can open student and course reports. Excel
-            templates keep every original column. Dropout Detective fields fill from this AspireDU feed. PowerCampus
-            values (sport, GPA, credits, and the rest) stay blank until those extracts are supplied.
-          </p>
           {status && <p>{status}</p>}
+          <div className={styles.cardGrid}>
+            {REPORTS.map((report) => (
+              <Link key={report.href} href={report.href} className={styles.card}>
+                <h2>{report.title}</h2>
+                <p>{report.desc}</p>
+                <span>Open →</span>
+              </Link>
+            ))}
+          </div>
           {latest && (
-            <div className={styles.grid}>
-              <div className={styles.metric}><span>Students in latest snapshot</span><strong>{latest.studentCount ?? 0}</strong></div>
-              {latest.courseCount !== undefined && (
-                <div className={styles.metric}><span>Course rows</span><strong>{latest.courseCount}</strong></div>
-              )}
-              {Object.entries(risk).map(([band, count]) => (
-                <div className={styles.metric} key={band}><span>Risk {band}</span><strong>{count}</strong></div>
-              ))}
-            </div>
+            <>
+              <div className={styles.kpiGrid}>
+                <div className={styles.metric}>
+                  <span>Students in latest snapshot</span>
+                  <strong>{latest.studentCount ?? 0}</strong>
+                </div>
+                <div className={styles.metric}>
+                  <span>Course rows</span>
+                  <strong>{latest.courseCount ?? 0}</strong>
+                </div>
+                {latest.asOf && (
+                  <div className={styles.metric}>
+                    <span>As of</span>
+                    <strong className={styles.asOf}>{new Date(latest.asOf).toLocaleString()}</strong>
+                  </div>
+                )}
+              </div>
+            </>
           )}
           <section className={styles.panel}>
             <h2>Template downloads</h2>
@@ -129,32 +136,6 @@ export default function AcademicAffairsHubPage() {
             </div>
             {downloadStatus && <p>{downloadStatus}</p>}
           </section>
-          <div className={styles.cardGrid}>
-            {REPORTS.map((report) => (
-              <Link key={report.href} href={report.href} className={styles.card}>
-                <h2>{report.title}</h2>
-                <p>{report.desc}</p>
-                <span>Open →</span>
-              </Link>
-            ))}
-          </div>
-          {history.length > 0 && (
-            <section className={styles.panel}>
-              <h2>Recent snapshots</h2>
-              <div className={styles.tableWrap}>
-                <table className={styles.table}>
-                  <thead><tr><th>As of</th><th>Students</th><th>Risk distribution</th></tr></thead>
-                  <tbody>{history.map((item, index) => (
-                    <tr key={`${item.asOf || "snapshot"}-${index}`}>
-                      <td>{item.asOf ? new Date(item.asOf).toLocaleString() : "Unknown"}</td>
-                      <td>{item.studentCount ?? 0}</td>
-                      <td>{Object.entries(item.riskScores || item.riskBands || {}).map(([band, count]) => `${band}: ${count}`).join(" · ") || "—"}</td>
-                    </tr>
-                  ))}</tbody>
-                </table>
-              </div>
-            </section>
-          )}
         </main>
       </div>
     </AccessGate>

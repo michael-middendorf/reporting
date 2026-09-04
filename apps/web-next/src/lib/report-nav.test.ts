@@ -68,7 +68,7 @@ describe("reportNavActive", () => {
     const method = item(POINTS_NAV, "/advancement/points/methodology");
     const summary = item(ASPIREDU_NAV, "/aspiredu");
     const students = item(ASPIREDU_NAV, "/aspiredu/students");
-    const summer = item(ASPIREDU_NAV, "/aspiredu/provisional/summer-1");
+    const fall = item(ASPIREDU_NAV, "/aspiredu/provisional/fall");
     const athletics = item(ASPIREDU_NAV, "/aspiredu/provisional/athletics");
     const springEot = item(ASPIREDU_NAV, "/aspiredu/eot/spring");
     assert.equal(reportNavActive(dash, POINTS_NAV, "/advancement/points"), true);
@@ -78,9 +78,9 @@ describe("reportNavActive", () => {
     assert.equal(reportNavActive(summary, ASPIREDU_NAV, "/aspiredu/students"), false);
     assert.equal(reportNavActive(summary, ASPIREDU_NAV, "/aspiredu/provisional/athletics"), false);
     assert.equal(reportNavActive(students, ASPIREDU_NAV, "/aspiredu/students"), true);
-    assert.equal(reportNavActive(summer, ASPIREDU_NAV, "/aspiredu/provisional/summer-1"), true);
+    assert.equal(reportNavActive(fall, ASPIREDU_NAV, "/aspiredu/provisional/fall"), true);
     assert.equal(reportNavActive(athletics, ASPIREDU_NAV, "/aspiredu/provisional/athletics"), true);
-    assert.equal(summer.label, "Summer 1 Athletic Provisional");
+    assert.equal(fall.label, "Fall Athletic Provisional");
     assert.equal(athletics.label, "Athletics Provisional");
     assert.equal(reportNavActive(springEot, ASPIREDU_NAV, "/aspiredu/eot/spring"), true);
     assert.equal(reportNavActive(summary, ASPIREDU_NAV, "/aspiredu/eot/spring"), false);
