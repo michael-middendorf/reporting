@@ -205,14 +205,45 @@ export default function AcademicAffairsHubPage() {
               <h2>Recent snapshots</h2>
               <div className={styles.tableWrap}>
                 <table className={styles.table}>
-                  <thead><tr><th>As of</th><th>Students</th><th>Risk distribution</th></tr></thead>
-                  <tbody>{history.map((item, index) => (
-                    <tr key={`${item.asOf || "snapshot"}-${index}`}>
-                      <td>{item.asOf ? new Date(item.asOf).toLocaleString() : "Unknown"}</td>
-                      <td>{item.studentCount ?? 0}</td>
-                      <td>{Object.entries(item.riskScores || item.riskBands || {}).map(([band, count]) => `${band}: ${count}`).join(" · ") || "—"}</td>
+                  <thead>
+                    <tr>
+                      <th>As of</th>
+                      <th>Students</th>
+                      <th>At 0</th>
+                      <th>Above 0</th>
                     </tr>
-                  ))}</tbody>
+                  </thead>
+                  <tbody>
+                    {history.map((item, index) => {
+                      const hist = riskHistogramBuckets(item.riskScores || item.riskBands);
+                      const atZeroPct = riskHistogramPercent(hist.atZero, hist.total);
+                      const atZeroLabel =
+                        hist.total > 0
+                          ? `${hist.atZero.toLocaleString()} (${atZeroPct}%)`
+                          : "—";
+                      const aboveZeroLabel =
+                        hist.total > 0
+                          ? `${hist.aboveZero.toLocaleString()} (${riskHistogramPercent(hist.aboveZero, hist.total)}%)`
+                          : "—";
+                      return (
+                        <tr key={`${item.asOf || "snapshot"}-${index}`}>
+                          <td>{item.asOf ? new Date(item.asOf).toLocaleString() : "Unknown"}</td>
+                          <td>{item.studentCount ?? 0}</td>
+                          <td>
+                            <div className={styles.snapSplit}>
+                              <span className={styles.histCount}>{atZeroLabel}</span>
+                              {hist.total > 0 ? (
+                                <div className={styles.snapBar} aria-hidden="true">
+                                  <span className={styles.snapBarZero} style={{ width: `${atZeroPct}%` }} />
+                                </div>
+                              ) : null}
+                            </div>
+                          </td>
+                          <td className={styles.histCount}>{aboveZeroLabel}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
                 </table>
               </div>
             </section>

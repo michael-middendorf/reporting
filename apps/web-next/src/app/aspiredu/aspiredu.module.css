@@ -302,6 +302,28 @@
   font-variant-numeric: tabular-nums;
 }
 
+.snapSplit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.snapBar {
+  height: 8px;
+  width: 72px;
+  flex: 0 0 72px;
+  background: var(--pale);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.snapBarZero {
+  display: block;
+  height: 100%;
+  background: var(--blue);
+}
+
 .histogramCaption {
   margin: 12px 0 0;
   color: var(--t2);
