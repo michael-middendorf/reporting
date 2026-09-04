@@ -12,7 +12,7 @@ import {
   triggerXlsxDownload,
 } from "@/lib/aspiredu-exact-reports";
 import { loadAllCourses } from "@/lib/aspiredu-load-courses";
-import { riskHistogramBuckets } from "@/lib/aspiredu-risk-histogram";
+import { riskHistogramBuckets, riskHistogramNonZeroSummary } from "@/lib/aspiredu-risk-histogram";
 import styles from "./aspiredu.module.css";
 
 type Summary = {
@@ -68,6 +68,7 @@ export default function AcademicAffairsHubPage() {
 
   const buckets = riskHistogramBuckets(latest?.riskScores || latest?.riskBands);
   const peak = Math.max(1, ...buckets.map((bucket) => bucket.count));
+  const histogramSummary = riskHistogramNonZeroSummary(buckets);
 
   function downloadGap() {
     triggerXlsxDownload(GAP_WORKBOOK_FILENAME, buildPowerCampusGapWorkbook());
@@ -151,7 +152,7 @@ export default function AcademicAffairsHubPage() {
                             title={label}
                           >
                             <span className={styles.histCount} aria-hidden="true">
-                              {bucket.count}
+                              {bucket.count === 0 ? "\u00a0" : bucket.count.toLocaleString()}
                             </span>
                             <div className={styles.histBarTrack} aria-hidden="true">
                               <div className={styles.histBar} style={{ height: `${height}%` }} />
@@ -164,6 +165,9 @@ export default function AcademicAffairsHubPage() {
                       })}
                     </div>
                   </div>
+                  {histogramSummary && (
+                    <p className={styles.histogramSummary}>{histogramSummary}</p>
+                  )}
                   <figcaption className={styles.histogramCaption}>
                     This counts course rows, not unique students (the same student can appear more than once).
                   </figcaption>

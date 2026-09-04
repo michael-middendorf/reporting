@@ -29,3 +29,11 @@ export function riskHistogramBuckets(
   }
   return buckets;
 }
+
+/** Compact non-zero totals for Academic Affairs, e.g. `0: 4,264 · 1: 373`. */
+export function riskHistogramNonZeroSummary(buckets: RiskHistogramBucket[]): string {
+  return buckets
+    .filter((bucket) => bucket.count > 0)
+    .map((bucket) => `${bucket.score}: ${bucket.count.toLocaleString()}`)
+    .join(" · ");
+}
