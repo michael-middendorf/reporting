@@ -439,7 +439,7 @@ function writeGraduateEnrollment(
   ws.set(
     2,
     1,
-    "Alumni admits / External admits are incoming only. AMU Alumni includes returning students with an AMU bachelor's.",
+    "Alumni admits / External admits are incoming only. AMU Alumni includes returning students with an AMU bachelor's. Athlete includes Post Grad roster and Associated.",
     NOTE,
   );
   const blocks = buildGraduateEnrollment(students, prior, graduates);

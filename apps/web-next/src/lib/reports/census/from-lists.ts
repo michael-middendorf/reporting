@@ -1,4 +1,10 @@
-import { isBachelorDegree, isUgDegreeSeekingRow, normPcid, type CensusRawStudent } from "./lists-core";
+import {
+  canonicalCensusSport,
+  isBachelorDegree,
+  isUgDegreeSeekingRow,
+  normPcid,
+  type CensusRawStudent,
+} from "./lists-core";
 import { DEFAULT_FILTERS, buildReport, filterStudents, projectReportStudents } from "./report";
 import { isCatholic } from "./retention";
 import { fteFromStudent, fullTimeUg, historicalSeries, type CensusSnapshot, type CensusSummary, type CountFte } from "./types";
@@ -218,10 +224,15 @@ export type GraduateProgramStats = {
   nonCatholic: number;
 };
 
+function isGraduateAthlete(s: CensusRawStudent): boolean {
+  if ((s.athlete || "").trim() === "Athlete") return true;
+  return Boolean(canonicalCensusSport(s.sport || ""));
+}
+
 function programStats(program: string, rows: CensusRawStudent[], alumniIds: Set<string>): GraduateProgramStats {
   const n = rows.length;
   const incoming = rows.filter(isIncoming);
-  const athlete = rows.filter((s) => (s.athlete || "").trim() === "Athlete").length;
+  const athlete = rows.filter(isGraduateAthlete).length;
   const catholic = rows.filter(isCatholic).length;
   const amuAlumni = rows.filter((s) => alumniIds.has(normPcid(s.pcid))).length;
   const alumniAdmits = incoming.filter((s) => alumniIds.has(normPcid(s.pcid))).length;

@@ -199,6 +199,35 @@ test("graduate enrollment stats split overall and programs; alumni vs external a
   assert.equal(phil?.returning, 1);
 });
 
+test("graduate Athlete includes Post Grad team players and Associated band", () => {
+  const rows = [
+    s({
+      pcid: "P1",
+      program: "GRAD",
+      collegeAttend: "GRAD",
+      degree: "MBA",
+      athlete: "Athlete",
+      sport: "Tennis-Men",
+      athleticType: "Varsity",
+      rosterStatus: "Roster - Athlete Post Grad",
+    }),
+    s({
+      pcid: "P2",
+      program: "GRAD",
+      collegeAttend: "GRAD",
+      degree: "MBA",
+      athlete: "Non-Athlete",
+      sport: "Band",
+      rosterStatus: "Roster - Athletic Associated",
+    }),
+    s({ pcid: "P3", program: "GRAD", collegeAttend: "GRAD", degree: "MBA", athlete: "Non-Athlete" }),
+  ];
+  const mba = buildGraduateEnrollment(rows).find((b) => b.program === "MBA");
+  assert.equal(mba?.n, 3);
+  assert.equal(mba?.athlete, 2);
+  assert.equal(mba?.nonAthlete, 1);
+});
+
 test("graduate alumni admits include AMU bachelor's from Graduated All, not only last fall UG", () => {
   const rows = [
     s({ pcid: "NEW1", program: "GRAD", collegeAttend: "GRAD", degree: "MBA", incomingReturning: "Incoming" }),

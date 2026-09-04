@@ -20,7 +20,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 - Unretained notes: `Downloads/Census retention sheet.xlsx` col R (`intend to return/not return`).
 - Graduates / alumni: `Graduated %2D All-15.xlsx` (was -14). Intervening year is Fall 2025, Spring 2026, and Summer 2026. Alumni admits use undergraduate degrees on this extract.
 - FA26 entry terms: `Downloads/Roster -_ Housing Report 20260821-155657.xlsx`.
-- FA26 this-fall roster: `Downloads/Census athletes 20260904-122251.xlsx`. Count only **Roster - Athlete** and **Roster - Athletic Associated**. Post Grad, Not on Roster, Graduated, Leave of Absence, Left AMU, and blank do not count. Overlay does not add unregistered people. FA25 roster stays gold `FA25 Athlete Roster For Slate.xlsx`. Rebuild: `build-census-lists.py --roster-only`.
+- FA26 this-fall roster: `Downloads/Census athletes 20260904-130530.xlsx` (this file is Athlete / Associated / Post Grad only). Count **Roster - Athlete**, **Roster - Athletic Associated**, and **Roster - Athlete Post Grad**. Post Grad is graduate eligibility; those 20 are GRAD on registration, not UG. Overlay does not add unregistered people. FA25 roster stays gold `FA25 Athlete Roster For Slate.xlsx`. Rebuild: `build-census-lists.py --roster-only`.
 - Guido P000385969 is GRAD MARTS (MA Theology). Horstkotte P000391293 is GRAD MBA. Snyder P000384840 is UNDERG Incoming FTCA (Slate First-Year Fall 2026; registration College Attend was blank). Do not count Guido/Horstkotte as New UG.
 - Incoming states: `Downloads/FA25 Incoming Students Census 20260903-135650.xlsx` (Person State / Address 1 Region). Fills blank FA25/FA26 state only; does not overwrite a filled state.
 - Institute scholars: `Downloads/Scholars Fall 2026 (1).xlsx` (Y1/Y2/Y3). Michael Gotlund removed vs the 8-28 file. Six roster names are not on Registration Status.
@@ -42,7 +42,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 
 **FA26 Summary (Registration Status-29, 3 Sep rebuild):** unique **1629**, UG DS **1401**, new UG **469**, Incoming+FTCA **395**, TRAN 68, READ 2, SECB 4, Other 0. Dual **70**. Chesterton **2** (Montano, Williams; not in dual, not in Non-Degree). Non-Degree **4**. Graduate **153** (Rodriguez UG only). Shephard Ireland. Trumpore Commuter. Parks UG. O'Connor SECB. Snyder FTCA.
 
-**FA26 roster (Census athletes 20260904-122251):** UG DS associated **617**, team **541**. Post Grad / Not on Roster / Graduated / LOA / Left AMU do not count. Overlay does not add unregistered people. FA25 gold roster unchanged. Guido MARTS / Horstkotte MBA (not New UG). Snyder UG Incoming FTCA.
+**FA26 roster (Census athletes 20260904-130530):** UG DS associated **617**, team **541**. Post Grad is graduate only (20 GRAD, not UG). Overlay does not add unregistered people. FA25 gold roster unchanged. Guido MARTS / Horstkotte MBA (not New UG). Snyder UG Incoming FTCA. Graduate Athlete includes Post Grad and Associated.
 
 **FA25 FTCA attrition:** cohort **391**, enrolled **322**, not retained **69**, **82.4%**. (None of the six FA26 LOA are Incoming+FTCA.)
 

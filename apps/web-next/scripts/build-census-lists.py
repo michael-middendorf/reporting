@@ -49,8 +49,12 @@ FA25_ROSTER = CENSUS_DIR / "FA25 Athlete Roster For Slate.xlsx"
 FA25_HOUSING = CENSUS_DIR / "Copy of 9.4.2025 CENSUS Fall 25.xlsx"
 FA26_ENTRY = DOWNLOADS / "Roster -_ Housing Report 20260821-155657.xlsx"
 # This-fall FA26 roster only. FA25 gold stays FA25_ROSTER.
-FA26_ROSTER = DOWNLOADS / "Census athletes 20260904-122251.xlsx"
-ROSTER_KEEP = {"Roster - Athlete", "Roster - Athletic Associated"}
+FA26_ROSTER = DOWNLOADS / "Census athletes 20260904-130530.xlsx"
+ROSTER_KEEP = {
+    "Roster - Athlete",
+    "Roster - Athletic Associated",
+    "Roster - Athlete Post Grad",
+}
 # Gold Resident/Commuter was blank and not in the FA25 eRez extract.
 FA25_RESIDENCY_FILL = {
     "P000342716": "Other",  # Abigail Rich: LESS, San Diego, Fall 2025 graduate; not in eRez
