@@ -423,7 +423,7 @@ test("committee admits and admin overrides split Overall, FTCA, gender, and athl
   assert.equal(comm.find((r) => r.label2 === "FTCA")?.students, 1);
 });
 
-test("association retention omits Households and lists Institute once per gender", () => {
+test("association retention lists Households and Institute once per gender", () => {
   const rows = buildAssociationRetention(
     [
       prior({ pcid: "H1", gender: "Female", household: "Called By Name" }),
@@ -434,7 +434,9 @@ test("association retention omits Households and lists Institute once per gender
     ["H1", "I1", "I2", "F1"],
     [],
   );
-  assert.equal(rows.some((r) => r.label === "Households"), false);
+  const households = rows.filter((r) => r.label === "Households");
+  assert.equal(households.length, 2);
+  assert.equal(households.find((r) => r.label2 === "Female")?.students, 1);
   const institute = rows.filter((r) => r.label === "Institute");
   assert.equal(institute.length, 2);
   assert.equal(institute.find((r) => r.label2 === "Female")?.students, 1);

@@ -76,7 +76,45 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
       },
     ],
     {
-      prior: [],
+      prior: [
+        {
+          pcid: "P4",
+          first: "Abbey",
+          last: "Student",
+          incomingReturning: "Incoming",
+          state: "FL",
+          religion: "Catholic",
+          cathGroup: "Catholic",
+          ethnicity: "WHITE",
+          gender: "Female",
+          program: "UNDERG",
+          collegeAttend: "FTCA",
+          curriculum: "BIOLOG",
+          curriculumName: "Biology",
+          classLevel: "Freshman",
+          fullPart: "FULL",
+          city: "Naples",
+          credits: 15,
+          gpa: "",
+          earnedCredits: 0,
+          residency: "Resident",
+          sport: "",
+          athlete: "Non-Athlete",
+          athleticType: "",
+          rosterStatus: "",
+          honors: "",
+          fsp: "",
+          household: "Called By Name",
+          institute: "",
+          marines: "",
+          appDecision: "",
+          session: "01",
+          degree: "BARTS",
+          email: "abbey@avemaria.edu",
+          citizenship: "",
+          visa: "",
+        },
+      ],
       graduates: [],
       students: [
         {
@@ -277,7 +315,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(reportXml, /Catholic\/Non-Catholic/);
   assert.match(reportXml, /Residence Type/);
   assert.match(reportXml, /Association Retention/);
-  assert.doesNotMatch(reportXml, /Households/);
+  assert.match(reportXml, /Households/);
   assert.doesNotMatch(reportXml, /Middlebrooke/);
   assert.doesNotMatch(reportXml, /Discounting Study Abroad/);
   assert.doesNotMatch(reportXml, /Mary's Marines FA25 is the Spring/);
@@ -326,7 +364,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(rawXml, /Citizenship/);
   assert.match(rawXml, /HS GPA/);
   assert.doesNotMatch(rawXml, /Earned Credits/);
-  assert.doesNotMatch(rawXml, /Household/);
+  assert.match(rawXml, /Household/);
   assert.match(rawXml, /GRAD/);
   assert.match(rawXml, /MARTS/);
   assert.match(rawXml, /01LuxMundi/);

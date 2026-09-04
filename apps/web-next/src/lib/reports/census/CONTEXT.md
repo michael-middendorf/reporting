@@ -14,6 +14,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 - FA25 prior JSON is that raw sheet + overlays (roster, housing, incoming 100450 scores). Do not overwrite gold `appDecision` or EOT `gpa` with Official AMU GPA.
 - FA26 spine: `Downloads/Registration Status-29.xlsx` (was -27 through 2 Sep). Unique PCID grand total. Dual UG+GRAD only for Lux Mundi/Ireland extras. Residency overlays: `-6` campus, `-8` Ireland, `-7` Lux Mundi.
 - Mary's Marines FA26: `Downloads/Mary's Marines_As of 9-1-26.xlsx` (410 unique PCIDs). Replaces the Registration Status Sport flag.
+- Households FA26: `Downloads/Household Roster.xlsx` (Fall sheets; match email then name). FA25 household is the gold Census Raw column.
 - Chesterton: extract `20260901-103435.xlsx` column **DE Type**. 76 rows, **1** filled (`Chesterton` = Gianna Cox, not on FA26). Blank is not Chesterton. Summary Chesterton dual = **0**.
 - Housing: eRez + FA25 `Copy of 9.4.2025 CENSUS Fall 25.xlsx` (residence-applications).
 - Unretained notes: `Downloads/Census retention sheet.xlsx` col R (`intend to return/not return`).

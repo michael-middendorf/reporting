@@ -656,6 +656,7 @@ export function buildAssociationRetention(
   const registered = notes.registered;
   const graduated = notes.graduated;
   const buckets: { label: string; test: (s: CensusRawStudent) => boolean }[] = [
+    { label: "Households", test: (s) => Boolean(blank(s.household)) },
     { label: "FSP", test: (s) => Boolean(blank(s.fsp)) },
     { label: "Institute", test: (s) => associationFlag(s.institute) },
     { label: "Mary's Marines", test: (s) => Boolean(blank(s.marines)) },

@@ -6,8 +6,10 @@ Student-level output is gitignored. Do not commit tokens or JSON.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from datetime import date, datetime
+from difflib import SequenceMatcher
 from pathlib import Path
 
 from openpyxl import load_workbook
@@ -36,6 +38,7 @@ INCOMING_REGION = DOWNLOADS / "FA25 Incoming Students Census 20260903-135650.xls
 CHESTERTON_DE = DOWNLOADS / "FA25 Incoming Students Census 20260901-103435.xlsx"
 HONORS = DOWNLOADS / "Association Honors-3.xlsx"
 MARINES = DOWNLOADS / "Mary's Marines_As of 9-1-26.xlsx"
+HOUSEHOLDS = DOWNLOADS / "Household Roster.xlsx"
 FSP_NEW = DOWNLOADS / "Quick Query 20260902-125515.xlsx"
 # Gold FA25 Census Raw has no Mary's Marines column. F24-F25 used spring 2025
 # enrollment; F25-F26 uses the Spring 2026 association extract.
@@ -697,6 +700,119 @@ def apply_marines(rows: list[dict], ids: set[str], *, replace: bool) -> int:
     return n
 
 
+def _first_token(s: str) -> str:
+    t = (s or "").strip()
+    if not t:
+        return ""
+    return re.split(r"[\s(]+", t)[0].lower()
+
+
+def _alnum(s: str) -> str:
+    return "".join(ch for ch in (s or "").lower() if ch.isalnum())
+
+
+def load_households(path: Path | None = None) -> list[dict]:
+    """Fall household roster. One row per member; Household column or sheet name."""
+    src = path or HOUSEHOLDS
+    out: list[dict] = []
+    if not src.exists():
+        return out
+    skip = {"household total (fall)", "household total (spring)"}
+    wb = load_workbook(src, data_only=True, read_only=True)
+    for sheet_name in wb.sheetnames:
+        if sheet_name.strip().lower() in skip:
+            continue
+        header = None
+        for row in wb[sheet_name].iter_rows(values_only=True):
+            vals = [str(c or "").strip() for c in (row or ())]
+            if header is None:
+                if "First" in vals and ("AMU Email" in vals or "Email" in vals):
+                    header = {k: i for i, k in enumerate(vals) if k}
+                continue
+            if not row or not any(c not in (None, "") for c in row):
+                continue
+
+            def col(*names: str) -> str:
+                for n in names:
+                    i = header.get(n)
+                    if i is not None and i < len(row):
+                        return str(row[i] or "").strip()
+                return ""
+
+            first = col("First")
+            last = col("Last")
+            email = col("AMU Email", "Email").lower()
+            household = col("Household") or sheet_name
+            household = " ".join(household.split())
+            if not first and not last and not email:
+                continue
+            out.append({"first": first, "last": last, "email": email, "household": household})
+    wb.close()
+    return out
+
+
+def apply_households(rows: list[dict], roster: list[dict] | None = None) -> tuple[int, list[str]]:
+    """Stamp Household from the Fall roster. Email, then name, then close last-name + first token."""
+    members = roster if roster is not None else load_households()
+    if not members:
+        return 0, []
+    by_email: dict[str, list[dict]] = {}
+    by_name: dict[tuple[str, str], list[dict]] = {}
+    for s in rows:
+        e = (s.get("email") or "").strip().lower()
+        if e:
+            by_email.setdefault(e, []).append(s)
+        key = ((s.get("first") or "").strip().lower(), (s.get("last") or "").strip().lower())
+        if key[0] or key[1]:
+            by_name.setdefault(key, []).append(s)
+    tagged: set[str] = set()
+    n = 0
+    unmatched: list[str] = []
+
+    def stamp(targets: list[dict], household: str) -> bool:
+        nonlocal n
+        if not targets or not household:
+            return False
+        ok = False
+        for s in targets:
+            pid = norm(s.get("pcid"))
+            if pid in tagged:
+                continue
+            s["household"] = household
+            tagged.add(pid)
+            n += 1
+            ok = True
+        return ok
+
+    for m in members:
+        hh = m["household"]
+        email = m["email"]
+        if email and stamp(by_email.get(email, []), hh):
+            continue
+        key = (m["first"].strip().lower(), m["last"].strip().lower())
+        if (key[0] or key[1]) and stamp(by_name.get(key, []), hh):
+            continue
+        first_tok = _first_token(m["first"])
+        last_n = _alnum(m["last"])
+        fuzzy: list[dict] = []
+        if first_tok and last_n:
+            for s in rows:
+                sf = _first_token(s.get("first") or "")
+                sl = _alnum(s.get("last") or "")
+                if not sf or not sl:
+                    continue
+                first_ok = sf == first_tok or sf.startswith(first_tok) or first_tok.startswith(sf)
+                if not first_ok and SequenceMatcher(None, sf, first_tok).ratio() < 0.8:
+                    continue
+                if sl != last_n and SequenceMatcher(None, sl, last_n).ratio() < 0.84:
+                    continue
+                fuzzy.append(s)
+        if len(fuzzy) == 1 and stamp(fuzzy, hh):
+            continue
+        unmatched.append(f"{m['first']} {m['last']}".strip() or email)
+    return n, unmatched
+
+
 def load_institute_scholars(path: Path) -> tuple[set[str], set[tuple[str, str]], list[tuple[str, str, str]]]:
     """Y1/Y2/Y3 scholar roster. FA25 Institute column used Scholar / Associate."""
     emails: set[str] = set()
@@ -1214,9 +1330,26 @@ def load_prior(path: Path) -> list[dict]:
     return out
 
 
+def patch_households_only() -> None:
+    path = DATA / "students.json"
+    payload = json.loads(path.read_text())
+    students = payload.get("students") or []
+    for s in students:
+        s["household"] = ""
+    n, unmatched = apply_households(students)
+    payload["students"] = students
+    path.write_text(json.dumps(payload, default=str))
+    print(f"household roster tagged {n} of {len(students)}; unmatched {len(unmatched)}")
+    if unmatched:
+        print("unmatched households:", "; ".join(unmatched))
+
+
 def main() -> None:
     if "--incoming-only" in sys.argv:
         patch_incoming_only()
+        return
+    if "--household-only" in sys.argv:
+        patch_households_only()
         return
     cmap = load_curriculum_map()
     registered_rows = load_registration(REGISTRATION)
@@ -1415,6 +1548,7 @@ def main() -> None:
         if norm(s.get("pcid")) in fsp_new_ids:
             s["fsp"] = "FSP"
             n_fsp_new += 1
+    n_hh, unmatched_hh = apply_households(students)
 
     ug = [s for s in unretained if s.get("program") == "UNDERG" and s.get("collegeAttend") not in NON_DS]
     DATA.mkdir(parents=True, exist_ok=True)
@@ -1482,8 +1616,11 @@ def main() -> None:
         f"international {len(intl)} on students {n_intl}\n"
         f"honors file {len(honors)} eot gpas {len(eot_gpa)} scholar roster {len(scholar_emails)} unmatched {len(unmatched_scholars)}\n"
         f"mary's marines roster {len(marines_ids)} on students {n_mm}; FA25 {len(prior_marines_ids)} on prior {n_mm_prior}\n"
-        f"fsp new FA26 {len(fsp_new_ids)} tagged {n_fsp_new}"
+        f"fsp new FA26 {len(fsp_new_ids)} tagged {n_fsp_new}\n"
+        f"household roster tagged {n_hh}; unmatched {len(unmatched_hh)}"
     )
+    if unmatched_hh:
+        print("unmatched households:", "; ".join(unmatched_hh))
     if unmatched_scholars:
         print("unmatched scholars:", "; ".join(unmatched_scholars))
 
