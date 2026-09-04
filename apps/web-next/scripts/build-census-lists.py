@@ -1040,6 +1040,18 @@ def apply_sport_notes(rows: list[dict], notes: dict[str, str] | None = None) -> 
     return n
 
 
+def apply_class_notes(rows: list[dict], notes: dict[str, str] | None = None) -> int:
+    src = notes if notes is not None else {"P000389994": "Freshman"}
+    n = 0
+    for s in rows:
+        cls = src.get(s.get("pcid") or "")
+        if not cls:
+            continue
+        s["classLevel"] = cls
+        n += 1
+    return n
+
+
 def patch_roster_only() -> None:
     path = DATA / "students.json"
     payload = json.loads(path.read_text())
@@ -1615,6 +1627,7 @@ def main() -> None:
 
     n_roster_stamp, n_roster_clear = apply_fa26_roster(students)
     n_sport_notes = apply_sport_notes(students)
+    n_class_notes = apply_class_notes(students)
     underg_only = {"P000390750"}
     students = [s for s in students if not (s["pcid"] in underg_only and str(s.get("program") or "").upper() == "GRAD")]
     apply_sport_notes(prior)
@@ -1738,7 +1751,7 @@ def main() -> None:
         f"chesterton DE {n_chesterton}\n"
         f"spring/summer admits marked Returning {n_spring}\n"
         f"fa25 roster overlay {n_fa25_roster}\n"
-        f"fa26 roster overlay stamped {n_roster_stamp} cleared {n_roster_clear} sport notes {n_sport_notes}\n"
+        f"fa26 roster overlay stamped {n_roster_stamp} cleared {n_roster_clear} sport notes {n_sport_notes} class notes {n_class_notes}\n"
         f"fa25 housing overlay {n_fa25_housing}\n"
         f"international {len(intl)} on students {n_intl}\n"
         f"honors file {len(honors)} eot gpas {len(eot_gpa)} scholar roster {len(scholar_emails)} unmatched {len(unmatched_scholars)}\n"

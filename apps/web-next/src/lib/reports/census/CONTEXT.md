@@ -63,11 +63,12 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 - Rodriguez P000390750: UNDERG only (drop Lux Mundi GRAD row).
 - Peloso P000382172: Rugby-Men, not Ultimate Frisbee.
 - Hannah Nelson P000378273: Deceased tab. Still out of the FA25 retention denominator.
+- O'Connor P000389994: Incoming SECB Freshman (registration Class blank; other incoming SECB are Freshman). Credits stay 0.
 
 ## Other locked people / labels
 
 - Blank FA25 residence (filled from eRez): Barringer Commuter, Gomez On Campus, Rich Other, Cadjenovic/Harrison/Rolon On Campus, Suchomski Commuter.
-- Blank FA26 class (registration Class is space): Nicole Ehrhart P000381773 TRAN, Elena Snyder P000386345 FTCA basketball, John O'Connor P000389994 SECB.
+- Blank FA26 class (registration Class is space): Nicole Ehrhart P000381773 TRAN and Elena Snyder P000386345 FTCA basketball were filled from registration. O'Connor is Freshman (Incoming SECB).
 - FA26 UG still unassigned residency last we looked: Yvette Flynn, Nathan Williams.
 
 ## Q&A bot

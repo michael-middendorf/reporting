@@ -66,6 +66,22 @@ test("verify notes set Trumpore off-campus; Shephard stays Ireland", () => {
   assert.equal(out[1]?.incomingReturning, "Returning");
 });
 
+test("O'Connor Incoming SECB with blank Class is Freshman like the other SECB", () => {
+  const out = applyCensusVerifyNotes([
+    raw({
+      pcid: "P000389994",
+      first: "John",
+      last: "O'Connor",
+      collegeAttend: "SECB",
+      incomingReturning: "Incoming",
+      classLevel: "",
+      credits: 0,
+      fullPart: "",
+    }),
+  ]);
+  assert.equal(out[0]?.classLevel, "Freshman");
+});
+
 test("Peloso is rugby; Rodriguez graduate row is dropped", () => {
   const out = applyCensusVerifyNotes([
     raw({ pcid: "P000382172", first: "Christopher", last: "Peloso", sport: "Ultimate Frisbee" }),
