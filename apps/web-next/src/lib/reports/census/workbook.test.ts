@@ -322,6 +322,12 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(reportXml, /Honors College/);
   assert.match(reportXml, /Institute/);
   assert.match(reportXml, /Needs data/);
+  assert.match(reportXml, /Fall 2025 FTCA Retention Rate/);
+  assert.equal(
+    (reportXml.match(/Minus Fall, Spring, Summer Graduates/g) || []).length,
+    1,
+    "graduates row is All UG only, not FTCA",
+  );
   const noFbReportXml = files["xl/worksheets/sheet4.xml"];
   assert.match(noFbReportXml, /Football removed/);
   assert.match(noFbReportXml, /Undergraduate Statistics/);

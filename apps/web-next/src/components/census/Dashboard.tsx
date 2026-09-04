@@ -677,10 +677,6 @@ function AttritionTab({
                 <td className="num">{fmtN(a.enrolledThisFall)}</td>
               </tr>
               <tr>
-                <td>Fall / Spring / Summer graduates</td>
-                <td className="num">{fmtN(a.graduated ?? 0)}</td>
-              </tr>
-              <tr>
                 <td>Not retained</td>
                 <td className="num">{fmtN(a.notRetained)}</td>
               </tr>

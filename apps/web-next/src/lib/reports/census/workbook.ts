@@ -794,7 +794,6 @@ function writeCensusReport(
     [
       ["Fall 2025 FTCA Cohort (Incoming + FTCA)", data.ftcaAttrition.cohort],
       ["Fall 2025 Cohort Enrolled for Fall 2026", data.ftcaAttrition.enrolledThisFall],
-      ["Minus Fall, Spring, Summer Graduates", data.ftcaAttrition.graduated ?? 0],
       ["Retention Rate F25-F26", data.ftcaAttrition.retentionRate],
     ],
     { intCols: [1] },

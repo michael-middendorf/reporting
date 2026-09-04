@@ -33,7 +33,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 - Catholic = Catholic or Eastern Rite. SAT &lt; 400 missing from means. 0 scores = missing.
 - FTE: FULL 1 / THRE 0.75 / HALF 0.5 / LESS 0.25 else credits/12.
 - Unretained = FA25 − intervening grads − FA26 registration − retention-sheet exceptions (exclude, force retained, force graduated, LOA). LOA is on the FA26 LOA tab, not All Not Retained.
-- Retention % = still enrolled / (cohort − intervening graduates). Same formula on All UG, FTCA, sports, and crosstabs.
+- Retention % = still enrolled / (cohort − intervening graduates). Same formula on All UG, FTCA, sports, and crosstabs. FTCA tables do not show a graduating count (Incoming+FTCA does not graduate in the intervening year).
 - FA25 retention denominator = gold UG DS minus Aiden Wilson and Hannah Nelson only. Fall 2026 LOA stays in that total and counts as retained.
 
 ## Live headcounts (as of last publish)
