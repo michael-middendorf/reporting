@@ -65,7 +65,6 @@ import {
 import {
   amuUndergraduateAlumniIds,
   buildGraduateEnrollment,
-  summaryFromStudents,
   type GraduateProgramStats,
 } from "./from-lists";
 import { cellRef, XlsxSheet, XlsxWorkbook, type CellStyle, type CellValue } from "./xlsx";
@@ -472,26 +471,12 @@ function writeGraduateEnrollment(
   );
 }
 
-function noFootballYoY(prior: CensusRawStudent[], current: CensusRawStudent[]): CellValue[][] {
-  const fa25 = summaryFromStudents(prior);
-  const fa26 = summaryFromStudents(current);
-  return [
-    ["UG degree-seeking", fa25.degreeSeeking.headcount, fa26.degreeSeeking.headcount],
-    ["New students", fa25.newStudents.headcount, fa26.newStudents.headcount],
-    ["FTCA", fa25.ftca.headcount, fa26.ftca.headcount],
-    ["Returning", fa25.returning.headcount, fa26.returning.headcount],
-    ["On Campus", fa25.onCampus.headcount, fa26.onCampus.headcount],
-    ["Total undergraduate", fa25.totalUndergraduate.headcount, fa26.totalUndergraduate.headcount],
-    ["All students", fa25.totalEnrollment.headcount, fa26.totalEnrollment.headcount],
-  ];
-}
-
 function writeCensusReport(
   wb: XlsxWorkbook,
   data: CensusSnapshot,
   tables: ReportTables,
   extra: ReportExtras,
-  opts?: { sheetName?: string; titleSuffix?: string; note?: string; yoy?: CellValue[][]; historyNote?: string },
+  opts?: { sheetName?: string; titleSuffix?: string; note?: string; historyNote?: string },
 ) {
   const year = data.historical.years[0] ?? 2026;
   const fa = faLabel(year);
@@ -723,18 +708,6 @@ function writeCensusReport(
       ]
     : [];
   let p = 3;
-  if (opts?.yoy?.length) {
-    p = writeCountTable(
-      ws,
-      3,
-      col.p,
-      "Year over year (football removed)",
-      ["", "Fall 2025", "Fall 2026"],
-      opts.yoy,
-      { intCols: [1, 2] },
-    );
-    p += 2;
-  }
   p = writeCountTable(
     ws,
     p,
@@ -830,6 +803,10 @@ function writeCensusReport(
       : [],
     { pctCols: [1] },
   );
+  if (opts?.historyNote) {
+    ws.set(p, col.p, opts.historyNote, NOTE);
+    p += 1;
+  }
 
   p = writeCountTable(
     ws,
@@ -2095,7 +2072,6 @@ export async function buildCensusWorkbook(
   writeCensusReport(wb, noFbData, noFbTables, noFbExtra, {
     sheetName: `${fa} Census no Football`,
     titleSuffix: " (Football removed)",
-    yoy: noFootballYoY(noFbPrior, noFbStudents),
     historyNote: NO_FOOTBALL_HISTORY_NOTE,
   });
   writeGraduateEnrollment(wb, lists.students, lists.prior, data.historical.years[0] ?? 2026, lists.graduates);

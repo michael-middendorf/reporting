@@ -341,8 +341,13 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   const noFbReportXml = files["xl/worksheets/sheet4.xml"];
   assert.match(noFbReportXml, /Football removed/);
   assert.match(noFbReportXml, /Undergraduate Statistics/);
-  assert.match(noFbReportXml, /Year over year \(football removed\)/);
+  assert.doesNotMatch(noFbReportXml, /Year over year \(football removed\)/);
   assert.match(noFbReportXml, /Football removed from each prior fall-to-fall gold file/);
+  assert.equal(
+    (noFbReportXml.match(/Football removed from each prior fall-to-fall gold file/g) || []).length,
+    2,
+    "note sits under Historical FTCA and Historical All UG",
+  );
   assert.doesNotMatch(reportXml, /Football removed from each prior fall-to-fall gold file/);
   const gradXml = files["xl/worksheets/sheet5.xml"];
   assert.match(gradXml, /Graduate Enrollment/);
