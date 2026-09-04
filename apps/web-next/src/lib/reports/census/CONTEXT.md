@@ -20,6 +20,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 - Unretained notes: `Downloads/Census retention sheet.xlsx` col R (`intend to return/not return`).
 - Graduates / alumni: `Graduated %2D All-15.xlsx` (was -14). Intervening year is Fall 2025, Spring 2026, and Summer 2026. Alumni admits use undergraduate degrees on this extract.
 - FA26 entry terms: `Downloads/Roster -_ Housing Report 20260821-155657.xlsx`.
+- FA26 this-fall roster: `Downloads/Census athletes 20260904-093234.xlsx`. Count only **Roster - Athlete** and **Roster - Athletic Associated**. Post Grad, Not on Roster, Graduated, Leave of Absence, Left AMU, and blank do not count. Overlay does not add unregistered people. FA25 roster stays gold `FA25 Athlete Roster For Slate.xlsx`. Rebuild: `build-census-lists.py --roster-only`.
 - Incoming states: `Downloads/FA25 Incoming Students Census 20260903-135650.xlsx` (Person State / Address 1 Region). Fills blank FA25/FA26 state only; does not overwrite a filled state.
 - Institute scholars: `Downloads/Scholars Fall 2026 (1).xlsx` (Y1/Y2/Y3). Michael Gotlund removed vs the 8-28 file. Six roster names are not on Registration Status.
 
@@ -38,6 +39,8 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 ## Live headcounts (as of last publish)
 
 **FA26 Summary (Registration Status-29, 3 Sep rebuild):** unique **1629**, UG DS **1400**, new UG **469**, Incoming+FTCA **394**, TRAN 68, READ 2, SECB 4. Graduate **153** (Rodriguez UG only). Shephard Ireland. Trumpore Commuter. Parks UG. O'Connor SECB.
+
+**FA26 roster (Census athletes 20260904-093234):** UG DS athletes **612**, team **542**. Post Grad / Not on Roster / Graduated / LOA / Left AMU do not count. Robert Lee MBA basketball (not UG). Overlay does not add unregistered people. FA25 gold roster unchanged.
 
 **FA25 FTCA attrition:** cohort **391**, enrolled **322**, not retained **69**, **82.4%**. (None of the six FA26 LOA are Incoming+FTCA.)
 

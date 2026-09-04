@@ -48,6 +48,9 @@ PRIOR = CENSUS_DIR / "Fall 2025 Census Final 9.23.25.xlsx"
 FA25_ROSTER = CENSUS_DIR / "FA25 Athlete Roster For Slate.xlsx"
 FA25_HOUSING = CENSUS_DIR / "Copy of 9.4.2025 CENSUS Fall 25.xlsx"
 FA26_ENTRY = DOWNLOADS / "Roster -_ Housing Report 20260821-155657.xlsx"
+# This-fall FA26 roster only. FA25 gold stays FA25_ROSTER.
+FA26_ROSTER = DOWNLOADS / "Census athletes 20260904-093234.xlsx"
+ROSTER_KEEP = {"Roster - Athlete", "Roster - Athletic Associated"}
 # Gold Resident/Commuter was blank and not in the FA25 eRez extract.
 FA25_RESIDENCY_FILL = {
     "P000342716": "Other",  # Abigail Rich: LESS, San Diego, Fall 2025 graduate; not in eRez
@@ -910,21 +913,131 @@ def load_slate_sports(path: Path) -> dict[str, dict]:
         if not pid.startswith("P"):
             continue
         status = (r.get("RosterStatus") or "").strip()
-        current = status.startswith("Roster")
+        current = status in ROSTER_KEEP
         gender = GENDER_MAP.get(str(r.get("Gender") or "").strip().upper(), "")
         team = (r.get("AthletePrimaryTeam") or r.get("Sport") or "").strip() if current else ""
         sport = census_sport(team, gender) if current else ""
-        on_team = status.startswith("Roster - Athlete") or (status == "Roster - Athletic Associated" and bool(sport))
+        on_team = (status == "Roster - Athlete" or (status == "Roster - Athletic Associated" and bool(sport))) and bool(sport)
         if "pickleball" in (team or "").lower():
             sport = ""
             on_team = False
         out[pid] = {
-            "sport": sport,
+            "sport": sport if on_team else "",
             "athlete": "Athlete" if on_team else "Non-Athlete",
-            "athleticType": (r.get("AthleticType") or "").strip() if current else "",
-            "rosterStatus": status if current else "",
+            "athleticType": (r.get("AthleticType") or "").strip() if on_team else "",
+            "rosterStatus": status if on_team else "",
         }
     return out
+
+
+def load_fa26_roster(path: Path | None = None) -> dict[str, dict]:
+    """This-fall census athletes extract. KEEP Athlete and Athletic Associated only."""
+    p = path or FA26_ROSTER
+    out: dict[str, dict] = {}
+    if not p.exists():
+        print(f"no {p}; skipping FA26 roster overlay")
+        return out
+    wb = load_workbook(p, data_only=True, read_only=True)
+    ws = wb.active
+    rows = ws.iter_rows(values_only=True)
+    header = header_map(next(rows))
+    i_id = next((header[k] for k in ("PCID", "Student ID", "ID") if k in header), None)
+    if i_id is None:
+        wb.close()
+        return out
+
+    def col(row, *names: str) -> str:
+        for n in names:
+            i = header.get(n)
+            if i is not None and i < len(row):
+                return dash(row[i])
+        return ""
+
+    for row in rows:
+        if not row:
+            continue
+        pid = pcid_of(row[i_id] if i_id < len(row) else None)
+        if not pid.startswith("P"):
+            continue
+        status = col(row, "Roster Status", "RosterStatus")
+        keep = status in ROSTER_KEEP
+        gender = GENDER_MAP.get(col(row, "Gender").upper(), "")
+        team = col(row, "Sport", "Athlete Primary Team", "AthletePrimaryTeam")
+        sport = census_sport(team, gender) if keep else ""
+        on_team = keep and bool(sport)
+        rec = {
+            "sport": sport if on_team else "",
+            "athlete": "Athlete" if on_team else "Non-Athlete",
+            "athleticType": col(row, "Athletic Type", "AthleticType") if on_team else "",
+            "rosterStatus": status if on_team else "",
+            "keep": on_team,
+        }
+        prev = out.get(pid)
+        if prev and prev.get("keep") and not rec.get("keep"):
+            continue
+        out[pid] = rec
+    wb.close()
+    return out
+
+
+def apply_fa26_roster(rows: list[dict], roster: dict[str, dict] | None = None) -> tuple[int, int]:
+    """Overwrite sport / type / status on existing FA26 students only. Never insert rows."""
+    src = roster if roster is not None else load_fa26_roster()
+    if not src:
+        return 0, 0
+    stamped = 0
+    cleared = 0
+    for s in rows:
+        rec = src.get(norm(s.get("pcid")))
+        if rec and rec.get("keep"):
+            s["sport"] = rec.get("sport") or ""
+            s["athlete"] = rec.get("athlete") or "Athlete"
+            s["athleticType"] = rec.get("athleticType") or ""
+            s["rosterStatus"] = rec.get("rosterStatus") or ""
+            stamped += 1
+            continue
+        had = bool(
+            (s.get("sport") or "").strip()
+            or (s.get("athleticType") or "").strip()
+            or (s.get("rosterStatus") or "").strip()
+            or (s.get("athlete") or "") == "Athlete"
+        )
+        s["sport"] = ""
+        s["athlete"] = "Non-Athlete"
+        s["athleticType"] = ""
+        s["rosterStatus"] = ""
+        if had:
+            cleared += 1
+    return stamped, cleared
+
+
+def apply_sport_notes(rows: list[dict], notes: dict[str, str] | None = None) -> int:
+    src = notes if notes is not None else {"P000382172": "Rugby-Men"}
+    n = 0
+    for s in rows:
+        sport = src.get(s.get("pcid") or "")
+        if not sport:
+            continue
+        s["sport"] = sport
+        s["athlete"] = "Athlete"
+        n += 1
+    return n
+
+
+def patch_roster_only() -> None:
+    path = DATA / "students.json"
+    payload = json.loads(path.read_text())
+    students = payload.get("students") or []
+    roster = load_fa26_roster()
+    stamped, cleared = apply_fa26_roster(students, roster)
+    n_notes = apply_sport_notes(students)
+    payload["students"] = students
+    path.write_text(json.dumps(payload, default=str))
+    n_ath = sum(1 for s in students if s.get("athlete") == "Athlete")
+    print(
+        f"FA26 roster overlay stamped {stamped} cleared {cleared} "
+        f"sport notes {n_notes}; athletes {n_ath} of {len(students)}"
+    )
 
 
 def load_graduates(path: Path) -> list[dict]:
@@ -1351,6 +1464,9 @@ def main() -> None:
     if "--household-only" in sys.argv:
         patch_households_only()
         return
+    if "--roster-only" in sys.argv:
+        patch_roster_only()
+        return
     cmap = load_curriculum_map()
     registered_rows = load_registration(REGISTRATION)
     residency_overlay: list[dict] = []
@@ -1481,17 +1597,11 @@ def main() -> None:
             }
         )
 
-    sport_notes = {"P000382172": "Rugby-Men"}
+    n_roster_stamp, n_roster_clear = apply_fa26_roster(students)
+    n_sport_notes = apply_sport_notes(students)
     underg_only = {"P000390750"}
-    for s in students:
-        if s["pcid"] in sport_notes:
-            s["sport"] = sport_notes[s["pcid"]]
-            s["athlete"] = "Athlete"
     students = [s for s in students if not (s["pcid"] in underg_only and str(s.get("program") or "").upper() == "GRAD")]
-    for s in prior:
-        if s["pcid"] in sport_notes:
-            s["sport"] = sport_notes[s["pcid"]]
-            s["athlete"] = "Athlete"
+    apply_sport_notes(prior)
 
     unretained = []
     for s in prior:
@@ -1612,6 +1722,7 @@ def main() -> None:
         f"chesterton DE {n_chesterton}\n"
         f"spring/summer admits marked Returning {n_spring}\n"
         f"fa25 roster overlay {n_fa25_roster}\n"
+        f"fa26 roster overlay stamped {n_roster_stamp} cleared {n_roster_clear} sport notes {n_sport_notes}\n"
         f"fa25 housing overlay {n_fa25_housing}\n"
         f"international {len(intl)} on students {n_intl}\n"
         f"honors file {len(honors)} eot gpas {len(eot_gpa)} scholar roster {len(scholar_emails)} unmatched {len(unmatched_scholars)}\n"
