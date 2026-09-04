@@ -8,6 +8,7 @@ import {
 } from "../../aspiredu-auth";
 import { canAccessSport } from "./access";
 import {
+  academicsMfaUnlocked,
   attendancePulse,
   buildAcademicsSummary,
   coachingLambdaPayload,
@@ -72,6 +73,28 @@ describe("FERPA MFA cookie path", () => {
     assert.match(cookie, /SameSite=Strict/);
     const headers = aspireduSessionSetCookieHeaders("session-token");
     assert.equal(headers.some((value) => /Path=\/aspiredu/.test(value) && /Max-Age=0/.test(value)), true);
+  });
+});
+
+describe("academics MFA unlock", () => {
+  const prevCoaches = process.env.ATHLETICS_COACHING_COACHES;
+
+  it("unlocks Academic Affairs without a FERPA cookie, and coaches only with hub MFA or leftover TOTP", () => {
+    process.env.ATHLETICS_COACHING_COACHES = JSON.stringify({ [COACH]: ["football"] });
+    try {
+      assert.equal(
+        academicsMfaUnlocked({ email: "michael.t.middendorf@avemaria.edu", hubMfa: false, ferpa: false }),
+        true,
+      );
+      assert.equal(academicsMfaUnlocked({ email: COACH, hubMfa: false, ferpa: false }), false);
+      assert.equal(academicsMfaUnlocked({ email: COACH, hubMfa: true, ferpa: false }), true);
+      assert.equal(academicsMfaUnlocked({ email: COACH, hubMfa: false, ferpa: true }), true);
+      assert.equal(academicsMfaUnlocked({ email: ERIC, hubMfa: false, ferpa: false }), false);
+      assert.equal(academicsMfaUnlocked({ email: OTHER, hubMfa: true, ferpa: true }), true);
+    } finally {
+      if (prevCoaches === undefined) delete process.env.ATHLETICS_COACHING_COACHES;
+      else process.env.ATHLETICS_COACHING_COACHES = prevCoaches;
+    }
   });
 });
 

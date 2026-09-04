@@ -65,6 +65,7 @@ export async function loadSourceRowsOptional<T = Record<string, unknown>>(
   source: string,
   dataset: string,
 ): Promise<{ rows: T[]; latest: LatestPointer } | null> {
+  if (!dataBucket()) return null;
   try {
     return await loadSourceRows<T>(source, dataset);
   } catch (error) {

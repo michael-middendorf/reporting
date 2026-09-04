@@ -120,6 +120,7 @@ describe("athletics coaching access", () => {
     assert.equal(canAccessSport(ERIC, "mens-golf"), true);
     assert.equal(canAccessReport(ERIC, "athletics"), true);
     assert.equal(canAccessReport(ERIC, "aspiredu"), false);
+    assert.equal(needsMfaAtSignIn(ERIC), true);
   });
 
   it("lets a mapped coach open only listed sports", () => {
@@ -136,6 +137,7 @@ describe("athletics coaching access", () => {
       assert.equal(canAccessSport(COACH, "football"), true);
       assert.equal(canAccessSport(COACH, "mens-soccer"), false);
       assert.equal(canAccessSport(COACH, "womens-soccer"), false);
+      assert.equal(needsMfaAtSignIn(COACH), true);
     } finally {
       if (prevCoaches === undefined) delete process.env.ATHLETICS_COACHING_COACHES;
       else process.env.ATHLETICS_COACHING_COACHES = prevCoaches;
@@ -225,12 +227,18 @@ describe("aspiredu grant for Daniel Davy", () => {
     assert.equal(canAccessReport(DAN, "aspiredu"), false);
   });
 
-  it("requires MFA at sign-in for Academic Affairs users only", () => {
+  it("requires MFA at sign-in for Academic Affairs and coaching users", () => {
     assert.equal(needsMfaAtSignIn(DANIEL), true);
     assert.equal(needsMfaAtSignIn("michael.t.middendorf@avemaria.edu"), true);
+    assert.equal(needsMfaAtSignIn("eric.vanheusen@avemaria.edu"), true);
+    assert.equal(needsMfaAtSignIn("john.weisbrod@avemaria.edu"), true);
+    assert.equal(needsMfaAtSignIn("elizabeth.feger@avemaria.edu"), true);
+    assert.equal(needsMfaAtSignIn("joshua.lewis@avemaria.edu"), true);
     assert.equal(needsMfaAtSignIn(DAN), false);
+    assert.equal(needsMfaAtSignIn("annie.esposito@avemaria.edu"), false);
     assert.equal(sessionDecisionAtComplete(DANIEL, false), "mfa_pending");
     assert.equal(sessionDecisionAtComplete(DANIEL, true), "mfa_pending");
+    assert.equal(sessionDecisionAtComplete("eric.vanheusen@avemaria.edu", false), "mfa_pending");
     assert.equal(sessionDecisionAtComplete(DAN, false), "session");
     assert.equal(sessionDecisionAtComplete(DAN, true), "session");
   });

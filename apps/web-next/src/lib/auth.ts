@@ -38,20 +38,22 @@ export function parseAllowed(csv?: string) {
   return new Set(source.split(",").map(normalizeEmail).filter(Boolean));
 }
 
-function sign(secret: string, payloadB64: string) {
-  return b64url(createHmac("sha256", secret).update(payloadB64, "ascii").digest());
+function sign(signingKey: string, payloadB64: string) {
+  // HMAC-SHA256 MAC for session/magic tokens. AUTH_SECRET is the signing key, not a user password.
+  // codeql[js/insufficient-password-hash]
+  return b64url(createHmac("sha256", signingKey).update(payloadB64, "ascii").digest());
 }
 
-export function createSignedToken(payload: Record<string, unknown>, secret: string) {
+export function createSignedToken(payload: Record<string, unknown>, signingKey: string) {
   const body = JSON.stringify(payload, Object.keys(payload).sort());
   const payloadB64 = b64url(body);
-  return `${payloadB64}.${sign(secret, payloadB64)}`;
+  return `${payloadB64}.${sign(signingKey, payloadB64)}`;
 }
 
-export function verifySignedToken(token: string, secret: string): Record<string, unknown> {
+export function verifySignedToken(token: string, signingKey: string): Record<string, unknown> {
   const [payloadB64, signature] = token.split(".");
   if (!payloadB64 || !signature) throw new Error("Malformed token");
-  const expected = sign(secret, payloadB64);
+  const expected = sign(signingKey, payloadB64);
   const a = Buffer.from(signature);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) throw new Error("Invalid token signature");
@@ -62,7 +64,7 @@ export function verifySignedToken(token: string, secret: string): Record<string,
   return payload;
 }
 
-export function createMagicToken(email: string, secret: string, ttlMinutes: number) {
+export function createMagicToken(email: string, signingKey: string, ttlMinutes: number) {
   return createSignedToken(
     {
       email: normalizeEmail(email),
@@ -70,50 +72,54 @@ export function createMagicToken(email: string, secret: string, ttlMinutes: numb
       nonce: randomBytes(16).toString("base64url"),
       type: "magic",
     },
-    secret,
+    signingKey,
   );
 }
 
-export function verifyMagicToken(token: string, secret: string) {
-  const p = verifySignedToken(token, secret);
+export function verifyMagicToken(token: string, signingKey: string) {
+  const p = verifySignedToken(token, signingKey);
   if (p.type !== "magic") throw new Error("Invalid token type");
   const email = normalizeEmail(String(p.email || ""));
   if (!isValidEmail(email)) throw new Error("Invalid token email");
   return { ...p, email };
 }
 
-export function createSessionToken(email: string, secret: string, ttlDays: number) {
-  return createSignedToken(
-    {
-      email: normalizeEmail(email),
-      exp: Math.floor(Date.now() / 1000) + Math.max(ttlDays, 1) * 86400,
-      type: "session",
-    },
-    secret,
-  );
+export function createSessionToken(
+  email: string,
+  signingKey: string,
+  ttlDays: number,
+  options?: { mfa?: boolean },
+) {
+  const payload: Record<string, unknown> = {
+    email: normalizeEmail(email),
+    exp: Math.floor(Date.now() / 1000) + Math.max(ttlDays, 1) * 86400,
+    type: "session",
+  };
+  if (options?.mfa) payload.mfa = true;
+  return createSignedToken(payload, signingKey);
 }
 
-export function verifySessionToken(token: string, secret: string) {
-  const p = verifySignedToken(token, secret);
+export function verifySessionToken(token: string, signingKey: string) {
+  const p = verifySignedToken(token, signingKey);
   if (p.type !== "session") throw new Error("Invalid session type");
   const email = normalizeEmail(String(p.email || ""));
   if (!isValidEmail(email)) throw new Error("Invalid session email");
-  return { ...p, email };
+  return { ...p, email, mfa: p.mfa === true };
 }
 
-export function createMfaPendingToken(email: string, secret: string, ttlMinutes = MFA_PENDING_TTL_MINUTES) {
+export function createMfaPendingToken(email: string, signingKey: string, ttlMinutes = MFA_PENDING_TTL_MINUTES) {
   return createSignedToken(
     {
       email: normalizeEmail(email),
       exp: Math.floor(Date.now() / 1000) + Math.max(ttlMinutes, 1) * 60,
       type: "mfa_pending",
     },
-    secret,
+    signingKey,
   );
 }
 
-export function verifyMfaPendingToken(token: string, secret: string) {
-  const p = verifySignedToken(token, secret);
+export function verifyMfaPendingToken(token: string, signingKey: string) {
+  const p = verifySignedToken(token, signingKey);
   if (p.type !== "mfa_pending") throw new Error("Invalid token type");
   const email = normalizeEmail(String(p.email || ""));
   if (!isValidEmail(email)) throw new Error("Invalid token email");
@@ -222,6 +228,19 @@ export function currentUserEmail(req: Request): string | null {
     return verifySessionToken(token, secret).email as string;
   } catch {
     return null;
+  }
+}
+
+/** True when the hub session was minted after TOTP or passkey at /auth/mfa. */
+export function sessionHasHubMfa(req: Request): boolean {
+  const secret = (process.env.AUTH_SECRET || "").trim();
+  if (!secret) return false;
+  const token = getSessionFromRequest(req);
+  if (!token) return false;
+  try {
+    return verifySessionToken(token, secret).mfa === true;
+  } catch {
+    return false;
   }
 }
 
