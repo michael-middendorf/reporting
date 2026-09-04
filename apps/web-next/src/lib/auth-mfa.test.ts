@@ -12,7 +12,7 @@ import {
 import { authorizeAcademicAffairsApi } from "./aspiredu-api-auth";
 import { maskEmail } from "./mfa-pending";
 
-const SECRET = "mfa-pending-test-secret";
+const MAC_KEY = "mfa-pending-test-key";
 const DANIEL = "daniel.davy@avemaria.edu";
 const DAN = "dan.donaldson@avemaria.edu";
 
@@ -37,13 +37,13 @@ describe("needsMfaAtSignIn / complete branching", () => {
 
 describe("pending MFA cookie token", () => {
   it("round-trips email and is not accepted as a reporting session", () => {
-    const pending = createMfaPendingToken(DANIEL, SECRET, 10);
-    const payload = verifyMfaPendingToken(pending, SECRET);
+    const pending = createMfaPendingToken(DANIEL, MAC_KEY, 10);
+    const payload = verifyMfaPendingToken(pending, MAC_KEY);
     assert.equal(payload.email, DANIEL);
     assert.equal(payload.type, "mfa_pending");
-    assert.throws(() => verifySessionToken(pending, SECRET));
-    const session = createSessionToken(DANIEL, SECRET, 1);
-    assert.throws(() => verifyMfaPendingToken(session, SECRET));
+    assert.throws(() => verifySessionToken(pending, MAC_KEY));
+    const session = createSessionToken(DANIEL, MAC_KEY, 1);
+    assert.throws(() => verifyMfaPendingToken(session, MAC_KEY));
   });
 
   it("sets Path=/ HttpOnly SameSite=Lax and Secure on HTTPS", () => {

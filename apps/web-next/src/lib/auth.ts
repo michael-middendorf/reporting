@@ -134,12 +134,6 @@ export function cookieSecureFromRequest(req: Request) {
   return proto === "https";
 }
 
-export function readCookie(req: Request, name: string): string | null {
-  const raw = req.headers.get("cookie") || "";
-  const match = raw.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
-  return match?.[1] ? decodeURIComponent(match[1]) : null;
-}
-
 export function sessionCookie(token: string, maxAge: number, secure: boolean) {
   const parts = [
     `${SESSION_COOKIE_NAME}=${token}`,
@@ -193,7 +187,9 @@ export function clearMfaPendingCookie(secure: boolean) {
 export function currentMfaPendingEmail(req: Request): string | null {
   const secret = (process.env.AUTH_SECRET || "").trim();
   if (!secret) return null;
-  const token = readCookie(req, MFA_PENDING_COOKIE);
+  const header = req.headers.get("cookie") || "";
+  const match = header.match(new RegExp(`(?:^|;\\s*)${MFA_PENDING_COOKIE}=([^;]*)`));
+  const token = match?.[1] ? decodeURIComponent(match[1]) : null;
   if (!token) return null;
   try {
     return verifyMfaPendingToken(token, secret).email;
