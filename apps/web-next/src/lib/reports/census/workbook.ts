@@ -3,7 +3,6 @@ import {
   attachLoaStatus,
   censusAppDecision,
   footballRosterPcids,
-  isCensusFootball,
   isUgDegreeSeekingRow,
   normPcid,
   withoutFootballPlayers,
@@ -434,7 +433,7 @@ function writeGraduateEnrollment(
   ws.set(
     2,
     1,
-    "One row per program. Alumni admits / External admits are incoming only. AMU Alumni is any current graduate with an AMU bachelor's (Graduated All or UG on last fall's census), including returning students.",
+    "Alumni admits / External admits are incoming only. AMU Alumni includes returning students with an AMU bachelor's.",
     NOTE,
   );
   const blocks = buildGraduateEnrollment(students, prior, graduates);
@@ -635,9 +634,7 @@ function writeCensusReport(
     sportRows,
     { intCols: [1, 2], pctCols: [3, 4], total: true },
   );
-  ws.set(j, col.j, '*“Athletes” refers to team players only. “Athletics Associated” includes anyone affiliated with athletics (band, managers, etc.).', NOTE);
-  j += 1;
-  ws.set(j, col.j, "**Athletics Association is used for athlete vs. non-athlete counts.", NOTE);
+  ws.set(j, col.j, "*Athletes = team players. Associated = band, managers, and other affiliates.", NOTE);
   j += 1;
   j = writeCountTable(
     ws,
@@ -693,8 +690,6 @@ function writeCensusReport(
     crosstabCells(extra.residenceGender, true, true),
     { intCols: [2, 3], pctCols: [4], total: true },
   );
-  ws.set(j, col.j, "*Discounting Study Abroad, Online, and Middlebrooke Students", NOTE);
-  j += 1;
 
   const classRows: CellValue[][] = t.classLevel.length
     ? [
@@ -753,8 +748,12 @@ function writeCensusReport(
     resRows,
     { intCols: [1, 3, 4], pctCols: [2], total: true },
   );
-  ws.set(p, col.p, data.housing ? "*No UG in Middlebrooke" : "Housing pending — Needs data", NOTE);
-  p += 2;
+  if (!data.housing) {
+    ws.set(p, col.p, "Housing pending — Needs data", NOTE);
+    p += 2;
+  } else {
+    p += 2;
+  }
 
   p = writeCountTable(
     ws,
@@ -898,7 +897,7 @@ function writeCensusReport(
     majorRows,
     { intCols: [1, 2, 3, 4, 5], pctCols: [6], total: true },
   );
-  ws.set(p, col.p, "*Declared majors only (primary curriculum). Minors are not counted. Students with more than one major are counted multiple times.", NOTE);
+  ws.set(p, col.p, "*Primary curriculum only. Double majors counted twice.", NOTE);
   p += 2;
 
   p = writeCountTable(
@@ -911,12 +910,6 @@ function writeCensusReport(
       ? extra.association.map((r) => [r.label, r.label2 || "", r.students, r.graduated, r.notRetained, r.retentionPct])
       : [],
     { intCols: [2, 3, 4], pctCols: [5] },
-  );
-  ws.set(
-    p,
-    col.p,
-    "*F25–F26 association retention uses last year's flags. Mary's Marines FA25 is the Spring 2026 association extract (gold FA25 raw had no Marines column). FA26 is Mary's Marines_As of 9-1-26.xlsx.",
-    NOTE,
   );
 
   // Gender load spans B–G (overlaps F). Athletic retention spans B–K (overlaps F and J).
@@ -972,12 +965,7 @@ function writeCensusReport(
     sportRetentionRows,
     { intCols: [1, 2, 3, 4, 5, 10], pctCols: [6, 7], decCols: [8, 9], total: true },
   );
-  ws.set(
-    athEnd,
-    col.b,
-    '*“Athletes” refers to team players only. “Associated” includes band, managers, and other athletics affiliates. Retention is on the associated roster.',
-    NOTE,
-  );
+  ws.set(athEnd, col.b, "*Athletes = team players. Associated = band, managers, and other affiliates.", NOTE);
 }
 
 function subsetRetention(rows: AttritionRow[]): number {
@@ -1025,8 +1013,7 @@ function writeAttrition(
   ws.set(
     2,
     1,
-    opts?.note ||
-      "Cohort = FA25 Incoming+FTCA 392 minus Aiden Wilson (dropped after census) = 391. Returning FTCA, including intervening graduates, are not in this pool. Spring/summer admits are out. Athletic retention is on the Census Report sheet.",
+    opts?.note || "Cohort = FA25 Incoming+FTCA 392 minus Aiden Wilson = 391.",
     NOTE,
   );
 
@@ -1222,7 +1209,7 @@ function writeAttrition(
   ws.set(
     nRow,
     colN,
-    "*ACT converted is the higher of verified ACT and SAT (College Board concordance). Has / No test score is that same SAT/ACT pool. CLT-only is not a converted score.",
+    "*Has / No test score = SAT or ACT (converted). CLT-only is No.",
     NOTE,
   );
 
@@ -2048,9 +2035,6 @@ export async function buildCensusWorkbook(
     : EMPTY_FTCA_EXTRAS;
 
   const fa25Football = footballRosterPcids(lists.prior);
-  const fa25FootballUg = lists.prior.filter(
-    (s) => isCensusFootball(s.sport) && isUgDegreeSeekingRow(s.program, s.collegeAttend, s.degree),
-  ).length;
   const noFbStudents = withoutFootballPlayers(lists.students);
   const noFbPrior = withoutFootballRoster(lists.prior, fa25Football);
   const noFbCurrentIds = currentIds.filter((id) => !fa25Football.has(id.toUpperCase()));
@@ -2076,9 +2060,6 @@ export async function buildCensusWorkbook(
     ? buildFtcaExtras(noFbPrior, noFbCurrentIds, lists.graduates)
     : EMPTY_FTCA_EXTRAS;
   const fa = faLabel(data.historical.years[0] ?? 2026);
-  const noFbNote = fa25FootballUg
-    ? `Retention tables omit the Fall 2025 football roster (${fa25FootballUg} UG on last year's census). This-term tables omit Fall 2026 football.`
-    : "Football removed.";
 
   writeSummary(wb, data);
   writeHistorical(wb, data);
@@ -2086,7 +2067,6 @@ export async function buildCensusWorkbook(
   writeCensusReport(wb, noFbData, noFbTables, noFbExtra, {
     sheetName: `${fa} Census no Football`,
     titleSuffix: " (Football removed)",
-    note: noFbNote,
     yoy: noFootballYoY(noFbPrior, noFbStudents),
   });
   writeGraduateEnrollment(wb, lists.students, lists.prior, data.historical.years[0] ?? 2026, lists.graduates);
@@ -2094,7 +2074,6 @@ export async function buildCensusWorkbook(
   writeAttrition(wb, noFbData, noFbFtcaExtras, {
     sheetName: "FA25 FTCA no Football",
     titleSuffix: " (Football removed)",
-    note: `${noFbNote} Incoming+FTCA football is the subset of that FA25 roster who were new FTCA last year, not the whole team.`,
   });
   writeFtcaRaw(wb, ftcaRaw);
   const alumniIds = amuUndergraduateAlumniIds(lists.prior, lists.graduates);

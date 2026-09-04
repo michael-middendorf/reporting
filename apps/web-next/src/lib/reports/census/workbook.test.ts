@@ -278,6 +278,9 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(reportXml, /Residence Type/);
   assert.match(reportXml, /Association Retention/);
   assert.doesNotMatch(reportXml, /Households/);
+  assert.doesNotMatch(reportXml, /Middlebrooke/);
+  assert.doesNotMatch(reportXml, /Discounting Study Abroad/);
+  assert.doesNotMatch(reportXml, /Mary's Marines FA25 is the Spring/);
   assert.match(reportXml, /Honors College/);
   assert.match(reportXml, /Institute/);
   assert.match(reportXml, /Needs data/);
@@ -296,6 +299,8 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   const attritionXml = files["xl/worksheets/sheet6.xml"];
   assert.doesNotMatch(attritionXml, /Athletic Retention/);
   assert.match(attritionXml, /Incoming FTCA/);
+  assert.doesNotMatch(attritionXml, /Athletic retention is on the Census Report/);
+  assert.match(attritionXml, /CLT-only is No/);
   assert.match(attritionXml, /HS GPA Ranges/);
   assert.match(attritionXml, /ACT Converted/);
   assert.match(attritionXml, /Test Score/);
