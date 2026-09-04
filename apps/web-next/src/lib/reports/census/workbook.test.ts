@@ -321,6 +321,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(rawXml, /Citizenship/);
   assert.match(rawXml, /HS GPA/);
   assert.doesNotMatch(rawXml, /Earned Credits/);
+  assert.doesNotMatch(rawXml, /Household/);
   assert.match(rawXml, /GRAD/);
   assert.match(rawXml, /MARTS/);
   assert.match(rawXml, /01LuxMundi/);

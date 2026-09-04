@@ -1483,7 +1483,6 @@ const CENSUS_RAW_HEADERS = [
   "Roster Status",
   "Honors",
   "FSP",
-  "Household",
   "Institute",
   "Mary's Marines",
   "Application Decision",
@@ -1500,8 +1499,8 @@ const CENSUS_RAW_HEADERS = [
 ];
 
 const CENSUS_RAW_WIDTHS = [
-  14, 16, 18, 16, 8, 16, 14, 12, 10, 12, 14, 14, 12, 22, 12, 10, 16, 10, 12, 16, 16, 22, 16, 16, 22, 10, 10, 12, 12, 14,
-  16, 12, 10, 32, 12, 12, 10, 8, 8, 8,
+  14, 16, 18, 16, 8, 16, 14, 12, 10, 12, 14, 14, 12, 22, 12, 10, 16, 10, 12, 16, 16, 22, 16, 16, 22, 10, 12, 12, 14, 16,
+  12, 10, 32, 12, 12, 10, 8, 8, 8,
 ];
 
 function amuAlumniCell(s: CensusRawStudent, alumniIds: Set<string>): string {
@@ -1537,7 +1536,6 @@ function rawRow(s: CensusRawStudent, alumniIds: Set<string> = new Set()): CellVa
     s.rosterStatus || "",
     s.honors,
     s.fsp,
-    s.household,
     s.institute,
     s.marines,
     s.appDecision,
