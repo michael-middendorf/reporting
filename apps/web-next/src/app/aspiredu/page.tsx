@@ -12,6 +12,7 @@ import {
   triggerXlsxDownload,
 } from "@/lib/aspiredu-exact-reports";
 import { loadAllCourses } from "@/lib/aspiredu-load-courses";
+import { riskHistogramBuckets } from "@/lib/aspiredu-risk-histogram";
 import styles from "./aspiredu.module.css";
 
 type Summary = {
@@ -65,7 +66,8 @@ export default function AcademicAffairsHubPage() {
       .catch((error) => setStatus(error instanceof Error ? error.message : "Unable to load summary"));
   }, []);
 
-  const risk = latest?.riskScores || latest?.riskBands || {};
+  const buckets = riskHistogramBuckets(latest?.riskScores || latest?.riskBands);
+  const peak = Math.max(1, ...buckets.map((bucket) => bucket.count));
 
   function downloadGap() {
     triggerXlsxDownload(GAP_WORKBOOK_FILENAME, buildPowerCampusGapWorkbook());
@@ -96,21 +98,78 @@ export default function AcademicAffairsHubPage() {
         <main className={styles.content}>
           <h1>Academic Affairs</h1>
           <p className={styles.notice}>
-            Deidentified totals below. Signed-in Academic Affairs users can open student and course reports. Excel
-            templates keep every original column. Dropout Detective fields fill from this AspireDU feed. PowerCampus
-            values (sport, GPA, credits, and the rest) stay blank until those extracts are supplied.
+            Deidentified snapshot totals follow the report links. Signed-in Academic Affairs users can open student and
+            course reports. Excel templates keep every original column. Dropout Detective fields fill from this AspireDU
+            feed. PowerCampus values (sport, GPA, credits, and the rest) stay blank until those extracts are supplied.
           </p>
           {status && <p>{status}</p>}
+          <div className={styles.cardGrid}>
+            {REPORTS.map((report) => (
+              <Link key={report.href} href={report.href} className={styles.card}>
+                <h2>{report.title}</h2>
+                <p>{report.desc}</p>
+                <span>Open →</span>
+              </Link>
+            ))}
+          </div>
           {latest && (
-            <div className={styles.grid}>
-              <div className={styles.metric}><span>Students in latest snapshot</span><strong>{latest.studentCount ?? 0}</strong></div>
-              {latest.courseCount !== undefined && (
-                <div className={styles.metric}><span>Course rows</span><strong>{latest.courseCount}</strong></div>
+            <>
+              <div className={styles.kpiGrid}>
+                <div className={styles.metric}>
+                  <span>Students in latest snapshot</span>
+                  <strong>{latest.studentCount ?? 0}</strong>
+                </div>
+                <div className={styles.metric}>
+                  <span>Course rows</span>
+                  <strong>{latest.courseCount ?? 0}</strong>
+                </div>
+                {latest.asOf && (
+                  <div className={styles.metric}>
+                    <span>As of</span>
+                    <strong className={styles.asOf}>{new Date(latest.asOf).toLocaleString()}</strong>
+                  </div>
+                )}
+              </div>
+              {buckets.length > 0 && (
+                <figure className={styles.histogramFigure}>
+                  <h2 id="risk-histogram-heading">Dropout Detective overall risk</h2>
+                  <div className={styles.histogramScroll}>
+                    <div
+                      className={styles.histogram}
+                      role="list"
+                      aria-labelledby="risk-histogram-heading"
+                    >
+                      {buckets.map((bucket) => {
+                        const label = `Risk ${bucket.score}: ${bucket.count} course rows`;
+                        const height = (bucket.count / peak) * 100;
+                        return (
+                          <div
+                            className={styles.histCol}
+                            key={bucket.score}
+                            role="listitem"
+                            aria-label={label}
+                            title={label}
+                          >
+                            <span className={styles.histCount} aria-hidden="true">
+                              {bucket.count}
+                            </span>
+                            <div className={styles.histBarTrack} aria-hidden="true">
+                              <div className={styles.histBar} style={{ height: `${height}%` }} />
+                            </div>
+                            <span className={styles.histLabel} aria-hidden="true">
+                              {bucket.score}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <figcaption className={styles.histogramCaption}>
+                    This counts course rows, not unique students (the same student can appear more than once).
+                  </figcaption>
+                </figure>
               )}
-              {Object.entries(risk).map(([band, count]) => (
-                <div className={styles.metric} key={band}><span>Risk {band}</span><strong>{count}</strong></div>
-              ))}
-            </div>
+            </>
           )}
           <section className={styles.panel}>
             <h2>Template downloads</h2>
@@ -129,15 +188,6 @@ export default function AcademicAffairsHubPage() {
             </div>
             {downloadStatus && <p>{downloadStatus}</p>}
           </section>
-          <div className={styles.cardGrid}>
-            {REPORTS.map((report) => (
-              <Link key={report.href} href={report.href} className={styles.card}>
-                <h2>{report.title}</h2>
-                <p>{report.desc}</p>
-                <span>Open →</span>
-              </Link>
-            ))}
-          </div>
           {history.length > 0 && (
             <section className={styles.panel}>
               <h2>Recent snapshots</h2>
