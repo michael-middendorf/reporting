@@ -223,76 +223,6 @@
   font-size: 20px;
 }
 
-.histogramFigure {
-  background: #fff;
-  border: 1px solid var(--bdr);
-  border-radius: 8px;
-  padding: 18px 18px 16px;
-  margin: 0 0 24px;
-}
-
-.histogramFigure h2 {
-  margin: 0 0 12px;
-  font-size: 18px;
-}
-
-.histogramStats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 28px;
-  margin: 0 0 16px;
-}
-
-.histogramStats span {
-  display: block;
-  color: var(--t2);
-  font-size: 12px;
-  margin-bottom: 4px;
-}
-
-.histogramStats strong {
-  font-size: 20px;
-  font-variant-numeric: tabular-nums;
-}
-
-.histogram {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-  min-width: 0;
-}
-
-.histRow {
-  display: grid;
-  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.histLabel {
-  font-size: 13px;
-  color: var(--t2);
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-}
-
-.histBarTrack {
-  height: 14px;
-  min-width: 0;
-  background: var(--pale);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.histBar {
-  height: 100%;
-  min-width: 0;
-  background: var(--blue);
-  border-radius: 999px;
-}
-
 .histCount {
   text-align: right;
   white-space: nowrap;
@@ -322,12 +252,6 @@
   display: block;
   height: 100%;
   background: var(--blue);
-}
-
-.histogramCaption {
-  margin: 12px 0 0;
-  color: var(--t2);
-  font-size: 13px;
 }
 
 .card p {
