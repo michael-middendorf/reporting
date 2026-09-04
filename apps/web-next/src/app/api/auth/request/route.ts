@@ -6,9 +6,8 @@ import {
   normalizeEmail,
   sendMagicEmail,
 } from "@/lib/auth";
+import { MAGIC_LINK_SENT_MSG } from "@/lib/auth-messages";
 import { appBaseUrlForEmail } from "@/lib/public-url";
-
-const MSG = "If your email is approved, you will receive a sign-in link shortly.";
 
 export async function POST(req: Request) {
   let body: { email?: string };
@@ -28,7 +27,7 @@ export async function POST(req: Request) {
 
   if (!canLogin(email)) {
     console.log("Auth request ignored for non-allowlisted email:", email);
-    return NextResponse.json({ ok: true, message: MSG });
+    return NextResponse.json({ ok: true, message: MAGIC_LINK_SENT_MSG });
   }
 
   const ttl = Math.max(parseInt(process.env.AUTH_MAGIC_LINK_TTL_MINUTES || "15", 10), 1);
@@ -38,5 +37,5 @@ export async function POST(req: Request) {
   if (!sent.ok) {
     return NextResponse.json({ error: "Unable to send sign-in email right now." }, { status: 502 });
   }
-  return NextResponse.json({ ok: true, message: MSG });
+  return NextResponse.json({ ok: true, message: MAGIC_LINK_SENT_MSG });
 }

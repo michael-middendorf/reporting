@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, fetchMe } from "@/lib/api";
+import { MAGIC_LINK_SENT_MSG } from "@/lib/auth-messages";
 import styles from "../auth.module.css";
 
 export default function LoginClient() {
@@ -31,7 +32,7 @@ export default function LoginClient() {
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       setStatus({
         kind: "ok",
-        text: data.message || "Check your email for a sign-in link.",
+        text: data.message || MAGIC_LINK_SENT_MSG,
       });
     } catch (err) {
       setStatus({
@@ -48,8 +49,8 @@ export default function LoginClient() {
       <div className={styles.eyebrow}>Ave Maria University</div>
       <h1>AMU Reporting</h1>
       <p className={styles.copy}>
-        Sign-in links are emailed to approved addresses. After you sign in,
-        you&apos;ll see the reports you have access to.
+        We&apos;ll email you a sign-in link. After you sign in, you&apos;ll see
+        the reports you have access to.
       </p>
       <form onSubmit={onSubmit}>
         <label htmlFor="email">Work email</label>
