@@ -77,6 +77,7 @@ describe("music board moved to hub", () => {
 
 describe("athletics-only grant", () => {
   const ERIC = "Eric.Vanheusen@avemaria.edu";
+  const COACH = "Jamon.Copeland@avemaria.edu";
 
   it("lets Eric sign in and open Athletics Master and coaching only", () => {
     assert.equal(canLogin(ERIC), true);
@@ -92,6 +93,15 @@ describe("athletics-only grant", () => {
     assert.equal(canAccessReport(ERIC, "annunciation"), false);
     assert.equal(canAccessReport(ERIC, "aspiredu"), false);
     assert.deepEqual(reportsForEmail(ERIC), ["athletics", "athletics-coaching"]);
+  });
+
+  it("lets a mapped head coach sign in to Athletics only", () => {
+    assert.equal(canLogin(COACH), true);
+    assert.equal(canAccessReport(COACH, "athletics"), true);
+    assert.equal(canAccessReport(COACH, "athletics-coaching"), false);
+    assert.equal(canAccessReport(COACH, "enrollment"), false);
+    assert.equal(canAccessReport(COACH, "census"), false);
+    assert.deepEqual(reportsForEmail(COACH), ["athletics"]);
   });
 });
 

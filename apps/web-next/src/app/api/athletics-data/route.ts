@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import {
+  filterAthleticsPayload,
+  sportsScopeForAthleticsEmail,
+} from "@/lib/access";
+import { currentUserEmail } from "@/lib/auth";
 import { requireReportAccess } from "@/lib/s3-proxy";
 import { loadSourceRows } from "@/lib/sources";
 import type { AthleticsPayload, SlateRow } from "@/lib/reports/athletics/types";
@@ -15,7 +20,10 @@ let inflightLoad: Promise<AthleticsPayload> | null = null;
 
 function payloadResponse(payload: AthleticsPayload) {
   return NextResponse.json(payload, {
-    headers: { "Cache-Control": "private, max-age=300, stale-while-revalidate=300" },
+    headers: {
+      "Cache-Control": "private, no-store",
+      Vary: "Cookie",
+    },
   });
 }
 
@@ -67,14 +75,22 @@ async function buildPayload(): Promise<AthleticsPayload> {
 export async function GET(req: Request) {
   const denied = requireReportAccess(req, "athletics");
   if (denied) return denied;
+  const email = currentUserEmail(req);
+  if (!email) {
+    return NextResponse.json(
+      { error: "Authentication required", redirect: "/" },
+      { status: 401 },
+    );
+  }
+  const scope = sportsScopeForAthleticsEmail(email);
   try {
     if (memoryCache && memoryCache.expiresAt > Date.now()) {
-      return payloadResponse(memoryCache.payload);
+      return payloadResponse(filterAthleticsPayload(memoryCache.payload, scope));
     }
     inflightLoad ||= buildPayload();
     const payload = await inflightLoad.finally(() => { inflightLoad = null; });
     memoryCache = { expiresAt: Date.now() + MEMORY_TTL_MS, payload };
-    return payloadResponse(payload);
+    return payloadResponse(filterAthleticsPayload(payload, scope));
   } catch (error) {
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Unable to load Athletics data" },

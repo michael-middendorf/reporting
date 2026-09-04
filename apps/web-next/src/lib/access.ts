@@ -48,8 +48,26 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu,dan.donaldson@avemaria.edu,andres.a.jimenez@avemaria.edu,susan.gallagher@avemaria.edu,mark.middendorf@avemaria.edu",
   census:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu",
-  athletics:
-    "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu,eric.vanheusen@avemaria.edu",
+  athletics: [
+    "cole.j.cantu@avemaria.edu",
+    "regina.m.pirolli@avemaria.edu",
+    "michael.t.middendorf@avemaria.edu",
+    "eric.vanheusen@avemaria.edu",
+    "robert.cooper@avemaria.edu",
+    "jamon.copeland@avemaria.edu",
+    "jelani.akil@avemaria.edu",
+    "john.schmidt@avemaria.edu",
+    "camryn.e.olive@avemaria.edu",
+    "alan.webb@avemaria.edu",
+    "joseph.patterson@avemaria.edu",
+    "katelyn.j.sherman@avemaria.edu",
+    "ryan.dolnick@avemaria.edu",
+    "dariel.collazo@avemaria.edu",
+    "tyler.rosser@avemaria.edu",
+    "trinity.e.medina@avemaria.edu",
+    "joshua.harriott@avemaria.edu",
+    "steve.smith@avemaria.edu",
+  ].join(","),
   "athletics-coaching":
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu,eric.vanheusen@avemaria.edu,john.weisbrod@avemaria.edu,elizabeth.feger@avemaria.edu,joshua.lewis@avemaria.edu",
   housing:
@@ -155,4 +173,97 @@ export function allLoginEmails(): string[] {
 
 export function isReportId(value: string): value is ReportId {
   return (REPORT_IDS as readonly string[]).includes(value);
+}
+
+/**
+ * Athletics row scope. `"all"` is hub admins plus an explicit unrestricted
+ * set (Director of Athletic Recruitment). Coaches get sports, and optional
+ * Gender tokens. Unknown non-admins fail closed (`sports: []`).
+ *
+ * Slate PersonSport is ungendered (Basketball, not "Men's Basketball").
+ * Gender on the 2026-09-04 extracts is `M` / `F`.
+ */
+export type AthleticsSportScope =
+  | "all"
+  | { sports: readonly string[]; genders?: readonly string[] };
+
+/** All sports, including empty-sport rows. Not hub admins. */
+const UNRESTRICTED_ATHLETICS_EMAILS = ["eric.vanheusen@avemaria.edu"] as const;
+
+const UNRESTRICTED_ATHLETICS_SET = new Set(
+  UNRESTRICTED_ATHLETICS_EMAILS.map(normalizeEmail),
+);
+
+/**
+ * Head-coach assignments from avemariagyrenes.com. Do not add Michael
+ * Middendorf (Ultimate Frisbee HC is also a hub admin). Ty Kaufman
+ * (interim golf) has no public email and is omitted.
+ */
+const ATHLETICS_SPORT_ASSIGNMENTS: Record<
+  string,
+  { sports: readonly string[]; genders?: readonly string[] }
+> = {
+  "robert.cooper@avemaria.edu": { sports: ["Baseball"] },
+  "jamon.copeland@avemaria.edu": { sports: ["Basketball"], genders: ["M"] },
+  "jelani.akil@avemaria.edu": { sports: ["Basketball"], genders: ["F"] },
+  "john.schmidt@avemaria.edu": { sports: ["Volleyball"] },
+  "camryn.e.olive@avemaria.edu": { sports: ["Competitive Dance"] },
+  "alan.webb@avemaria.edu": { sports: ["Cross Country", "Track and Field"] },
+  "joseph.patterson@avemaria.edu": { sports: ["Football"] },
+  "katelyn.j.sherman@avemaria.edu": { sports: ["Lacrosse"], genders: ["F"] },
+  "ryan.dolnick@avemaria.edu": { sports: ["Rugby"] },
+  "dariel.collazo@avemaria.edu": { sports: ["Soccer"], genders: ["M"] },
+  "tyler.rosser@avemaria.edu": { sports: ["Soccer"], genders: ["F"] },
+  "trinity.e.medina@avemaria.edu": { sports: ["Softball"] },
+  "joshua.harriott@avemaria.edu": { sports: ["Swimming"] },
+  "steve.smith@avemaria.edu": { sports: ["Tennis"] },
+};
+
+function normalizeAthleticsToken(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+export function sportsScopeForAthleticsEmail(email: string): AthleticsSportScope {
+  const e = normalizeEmail(email);
+  if (!e) return { sports: [] };
+  if (isAdmin(e) || UNRESTRICTED_ATHLETICS_SET.has(e)) return "all";
+  return ATHLETICS_SPORT_ASSIGNMENTS[e] ?? { sports: [] };
+}
+
+/** `null` means every sport (admin / unrestricted). */
+export function athleticsSportsForEmail(email: string): string[] | null {
+  const scope = sportsScopeForAthleticsEmail(email);
+  return scope === "all" ? null : [...scope.sports];
+}
+
+export function filterAthleticsRecords<T extends { sport: string; gender: string }>(
+  records: readonly T[],
+  scope: AthleticsSportScope,
+): T[] {
+  if (scope === "all") return records.slice();
+  const sports = new Set(scope.sports.map(normalizeAthleticsToken).filter(Boolean));
+  const genders = scope.genders
+    ? new Set(scope.genders.map(normalizeAthleticsToken).filter(Boolean))
+    : null;
+  return records.filter((row) => {
+    const sport = normalizeAthleticsToken(row.sport);
+    if (!sport || !sports.has(sport)) return false;
+    if (genders) {
+      const gender = normalizeAthleticsToken(row.gender);
+      if (!gender || !genders.has(gender)) return false;
+    }
+    return true;
+  });
+}
+
+/** Clone arrays so a user-scoped response cannot mutate the process cache. */
+export function filterAthleticsPayload<
+  T extends { sport: string; gender: string },
+  P extends { applications: T[]; prospects: T[] },
+>(payload: P, scope: AthleticsSportScope): P {
+  return {
+    ...payload,
+    applications: filterAthleticsRecords(payload.applications, scope),
+    prospects: filterAthleticsRecords(payload.prospects, scope),
+  };
 }
