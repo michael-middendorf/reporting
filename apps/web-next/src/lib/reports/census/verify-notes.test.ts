@@ -66,6 +66,23 @@ test("verify notes set Trumpore off-campus; Shephard stays Ireland", () => {
   assert.equal(out[1]?.incomingReturning, "Returning");
 });
 
+test("Snyder Incoming freshman with blank College Attend is FTCA", () => {
+  const out = applyCensusVerifyNotes([
+    raw({
+      pcid: "P000384840",
+      first: "Michael",
+      last: "Snyder",
+      collegeAttend: "",
+      incomingReturning: "Incoming",
+      classLevel: "Freshman",
+      curriculum: "PREED",
+    }),
+  ]);
+  assert.equal(out[0]?.collegeAttend, "FTCA");
+  assert.equal(out[0]?.incomingReturning, "Incoming");
+  assert.equal(out[0]?.classLevel, "Freshman");
+});
+
 test("O'Connor Incoming SECB with blank Class is Freshman like the other SECB", () => {
   const out = applyCensusVerifyNotes([
     raw({

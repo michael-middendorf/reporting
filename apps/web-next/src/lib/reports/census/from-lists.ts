@@ -77,6 +77,7 @@ function isLuxMundi(s: CensusRawStudent): boolean {
 }
 
 function isDual(s: CensusRawStudent): boolean {
+  if (isChesterton(s)) return false;
   return college(s) === "DUAL" || degree(s) === "HSDE";
 }
 
@@ -136,14 +137,15 @@ export function summaryFromStudents(students: CensusRawStudent[]): CensusSummary
   const dual = students.filter(isDual);
   const grads = students.filter(isGrad);
   const luxGrad = grads.filter(isLuxMundi);
-  const nonDegree = students.filter((s) => !isUgDs(s) && !isDual(s) && !isGrad(s));
+  const chestertonRows = students.filter(isChesterton);
+  const nonDegree = students.filter((s) => !isUgDs(s) && !isDual(s) && !isGrad(s) && !isChesterton(s));
   const byCollege = (code: string) => incoming.filter((s) => college(s) === code);
   const byDeg = (code: string) => grads.filter((s) => degree(s) === code && !isLuxMundi(s));
   const campusMa = byDeg("MARTS");
   const maPhil = campusMa.filter(isMaPhil);
   const maCrw = campusMa.filter(isMaCrw);
   const maTheo = campusMa.filter((s) => !isMaPhil(s) && !isMaCrw(s));
-  const ug = [...ugds, ...dual, ...nonDegree];
+  const ug = [...ugds, ...dual, ...nonDegree, ...chestertonRows];
   return {
     newStudents: hcFte(incoming),
     ftca: hcFte(byCollege("FTCA")),
@@ -158,8 +160,8 @@ export function summaryFromStudents(students: CensusRawStudent[]): CensusSummary
     montMallary: hcFte(ugds.filter(isMallaryStudent)),
     degreeSeeking: hcFte(ugds),
     dualEnrollment: hcFte(dual),
-    chesterton: hcFte(students.filter((s) => isChesterton(s) && !isDual(s))),
-    chestertonDual: hcFte(students.filter(isChesterton)),
+    chesterton: hcFte(chestertonRows),
+    chestertonDual: hcFte(chestertonRows),
     nonDegree: hcFte(nonDegree),
     luxMundiNonDegree: hcFte(nonDegree.filter(isLuxMundi)),
     totalUndergraduate: hcFte(ug),
@@ -382,7 +384,9 @@ export function applyRegistrationTotals(data: CensusSnapshot, students: CensusRa
   const onCampus = tables.residency.find((r) => r.label === "On Campus" || r.label === "Resident");
   if (tables.n) data.kpis.ugOnCampusPct = (onCampus?.n ?? 0) / tables.n;
   for (const key of Object.keys(summary) as (keyof CensusSummary)[]) {
-    patchYear0(data, key, summary[key]);
+    const c = summary[key];
+    if (!c) continue;
+    patchYear0(data, key, c);
   }
   const ds = historicalSeries(data.historical, "degreeSeeking");
   if (!ds.fullTime) ds.fullTime = Array.from({ length: data.historical.years.length }, () => null);
@@ -425,14 +429,14 @@ export const SUMMARY_DEFS: Record<string, string> = {
   "On Campus": "UG degree-seeking in residence halls. Residential = On Campus. Mount Melleray Abbey is separate.",
   "Total Degree-Seeking": "Program = UNDERG and College Attend not DUAL, EACO, or ND. Incoming + Returning.",
   "On-campus dual enrollment":
-    "College Attend = DUAL or Degree = HSDE. Early College (EACO) is Online dual enrollment, not this line. FTE is credits/12 when Full/Part is blank.",
-  "Online dual enrollment":
-    "Early College (Program EACOL / College Attend EACO), plus dual enrollment with DE Type = Chesterton. Not inside on-campus dual enrollment.",
+    "College Attend = DUAL or Degree = HSDE. Chesterton / Early College is not this line. FTE is credits/12 when Full/Part is blank.",
+  Chesterton:
+    "Early College (Program EACOL / College Attend EACO), plus DE Type = Chesterton. Separate from on-campus dual enrollment and from Non-Degree.",
   "Non-Degree-Seeking / Personal Enrichment":
-    "Everyone who is not UG degree-seeking, not dual enrollment, and not Program = GRAD (ND / PENRIC / NONDEG / EACO).",
+    "Everyone who is not UG degree-seeking, not dual enrollment, not Chesterton, and not Program = GRAD (ND / PENRIC / NONDEG).",
   "Lux Mundi Non-Degree-Seeking / Personal Enrichment":
     "Non-degree rows with Session 01LuxMundi. Not UG Lux Mundi and not graduate Lux Mundi.",
-  "TOTAL UNDERGRADUATE ENROLLMENT": "UG degree-seeking + dual enrollment + non-degree.",
+  "TOTAL UNDERGRADUATE ENROLLMENT": "UG degree-seeking + dual enrollment + Chesterton + non-degree.",
   "MA Philosophy": "Program = GRAD, curriculum MAPHIL (M.A. in Philosophy). Excludes Lux Mundi.",
   "MA Theology on-campus":
     "Program = GRAD, curriculum MATHEO (M.A. in Theology), excluding Lux Mundi. Same series as prior-year Graduate MA Students.",

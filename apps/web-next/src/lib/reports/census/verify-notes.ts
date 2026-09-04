@@ -50,6 +50,11 @@ export const CENSUS_CLASS_NOTES: Record<string, string> = {
   P000389994: "Freshman", // John O'Connor — Incoming SECB, 0 credits
 };
 
+/** Registration College Attend blank. Slate first-year UG. */
+export const CENSUS_COLLEGE_NOTES: Record<string, string> = {
+  P000384840: "FTCA", // Michael Snyder — Incoming freshman, Slate First-Year Fall 2026
+};
+
 /**
  * US state from FA25 Incoming Students Census 20260903-135650 Person State.
  * Canadians and FC stay blank so tables list them as International.
@@ -71,9 +76,10 @@ export function applyCensusVerifyNotes(
       const incomingReturning = useIncoming ? CENSUS_INCOMING_NOTES[id] : undefined;
       const sport = CENSUS_SPORT_NOTES[id];
       const classLevel = CENSUS_CLASS_NOTES[id];
+      const collegeAttend = CENSUS_COLLEGE_NOTES[id];
       const stateNote = CENSUS_STATE_NOTES[id];
       const state = stateNote && isBlankCensusState(s.state) ? stateNote : undefined;
-      if (!residency && !incomingReturning && !sport && !state && !classLevel) return s;
+      if (!residency && !incomingReturning && !sport && !state && !classLevel && !collegeAttend) return s;
       return {
         ...s,
         ...(residency ? { residency } : {}),
@@ -81,6 +87,7 @@ export function applyCensusVerifyNotes(
         ...(sport ? { sport, athlete: "Athlete" } : {}),
         ...(state ? { state } : {}),
         ...(classLevel ? { classLevel } : {}),
+        ...(collegeAttend ? { collegeAttend } : {}),
       };
     }),
   );

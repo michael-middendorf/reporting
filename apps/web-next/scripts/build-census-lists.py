@@ -1092,6 +1092,18 @@ def apply_class_notes(rows: list[dict], notes: dict[str, str] | None = None) -> 
     return n
 
 
+def apply_college_notes(rows: list[dict], notes: dict[str, str] | None = None) -> int:
+    src = notes if notes is not None else {"P000384840": "FTCA"}
+    n = 0
+    for s in rows:
+        college = src.get(s.get("pcid") or "")
+        if not college:
+            continue
+        s["collegeAttend"] = college
+        n += 1
+    return n
+
+
 def patch_roster_only() -> None:
     path = DATA / "students.json"
     payload = json.loads(path.read_text())
@@ -1669,6 +1681,7 @@ def main() -> None:
     n_roster_stamp, n_roster_clear = apply_fa26_roster(students)
     n_sport_notes = apply_sport_notes(students)
     n_class_notes = apply_class_notes(students)
+    n_college_notes = apply_college_notes(students)
     n_grad_spine = apply_campus_grad_spine(students)
     underg_only = {"P000390750"}
     students = [s for s in students if not (s["pcid"] in underg_only and str(s.get("program") or "").upper() == "GRAD")]
@@ -1793,7 +1806,7 @@ def main() -> None:
         f"chesterton DE {n_chesterton}\n"
         f"spring/summer admits marked Returning {n_spring}\n"
         f"fa25 roster overlay {n_fa25_roster}\n"
-        f"fa26 roster overlay stamped {n_roster_stamp} cleared {n_roster_clear} sport notes {n_sport_notes} class notes {n_class_notes} campus grad spine {n_grad_spine}\n"
+        f"fa26 roster overlay stamped {n_roster_stamp} cleared {n_roster_clear} sport notes {n_sport_notes} class notes {n_class_notes} college notes {n_college_notes} campus grad spine {n_grad_spine}\n"
         f"fa25 housing overlay {n_fa25_housing}\n"
         f"international {len(intl)} on students {n_intl}\n"
         f"honors file {len(honors)} eot gpas {len(eot_gpa)} scholar roster {len(scholar_emails)} unmatched {len(unmatched_scholars)}\n"

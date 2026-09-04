@@ -15,13 +15,13 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 - FA26 spine: `Downloads/Registration Status-29.xlsx` (was -27 through 2 Sep). Unique PCID grand total. Dual UG+GRAD only for Lux Mundi/Ireland extras. Residency overlays: `-6` campus, `-8` Ireland, `-7` Lux Mundi.
 - Mary's Marines FA26: `Downloads/Mary's Marines_As of 9-1-26.xlsx` (410 unique PCIDs). Replaces the Registration Status Sport flag.
 - Households FA26: `Downloads/Household Roster.xlsx` (Fall sheets; match email then name). FA25 household is the gold Census Raw column.
-- Dual enrollment: on-campus = College Attend DUAL / Degree HSDE. Online = Early College EACO/EACOL (Chesterton). Online is not inside the on-campus dual count. DE Type Chesterton extract still applies when filled.
+- Dual enrollment: College Attend DUAL / Degree HSDE. Chesterton = Early College EACO/EACOL (or DE Type Chesterton). Chesterton is its own count, not inside dual enrollment and not inside Non-Degree.
 - Housing: eRez + FA25 `Copy of 9.4.2025 CENSUS Fall 25.xlsx` (residence-applications).
 - Unretained notes: `Downloads/Census retention sheet.xlsx` col R (`intend to return/not return`).
 - Graduates / alumni: `Graduated %2D All-15.xlsx` (was -14). Intervening year is Fall 2025, Spring 2026, and Summer 2026. Alumni admits use undergraduate degrees on this extract.
 - FA26 entry terms: `Downloads/Roster -_ Housing Report 20260821-155657.xlsx`.
 - FA26 this-fall roster: `Downloads/Census athletes 20260904-122251.xlsx`. Count only **Roster - Athlete** and **Roster - Athletic Associated**. Post Grad, Not on Roster, Graduated, Leave of Absence, Left AMU, and blank do not count. Overlay does not add unregistered people. FA25 roster stays gold `FA25 Athlete Roster For Slate.xlsx`. Rebuild: `build-census-lists.py --roster-only`.
-- Guido P000385969 is GRAD MARTS (MA Theology). Horstkotte P000391293 is GRAD MBA. Snyder P000384840 is UNDERG Incoming (College Attend blank). Do not count Guido/Horstkotte as New UG.
+- Guido P000385969 is GRAD MARTS (MA Theology). Horstkotte P000391293 is GRAD MBA. Snyder P000384840 is UNDERG Incoming FTCA (Slate First-Year Fall 2026; registration College Attend was blank). Do not count Guido/Horstkotte as New UG.
 - Incoming states: `Downloads/FA25 Incoming Students Census 20260903-135650.xlsx` (Person State / Address 1 Region). Fills blank FA25/FA26 state only; does not overwrite a filled state.
 - Institute scholars: `Downloads/Scholars Fall 2026 (1).xlsx` (Y1/Y2/Y3). Michael Gotlund removed vs the 8-28 file. Six roster names are not on Registration Status.
 
@@ -40,9 +40,9 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 
 ## Live headcounts (as of last publish)
 
-**FA26 Summary (Registration Status-29, 3 Sep rebuild):** unique **1629**, UG DS **1400**, new UG **469**, Incoming+FTCA **394**, TRAN 68, READ 2, SECB 4. Graduate **153** (Rodriguez UG only). Shephard Ireland. Trumpore Commuter. Parks UG. O'Connor SECB.
+**FA26 Summary (Registration Status-29, 3 Sep rebuild):** unique **1629**, UG DS **1401**, new UG **469**, Incoming+FTCA **395**, TRAN 68, READ 2, SECB 4, Other 0. Dual **70**. Chesterton **2** (Montano, Williams; not in dual, not in Non-Degree). Non-Degree **4**. Graduate **153** (Rodriguez UG only). Shephard Ireland. Trumpore Commuter. Parks UG. O'Connor SECB. Snyder FTCA.
 
-**FA26 roster (Census athletes 20260904-122251):** UG DS associated **617**, team **541**. Post Grad / Not on Roster / Graduated / LOA / Left AMU do not count. Overlay does not add unregistered people. FA25 gold roster unchanged. Guido MARTS / Horstkotte MBA (not New UG). Snyder UG Incoming.
+**FA26 roster (Census athletes 20260904-122251):** UG DS associated **617**, team **541**. Post Grad / Not on Roster / Graduated / LOA / Left AMU do not count. Overlay does not add unregistered people. FA25 gold roster unchanged. Guido MARTS / Horstkotte MBA (not New UG). Snyder UG Incoming FTCA.
 
 **FA25 FTCA attrition:** cohort **391**, enrolled **322**, not retained **69**, **82.4%**. (None of the six FA26 LOA are Incoming+FTCA.)
 
@@ -66,6 +66,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 - Peloso P000382172: Rugby-Men, not Ultimate Frisbee.
 - Hannah Nelson P000378273: Deceased tab. Still out of the FA25 retention denominator.
 - O'Connor P000389994: Incoming SECB Freshman (registration Class blank; other incoming SECB are Freshman). Credits stay 0.
+- Snyder P000384840: Incoming freshman FTCA (registration College Attend blank; Slate Student Type First-Year, Term Fall 2026). Curriculum stays PREED.
 
 ## Other locked people / labels
 

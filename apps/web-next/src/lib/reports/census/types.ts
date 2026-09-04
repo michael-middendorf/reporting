@@ -20,7 +20,7 @@ export type CensusSummary = {
   tran: CountFte;
   read: CountFte;
   secb: CountFte;
-  newOther?: CountFte;
+  newOther: CountFte;
   luxMundiUg: CountFte;
   returning: CountFte;
   ireland: CountFte;
@@ -64,7 +64,7 @@ export const HISTORICAL_ROWS: {
   { label: "Total Degree-Seeking", key: "degreeSeeking", total: true, bold: true },
   { label: "" },
   { label: "On-campus dual enrollment", key: "dualEnrollment", bold: true },
-  { label: "Online dual enrollment", key: "chestertonDual" },
+  { label: "Chesterton", key: "chestertonDual" },
   { label: "Non-Degree-Seeking / Personal Enrichment", key: "nonDegree", bold: true },
   { label: "Lux Mundi Non-Degree-Seeking / Personal Enrichment", key: "luxMundiNonDegree" },
   { label: "" },

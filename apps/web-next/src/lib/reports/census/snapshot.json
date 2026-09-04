@@ -43,6 +43,10 @@
       "headcount": 3,
       "fte": 3.0
     },
+    "newOther": {
+      "headcount": 0,
+      "fte": 0
+    },
     "luxMundiUg": {
       "headcount": 0,
       "fte": 0

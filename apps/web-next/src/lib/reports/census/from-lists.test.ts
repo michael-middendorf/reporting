@@ -4,6 +4,7 @@ import { applyRegistrationTotals, buildGraduateEnrollment, meanPositive, summerG
 import { markSpringAdmitsReturning, promoteFormerDualFtca } from "./lists";
 import snapshot from "./snapshot.json";
 import type { CensusRawStudent } from "./lists-core";
+import { applyCensusVerifyNotes } from "./verify-notes";
 
 function s(partial: Partial<CensusRawStudent>): CensusRawStudent {
   return {
@@ -82,6 +83,18 @@ test("all-student total is every registration row; UG DS excludes dual", () => {
   assert.equal(sum.luxMundiGrad.headcount, 1);
   assert.equal(sum.gradMa.headcount, 0, "Lux Mundi MA is not also in campus MA Theology");
   assert.equal(sum.totalUndergraduate.headcount, 4);
+});
+
+test("Snyder college note is Incoming FTCA, not Other", () => {
+  const rows = applyCensusVerifyNotes([
+    s({ pcid: "P000384840", collegeAttend: "", incomingReturning: "Incoming", classLevel: "Freshman" }),
+    s({ pcid: "P2", collegeAttend: "TRAN", incomingReturning: "Incoming" }),
+  ]);
+  const sum = summaryFromStudents(rows);
+  assert.equal(sum.ftca.headcount, 1);
+  assert.equal(sum.tran.headcount, 1);
+  assert.equal(sum.newOther?.headcount, 0);
+  assert.equal(sum.newStudents.headcount, 2);
 });
 
 test("Summary FTCA is Incoming+FTCA any class and excludes spring admits", () => {
@@ -225,7 +238,7 @@ test("Ireland and Mont Mallary are not On Campus; DE is DUAL not Chesterton", ()
   assert.equal(sum.dualEnrollment.headcount, 2);
   assert.equal(sum.chestertonDual.headcount, 1, "Early College is Chesterton; a Chesterton major is not");
   assert.equal(sum.chesterton.headcount, 1);
-  assert.equal(sum.nonDegree.headcount, 1, "EACO is not dual enrollment");
+  assert.equal(sum.nonDegree.headcount, 0, "EACO is Chesterton, not non-degree");
   assert.equal(sum.dualEnrollment.fte, 1); // 4/12 + 8/12
 });
 
@@ -238,17 +251,21 @@ test("Early College (EACO/EACOL) is the Chesterton Summary line", () => {
   const sum = summaryFromStudents(rows);
   assert.equal(sum.chestertonDual.headcount, 2);
   assert.equal(sum.dualEnrollment.headcount, 1);
-  assert.equal(sum.nonDegree.headcount, 2);
+  assert.equal(sum.nonDegree.headcount, 0, "Chesterton is not Non-Degree");
+  assert.equal(sum.totalUndergraduate.headcount, 3);
 });
 
-test("Chesterton DE extract flags dual enrollment on the Chesterton Summary line", () => {
+test("Chesterton is not inside dual enrollment", () => {
   const rows = [
     s({ pcid: "1", program: "NDEG", collegeAttend: "DUAL", degree: "HSDE", credits: 6, fullPart: "", deType: "Chesterton" }),
     s({ pcid: "2", program: "NDEG", collegeAttend: "DUAL", degree: "HSDE", credits: 6, fullPart: "" }),
+    s({ pcid: "3", program: "NDEG", collegeAttend: "ND", degree: "PENRIC" }),
   ];
   const sum = summaryFromStudents(rows);
-  assert.equal(sum.dualEnrollment.headcount, 2);
+  assert.equal(sum.dualEnrollment.headcount, 1);
   assert.equal(sum.chestertonDual.headcount, 1);
+  assert.equal(sum.nonDegree.headcount, 1);
+  assert.equal(sum.totalUndergraduate.headcount, 3);
 });
 
 test("meanPositive treats 0 as missing and floors SAT below 400", () => {
