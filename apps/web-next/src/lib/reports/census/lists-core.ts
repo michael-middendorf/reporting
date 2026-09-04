@@ -420,6 +420,10 @@ export function withoutFootballRoster<T extends { pcid?: string }>(rows: T[], fo
   return rows.filter((s) => !footballIds.has(normPcid(s.pcid)));
 }
 
+/** Sport table: team players vs Associated. Athlete/Non-Athlete tables use Associated. */
+export const CENSUS_SPORT_TABLE_NOTE =
+  "*Athletes = team players. **Associated = band, managers, and other affiliates. Athlete/Non-Athlete tables use Associated.";
+
 /** S26 team players: Varsity / Non-Varsity / Non-NAIA. Band and managers are associated only. */
 export function isTeamAthlete(s: { athleticType?: string; sport?: string; rosterStatus?: string }): boolean {
   const sport = canonicalCensusSport(s.sport || "").toLowerCase();

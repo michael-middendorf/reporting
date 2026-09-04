@@ -12,6 +12,7 @@ import {
   type ReportStudent,
   type ReportTables,
 } from "@/lib/reports/census/report";
+import { CENSUS_SPORT_TABLE_NOTE } from "@/lib/reports/census/lists-core";
 import type { CensusSnapshot, LabeledCount } from "@/lib/reports/census/types";
 
 function countRows(rows: LabeledCount[], pctDigits = 1): (string | number)[][] {
@@ -133,6 +134,7 @@ export function CensusReport({
             title="All UG Students"
             headers={["Athlete/Non-Athlete", "Students", "Percentage"]}
             rows={countRows(athlete)}
+            note="Athlete = Athletics Associated."
           />
           <SheetTable
             title="Incoming Students"
@@ -182,7 +184,7 @@ export function CensusReport({
                 "",
               ],
             ]}
-            note={'*“Athletes” refers to team players only. “Athletics Associated” includes anyone affiliated with athletics (band, managers, etc.). **Athletics Association is used for athlete vs. non-athlete counts.'}
+            note={CENSUS_SPORT_TABLE_NOTE}
           />
         </div>
         <div className="sheet-col">

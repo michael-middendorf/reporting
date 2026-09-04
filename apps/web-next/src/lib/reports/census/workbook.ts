@@ -2,6 +2,7 @@ import type { CensusLists, CensusRawStudent, UnretainedStudent } from "./lists";
 import {
   attachLoaStatus,
   censusAppDecision,
+  CENSUS_SPORT_TABLE_NOTE,
   footballRosterPcids,
   isUgDegreeSeekingRow,
   normPcid,
@@ -551,6 +552,8 @@ function writeCensusReport(
     labeledRows(t.athlete),
     { intCols: [1], pctCols: [2], total: true },
   );
+  ws.set(f, col.f, "Athlete = Athletics Associated.", NOTE);
+  f += 1;
   f = writeCountTable(
     ws,
     f + 2,
@@ -634,7 +637,7 @@ function writeCensusReport(
     sportRows,
     { intCols: [1, 2], pctCols: [3, 4], total: true },
   );
-  ws.set(j, col.j, "*Athletes = team players. Associated = band, managers, and other affiliates.", NOTE);
+  ws.set(j, col.j, CENSUS_SPORT_TABLE_NOTE, NOTE);
   j += 1;
   j = writeCountTable(
     ws,
@@ -964,7 +967,7 @@ function writeCensusReport(
     sportRetentionRows,
     { intCols: [1, 2, 3, 4, 5, 10], pctCols: [6, 7], decCols: [8, 9], total: true },
   );
-  ws.set(athEnd, col.b, "*Athletes = team players. Associated = band, managers, and other affiliates.", NOTE);
+  ws.set(athEnd, col.b, CENSUS_SPORT_TABLE_NOTE, NOTE);
 }
 
 function subsetRetention(rows: AttritionRow[]): number {

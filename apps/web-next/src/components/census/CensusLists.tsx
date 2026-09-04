@@ -354,7 +354,7 @@ export function SportRetentionTable({ rows }: { rows: SportRetentionRow[] }) {
         ]),
         ["Total", fmtN(tot.athletes), fmtN(tot.associated), fmtN(tot.notRetained), fmtN(tot.retained), fmtN(tot.graduated), "", ""],
       ]}
-      note={'*Athletes = team players (Varsity / Non-Varsity / Non-NAIA). Associated includes band, managers, and other affiliates. Leavers count against the Fall 2025 sport.'}
+      note={'*Athletes = team players (Varsity / Non-Varsity / Non-NAIA). **Associated = band, managers, and other affiliates. Athlete/Non-Athlete tables use Associated. Leavers count against the Fall 2025 sport.'}
     />
   );
 }
