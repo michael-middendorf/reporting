@@ -15,7 +15,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 - FA26 spine: `Downloads/Registration Status-29.xlsx` (was -27 through 2 Sep). Unique PCID grand total. Dual UG+GRAD only for Lux Mundi/Ireland extras. Residency overlays: `-6` campus, `-8` Ireland, `-7` Lux Mundi.
 - Mary's Marines FA26: `Downloads/Mary's Marines_As of 9-1-26.xlsx` (410 unique PCIDs). Replaces the Registration Status Sport flag.
 - Households FA26: `Downloads/Household Roster.xlsx` (Fall sheets; match email then name). FA25 household is the gold Census Raw column.
-- Dual enrollment: College Attend DUAL / Degree HSDE. Chesterton = Early College EACO/EACOL (or DE Type Chesterton). Chesterton is its own count, not inside dual enrollment and not inside Non-Degree.
+- Dual enrollment: on-campus = College Attend DUAL / Degree HSDE (**70**). Online = Early College EACO/EACOL (Chesterton, **2**). Online is not inside the on-campus dual count and not inside Non-Degree.
 - Majors table: `Downloads/AMU Students by Curriculum-12.xlsx`. Bachelor of Arts / Bachelor of Science only. Degree Minor is out. Same major twice on a person is one count. Double majors count twice. Census Raw still shows primary curriculum from Registration Status. Rebuild: `build-census-lists.py --majors-only`.
 - Housing: eRez + FA25 `Copy of 9.4.2025 CENSUS Fall 25.xlsx` (residence-applications).
 - Unretained notes: `Downloads/Census retention sheet.xlsx` col R (`intend to return/not return`).
@@ -41,7 +41,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 
 ## Live headcounts (as of last publish)
 
-**FA26 Summary (Registration Status-29, 3 Sep rebuild):** unique **1629**, UG DS **1401**, new UG **469**, Incoming+FTCA **395**, TRAN 68, READ 2, SECB 4, Other 0. Dual **70**. Chesterton **2** (Montano, Williams; not in dual, not in Non-Degree). Non-Degree **4**. Graduate **153** (Rodriguez UG only). Shephard Ireland. Trumpore Commuter. Parks UG. O'Connor SECB. Snyder FTCA.
+**FA26 Summary (Registration Status-29, 3 Sep rebuild):** unique **1629**, UG DS **1401**, new UG **469**, Incoming+FTCA **395**, TRAN 68, READ 2, SECB 4, Other 0. On-campus dual **70**. Online dual enrollment **2** (Montano, Williams; not in the 70, not in Non-Degree). Non-Degree **4**. Graduate **153** (Rodriguez UG only). Shephard Ireland. Trumpore Commuter. Parks UG. O'Connor SECB. Snyder FTCA.
 
 **FA26 roster (Census athletes 20260904-133052):** UG DS associated **618**, team **542**. Zavage Ultimate Frisbee in. Zaborek P000346569 is NDEG PENRIC — no census sport, even if a roster file lists him. Post Grad is graduate only (20 GRAD, not UG). Overlay does not add unregistered people. FA25 gold roster unchanged. Guido MARTS / Horstkotte MBA (not New UG). Snyder UG Incoming FTCA. Graduate Athlete includes Post Grad and Associated.
 

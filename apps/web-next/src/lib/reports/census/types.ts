@@ -44,7 +44,7 @@ export type CensusSummary = {
   totalEnrollment: CountFte;
 };
 
-/** Historical row list. Same Chesterton / Mount Melleray Abbey lines as Summary; prior years may be blank. */
+/** Historical row list. Same dual / Mount Melleray Abbey lines as Summary; prior years may be blank. */
 export const HISTORICAL_ROWS: {
   label: string;
   key?: keyof CensusSummary;
@@ -64,7 +64,7 @@ export const HISTORICAL_ROWS: {
   { label: "Total Degree-Seeking", key: "degreeSeeking", total: true, bold: true },
   { label: "" },
   { label: "On-campus dual enrollment", key: "dualEnrollment", bold: true },
-  { label: "Chesterton", key: "chestertonDual" },
+  { label: "Online dual enrollment", key: "chestertonDual" },
   { label: "Non-Degree-Seeking / Personal Enrichment", key: "nonDegree", bold: true },
   { label: "Lux Mundi Non-Degree-Seeking / Personal Enrichment", key: "luxMundiNonDegree" },
   { label: "" },

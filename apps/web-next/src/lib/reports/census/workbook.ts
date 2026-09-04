@@ -256,7 +256,7 @@ function writeSummary(wb: XlsxWorkbook, data: CensusSnapshot) {
     },
     { label: "" },
     { label: "On-campus dual enrollment", c: s.dualEnrollment },
-    { label: "Chesterton", c: s.chestertonDual },
+    { label: "Online dual enrollment", c: s.chestertonDual },
     { label: "Non-Degree-Seeking / Personal Enrichment", c: s.nonDegree },
     { label: "Lux Mundi Non-Degree-Seeking / Personal Enrichment", c: s.luxMundiNonDegree },
     { label: "" },

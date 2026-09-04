@@ -255,7 +255,7 @@ function presidentAnswers(args: {
     },
     {
       question: "Dual enrollment and Chesterton?",
-      answer: `On-campus dual enrollment ${t.dualEnrollment}. Chesterton / Early College ${t.chestertonDual}, not inside dual enrollment. Former DE who are FTCA this fall count as Incoming, not Returning.`,
+      answer: `On-campus dual enrollment ${t.dualEnrollment}. Online dual enrollment (Chesterton / Early College) ${t.chestertonDual}, not inside on-campus dual. Former DE who are FTCA this fall count as Incoming, not Returning.`,
     },
     {
       question: "Graduate enrollment?",

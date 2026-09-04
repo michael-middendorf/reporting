@@ -440,14 +440,14 @@ export const SUMMARY_DEFS: Record<string, string> = {
   "On Campus": "UG degree-seeking in residence halls. Residential = On Campus. Mount Melleray Abbey is separate.",
   "Total Degree-Seeking": "Program = UNDERG and College Attend not DUAL, EACO, or ND. Incoming + Returning.",
   "On-campus dual enrollment":
-    "College Attend = DUAL or Degree = HSDE. Chesterton / Early College is not this line. FTE is credits/12 when Full/Part is blank.",
-  Chesterton:
-    "Early College (Program EACOL / College Attend EACO), plus DE Type = Chesterton. Separate from on-campus dual enrollment and from Non-Degree.",
+    "College Attend = DUAL or Degree = HSDE. Online dual enrollment (Chesterton / Early College) is not this line. FTE is credits/12 when Full/Part is blank.",
+  "Online dual enrollment":
+    "Early College (Program EACOL / College Attend EACO), plus DE Type = Chesterton. Not inside on-campus dual enrollment and not inside Non-Degree.",
   "Non-Degree-Seeking / Personal Enrichment":
-    "Everyone who is not UG degree-seeking, not dual enrollment, not Chesterton, and not Program = GRAD (ND / PENRIC / NONDEG).",
+    "Everyone who is not UG degree-seeking, not dual enrollment, not online dual enrollment, and not Program = GRAD (ND / PENRIC / NONDEG).",
   "Lux Mundi Non-Degree-Seeking / Personal Enrichment":
     "Non-degree rows with Session 01LuxMundi. Not UG Lux Mundi and not graduate Lux Mundi.",
-  "TOTAL UNDERGRADUATE ENROLLMENT": "UG degree-seeking + dual enrollment + Chesterton + non-degree.",
+  "TOTAL UNDERGRADUATE ENROLLMENT": "UG degree-seeking + on-campus dual enrollment + online dual enrollment + non-degree.",
   "MA Philosophy": "Program = GRAD, curriculum MAPHIL (M.A. in Philosophy). Excludes Lux Mundi.",
   "MA Theology on-campus":
     "Program = GRAD, curriculum MATHEO (M.A. in Theology), excluding Lux Mundi. Same series as prior-year Graduate MA Students.",

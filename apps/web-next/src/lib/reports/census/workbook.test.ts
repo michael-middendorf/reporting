@@ -278,7 +278,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(files["xl/worksheets/sheet1.xml"], /MA Theology on-campus/);
   assert.match(files["xl/worksheets/sheet1.xml"], /MA Theology online/);
   assert.match(files["xl/worksheets/sheet1.xml"], /On-campus dual enrollment/);
-  assert.match(files["xl/worksheets/sheet1.xml"], /Chesterton/);
+  assert.match(files["xl/worksheets/sheet1.xml"], /Online dual enrollment/);
   assert.match(files["xl/worksheets/sheet1.xml"], /PhD Theology/);
   assert.match(files["xl/worksheets/sheet1.xml"], /M\. Education/);
   assert.match(files["xl/worksheets/sheet1.xml"], /MA CRW/);
@@ -294,7 +294,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(histXml, /Graduate MA Comm/);
   assert.match(histXml, /Lux Mundi Non-Degree-Seeking \/ Personal Enrichment/);
   assert.match(histXml, /Mount Melleray Abbey/);
-  assert.match(histXml, /Chesterton/);
+  assert.match(histXml, /Online dual enrollment/);
   assert.doesNotMatch(histXml, /Ireland/);
   assert.doesNotMatch(histXml, /Mont Mallary/);
   assert.doesNotMatch(histXml, /MA Philosophy/);
