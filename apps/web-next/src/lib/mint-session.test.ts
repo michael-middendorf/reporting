@@ -4,7 +4,7 @@ import { ASPIREDU_MFA_COOKIE } from "./aspiredu-auth";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "./auth";
 import { jsonWithReportingSession } from "./mint-session";
 
-const SIGNING_KEY = "mint-session-test-secret";
+const SIGNING_KEY = "mint-session-test-hmac-key";
 const ERIC = "eric.vanheusen@avemaria.edu";
 
 describe("jsonWithReportingSession", () => {

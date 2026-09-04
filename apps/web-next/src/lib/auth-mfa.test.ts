@@ -16,7 +16,7 @@ const DANIEL = "daniel.davy@avemaria.edu";
 const DAN = "dan.donaldson@avemaria.edu";
 const ERIC = "eric.vanheusen@avemaria.edu";
 const COACH = "coach.a@avemaria.edu";
-const SIGNING_KEY = "auth-mfa-test-secret";
+const SIGNING_KEY = "auth-mfa-test-hmac-key";
 
 describe("needsMfaAtSignIn / complete branching", () => {
   it("sends Academic Affairs users through pending MFA even when already signed in", () => {
