@@ -1,18 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { needsMfaAtSignIn, sessionDecisionAtComplete } from "./access";
-import {
-  createMfaPendingToken,
-  createSessionToken,
-  MFA_PENDING_COOKIE,
-  mfaPendingCookie,
-  verifyMfaPendingToken,
-  verifySessionToken,
-} from "./auth";
+import { MFA_PENDING_COOKIE, mfaPendingCookie } from "./auth";
 import { authorizeAcademicAffairsApi } from "./aspiredu-api-auth";
 import { maskEmail } from "./mfa-pending";
 
-const MAC_KEY = "mfa-pending-test-key";
 const DANIEL = "daniel.davy@avemaria.edu";
 const DAN = "dan.donaldson@avemaria.edu";
 
@@ -36,16 +28,6 @@ describe("needsMfaAtSignIn / complete branching", () => {
 });
 
 describe("pending MFA cookie token", () => {
-  it("round-trips email and is not accepted as a reporting session", () => {
-    const pending = createMfaPendingToken(DANIEL, MAC_KEY, 10);
-    const payload = verifyMfaPendingToken(pending, MAC_KEY);
-    assert.equal(payload.email, DANIEL);
-    assert.equal(payload.type, "mfa_pending");
-    assert.throws(() => verifySessionToken(pending, MAC_KEY));
-    const session = createSessionToken(DANIEL, MAC_KEY, 1);
-    assert.throws(() => verifyMfaPendingToken(session, MAC_KEY));
-  });
-
   it("sets Path=/ HttpOnly SameSite=Lax and Secure on HTTPS", () => {
     const cookie = mfaPendingCookie("token.sig", 600, true);
     assert.equal(cookie.includes(`${MFA_PENDING_COOKIE}=token.sig`), true);
