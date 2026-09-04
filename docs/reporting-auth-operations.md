@@ -13,8 +13,8 @@ The only URL to send people is **https://reporting.avemaria.edu**. After they si
 There is no daily sign-in email and no unsolicited magic-link blast. People bookmark the hub.
 
 - Unauthenticated visitors see the hub login form and request a magic link for their allowlisted work email.
-- That on-demand link expires in 15 minutes (`AUTH_MAGIC_LINK_TTL_MINUTES`) and is single-use. The extra Continue click on `/auth/magic` exists so email scanners do not consume it.
-- Non-Academic Affairs users get an HttpOnly session cookie (`amu_reporting_session`) for 14 days (`AUTH_SESSION_TTL_DAYS`) immediately after Continue.
+- That on-demand link expires in 15 minutes (`AUTH_MAGIC_LINK_TTL_MINUTES`) and is single-use. Consume is still POST-only; the magic page auto-completes once the tab is visible so email scanners that only GET do not burn the nonce.
+- Non-Academic Affairs users get an HttpOnly session cookie (`amu_reporting_session`) for 14 days (`AUTH_SESSION_TTL_DAYS`) immediately after the magic page completes.
 - Academic Affairs users get a short-lived `amu_reporting_mfa_pending` cookie instead, then finish TOTP or passkey on `/auth/mfa`. Success mints the same 14-day `amu_reporting_session`. Existing enrolled TOTP secrets in Dynamo (`totp#enrolled#<email>` on `amu-reporting-aspiredu-sessions`) keep working.
 - After sign-in, Academic Affairs users can add a passkey at `/settings/security`. Passkeys are stored in the same Dynamo table as TOTP, as base64url credential ids and public keys. WebAuthn RP id and origin come from `APP_BASE_URL` (`reporting.avemaria.edu`).
 - Notification mail (for example new Annunciation Circle members) must link to the hub with no `?token=`.
