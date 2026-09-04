@@ -23,6 +23,8 @@ import {
   isFtcaIncoming,
   retentionPct,
   withLiveCurrentYearRate,
+  NO_FOOTBALL_ALL_UG_HISTORY,
+  NO_FOOTBALL_FTCA_HISTORY,
 } from "./retention";
 
 function prior(partial: Partial<CensusRawStudent>): CensusRawStudent {
@@ -90,6 +92,16 @@ test("historical F25-F26 is the live enrolled/cohort rate, not a frozen snapshot
   assert.equal(data.historicalFtcaRetention.find((r) => r.label === "F24–F25")?.rate, 0.849);
   assert.equal(data.historicalFtcaRetention.find((r) => r.label === "F25–F26")?.rate, 2 / 3);
   assert.equal(data.historicalAllUgRetention.find((r) => r.label === "F25–F26")?.rate, 0.75);
+});
+
+test("no-football historical FTCA and All UG are above the published all-student rates", () => {
+  const ftca = Object.fromEntries(NO_FOOTBALL_FTCA_HISTORY.map((r) => [r.label, r.rate]));
+  const ug = Object.fromEntries(NO_FOOTBALL_ALL_UG_HISTORY.map((r) => [r.label, r.rate]));
+  assert.equal(ftca["F20–F21"], 202 / 257);
+  assert.equal(ftca["F24–F25"], 283 / 323);
+  assert.ok(ftca["F24–F25"]! > 0.8493);
+  assert.equal(ug["F24–F25"], 798 / 910);
+  assert.ok(ug["F24–F25"]! > 0.868);
 });
 
 test("withLiveCurrentYearRate matches hyphen or en-dash current-year labels", () => {

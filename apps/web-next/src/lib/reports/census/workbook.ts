@@ -16,6 +16,9 @@ import { deceasedStudentsFromNotes, loaStudentsFromNotes } from "./retention-ove
 import {
   applyLiveRetentionHistory,
   athleteOf,
+  NO_FOOTBALL_ALL_UG_HISTORY,
+  NO_FOOTBALL_FTCA_HISTORY,
+  NO_FOOTBALL_HISTORY_NOTE,
   buildAllUgSplit,
   buildAssociationRetention,
   buildCrosstab,
@@ -487,7 +490,7 @@ function writeCensusReport(
   data: CensusSnapshot,
   tables: ReportTables,
   extra: ReportExtras,
-  opts?: { sheetName?: string; titleSuffix?: string; note?: string; yoy?: CellValue[][] },
+  opts?: { sheetName?: string; titleSuffix?: string; note?: string; yoy?: CellValue[][]; historyNote?: string },
 ) {
   const year = data.historical.years[0] ?? 2026;
   const fa = faLabel(year);
@@ -878,6 +881,10 @@ function writeCensusReport(
       : [],
     { pctCols: [1] },
   );
+  if (opts?.historyNote) {
+    ws.set(p, col.p, opts.historyNote, NOTE);
+    p += 1;
+  }
 
   const majorTotal = t.majors.reduce((s, m) => s + m.total, 0);
   const majorRows: CellValue[][] = t.majors.length
@@ -2058,6 +2065,8 @@ export async function buildCensusWorkbook(
     ? buildReport(filterStudents(projectReportStudents(noFbStudents), NO_FOOTBALL_FILTERS))
     : tables;
   const noFbData = structuredClone(data);
+  noFbData.historicalFtcaRetention = NO_FOOTBALL_FTCA_HISTORY.map((r) => ({ ...r }));
+  noFbData.historicalAllUgRetention = NO_FOOTBALL_ALL_UG_HISTORY.map((r) => ({ ...r }));
   if (noFbPrior.length) {
     noFbData.ftcaAttrition = buildFtcaAttritionFromPrior(noFbPrior, noFbCurrentIds, lists.graduates, gpa);
     const ug = buildAllUgSplit(noFbPrior, noFbCurrentIds, lists.graduates);
@@ -2084,6 +2093,7 @@ export async function buildCensusWorkbook(
     sheetName: `${fa} Census no Football`,
     titleSuffix: " (Football removed)",
     yoy: noFootballYoY(noFbPrior, noFbStudents),
+    historyNote: NO_FOOTBALL_HISTORY_NOTE,
   });
   writeGraduateEnrollment(wb, lists.students, lists.prior, data.historical.years[0] ?? 2026, lists.graduates);
   writeAttrition(wb, data, ftcaExtras, { admitOverride: extra.admitOverride });

@@ -327,6 +327,32 @@ export function isFtcaIncoming(s: {
 
 export type RetentionHistoryRow = { label: string; rate: number };
 
+/**
+ * Fall-to-fall rates with football removed, from the gold census workbooks
+ * (FTCA retention raw / Incoming+FTCA, and census raw + Graduated All-15).
+ * F25–F26 is filled live on the no-football sheet.
+ */
+export const NO_FOOTBALL_FTCA_HISTORY: RetentionHistoryRow[] = [
+  { label: "F19–F20", rate: 196 / 270 },
+  { label: "F20–F21", rate: 202 / 257 },
+  { label: "F21–F22", rate: 229 / 315 },
+  { label: "F22–F23", rate: 247 / 322 },
+  { label: "F23–F24", rate: 232 / 286 },
+  { label: "F24–F25", rate: 283 / 323 },
+];
+
+export const NO_FOOTBALL_ALL_UG_HISTORY: RetentionHistoryRow[] = [
+  { label: "F19–F20", rate: 617 / 797 },
+  { label: "F20–F21", rate: 663 / 812 },
+  { label: "F21–F22", rate: 705 / 903 },
+  { label: "F22–F23", rate: 732 / 886 },
+  { label: "F23–F24", rate: 770 / 891 },
+  { label: "F24–F25", rate: 798 / 910 },
+];
+
+export const NO_FOOTBALL_HISTORY_NOTE =
+  "Football removed from each prior fall-to-fall gold file (sport Football on that fall's roster). F25–F26 is live.";
+
 /** Fall-to-fall label for the year ending `endYear` (2026 → F25–F26). */
 export function fallToFallLabel(endYear: number): string {
   return `F${String(endYear - 1).slice(-2)}–F${String(endYear).slice(-2)}`;
