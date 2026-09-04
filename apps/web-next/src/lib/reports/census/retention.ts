@@ -125,6 +125,7 @@ export type FtcaExtras = {
   byHsGpaFineAthletes: AttritionRow[];
   byActConverted: AttritionRow[];
   byTestScore: AttritionRow[];
+  byHasTestScoreAthlete: AttritionRow[];
   byNoTestScoreAthlete: AttritionRow[];
   byHonors: AttritionRow[];
   byFsp: AttritionRow[];
@@ -832,6 +833,7 @@ export function buildFtcaExtras(
   const byHsGpaFineAthletes = new Map<string, AttritionCounts>();
   const byActConverted = new Map<string, AttritionCounts>();
   const byTestScore = new Map<string, AttritionCounts>();
+  const byHasTestScoreAthlete = new Map<string, AttritionCounts>();
   const byNoTestScoreAthlete = new Map<string, AttritionCounts>();
   const byHonors = new Map<string, AttritionCounts>();
   const byFsp = new Map<string, AttritionCounts>();
@@ -847,7 +849,8 @@ export function buildFtcaExtras(
     }
     bump(byActConverted, actConvertedBucket(s), status);
     bump(byTestScore, actConverted(s) != null ? "Has test score" : "No test score", status);
-    if (actConverted(s) == null) bump(byNoTestScoreAthlete, athleteOf(s), status);
+    if (actConverted(s) != null) bump(byHasTestScoreAthlete, athleteOf(s), status);
+    else bump(byNoTestScoreAthlete, athleteOf(s), status);
     bump(byHonors, associationFlag(s.honors) ? "Honors College" : "No honors", status);
     bump(byFsp, associationFlag(s.fsp) ? "FSP" : "No FSP", status);
     bump(byInstitute, associationFlag(s.institute) ? "Institute" : "No Institute", status);
@@ -877,6 +880,7 @@ export function buildFtcaExtras(
     byHsGpaFineAthletes: sortHsGpa(attritionFromMap(byHsGpaFineAthletes, notRetained), HS_GPA_FINE_ORDER),
     byActConverted: sortHsGpa(attritionFromMap(byActConverted, notRetained), ACT_CONVERTED_ORDER),
     byTestScore: sortHsGpa(attritionFromMap(byTestScore, notRetained), TEST_SCORE_ORDER),
+    byHasTestScoreAthlete: sortHsGpa(attritionFromMap(byHasTestScoreAthlete, notRetained), ATHLETE_ORDER),
     byNoTestScoreAthlete: sortHsGpa(attritionFromMap(byNoTestScoreAthlete, notRetained), ATHLETE_ORDER),
     byHonors: sortHsGpa(attritionFromMap(byHonors, notRetained), HONORS_ORDER),
     byFsp: sortHsGpa(attritionFromMap(byFsp, notRetained), FSP_ORDER),
