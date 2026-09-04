@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   canAccessReport,
   canLogin,
+  isAdmin,
   needsMfaAtSignIn,
   reportsForEmail,
   sessionDecisionAtComplete,
@@ -203,15 +204,31 @@ describe("housing grant for existing enrollment viewer", () => {
   });
 });
 
+describe("census grant for Gallagher, Nutt, and Davy", () => {
+  const people = [
+    "susan.gallagher@avemaria.edu",
+    "roger.nutt@avemaria.edu",
+    "daniel.davy@avemaria.edu",
+  ];
+
+  it("lets Susan, Roger, and Daniel open census and does not make them admins", () => {
+    for (const email of people) {
+      assert.equal(canLogin(email), true, email);
+      assert.equal(canAccessReport(email, "census"), true, email);
+      assert.equal(isAdmin(email), false, email);
+    }
+  });
+});
+
 describe("aspiredu grant for Daniel Davy", () => {
   const DANIEL = "Daniel.Davy@avemaria.edu";
   const DAN = "Dan.Donaldson@avemaria.edu";
 
-  it("lets Daniel sign in and open Academic Affairs only", () => {
+  it("lets Daniel sign in and open Academic Affairs plus census", () => {
     assert.equal(canLogin(DANIEL), true);
     assert.equal(canAccessReport(DANIEL, "aspiredu"), true);
     assert.equal(canAccessReport(DANIEL, "enrollment"), false);
-    assert.equal(canAccessReport(DANIEL, "census"), false);
+    assert.equal(canAccessReport(DANIEL, "census"), true);
     assert.equal(canAccessReport(DANIEL, "athletics"), false);
     assert.equal(canAccessReport(DANIEL, "housing"), false);
     assert.equal(canAccessReport(DANIEL, "institute"), false);
@@ -220,7 +237,7 @@ describe("aspiredu grant for Daniel Davy", () => {
     assert.equal(canAccessReport(DANIEL, "points"), false);
     assert.equal(canAccessReport(DANIEL, "annunciation"), false);
     assert.equal(reportsForEmail(DANIEL).includes("aspiredu"), true);
-    assert.deepEqual(reportsForEmail(DANIEL), ["aspiredu"]);
+    assert.deepEqual(reportsForEmail(DANIEL), ["census", "aspiredu"]);
   });
 
   it("does not grant aspiredu to a known non-grantee", () => {
