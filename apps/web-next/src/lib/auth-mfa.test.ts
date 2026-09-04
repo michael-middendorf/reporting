@@ -16,7 +16,7 @@ const DANIEL = "daniel.davy@avemaria.edu";
 const DAN = "dan.donaldson@avemaria.edu";
 const ERIC = "eric.vanheusen@avemaria.edu";
 const COACH = "coach.a@avemaria.edu";
-const SECRET = "auth-mfa-test-secret";
+const SIGNING_KEY = "auth-mfa-test-secret";
 
 describe("needsMfaAtSignIn / complete branching", () => {
   it("sends Academic Affairs users through pending MFA even when already signed in", () => {
@@ -53,10 +53,10 @@ describe("needsMfaAtSignIn / complete branching", () => {
 
 describe("hub MFA session claim", () => {
   it("omits mfa on magic-link sessions and sets it after hub TOTP/passkey", () => {
-    const magic = createSessionToken(ERIC, SECRET, 1);
-    const hub = createSessionToken(ERIC, SECRET, 1, { mfa: true });
-    assert.equal(verifySessionToken(magic, SECRET).mfa, false);
-    assert.equal(verifySessionToken(hub, SECRET).mfa, true);
+    const magic = createSessionToken(ERIC, SIGNING_KEY, 1);
+    const hub = createSessionToken(ERIC, SIGNING_KEY, 1, { mfa: true });
+    assert.equal(verifySessionToken(magic, SIGNING_KEY).mfa, false);
+    assert.equal(verifySessionToken(hub, SIGNING_KEY).mfa, true);
     const magicReq = new Request("https://reporting.avemaria.edu/", {
       headers: { Authorization: `Bearer ${magic}` },
     });
@@ -64,7 +64,7 @@ describe("hub MFA session claim", () => {
       headers: { Authorization: `Bearer ${hub}` },
     });
     const prev = process.env.AUTH_SECRET;
-    process.env.AUTH_SECRET = SECRET;
+    process.env.AUTH_SECRET = SIGNING_KEY;
     try {
       assert.equal(sessionHasHubMfa(magicReq), false);
       assert.equal(sessionHasHubMfa(hubReq), true);
@@ -79,17 +79,17 @@ describe("pending hub MFA cookie accepts coaching users", () => {
   it("lets Academic Affairs and coaches complete /auth/mfa, not housing-only users", () => {
     const prev = process.env.AUTH_SECRET;
     const prevCoaches = process.env.ATHLETICS_COACHING_COACHES;
-    process.env.AUTH_SECRET = SECRET;
+    process.env.AUTH_SECRET = SIGNING_KEY;
     process.env.ATHLETICS_COACHING_COACHES = JSON.stringify({ [COACH]: ["football"] });
     try {
       function pendingReq(email: string) {
-        const token = createMfaPendingToken(email, SECRET);
+        const token = createMfaPendingToken(email, SIGNING_KEY);
         return new Request("https://reporting.avemaria.edu/api/auth/mfa/status", {
           headers: { Cookie: `${MFA_PENDING_COOKIE}=${token}` },
         });
       }
       function sessionReq(email: string) {
-        const token = createSessionToken(email, SECRET, 1, { mfa: true });
+        const token = createSessionToken(email, SIGNING_KEY, 1, { mfa: true });
         return new Request("https://reporting.avemaria.edu/api/auth/passkey", {
           headers: { Authorization: `Bearer ${token}` },
         });
