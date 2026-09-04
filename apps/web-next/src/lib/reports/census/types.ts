@@ -162,6 +162,7 @@ export type CensusSnapshot = {
     religion: LabeledCount[];
     athlete: LabeledCount[];
     incomingAthlete: LabeledCount[];
+    athleticTypes?: LabeledCount[];
     residency: LabeledCount[];
     honorsByClass: LabeledCount[];
     honorsN: number;

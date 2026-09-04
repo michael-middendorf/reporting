@@ -875,6 +875,20 @@ def census_sport(team: str, gender: str) -> str:
     return pair[0] if gender == "Male" else pair[1]
 
 
+def is_team_athlete(sport: str, typ: str, status: str) -> bool:
+    """Varsity / Non-Varsity / Non-NAIA only. Band and managers are associated."""
+    sp = (sport or "").strip().lower()
+    if not sp or sp == "band":
+        return False
+    t = (typ or "").strip().upper()
+    if "MANAGER" in t or "COACH" in t:
+        return False
+    st = (status or "").strip().lower()
+    if "associated" in st:
+        return False
+    return t in {"VARSITY", "NON-VARSITY", "NON-NAIA"}
+
+
 def load_sports_from_existing() -> dict[str, dict]:
     """Keep current sports when a fresh Slate extract is not in /tmp."""
     if not EXISTING_STUDENTS.exists():
@@ -921,10 +935,11 @@ def load_slate_sports(path: Path) -> dict[str, dict]:
         if "pickleball" in (team or "").lower():
             sport = ""
             on_team = False
+        typ = (r.get("AthleticType") or "").strip() if on_team else ""
         out[pid] = {
             "sport": sport if on_team else "",
-            "athlete": "Athlete" if on_team else "Non-Athlete",
-            "athleticType": (r.get("AthleticType") or "").strip() if on_team else "",
+            "athlete": "Athlete" if is_team_athlete(sport, typ, status) else "Non-Athlete",
+            "athleticType": typ,
             "rosterStatus": status if on_team else "",
         }
     return out
@@ -965,10 +980,11 @@ def load_fa26_roster(path: Path | None = None) -> dict[str, dict]:
         team = col(row, "Sport", "Athlete Primary Team", "AthletePrimaryTeam")
         sport = census_sport(team, gender) if keep else ""
         on_team = keep and bool(sport)
+        typ = col(row, "Athletic Type", "AthleticType") if on_team else ""
         rec = {
             "sport": sport if on_team else "",
-            "athlete": "Athlete" if on_team else "Non-Athlete",
-            "athleticType": col(row, "Athletic Type", "AthleticType") if on_team else "",
+            "athlete": "Athlete" if is_team_athlete(sport, typ, status) else "Non-Athlete",
+            "athleticType": typ,
             "rosterStatus": status if on_team else "",
             "keep": on_team,
         }

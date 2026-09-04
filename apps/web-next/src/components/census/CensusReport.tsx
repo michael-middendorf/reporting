@@ -57,6 +57,7 @@ export function CensusReport({
   const religion = tables?.religion ?? u.religion;
   const athlete = tables?.athlete ?? u.athlete;
   const incomingAthlete = tables?.incomingAthlete ?? u.incomingAthlete;
+  const athleticTypes = tables?.athleticTypes ?? u.athleticTypes ?? [];
   const classLevel = tables?.classLevel ?? u.classLevel;
   const sportsRows = tables?.sports ?? u.sports;
   const residency = tables?.residency ?? u.residency;
@@ -186,6 +187,14 @@ export function CensusReport({
             ]}
             note={CENSUS_SPORT_TABLE_NOTE}
           />
+          {athleticTypes.length ? (
+            <SheetTable
+              title="Athletic Type"
+              headers={["Athletic Type", "Students", "Percentage"]}
+              rows={countRows(athleticTypes)}
+              note="Percent of this report group. Band and managers are Associated, not team Athletes."
+            />
+          ) : null}
         </div>
         <div className="sheet-col">
           <SheetTable

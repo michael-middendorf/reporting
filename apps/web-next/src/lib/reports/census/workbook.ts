@@ -2,6 +2,7 @@ import type { CensusLists, CensusRawStudent, UnretainedStudent } from "./lists";
 import {
   attachLoaStatus,
   censusAppDecision,
+  censusRawAthleteFlag,
   CENSUS_SPORT_TABLE_NOTE,
   footballRosterPcids,
   isUgDegreeSeekingRow,
@@ -638,6 +639,17 @@ function writeCensusReport(
     { intCols: [1, 2], pctCols: [3, 4], total: true },
   );
   ws.set(j, col.j, CENSUS_SPORT_TABLE_NOTE, NOTE);
+  j += 1;
+  j = writeCountTable(
+    ws,
+    j + 2,
+    col.j,
+    "Athletic Type",
+    ["Athletic Type", "Students", "Percentage"],
+    labeledRows(t.athleticTypes ?? []),
+    { intCols: [1], pctCols: [2], total: true },
+  );
+  ws.set(j, col.j, "Band and managers are Associated, not team Athletes.", NOTE);
   j += 1;
   j = writeCountTable(
     ws,
@@ -1521,7 +1533,7 @@ function rawRow(s: CensusRawStudent, alumniIds: Set<string> = new Set()): CellVa
     s.gpa,
     displayCensusResidency(s.residency),
     s.sport,
-    s.athlete,
+    censusRawAthleteFlag(s),
     s.athleticType || "",
     s.rosterStatus || "",
     s.honors,

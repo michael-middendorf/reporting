@@ -308,6 +308,8 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(reportXml, /Athletic Retention/);
   assert.match(reportXml, /Athlete\/Non-Athlete tables use Associated/);
   assert.match(reportXml, /Athlete = Athletics Associated/);
+  assert.match(reportXml, /Athletic Type/);
+  assert.match(reportXml, /Band and managers are Associated, not team Athletes/);
   assert.match(files["xl/styles.xml"], /formatCode="0.00"/);
   assert.match(reportXml, /Application Decisions Retention/);
   assert.match(reportXml, /Not listed/);

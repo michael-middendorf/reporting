@@ -5,6 +5,8 @@ import {
   deriveUnretained,
   dropNonCensusSports,
   isInterveningGraduate,
+  censusAthleticTypeCategory,
+  censusRawAthleteFlag,
   isTeamAthlete,
   isUgDegreeSeekingRow,
   withoutFootballPlayers,
@@ -479,6 +481,12 @@ test("team athletes are Varsity / Non-Varsity / Non-NAIA only; managers and band
   assert.equal(isTeamAthlete({ sport: "Band", athleticType: "Non-Varsity", rosterStatus: "Roster - Athletic Associated" }), false);
   assert.equal(isTeamAthlete({ sport: "Football", athleticType: "" }), false, "blank FA25 status is a manager, not a player");
   assert.equal(isTeamAthlete({ sport: "Ireland", athleticType: "" }), false);
+  assert.equal(censusRawAthleteFlag({ sport: "Football", athleticType: "Varsity" }), "Athlete");
+  assert.equal(censusRawAthleteFlag({ sport: "Football", athleticType: "Manager/Student Coach" }), "Non-Athlete");
+  assert.equal(censusRawAthleteFlag({ sport: "Band", rosterStatus: "Roster - Athletic Associated" }), "Non-Athlete");
+  assert.equal(censusAthleticTypeCategory({ athleticType: "Varsity" }), "Varsity");
+  assert.equal(censusAthleticTypeCategory({ sport: "Band", athleticType: "" }), "Band");
+  assert.equal(censusAthleticTypeCategory({ sport: "", athleticType: "" }), "None");
 });
 
 test("Rugby-Women is men's rugby associated, not a women's team", () => {

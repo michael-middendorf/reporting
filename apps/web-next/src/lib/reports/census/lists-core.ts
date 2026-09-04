@@ -435,6 +435,31 @@ export function isTeamAthlete(s: { athleticType?: string; sport?: string; roster
   return t === "VARSITY" || t === "NON-VARSITY" || t === "NON-NAIA";
 }
 
+/** Census Raw Athlete/Non-Athlete: team players only. Band and managers stay Associated. */
+export function censusRawAthleteFlag(s: {
+  athleticType?: string;
+  sport?: string;
+  rosterStatus?: string;
+}): "Athlete" | "Non-Athlete" {
+  return isTeamAthlete(s) ? "Athlete" : "Non-Athlete";
+}
+
+export const ATHLETIC_TYPE_ORDER = [
+  "Varsity",
+  "Non-Varsity",
+  "Non-NAIA",
+  "Manager/Student Coach",
+  "Band",
+  "None",
+];
+
+/** Athletic Type table. Band with a blank type is Band, not None. */
+export function censusAthleticTypeCategory(s: { athleticType?: string; sport?: string }): string {
+  const t = (s.athleticType || "").trim();
+  if (t) return t;
+  return canonicalCensusSport(s.sport || "").toLowerCase() === "band" ? "Band" : "None";
+}
+
 export function dropNonCensusSports(students: CensusRawStudent[]): CensusRawStudent[] {
   return students.map((s) => {
     const sport = canonicalCensusSport(s.sport || "");

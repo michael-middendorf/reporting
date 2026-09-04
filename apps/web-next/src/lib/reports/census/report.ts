@@ -1,6 +1,8 @@
 import {
+  ATHLETIC_TYPE_ORDER,
   canonicalCensusSport,
   censusAppDecision,
+  censusAthleticTypeCategory,
   censusStateLabel,
   isBachelorDegree,
   isTeamAthlete,
@@ -363,6 +365,7 @@ export type ReportTables = {
   religion: LabeledCount[];
   athlete: LabeledCount[];
   incomingAthlete: LabeledCount[];
+  athleticTypes: LabeledCount[];
   classLevel: LabeledCount[];
   sports: LabeledCount[];
   residency: LabeledCount[];
@@ -485,6 +488,7 @@ export function buildReport(rows: ReportStudent[]): ReportTables {
     religion: religionBreakdown(rows),
     athlete: namedOrder(counts(rows, (s) => s.athlete || "Non-Athlete"), ["Athlete", "Non-Athlete"]),
     incomingAthlete: namedOrder(counts(incoming, (s) => s.athlete || "Non-Athlete"), ["Athlete", "Non-Athlete"]),
+    athleticTypes: namedOrder(counts(rows, (s) => censusAthleticTypeCategory(s), "None"), ATHLETIC_TYPE_ORDER),
     classLevel,
     sports,
     residency,
@@ -570,6 +574,7 @@ export function tablesFromSnapshot(data: CensusSnapshot): ReportTables {
     religion: data.ug.religion,
     athlete: data.ug.athlete,
     incomingAthlete: data.ug.incomingAthlete,
+    athleticTypes: data.ug.athleticTypes ?? [],
     classLevel: data.ug.classLevel,
     sports: data.ug.sports,
     residency: data.ug.residency,

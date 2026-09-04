@@ -28,7 +28,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 
 - **Summary FTCA** = Incoming AND College Attend FTCA, any class. Spring/summer UG admits are **Returning**. Graduate verify notes can mark a summer starter Incoming (Verburgt MBA).
 - **FA25 FTCA attrition cohort** = gold Incoming+FTCA **392**, minus Aiden Wilson → **391**. Not returning freshmen. Not spring admits.
-- **Athletes** (sport table) = Varsity / Non-Varsity / Non-NAIA only. Band and managers = **Associated**. Athlete/Non-Athlete tables use Associated, not team players only.
+- **Athletes** (sport table) = Varsity / Non-Varsity / Non-NAIA only. Band and managers = **Associated**. Athlete/Non-Athlete tables use Associated. Census Raw Athlete/Non-Athlete is team players only (band/managers = Non-Athlete). Athletic Type table is Varsity / Non-Varsity / Non-NAIA / Manager / Band / None.
 - Rugby-Women → Rugby-Men associated (no women’s rugby). Ireland is a campus, not a sport. Pickleball dropped.
 - Catholic = Catholic or Eastern Rite. SAT &lt; 400 missing from means. 0 scores = missing.
 - FTE: FULL 1 / THRE 0.75 / HALF 0.5 / LESS 0.25 else credits/12.
@@ -79,6 +79,6 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 
 - Treat returning FTCA freshmen as the FA25 new-student FTCA pool.
 - Count spring admits as Incoming on Summary.
-- Put managers/band in the Athletes column.
+- Put managers/band in the Athletes column (sport table) or as Athlete on Census Raw. They stay Associated.
 - Commit `data/*.json` or athletics WIP.
 - Invent Pell / first-gen / income — not on these lists.

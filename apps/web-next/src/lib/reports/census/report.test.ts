@@ -398,6 +398,12 @@ test("sport table splits team athletes from athletics associated like S26", () =
   const associated = rpt.sports.reduce((s, r) => s + (r.associated ?? 0), 0);
   assert.equal(rpt.athlete.find((r) => r.label === "Athlete")?.n, associated);
   assert.equal(associated, 3, "Football 2 + Band 1; Ireland is not athletics associated");
+  assert.equal(rpt.athleticTypes.find((r) => r.label === "Varsity")?.n, 1);
+  assert.equal(rpt.athleticTypes.find((r) => r.label === "Manager/Student Coach")?.n, 1);
+  assert.equal(rpt.athleticTypes.find((r) => r.label === "Band")?.n, 1);
+  assert.equal(rpt.athleticTypes.find((r) => r.label === "None")?.n, 2);
+  const typePct = rpt.athleticTypes.reduce((s, r) => s + (r.pct ?? 0), 0);
+  assert.ok(Math.abs(typePct - 1) < 1e-9);
 });
 
 test("blank athletic type and Athletic Associated are associated, not team athletes", () => {

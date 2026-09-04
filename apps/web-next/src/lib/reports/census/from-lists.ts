@@ -349,6 +349,7 @@ export function applyRegistrationTotals(data: CensusSnapshot, students: CensusRa
     religion: tables.religion,
     athlete: tables.athlete,
     incomingAthlete: tables.incomingAthlete,
+    athleticTypes: tables.athleticTypes,
     residency: tables.residency,
     honorsByClass: tables.honorsByClass,
     honorsN: tables.honorsN,
