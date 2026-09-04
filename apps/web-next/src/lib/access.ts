@@ -135,12 +135,12 @@ export function canAccessReport(email: string, report: ReportId): boolean {
   return false;
 }
 
-/** Academic Affairs users finish TOTP or passkey at sign-in. Others do not. */
+/** Academic Affairs and coaching users finish TOTP or passkey at sign-in. */
 export function needsMfaAtSignIn(email: string): boolean {
-  return canAccessReport(email, "aspiredu");
+  return canAccessReport(email, "aspiredu") || canAccessReport(email, "athletics-coaching");
 }
 
-/** Magic-link complete: Academic Affairs always pending MFA, even with a hub session. */
+/** Magic-link complete: MFA users always pending, even with a hub session. */
 export function sessionDecisionAtComplete(
   email: string,
   _alreadySignedIn: boolean,

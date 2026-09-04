@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { currentUserEmail } from "@/lib/auth";
+import { currentUserEmail, sessionHasHubMfa } from "@/lib/auth";
 import { aspireduPrivateHeaders, getAspireduMfaSession } from "@/lib/aspiredu-auth";
 import { invokeProcessor } from "@/lib/process-invoke";
 import {
   COACHING_LAMBDA_UNAVAILABLE,
+  academicsMfaUnlocked,
   buildAcademicsSummary,
   coachingLambdaPayload,
   coachingMfaUrl,
@@ -25,13 +26,20 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: access.error }, { status: access.status, headers });
   }
 
-  const mfa = await getAspireduMfaSession(req, access.email);
-  if (!mfa) {
+  const ferpa = await getAspireduMfaSession(req, access.email);
+  if (
+    !academicsMfaUnlocked({
+      email: access.email,
+      hubMfa: sessionHasHubMfa(req),
+      ferpa: Boolean(ferpa),
+    })
+  ) {
     return NextResponse.json(
       { error: "MFA required", mfaUrl: coachingMfaUrl(access.sport) },
       { status: 401, headers },
     );
   }
+  const callerEmail = ferpa?.email ?? access.email;
 
   try {
     const roster = await loadSourceRowsOptional<SlateRow>("athletics", "roster");
@@ -66,7 +74,7 @@ export async function GET(req: Request) {
     try {
       lambdaResult = await invokeProcessor(
         functionName,
-        coachingLambdaPayload(mfa.email, access.sport, rows),
+        coachingLambdaPayload(callerEmail, access.sport, rows),
       );
     } catch (error) {
       if (isCoachingActionUnavailable(error)) {

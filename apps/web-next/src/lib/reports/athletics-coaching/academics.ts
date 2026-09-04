@@ -1,3 +1,4 @@
+import { canAccessReport } from "../../access";
 import { normalizeEmail } from "../../auth";
 import type { SlateRow } from "../athletics/types";
 import {
@@ -163,6 +164,15 @@ export function coachingLambdaPayload(
 export function coachingMfaUrl(sport: string): string {
   const next = `/athletics/coaching/${sport}`;
   return `/athletics/coaching/mfa?next=${encodeURIComponent(next)}`;
+}
+
+/** Named-athlete academics: hub MFA, Academic Affairs, or leftover coaching TOTP cookie. */
+export function academicsMfaUnlocked(input: {
+  email: string;
+  hubMfa: boolean;
+  ferpa: boolean;
+}): boolean {
+  return input.ferpa || input.hubMfa || canAccessReport(input.email, "aspiredu");
 }
 
 export function safeCoachingNext(raw: string | null | undefined): string {

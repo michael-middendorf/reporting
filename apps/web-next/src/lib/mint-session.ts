@@ -18,7 +18,7 @@ export function jsonWithReportingSession(
     return NextResponse.json({ error: "Authentication is not configured." }, { status: 500 });
   }
   const ttlDays = reportingSessionTtlDays();
-  const session = createSessionToken(email, secret, ttlDays);
+  const session = createSessionToken(email, secret, ttlDays, { mfa: true });
   const secure = cookieSecureFromRequest(req);
   const res = NextResponse.json({ ok: true, email, redirect: "/", session, ...body });
   res.headers.append("Set-Cookie", sessionCookie(session, ttlDays * 86400, secure));

@@ -1,15 +1,15 @@
-import { canAccessReport } from "@/lib/access";
+import { needsMfaAtSignIn } from "@/lib/access";
 import { currentMfaPendingEmail, currentUserEmail } from "@/lib/auth";
 
 export function pendingAspireduEmail(req: Request): string | null {
   const email = currentMfaPendingEmail(req);
-  if (!email || !canAccessReport(email, "aspiredu")) return null;
+  if (!email || !needsMfaAtSignIn(email)) return null;
   return email;
 }
 
 export function signedInAspireduEmail(req: Request): string | null {
   const email = currentUserEmail(req);
-  if (!email || !canAccessReport(email, "aspiredu")) return null;
+  if (!email || !needsMfaAtSignIn(email)) return null;
   return email;
 }
 

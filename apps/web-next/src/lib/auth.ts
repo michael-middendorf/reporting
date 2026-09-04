@@ -82,15 +82,19 @@ export function verifyMagicToken(token: string, secret: string) {
   return { ...p, email };
 }
 
-export function createSessionToken(email: string, secret: string, ttlDays: number) {
-  return createSignedToken(
-    {
-      email: normalizeEmail(email),
-      exp: Math.floor(Date.now() / 1000) + Math.max(ttlDays, 1) * 86400,
-      type: "session",
-    },
-    secret,
-  );
+export function createSessionToken(
+  email: string,
+  secret: string,
+  ttlDays: number,
+  options?: { mfa?: boolean },
+) {
+  const payload: Record<string, unknown> = {
+    email: normalizeEmail(email),
+    exp: Math.floor(Date.now() / 1000) + Math.max(ttlDays, 1) * 86400,
+    type: "session",
+  };
+  if (options?.mfa) payload.mfa = true;
+  return createSignedToken(payload, secret);
 }
 
 export function verifySessionToken(token: string, secret: string) {
@@ -98,7 +102,7 @@ export function verifySessionToken(token: string, secret: string) {
   if (p.type !== "session") throw new Error("Invalid session type");
   const email = normalizeEmail(String(p.email || ""));
   if (!isValidEmail(email)) throw new Error("Invalid session email");
-  return { ...p, email };
+  return { ...p, email, mfa: p.mfa === true };
 }
 
 export function createMfaPendingToken(email: string, secret: string, ttlMinutes = MFA_PENDING_TTL_MINUTES) {
@@ -222,6 +226,19 @@ export function currentUserEmail(req: Request): string | null {
     return verifySessionToken(token, secret).email as string;
   } catch {
     return null;
+  }
+}
+
+/** True when the hub session was minted after TOTP or passkey at /auth/mfa. */
+export function sessionHasHubMfa(req: Request): boolean {
+  const secret = (process.env.AUTH_SECRET || "").trim();
+  if (!secret) return false;
+  const token = getSessionFromRequest(req);
+  if (!token) return false;
+  try {
+    return verifySessionToken(token, secret).mfa === true;
+  } catch {
+    return false;
   }
 }
 
