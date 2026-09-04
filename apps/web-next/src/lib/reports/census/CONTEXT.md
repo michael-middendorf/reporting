@@ -20,7 +20,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 - Unretained notes: `Downloads/Census retention sheet.xlsx` col R (`intend to return/not return`).
 - Graduates / alumni: `Graduated %2D All-15.xlsx` (was -14). Intervening year is Fall 2025, Spring 2026, and Summer 2026. Alumni admits use undergraduate degrees on this extract.
 - FA26 entry terms: `Downloads/Roster -_ Housing Report 20260821-155657.xlsx`.
-- FA26 this-fall roster: `Downloads/Census athletes 20260904-130530.xlsx` (this file is Athlete / Associated / Post Grad only). Count **Roster - Athlete**, **Roster - Athletic Associated**, and **Roster - Athlete Post Grad**. Post Grad is graduate eligibility; those 20 are GRAD on registration, not UG. Overlay does not add unregistered people. FA25 roster stays gold `FA25 Athlete Roster For Slate.xlsx`. Rebuild: `build-census-lists.py --roster-only`.
+- FA26 this-fall roster: `Downloads/Census athletes 20260904-133052.xlsx` (Athlete / Associated / Post Grad only). Count **Roster - Athlete**, **Roster - Athletic Associated**, and **Roster - Athlete Post Grad**. Post Grad is graduate eligibility; those 20 are GRAD on registration, not UG. Overlay does not add unregistered people. FA25 roster stays gold `FA25 Athlete Roster For Slate.xlsx`. Rebuild: `build-census-lists.py --roster-only`. Zavage P000383846 Ultimate Frisbee is on this file (was missing from 13:05).
 - Guido P000385969 is GRAD MARTS (MA Theology). Horstkotte P000391293 is GRAD MBA. Snyder P000384840 is UNDERG Incoming FTCA (Slate First-Year Fall 2026; registration College Attend was blank). Do not count Guido/Horstkotte as New UG.
 - Incoming states: `Downloads/FA25 Incoming Students Census 20260903-135650.xlsx` (Person State / Address 1 Region). Fills blank FA25/FA26 state only; does not overwrite a filled state.
 - Institute scholars: `Downloads/Scholars Fall 2026 (1).xlsx` (Y1/Y2/Y3). Michael Gotlund removed vs the 8-28 file. Six roster names are not on Registration Status.
@@ -29,7 +29,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 
 - **Summary FTCA** = Incoming AND College Attend FTCA, any class. Spring/summer UG admits are **Returning**. Graduate verify notes can mark a summer starter Incoming (Verburgt MBA).
 - **FA25 FTCA attrition cohort** = gold Incoming+FTCA **392**, minus Aiden Wilson → **391**. Not returning freshmen. Not spring admits.
-- **Athletes** (sport table) = Varsity / Non-Varsity / Non-NAIA only. Band and managers = **Associated**. Athlete/Non-Athlete tables use Associated. Census Raw Athlete/Non-Athlete is team players only (band/managers = Non-Athlete). Athletic Type table is Varsity / Non-Varsity / Non-NAIA / Manager / Band / None.
+- **Athletes** (sport table) = Varsity / Non-Varsity / Non-NAIA only. Band and managers = **Associated**. Athlete/Non-Athlete tables use Associated. Census Raw Athlete/Non-Athlete is team players only (band/managers = Non-Athlete). Athletic Type table is Varsity / Non-Varsity / Non-NAIA / Manager / Band / None. Personal enrichment (College Attend ND / Degree PENRIC) never gets a census sport. Dual enrollment is not this rule.
 - Rugby-Women → Rugby-Men associated (no women’s rugby). Ireland is a campus, not a sport. Pickleball dropped.
 - Catholic = Catholic or Eastern Rite. SAT &lt; 400 missing from means. 0 scores = missing.
 - FTE: FULL 1 / THRE 0.75 / HALF 0.5 / LESS 0.25 else credits/12.
@@ -42,7 +42,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 
 **FA26 Summary (Registration Status-29, 3 Sep rebuild):** unique **1629**, UG DS **1401**, new UG **469**, Incoming+FTCA **395**, TRAN 68, READ 2, SECB 4, Other 0. Dual **70**. Chesterton **2** (Montano, Williams; not in dual, not in Non-Degree). Non-Degree **4**. Graduate **153** (Rodriguez UG only). Shephard Ireland. Trumpore Commuter. Parks UG. O'Connor SECB. Snyder FTCA.
 
-**FA26 roster (Census athletes 20260904-130530):** UG DS associated **617**, team **541**. Post Grad is graduate only (20 GRAD, not UG). Overlay does not add unregistered people. FA25 gold roster unchanged. Guido MARTS / Horstkotte MBA (not New UG). Snyder UG Incoming FTCA. Graduate Athlete includes Post Grad and Associated.
+**FA26 roster (Census athletes 20260904-133052):** UG DS associated **618**, team **542**. Zavage Ultimate Frisbee in. Zaborek P000346569 is NDEG PENRIC — no census sport, even if a roster file lists him. Post Grad is graduate only (20 GRAD, not UG). Overlay does not add unregistered people. FA25 gold roster unchanged. Guido MARTS / Horstkotte MBA (not New UG). Snyder UG Incoming FTCA. Graduate Athlete includes Post Grad and Associated.
 
 **FA25 FTCA attrition:** cohort **391**, enrolled **322**, not retained **69**, **82.4%**. (None of the six FA26 LOA are Incoming+FTCA.)
 

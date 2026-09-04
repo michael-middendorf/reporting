@@ -49,7 +49,7 @@ FA25_ROSTER = CENSUS_DIR / "FA25 Athlete Roster For Slate.xlsx"
 FA25_HOUSING = CENSUS_DIR / "Copy of 9.4.2025 CENSUS Fall 25.xlsx"
 FA26_ENTRY = DOWNLOADS / "Roster -_ Housing Report 20260821-155657.xlsx"
 # This-fall FA26 roster only. FA25 gold stays FA25_ROSTER.
-FA26_ROSTER = DOWNLOADS / "Census athletes 20260904-130530.xlsx"
+FA26_ROSTER = DOWNLOADS / "Census athletes 20260904-133052.xlsx"
 ROSTER_KEEP = {
     "Roster - Athlete",
     "Roster - Athletic Associated",
@@ -1002,6 +1002,13 @@ def load_fa26_roster(path: Path | None = None) -> dict[str, dict]:
     return out
 
 
+def is_ndeg_no_sport(s: dict) -> bool:
+    """Personal enrichment cannot be census athletes. Dual enrollment is College Attend DUAL, not this."""
+    college = str(s.get("collegeAttend") or "").strip().upper()
+    degree = str(s.get("degree") or "").strip().upper()
+    return college == "ND" or degree == "PENRIC"
+
+
 def apply_fa26_roster(rows: list[dict], roster: dict[str, dict] | None = None) -> tuple[int, int]:
     """Overwrite sport / type / status on existing FA26 students only. Never insert rows."""
     src = roster if roster is not None else load_fa26_roster()
@@ -1011,7 +1018,7 @@ def apply_fa26_roster(rows: list[dict], roster: dict[str, dict] | None = None) -
     cleared = 0
     for s in rows:
         rec = src.get(norm(s.get("pcid")))
-        if rec and rec.get("keep"):
+        if rec and rec.get("keep") and not is_ndeg_no_sport(s):
             s["sport"] = rec.get("sport") or ""
             s["athlete"] = rec.get("athlete") or "Athlete"
             s["athleticType"] = rec.get("athleticType") or ""
