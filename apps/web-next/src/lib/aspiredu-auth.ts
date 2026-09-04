@@ -13,12 +13,6 @@ import { normalizeEmail } from "@/lib/auth";
 import { generateTotpSecret, otpauthUrl, verifyTotp } from "@/lib/totp";
 
 export const ASPIREDU_MFA_COOKIE = "amu_aspiredu_mfa";
-const AUTHORIZED = new Set([
-  "cole.j.cantu@avemaria.edu",
-  "regina.m.pirolli@avemaria.edu",
-  "michael.t.middendorf@avemaria.edu",
-  "daniel.davy@avemaria.edu",
-]);
 
 const region = process.env.AWS_REGION || "us-east-2";
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region }), {
@@ -81,7 +75,7 @@ function verifierForIdToken() {
 }
 
 export function isAspireduStudentViewer(email: string) {
-  return AUTHORIZED.has(normalizeEmail(email));
+  return canAccessReport(email, "aspiredu");
 }
 
 /** FERPA TOTP for campus Academic Affairs viewers and coaching dashboards. */
@@ -126,7 +120,7 @@ export async function beginAspireduTotpEnrollment(email: string) {
   return { otpauth: otpauthUrl(normalized, secret), secret };
 }
 
-export async function completeAspireduTotp(email: string, code: string) {
+export async function verifyAspireduTotp(email: string, code: string) {
   const normalized = normalizeEmail(email);
   if (!canUseFerpaTotp(normalized)) throw new Error("not authorized for student-level AspireDU data");
   const table = required("ASPIREDU_SESSION_TABLE");
@@ -161,7 +155,8 @@ export async function completeAspireduTotp(email: string, code: string) {
     }));
     throw new Error("That code is not valid");
   }
-  if (record.type === "TOTP_PENDING") {
+  const newlyEnrolled = record.type === "TOTP_PENDING";
+  if (newlyEnrolled) {
     await ddb.send(new PutCommand({
       TableName: table,
       Item: {
@@ -183,9 +178,15 @@ export async function completeAspireduTotp(email: string, code: string) {
       ExpressionAttributeValues: { ":zero": 0 },
     }));
   }
+  return { email: normalized, newlyEnrolled };
+}
+
+export async function completeAspireduTotp(email: string, code: string) {
+  const { email: normalized } = await verifyAspireduTotp(email, code);
+  const now = Math.floor(Date.now() / 1000);
   const sessionId = base64url(randomBytes(32));
   await ddb.send(new PutCommand({
-    TableName: table,
+    TableName: required("ASPIREDU_SESSION_TABLE"),
     Item: {
       sessionId,
       type: "SESSION",
@@ -367,8 +368,8 @@ export function aspireduSessionCookie(sessionId: string) {
   return mfaCookie(encodeURIComponent(sessionId), "/", 8 * 60 * 60);
 }
 
-export function clearAspireduSessionCookie() {
-  return mfaCookie("", "/", 0);
+export function clearAspireduSessionCookie(path = "/") {
+  return mfaCookie("", path, 0);
 }
 
 /** Expire leftover Path=/aspiredu cookies from the previous MFA cookie. */
@@ -381,7 +382,7 @@ export function aspireduSessionSetCookieHeaders(sessionId: string) {
 }
 
 export function aspireduSessionClearCookieHeaders() {
-  return [clearAspireduSessionCookie(), clearLegacyAspireduSessionCookie()];
+  return [clearAspireduSessionCookie("/"), clearLegacyAspireduSessionCookie()];
 }
 
 export const aspireduPrivateHeaders = {

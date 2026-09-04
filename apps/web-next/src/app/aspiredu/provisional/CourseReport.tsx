@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AccessGate, ReportTopBar } from "@/components/AccessGate";
 import { ASPIREDU_NAV } from "@/lib/report-nav";
-import { apiFetch } from "@/lib/api";
 import {
   LETTERS,
   courseIdPlus,
@@ -97,7 +96,6 @@ export function CourseReport({
   showGradeDistribution?: boolean;
   excelDownloads?: ExcelDownloadSpec[];
 }) {
-  const [mfa, setMfa] = useState<"checking" | "required" | "ok">("checking");
   const [courses, setCourses] = useState<CourseRow[]>([]);
   const [terms, setTerms] = useState<string[]>([]);
   const [status, setStatus] = useState("");
@@ -107,19 +105,13 @@ export function CourseReport({
   const [courseCount, setCourseCount] = useState(0);
   const [studentCount, setStudentCount] = useState(0);
 
-  useEffect(() => {
-    apiFetch("/aspiredu/api/auth/status", { cache: "no-store" })
-      .then((response) => setMfa(response.ok ? "ok" : "required"))
-      .catch(() => setMfa("required"));
-  }, []);
-
   const load = useCallback(async () => {
     setError("");
     setStatus("Loading…");
     try {
       const result = await loadAllCourses({ query, term, termGroup });
       if (result.mfaRequired) {
-        setMfa("required");
+        setError("Authentication required. Return to Reports and sign in again.");
         setStatus("");
         return;
       }
@@ -143,16 +135,8 @@ export function CourseReport({
   }, [query, term, termGroup]);
 
   useEffect(() => {
-    if (mfa !== "ok") return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- MFA-gated course fetch; Search retriggers via load
     void load();
-  }, [mfa, load]);
-
-  async function endMfa() {
-    await apiFetch("/aspiredu/api/auth/logout", { method: "POST" });
-    setMfa("required");
-    setCourses([]);
-  }
+  }, [load]);
 
   const csvHref = useMemo(() => {
     const lines = [CSV_COLUMNS.map((column) => csvCell(column.header)).join(",")];
@@ -179,16 +163,7 @@ export function CourseReport({
             PowerCampus values (sport, GPA, credits, and the rest) stay blank until those extracts are supplied. The
             compact table below is still AspireDU-only.
           </p>
-          {mfa === "checking" && <p>Checking MFA session…</p>}
-          {mfa === "required" && (
-            <section className={styles.panel}>
-              <h2>Authenticator required</h2>
-              <p>Student names and course records need a 6-digit authenticator code on top of your reporting email link. There is no second password.</p>
-              <a className={styles.linkButton} href="/aspiredu/mfa">Continue</a>
-            </section>
-          )}
-          {mfa === "ok" && (
-            <section className={styles.panel}>
+          <section className={styles.panel}>
               <div className={styles.toolbar}>
                 <input aria-label="Search student or course" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Student, email, or course" />
                 <select aria-label="Course term" value={term} onChange={(event) => setTerm(event.target.value)}>
@@ -209,7 +184,6 @@ export function CourseReport({
                     {spec.label}
                   </button>
                 ))}
-                <button className={`${styles.button} ${styles.secondary}`} type="button" onClick={() => void endMfa()}>End MFA session</button>
               </div>
               <p className={styles.meta}>{studentCount} students · {courseCount} courses</p>
               {error && <p className={styles.error}>{error}</p>}
@@ -247,8 +221,7 @@ export function CourseReport({
                 </table>
               </div>
             </section>
-          )}
-          {mfa === "ok" && showGradeDistribution && courses.length > 0 && (
+          {showGradeDistribution && courses.length > 0 && (
             <section className={styles.panel}>
               <h2>Grade distribution by course</h2>
               <p className={styles.meta}>Letter bins from AspireDU numeric course grade. Incomplete (I) and withdraw (W) are not in this feed.</p>

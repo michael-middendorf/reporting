@@ -68,6 +68,56 @@
   cursor: progress;
 }
 
+.card button.secondary {
+  background: #fff;
+  color: var(--blue);
+  border: 1px solid var(--bdr);
+}
+
+.keyBox {
+  background: #f5f7fa;
+  border: 1px solid var(--bdr);
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin: 0 0 16px;
+}
+
+.keyLabel {
+  margin: 0 0 10px;
+  color: var(--t2);
+  font-size: 13px;
+}
+
+.keyValue {
+  margin: 0 0 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.55;
+  word-spacing: 0.35em;
+  overflow-wrap: anywhere;
+  color: var(--blue);
+}
+
+.codeInput {
+  width: 11ch;
+  max-width: 100%;
+  box-sizing: content-box;
+  padding: 12px 14px;
+  letter-spacing: 0.35em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.divider {
+  text-align: center;
+  color: var(--t2);
+  margin: 16px 0 8px;
+  font-size: 12px;
+}
+
 .status {
   margin-top: 14px;
   min-height: 20px;

@@ -53,7 +53,7 @@ const REPORTS: {
     id: "aspiredu",
     href: "/aspiredu",
     title: "Academic Affairs",
-    desc: "AspireDU course reports for Academic Affairs. Student rows require MFA.",
+    desc: "AspireDU course reports for Academic Affairs.",
   },
 ];
 
@@ -125,6 +125,11 @@ export default function HomePage() {
         </div>
         <div className={styles.user}>
           {email && <span>{email}</span>}
+          {allowed.includes("aspiredu") && (
+            <Link href="/settings/security" className={styles.security}>
+              Security
+            </Link>
+          )}
           <button type="button" onClick={logout}>
             Sign out
           </button>

@@ -20,18 +20,21 @@ function authRequest(email: string | null, mfaCookie?: string) {
   return new Request("https://reporting.avemaria.edu/aspiredu/api/auth/status", { headers });
 }
 
-describe("GET /aspiredu/api/auth/status campus MFA isolation", () => {
+describe("GET /aspiredu/api/auth/status leftover campus MFA", () => {
   const prevSecret = process.env.AUTH_SECRET;
   const prevCoaches = process.env.ATHLETICS_COACHING_COACHES;
 
-  it("does not treat a coaching TOTP cookie as campus MFA", async () => {
+  it("returns 410 and does not treat a coaching TOTP cookie as campus MFA", async () => {
     process.env.ATHLETICS_COACHING_COACHES = JSON.stringify({ [COACH]: ["football"] });
     try {
-      const response = await GET(authRequest(COACH, "coach-totp-session"));
-      assert.equal(response.status, 403);
+      const response = await GET(
+        authRequest(COACH, "coach-totp-session"),
+      );
+      assert.equal(response.status, 410);
       const body = await response.json();
-      assert.equal(body.authenticated, false);
-      assert.equal(body.email, undefined);
+      assert.match(String(body.error), /\/auth\/mfa/);
+      assert.equal(body.authenticated, undefined);
+      assert.equal(response.headers.get("set-cookie"), null);
     } finally {
       if (prevSecret === undefined) delete process.env.AUTH_SECRET;
       else process.env.AUTH_SECRET = prevSecret;
@@ -40,14 +43,13 @@ describe("GET /aspiredu/api/auth/status campus MFA isolation", () => {
     }
   });
 
-  it("keeps campus MFA status available for Cole, Regina, and Michael", async () => {
+  it("returns 410 for Cole, Regina, and Michael", async () => {
     try {
       for (const email of CAMPUS) {
-        const response = await GET(authRequest(email));
-        assert.notEqual(response.status, 403, email);
-        assert.equal(response.status, 401, email);
+        const response = await GET();
+        assert.equal(response.status, 410, email);
         const body = await response.json();
-        assert.equal(body.authenticated, false, email);
+        assert.equal(body.authenticated, undefined, email);
       }
     } finally {
       if (prevSecret === undefined) delete process.env.AUTH_SECRET;

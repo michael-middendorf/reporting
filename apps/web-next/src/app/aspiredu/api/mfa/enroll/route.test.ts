@@ -8,7 +8,6 @@ import { POST as coachingEnroll } from "../../../../api/athletics-coaching/mfa/e
 
 const SECRET = "campus-mfa-enroll-test-secret";
 const COACH = "coach.a@avemaria.edu";
-const ERIC = "eric.vanheusen@avemaria.edu";
 const CAMPUS = [
   "cole.j.cantu@avemaria.edu",
   "regina.m.pirolli@avemaria.edu",
@@ -28,34 +27,28 @@ describe("campus vs coaching MFA enroll isolation", () => {
   const prevCoaches = process.env.ATHLETICS_COACHING_COACHES;
   const prevTable = process.env.ASPIREDU_SESSION_TABLE;
 
-  it("rejects a coaching-only session on /aspiredu/api/mfa/* with 403", async () => {
+  it("returns 410 from leftover /aspiredu/api/mfa/enroll and verify", async () => {
     process.env.ATHLETICS_COACHING_COACHES = JSON.stringify({ [COACH]: ["football"] });
     try {
-      const enroll = await campusEnroll(
-        authRequest("https://reporting.avemaria.edu/aspiredu/api/mfa/enroll", COACH, { method: "POST" }),
-      );
-      assert.equal(enroll.status, 403);
+      const enroll = await campusEnroll();
+      assert.equal(enroll.status, 410);
       const enrollBody = await enroll.json();
-      assert.equal(enrollBody.error, "Forbidden");
+      assert.match(String(enrollBody.error), /\/api\/auth\/mfa\/enroll/);
+      assert.equal(enroll.headers.get("set-cookie"), null);
 
-      const verify = await campusVerify(
-        authRequest("https://reporting.avemaria.edu/aspiredu/api/mfa/verify", COACH, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code: "123456" }),
-        }),
-      );
-      assert.equal(verify.status, 403);
+      const verify = await campusVerify();
+      assert.equal(verify.status, 410);
+      assert.equal(verify.headers.get("set-cookie"), null);
 
       const status = await campusStatus(
         authRequest("https://reporting.avemaria.edu/aspiredu/api/mfa/status", COACH),
       );
       assert.equal(status.status, 403);
+      const statusBody = await status.json();
+      assert.equal(statusBody.error, "Forbidden");
 
-      const leadership = await campusEnroll(
-        authRequest("https://reporting.avemaria.edu/aspiredu/api/mfa/enroll", ERIC, { method: "POST" }),
-      );
-      assert.equal(leadership.status, 403);
+      const leadership = await campusEnroll();
+      assert.equal(leadership.status, 410);
     } finally {
       if (prevSecret === undefined) delete process.env.AUTH_SECRET;
       else process.env.AUTH_SECRET = prevSecret;
@@ -88,16 +81,12 @@ describe("campus vs coaching MFA enroll isolation", () => {
     }
   });
 
-  it("lets Cole, Regina, and Michael reach campus MFA enroll", async () => {
+  it("does not mint leftover campus enroll for Cole, Regina, and Michael", async () => {
     try {
       for (const email of CAMPUS) {
-        const response = await campusEnroll(
-          authRequest("https://reporting.avemaria.edu/aspiredu/api/mfa/enroll", email, { method: "POST" }),
-        );
-        assert.notEqual(response.status, 403, email);
-        assert.equal(response.status, 400, email);
-        const body = await response.json();
-        assert.match(String(body.error), /ASPIREDU_SESSION_TABLE is not configured/, email);
+        const response = await campusEnroll();
+        assert.equal(response.status, 410, email);
+        assert.equal(response.headers.get("set-cookie"), null, email);
       }
     } finally {
       if (prevSecret === undefined) delete process.env.AUTH_SECRET;

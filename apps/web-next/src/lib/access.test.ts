@@ -3,7 +3,9 @@ import { describe, it } from "node:test";
 import {
   canAccessReport,
   canLogin,
+  needsMfaAtSignIn,
   reportsForEmail,
+  sessionDecisionAtComplete,
 } from "./access";
 import {
   canAccessSport,
@@ -211,6 +213,16 @@ describe("aspiredu grant for Daniel Davy", () => {
 
   it("does not grant aspiredu to a known non-grantee", () => {
     assert.equal(canAccessReport(DAN, "aspiredu"), false);
+  });
+
+  it("requires MFA at sign-in for Academic Affairs users only", () => {
+    assert.equal(needsMfaAtSignIn(DANIEL), true);
+    assert.equal(needsMfaAtSignIn("michael.t.middendorf@avemaria.edu"), true);
+    assert.equal(needsMfaAtSignIn(DAN), false);
+    assert.equal(sessionDecisionAtComplete(DANIEL, false), "mfa_pending");
+    assert.equal(sessionDecisionAtComplete(DANIEL, true), "mfa_pending");
+    assert.equal(sessionDecisionAtComplete(DAN, false), "session");
+    assert.equal(sessionDecisionAtComplete(DAN, true), "session");
   });
 });
 

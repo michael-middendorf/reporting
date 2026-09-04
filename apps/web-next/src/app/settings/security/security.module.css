@@ -1,0 +1,85 @@
+.shell {
+  min-height: 100vh;
+  background: #f5f7fa;
+}
+
+.content {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 28px 24px 60px;
+}
+
+.content h1 {
+  margin: 0 0 8px;
+}
+
+.lead,
+.meta {
+  color: var(--t2);
+  line-height: 1.5;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid var(--bdr);
+  border-radius: 8px;
+  padding: 18px;
+  margin: 18px 0;
+}
+
+.panel h2 {
+  margin-top: 0;
+}
+
+.button {
+  display: inline-block;
+  border: 0;
+  border-radius: 6px;
+  padding: 10px 14px;
+  background: var(--blue);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.secondary {
+  background: #fff;
+  color: var(--blue);
+  border: 1px solid var(--bdr);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--bdr);
+}
+
+.list li:first-child {
+  border-top: 0;
+}
+
+.list span {
+  display: block;
+  color: var(--t2);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.ok {
+  color: var(--up);
+  font-weight: 700;
+}
+
+.error {
+  color: var(--dn);
+  font-weight: 700;
+}
