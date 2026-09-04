@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@simplewebauthn/server"],
   async redirects() {
     return [
+      { source: "/aspiredu/provisional/summer-1", destination: "/aspiredu/provisional/fall", permanent: true },
       { source: "/points", destination: "/advancement/points", permanent: true },
       {
         source: "/points/methodology",

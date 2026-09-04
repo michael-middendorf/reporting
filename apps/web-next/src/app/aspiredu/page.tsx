@@ -24,9 +24,9 @@ type Summary = {
 
 const REPORTS = [
   {
-    href: "/aspiredu/provisional/summer-1",
-    title: "Summer 1 Athletic Provisional",
-    desc: "Course-level AspireDU rows whose term looks like Summer 1 / SU 1.",
+    href: "/aspiredu/provisional/fall",
+    title: "Fall Athletic Provisional",
+    desc: "Course-level AspireDU rows whose term looks like 2026 FALL 01 / FALL.",
   },
   {
     href: "/aspiredu/provisional/athletics",

@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import {
   ATHLETICS_GRADE_COLUMNS,
   ATHLETICS_PROVISIONAL_COLUMNS,
+  FALL_PROVISIONAL,
+  FALL_PROVISIONAL_COLUMNS,
   GAP_HEADERS,
   SPRING_EOT,
   SPRING_EOT_COURSE_COLUMNS,
@@ -14,7 +16,6 @@ import {
   SSS_DD_REPORT_COLUMNS,
   SSS_FULL_NOTES_COLUMNS,
   SSS_MASTER,
-  SUMMER1_PROVISIONAL_COLUMNS,
   allGapRows,
   buildAthleticsGradeWorkbook,
   buildAthleticsProvisionalWorkbook,
@@ -125,8 +126,13 @@ describe("template header order", () => {
     ]);
   });
 
-  it("matches Summer 1 Athletic Provisional", () => {
-    assert.deepEqual(headersOf(SUMMER1_PROVISIONAL_COLUMNS), [
+  it("matches Fall Athletic Provisional", () => {
+    assert.equal(FALL_PROVISIONAL.id, "fall-provisional");
+    assert.equal(FALL_PROVISIONAL.title, "Fall Athletic Provisional");
+    assert.equal(FALL_PROVISIONAL.filename, "Fall Athletic Provisional report.xlsx");
+    assert.ok(allGapRows().some((row) => row.report === "Fall Athletic Provisional"));
+    assert.equal(allGapRows().some((row) => row.report === "Summer 1 Athletic Provisional"), false);
+    assert.deepEqual(headersOf(FALL_PROVISIONAL_COLUMNS), [
       "PCID",
       "Stu Last Name",
       "Stu First Name",
@@ -452,7 +458,7 @@ describe("mapping", () => {
 
   it("does not invent values when a field is absent", () => {
     const sparse = row({ studentKey: "stu-sparse", course: "BIO 101" });
-    const mapped = mapRows(SUMMER1_PROVISIONAL_COLUMNS, [sparse])[0];
+    const mapped = mapRows(FALL_PROVISIONAL_COLUMNS, [sparse])[0];
     assert.equal(mapped[0], "");
     assert.equal(mapped[1], "");
     assert.equal(mapped[12], "BIO 101");

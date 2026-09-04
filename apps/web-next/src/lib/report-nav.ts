@@ -56,7 +56,7 @@ export const ATHLETICS_COACHING_NAV: ReportNavItem[] = [
 
 export const ASPIREDU_NAV: ReportNavItem[] = [
   { href: "/aspiredu", label: "Overview", exact: true },
-  { href: "/aspiredu/provisional/summer-1", label: "Summer 1 Athletic Provisional" },
+  { href: "/aspiredu/provisional/fall", label: "Fall Athletic Provisional" },
   { href: "/aspiredu/provisional/athletics", label: "Athletics Provisional" },
   { href: "/aspiredu/eot/spring", label: "Spring EOT Grade Report" },
   { href: "/aspiredu/students", label: "Student follow-up" },

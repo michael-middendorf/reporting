@@ -210,7 +210,7 @@ export const ATHLETICS_PROVISIONAL_COLUMNS: ColumnDef[] = [
   ...ADDRESS_INSTRUCTOR,
 ];
 
-export const SUMMER1_PROVISIONAL_COLUMNS: ColumnDef[] = [
+export const FALL_PROVISIONAL_COLUMNS: ColumnDef[] = [
   pcid(),
   lastName(),
   firstName(),
@@ -448,11 +448,11 @@ export const ATHLETICS_PROVISIONAL: ReportDef = {
   sheets: [{ name: "Sheet1", kind: "course", columns: ATHLETICS_PROVISIONAL_COLUMNS }],
 };
 
-export const SUMMER1_PROVISIONAL: ReportDef = {
-  id: "summer1-provisional",
-  title: "Summer 1 Athletic Provisional",
-  filename: "SU 1 Athletic Provisional report.xlsx",
-  sheets: [{ name: "Sheet1", kind: "course", columns: SUMMER1_PROVISIONAL_COLUMNS }],
+export const FALL_PROVISIONAL: ReportDef = {
+  id: "fall-provisional",
+  title: "Fall Athletic Provisional",
+  filename: "Fall Athletic Provisional report.xlsx",
+  sheets: [{ name: "Sheet1", kind: "course", columns: FALL_PROVISIONAL_COLUMNS }],
 };
 
 export const ATHLETICS_GRADE: ReportDef = {
@@ -511,7 +511,7 @@ export const SSS_MASTER: ReportDef = {
 
 export const ALL_REPORTS: ReportDef[] = [
   ATHLETICS_PROVISIONAL,
-  SUMMER1_PROVISIONAL,
+  FALL_PROVISIONAL,
   ATHLETICS_GRADE,
   SPRING_EOT,
   SSS_MASTER,
@@ -631,8 +631,8 @@ export function buildAthleticsProvisionalWorkbook(rows: CourseRow[]): Uint8Array
   return buildReportWorkbook(ATHLETICS_PROVISIONAL, rows);
 }
 
-export function buildSummer1ProvisionalWorkbook(rows: CourseRow[]): Uint8Array {
-  return buildReportWorkbook(SUMMER1_PROVISIONAL, rows);
+export function buildFallProvisionalWorkbook(rows: CourseRow[]): Uint8Array {
+  return buildReportWorkbook(FALL_PROVISIONAL, rows);
 }
 
 export function buildAthleticsGradeWorkbook(rows: CourseRow[]): Uint8Array {

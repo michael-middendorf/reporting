@@ -71,14 +71,20 @@ function gradeDistribution(rows: CourseRow[]) {
   return [...byCourse.entries()].sort(([a], [b]) => a.localeCompare(b));
 }
 
-function termGroupLabel(termGroup?: "summer1" | "spring") {
+type TermGroup = "summer1" | "spring" | "fall";
+
+function termGroupLabel(termGroup?: TermGroup) {
+  if (termGroup === "fall") return "Fall terms";
   if (termGroup === "summer1") return "Summer 1 terms";
   if (termGroup === "spring") return "Spring terms";
   return "All terms";
 }
 
-function emptyTermStatus(termGroup: "summer1" | "spring" | undefined, hasTerms: boolean, empty: boolean) {
+function emptyTermStatus(termGroup: TermGroup | undefined, hasTerms: boolean, empty: boolean) {
   if (!empty || !hasTerms || !termGroup) return "";
+  if (termGroup === "fall") {
+    return "No Fall course term in the latest AspireDU file. Use Athletics Provisional for all terms, or pick a vendor term below.";
+  }
   if (termGroup === "summer1") {
     return "No Summer 1 course term in the latest AspireDU file. Use Athletics Provisional for all terms, or pick a vendor term below.";
   }
@@ -92,7 +98,7 @@ export function CourseReport({
   excelDownloads = [],
 }: {
   heading: string;
-  termGroup?: "summer1" | "spring";
+  termGroup?: TermGroup;
   showGradeDistribution?: boolean;
   excelDownloads?: ExcelDownloadSpec[];
 }) {
