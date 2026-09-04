@@ -94,11 +94,6 @@ export default function AcademicAffairsHubPage() {
         <ReportTopBar title="Academic Affairs" nav={ASPIREDU_NAV} />
         <main className={styles.content}>
           <h1>Academic Affairs</h1>
-          <p className={styles.notice}>
-            Deidentified snapshot totals follow the report links. Signed-in Academic Affairs users can open student and
-            course reports. Excel templates keep every original column. Dropout Detective fields fill from this AspireDU
-            feed. PowerCampus values (sport, GPA, credits, and the rest) stay blank until those extracts are supplied.
-          </p>
           {status && <p>{status}</p>}
           <div className={styles.cardGrid}>
             {REPORTS.map((report) => (
