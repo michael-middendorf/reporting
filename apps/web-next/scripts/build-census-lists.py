@@ -49,7 +49,7 @@ FA25_ROSTER = CENSUS_DIR / "FA25 Athlete Roster For Slate.xlsx"
 FA25_HOUSING = CENSUS_DIR / "Copy of 9.4.2025 CENSUS Fall 25.xlsx"
 FA26_ENTRY = DOWNLOADS / "Roster -_ Housing Report 20260821-155657.xlsx"
 # This-fall FA26 roster only. FA25 gold stays FA25_ROSTER.
-FA26_ROSTER = DOWNLOADS / "Census athletes 20260904-093234.xlsx"
+FA26_ROSTER = DOWNLOADS / "Census athletes 20260904-122251.xlsx"
 ROSTER_KEEP = {"Roster - Athlete", "Roster - Athletic Associated"}
 # Gold Resident/Commuter was blank and not in the FA25 eRez extract.
 FA25_RESIDENCY_FILL = {
@@ -608,7 +608,9 @@ def apply_residency_overlay(registered_rows: list[dict], extra_rows: list[dict])
                 by_pair[(pid, prog)] = overlay
                 by_pcid[pid].append(overlay)
             else:
-                merge_onto(existing[0], overlay)
+                # Campus extra program: residency only. Do not paste UNDERG BARTS onto a GRAD row.
+                if overlay.get("resComm"):
+                    existing[0]["resComm"] = overlay["resComm"]
             continue
         if existing:
             merge_onto(existing[0], overlay)
@@ -1040,6 +1042,44 @@ def apply_sport_notes(rows: list[dict], notes: dict[str, str] | None = None) -> 
     return n
 
 
+# Registration Status-29 primary rows. Overlay must not leave these as dual-BA UG.
+CAMPUS_GRAD_SPINE = {
+    "P000385969": {  # Javier Guido — MA Theology, not BARTS
+        "program": "GRAD",
+        "degree": "MARTS",
+        "curriculum": "MATHEO",
+        "curriculumName": "M.A. in Theology",
+        "classLevel": "GRAD",
+        "fullPart": "HALF",
+        "credits": 8,
+        "collegeAttend": "GRAD",
+        "incomingReturning": "Incoming",
+    },
+    "P000391293": {  # Felix Horstkotte — MBA
+        "program": "GRAD",
+        "degree": "MBA",
+        "curriculum": "MNGTCO",
+        "curriculumName": "Busn Administration",
+        "classLevel": "First-Year Grad",
+        "fullPart": "FULL",
+        "credits": 12,
+        "collegeAttend": "GRAD",
+        "incomingReturning": "Incoming",
+    },
+}
+
+
+def apply_campus_grad_spine(rows: list[dict]) -> int:
+    n = 0
+    for s in rows:
+        rec = CAMPUS_GRAD_SPINE.get(norm(s.get("pcid")))
+        if not rec:
+            continue
+        s.update(rec)
+        n += 1
+    return n
+
+
 def apply_class_notes(rows: list[dict], notes: dict[str, str] | None = None) -> int:
     src = notes if notes is not None else {"P000389994": "Freshman"}
     n = 0
@@ -1059,12 +1099,13 @@ def patch_roster_only() -> None:
     roster = load_fa26_roster()
     stamped, cleared = apply_fa26_roster(students, roster)
     n_notes = apply_sport_notes(students)
+    n_grad = apply_campus_grad_spine(students)
     payload["students"] = students
     path.write_text(json.dumps(payload, default=str))
     n_ath = sum(1 for s in students if s.get("athlete") == "Athlete")
     print(
         f"FA26 roster overlay stamped {stamped} cleared {cleared} "
-        f"sport notes {n_notes}; athletes {n_ath} of {len(students)}"
+        f"sport notes {n_notes} campus grad spine {n_grad}; athletes {n_ath} of {len(students)}"
     )
 
 
@@ -1628,6 +1669,7 @@ def main() -> None:
     n_roster_stamp, n_roster_clear = apply_fa26_roster(students)
     n_sport_notes = apply_sport_notes(students)
     n_class_notes = apply_class_notes(students)
+    n_grad_spine = apply_campus_grad_spine(students)
     underg_only = {"P000390750"}
     students = [s for s in students if not (s["pcid"] in underg_only and str(s.get("program") or "").upper() == "GRAD")]
     apply_sport_notes(prior)
@@ -1751,7 +1793,7 @@ def main() -> None:
         f"chesterton DE {n_chesterton}\n"
         f"spring/summer admits marked Returning {n_spring}\n"
         f"fa25 roster overlay {n_fa25_roster}\n"
-        f"fa26 roster overlay stamped {n_roster_stamp} cleared {n_roster_clear} sport notes {n_sport_notes} class notes {n_class_notes}\n"
+        f"fa26 roster overlay stamped {n_roster_stamp} cleared {n_roster_clear} sport notes {n_sport_notes} class notes {n_class_notes} campus grad spine {n_grad_spine}\n"
         f"fa25 housing overlay {n_fa25_housing}\n"
         f"international {len(intl)} on students {n_intl}\n"
         f"honors file {len(honors)} eot gpas {len(eot_gpa)} scholar roster {len(scholar_emails)} unmatched {len(unmatched_scholars)}\n"
