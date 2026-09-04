@@ -1476,7 +1476,6 @@ const CENSUS_RAW_HEADERS = [
   "City",
   "Credits",
   "Cumulative GPA",
-  "Cumulative Earned Credits",
   "Resident / Commuter",
   "Athletic Assoc. (Athlet.)",
   "Athlete/Non-Athlete",
@@ -1501,8 +1500,8 @@ const CENSUS_RAW_HEADERS = [
 ];
 
 const CENSUS_RAW_WIDTHS = [
-  14, 16, 18, 16, 8, 16, 14, 12, 10, 12, 14, 14, 12, 22, 12, 10, 16, 10, 12, 14, 16, 16, 22, 16, 16, 22, 10, 10, 12, 12,
-  14, 16, 12, 10, 32, 12, 12, 10, 8, 8, 8,
+  14, 16, 18, 16, 8, 16, 14, 12, 10, 12, 14, 14, 12, 22, 12, 10, 16, 10, 12, 16, 16, 22, 16, 16, 22, 10, 10, 12, 12, 14,
+  16, 12, 10, 32, 12, 12, 10, 8, 8, 8,
 ];
 
 function amuAlumniCell(s: CensusRawStudent, alumniIds: Set<string>): string {
@@ -1531,7 +1530,6 @@ function rawRow(s: CensusRawStudent, alumniIds: Set<string> = new Set()): CellVa
     s.city,
     s.credits,
     s.gpa,
-    s.earnedCredits,
     displayCensusResidency(s.residency),
     s.sport,
     s.athlete,
