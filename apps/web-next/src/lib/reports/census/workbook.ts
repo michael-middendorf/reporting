@@ -1032,12 +1032,14 @@ function writeAttrition(
     ws.width(i + 1, w);
   });
   ws.set(1, 1, `Fall 2025 Incoming FTCA Cohort Attrition${opts?.titleSuffix ?? ""}`, TITLE18);
+  ws.merge(2, 1, 2, 23);
   ws.set(
     2,
     1,
     opts?.note || "Cohort = FA25 Incoming+FTCA 392 minus Aiden Wilson = 391.",
     NOTE,
   );
+  if (opts?.note) ws.height(2, 32);
 
   const a = data.ftcaAttrition;
   const colA = 1;
@@ -2101,6 +2103,7 @@ export async function buildCensusWorkbook(
   writeAttrition(wb, noFbData, noFbFtcaExtras, {
     sheetName: "FA25 FTCA no Football",
     titleSuffix: " (Football removed)",
+    note: `Cohort = FA25 Incoming+FTCA 392 minus Aiden Wilson = 391. ${NO_FOOTBALL_HISTORY_NOTE}`,
   });
   writeFtcaRaw(wb, ftcaRaw);
   const alumniIds = amuUndergraduateAlumniIds(lists.prior, lists.graduates);

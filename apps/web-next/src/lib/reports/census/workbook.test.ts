@@ -371,6 +371,9 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   const noFbFtcaXml = files["xl/worksheets/sheet7.xml"];
   assert.match(noFbFtcaXml, /Football removed/);
   assert.match(noFbFtcaXml, /Incoming FTCA/);
+  assert.match(noFbFtcaXml, /Football removed from each prior fall-to-fall gold file/);
+  assert.match(noFbFtcaXml, /Aiden Wilson/);
+  assert.doesNotMatch(attritionXml, /Football removed from each prior fall-to-fall gold file/);
   const ftcaRawXml = files["xl/worksheets/sheet8.xml"];
   assert.match(ftcaRawXml, /DOB \(Needs data\)/);
   assert.match(ftcaRawXml, /HS GPA \(Needs data\)/);
