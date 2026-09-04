@@ -15,7 +15,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 - FA26 spine: `Downloads/Registration Status-29.xlsx` (was -27 through 2 Sep). Unique PCID grand total. Dual UG+GRAD only for Lux Mundi/Ireland extras. Residency overlays: `-6` campus, `-8` Ireland, `-7` Lux Mundi.
 - Mary's Marines FA26: `Downloads/Mary's Marines_As of 9-1-26.xlsx` (410 unique PCIDs). Replaces the Registration Status Sport flag.
 - Households FA26: `Downloads/Household Roster.xlsx` (Fall sheets; match email then name). FA25 household is the gold Census Raw column.
-- Chesterton: extract `20260901-103435.xlsx` column **DE Type**. 76 rows, **1** filled (`Chesterton` = Gianna Cox, not on FA26). Blank is not Chesterton. Summary Chesterton dual = **0**.
+- Dual enrollment: on-campus = College Attend DUAL / Degree HSDE. Online = Early College EACO/EACOL (Chesterton). Online is not inside the on-campus dual count. DE Type Chesterton extract still applies when filled.
 - Housing: eRez + FA25 `Copy of 9.4.2025 CENSUS Fall 25.xlsx` (residence-applications).
 - Unretained notes: `Downloads/Census retention sheet.xlsx` col R (`intend to return/not return`).
 - Graduates / alumni: `Graduated %2D All-15.xlsx` (was -14). Intervening year is Fall 2025, Spring 2026, and Summer 2026. Alumni admits use undergraduate degrees on this extract.

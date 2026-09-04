@@ -97,8 +97,8 @@ export function CensusReport({
       <div className="sheet-grid">
         <div className="sheet-col">
           <SheetTable title="States" headers={["States", "Students", "Percentage"]} rows={countRows(states, 2)} />
-          <SheetTable title="Florida" headers={["Florida", "Students", "Percentage"]} rows={countRows(floridaAthlete)} />
-          <SheetTable title="Florida" headers={["Florida", "Students", "Percentage"]} rows={countRows(floridaCatholic)} />
+          <SheetTable title="Florida (all UG)" headers={["Florida (all UG)", "Students", "Percentage"]} rows={countRows(floridaAthlete)} />
+          <SheetTable title="Florida (all UG)" headers={["Florida (all UG)", "Students", "Percentage"]} rows={countRows(floridaCatholic)} />
           <SheetTable
             title="UG by Gender"
             headers={["Row Labels", "Full", "Half", "Less", "Other(THRE)", "Total"]}

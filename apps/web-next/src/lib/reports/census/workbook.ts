@@ -244,6 +244,7 @@ function writeSummary(wb: XlsxWorkbook, data: CensusSnapshot) {
     { label: "TRAN", c: s.tran, indent: true },
     { label: "READ", c: s.read, indent: true },
     { label: "SECB", c: s.secb, indent: true },
+    { label: "Other", c: s.newOther, indent: true },
     { label: "Lux Mundi", c: s.luxMundiUg, indent: true },
     { label: "Returning Students", c: s.returning },
     { label: "Mount Melleray Abbey", c: s.ireland, indent: true },
@@ -255,20 +256,20 @@ function writeSummary(wb: XlsxWorkbook, data: CensusSnapshot) {
       hcText: `${s.degreeSeeking.headcount.toLocaleString()} (${ft.toLocaleString()} Full Time)`,
     },
     { label: "" },
-    { label: "High School Dual Enrollment", c: s.dualEnrollment },
-    { label: "Chesterton", c: s.chestertonDual, indent: true },
+    { label: "On-campus dual enrollment", c: s.dualEnrollment },
+    { label: "Online dual enrollment", c: s.chestertonDual },
     { label: "Non-Degree-Seeking / Personal Enrichment", c: s.nonDegree },
     { label: "Lux Mundi Non-Degree-Seeking / Personal Enrichment", c: s.luxMundiNonDegree },
     { label: "" },
     { label: "TOTAL UNDERGRADUATE ENROLLMENT", c: s.totalUndergraduate, total: true },
     { label: "" },
     { label: "MA Philosophy", c: s.gradMaPhil },
-    { label: "MA Theology", c: s.gradMa },
+    { label: "MA Theology on-campus", c: s.gradMa },
     { label: "PhD Theology", c: s.gradPhd },
     { label: "MBA", c: s.gradMba },
     { label: "M. Education", c: s.gradMedcl },
     { label: "MA CRW", c: s.gradMaCrw },
-    { label: "Graduate MA Theo (Online) - Lux Mundi", c: s.luxMundiGrad },
+    { label: "MA Theology online", c: s.luxMundiGrad },
     { label: "" },
     { label: "TOTAL GRADUATE ENROLLMENT", c: s.totalGraduate, total: true },
     { label: "" },
@@ -524,12 +525,12 @@ function writeCensusReport(
     pctCols: [2],
     total: true,
   });
-  b = writeCountTable(ws, b + 2, col.b, "", ["Florida", "Students", "Percentage"], labeledRows(t.floridaAthlete), {
+  b = writeCountTable(ws, b + 2, col.b, "", ["Florida (all UG)", "Students", "Percentage"], labeledRows(t.floridaAthlete), {
     intCols: [1],
     pctCols: [2],
     total: true,
   });
-  b = writeCountTable(ws, b + 2, col.b, "", ["Florida", "Students", "Percentage"], labeledRows(t.floridaCatholic), {
+  b = writeCountTable(ws, b + 2, col.b, "", ["Florida (all UG)", "Students", "Percentage"], labeledRows(t.floridaCatholic), {
     intCols: [1],
     pctCols: [2],
     total: true,

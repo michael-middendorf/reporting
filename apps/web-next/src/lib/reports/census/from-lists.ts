@@ -150,6 +150,7 @@ export function summaryFromStudents(students: CensusRawStudent[]): CensusSummary
     tran: hcFte(byCollege("TRAN")),
     read: hcFte(byCollege("READ")),
     secb: hcFte(byCollege("SECB")),
+    newOther: hcFte(incoming.filter((s) => !["FTCA", "TRAN", "READ", "SECB"].includes(college(s)))),
     luxMundiUg: hcFte(ugds.filter(isLuxMundi)),
     returning: hcFte(returning),
     ireland: hcFte(ugds.filter(isIrelandStudent)),
@@ -179,25 +180,25 @@ export function summaryFromStudents(students: CensusRawStudent[]): CensusSummary
 
 export const GRAD_PROGRAM_ORDER = [
   "MA Philosophy",
-  "MA Theology",
+  "MA Theology on-campus",
   "PhD Theology",
   "MBA",
   "M. Education",
   "MA CRW",
-  "Lux Mundi MA Theology",
+  "MA Theology online",
   "Other",
 ] as const;
 
 export function graduateProgramLabel(s: CensusRawStudent): string | null {
   if (program(s) !== "GRAD" || isBachelorDegree(degree(s))) return null;
-  if (isLuxMundi(s)) return "Lux Mundi MA Theology";
+  if (isLuxMundi(s)) return "MA Theology online";
   const d = degree(s);
   if (isMaPhil(s)) return "MA Philosophy";
   if (isMaCrw(s)) return "MA CRW";
   if (d === "PHD") return "PhD Theology";
   if (d === "MBA") return "MBA";
   if (d === "MEDCL" || /educ/i.test(`${s.curriculum || ""} ${s.curriculumName || ""}`)) return "M. Education";
-  if (d === "MARTS") return "MA Theology";
+  if (d === "MARTS") return "MA Theology on-campus";
   return "Other";
 }
 
@@ -294,7 +295,7 @@ export function summerGraduateDegreeLabel(g: { program?: string; degree?: string
   if (d === "PHD") return "PhD Theology";
   if (d === "MBA") return "MBA";
   if (d === "MEDCL") return "M. Education";
-  if (d === "MARTS") return "MA Theology";
+  if (d === "MARTS") return "MA Theology on-campus";
   if (d === "MAPHIL") return "MA Philosophy";
   return d || "Other";
 }
@@ -414,6 +415,8 @@ export const SUMMARY_DEFS: Record<string, string> = {
   TRAN: "Incoming UG degree-seeking with College Attend = TRAN (transfer).",
   READ: "Incoming UG degree-seeking with College Attend = READ (readmit).",
   SECB: "Incoming UG degree-seeking with College Attend = SECB (second bachelor's).",
+  Other:
+    "Incoming UG degree-seeking whose College Attend is not FTCA, TRAN, READ, or SECB (blank college or dual-BA coded GRAD).",
   "Lux Mundi": "UG degree-seeking with Session 01LuxMundi. Breakout; also in Incoming / Returning.",
   "Returning Students":
     "UG degree-seeking who were already on the Fall 2025 census. Mount Melleray Abbey is included here.",
@@ -421,22 +424,23 @@ export const SUMMARY_DEFS: Record<string, string> = {
     "UG degree-seeking on session 03Ireland (Mount Melleray Abbey). Breakout only — also in Returning and Total Degree-Seeking. Not On Campus.",
   "On Campus": "UG degree-seeking in residence halls. Residential = On Campus. Mount Melleray Abbey is separate.",
   "Total Degree-Seeking": "Program = UNDERG and College Attend not DUAL, EACO, or ND. Incoming + Returning.",
-  "High School Dual Enrollment":
-    "College Attend = DUAL or Degree = HSDE only. About 70 this fall. Early College (EACO) is Chesterton, not this line. FTE is credits/12 when Full/Part is blank.",
-  Chesterton:
-    "Early College (Program EACOL / College Attend EACO), plus dual enrollment with DE Type = Chesterton. Breakout only.",
+  "On-campus dual enrollment":
+    "College Attend = DUAL or Degree = HSDE. Early College (EACO) is Online dual enrollment, not this line. FTE is credits/12 when Full/Part is blank.",
+  "Online dual enrollment":
+    "Early College (Program EACOL / College Attend EACO), plus dual enrollment with DE Type = Chesterton. Not inside on-campus dual enrollment.",
   "Non-Degree-Seeking / Personal Enrichment":
     "Everyone who is not UG degree-seeking, not dual enrollment, and not Program = GRAD (ND / PENRIC / NONDEG / EACO).",
   "Lux Mundi Non-Degree-Seeking / Personal Enrichment":
     "Non-degree rows with Session 01LuxMundi. Not UG Lux Mundi and not graduate Lux Mundi.",
   "TOTAL UNDERGRADUATE ENROLLMENT": "UG degree-seeking + dual enrollment + non-degree.",
   "MA Philosophy": "Program = GRAD, curriculum MAPHIL (M.A. in Philosophy). Excludes Lux Mundi.",
-  "MA Theology": "Program = GRAD, curriculum MATHEO (M.A. in Theology), excluding Lux Mundi. Same series as prior-year Graduate MA Students.",
+  "MA Theology on-campus":
+    "Program = GRAD, curriculum MATHEO (M.A. in Theology), excluding Lux Mundi. Same series as prior-year Graduate MA Students.",
   "PhD Theology": "Program = GRAD, Degree = PHD (Ph.D. Theology).",
   MBA: "Program = GRAD, Degree = MBA.",
   "M. Education": "Program = GRAD, Degree = MEdCL (M.Ed. Catholic Educational Leadership).",
   "MA CRW": "Program = GRAD, curriculum MACOMM. Same line as FA25 Summary MA CRW / Historical Graduate MA Comm.",
-  "Graduate MA Theo (Online) - Lux Mundi": "Program = GRAD and Session 01LuxMundi. Counted in Total Graduate, not in campus MA Theology.",
+  "MA Theology online": "Program = GRAD and Session 01LuxMundi. Counted in Total Graduate, not in campus MA Theology.",
   "TOTAL GRADUATE ENROLLMENT": "Program = GRAD (Philosophy + Theology + PhD + MBA + M.Ed + CRW + Lux Mundi).",
   "Graduate & Undergraduate Enrollment":
     "All Registration Status rows for Fall 2026. Same number as the All students box.",

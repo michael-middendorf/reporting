@@ -20,6 +20,7 @@ export type CensusSummary = {
   tran: CountFte;
   read: CountFte;
   secb: CountFte;
+  newOther?: CountFte;
   luxMundiUg: CountFte;
   returning: CountFte;
   ireland: CountFte;
@@ -62,17 +63,17 @@ export const HISTORICAL_ROWS: {
   { label: "Mount Melleray Abbey", key: "ireland", indent: true },
   { label: "Total Degree-Seeking", key: "degreeSeeking", total: true, bold: true },
   { label: "" },
-  { label: "High School Dual Enrollment", key: "dualEnrollment", bold: true },
-  { label: "Chesterton", key: "chestertonDual", indent: true },
+  { label: "On-campus dual enrollment", key: "dualEnrollment", bold: true },
+  { label: "Online dual enrollment", key: "chestertonDual" },
   { label: "Non-Degree-Seeking / Personal Enrichment", key: "nonDegree", bold: true },
   { label: "Lux Mundi Non-Degree-Seeking / Personal Enrichment", key: "luxMundiNonDegree" },
   { label: "" },
   { label: "TOTAL UNDERGRADUATE ENROLLMENT", key: "totalUndergraduate", total: true, bold: true },
   { label: "" },
   { label: "Graduate Phil", key: "gradMaPhil" },
-  { label: "Graduate MA Students:", key: "gradMa" },
+  { label: "MA Theology on-campus", key: "gradMa" },
   { label: "Graduate PhD Students:", key: "gradPhd" },
-  { label: "Graduate MA Theo (Online) - Lux Mundi", key: "luxMundiGrad" },
+  { label: "MA Theology online", key: "luxMundiGrad" },
   { label: "Graduate MBA Students:", key: "gradMba" },
   { label: "Graduate MEdCl", key: "gradMedcl" },
   { label: "Graduate MA Comm", key: "gradMaCrw" },

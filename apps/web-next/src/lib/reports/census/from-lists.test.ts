@@ -154,6 +154,7 @@ test("GRAD program with BARTS is UG, not Other on the graduate tab", () => {
   const sum = summaryFromStudents(rows);
   assert.equal(sum.degreeSeeking.headcount, 2);
   assert.equal(sum.newStudents.headcount, 1);
+  assert.equal(sum.newOther?.headcount, 1, "incoming dual-BA is Other, not FTCA/TRAN/READ/SECB");
   assert.equal(sum.returning.headcount, 1);
   assert.equal(sum.totalGraduate.headcount, 1);
   assert.equal(sum.gradMba.headcount, 1);
@@ -309,7 +310,7 @@ test("summer graduate counts include every Summer 2026 degree", () => {
     [
       { program: "B.A.", n: 1 },
       { program: "B.S.", n: 1 },
-      { program: "MA Theology", n: 1 },
+      { program: "MA Theology on-campus", n: 1 },
       { program: "MBA", n: 2 },
     ],
   );
