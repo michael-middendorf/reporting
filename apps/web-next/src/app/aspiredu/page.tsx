@@ -12,15 +12,12 @@ import {
   triggerXlsxDownload,
 } from "@/lib/aspiredu-exact-reports";
 import { loadAllCourses } from "@/lib/aspiredu-load-courses";
-import { riskHistogramBuckets, riskHistogramPercent } from "@/lib/aspiredu-risk-histogram";
 import styles from "./aspiredu.module.css";
 
 type Summary = {
   asOf?: string;
   studentCount?: number;
   courseCount?: number;
-  riskBands?: Record<string, number>;
-  riskScores?: Record<string, number>;
 };
 
 const REPORTS = [
@@ -48,7 +45,6 @@ const REPORTS = [
 
 export default function AcademicAffairsHubPage() {
   const [latest, setLatest] = useState<Summary | null>(null);
-  const [history, setHistory] = useState<Summary[]>([]);
   const [status, setStatus] = useState("Loading daily risk summary…");
   const [downloadStatus, setDownloadStatus] = useState("");
 
@@ -60,7 +56,6 @@ export default function AcademicAffairsHubPage() {
       })
       .then((body) => {
         setLatest(body.latest || null);
-        setHistory(body.history || []);
         setStatus(body.latest ? "" : "Awaiting the first AspireDU statistics delivery.");
       })
       .catch((error) => setStatus(error instanceof Error ? error.message : "Unable to load summary"));
@@ -141,54 +136,6 @@ export default function AcademicAffairsHubPage() {
             </div>
             {downloadStatus && <p>{downloadStatus}</p>}
           </section>
-          {history.length > 0 && (
-            <section className={styles.panel}>
-              <h2>Recent snapshots</h2>
-              <div className={styles.tableWrap}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>As of</th>
-                      <th>Students</th>
-                      <th>At 0</th>
-                      <th>Above 0</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {history.map((item, index) => {
-                      const hist = riskHistogramBuckets(item.riskScores || item.riskBands);
-                      const atZeroPct = riskHistogramPercent(hist.atZero, hist.total);
-                      const atZeroLabel =
-                        hist.total > 0
-                          ? `${hist.atZero.toLocaleString()} (${atZeroPct}%)`
-                          : "—";
-                      const aboveZeroLabel =
-                        hist.total > 0
-                          ? `${hist.aboveZero.toLocaleString()} (${riskHistogramPercent(hist.aboveZero, hist.total)}%)`
-                          : "—";
-                      return (
-                        <tr key={`${item.asOf || "snapshot"}-${index}`}>
-                          <td>{item.asOf ? new Date(item.asOf).toLocaleString() : "Unknown"}</td>
-                          <td>{item.studentCount ?? 0}</td>
-                          <td>
-                            <div className={styles.snapSplit}>
-                              <span className={styles.histCount}>{atZeroLabel}</span>
-                              {hist.total > 0 ? (
-                                <div className={styles.snapBar} aria-hidden="true">
-                                  <span className={styles.snapBarZero} style={{ width: `${atZeroPct}%` }} />
-                                </div>
-                              ) : null}
-                            </div>
-                          </td>
-                          <td className={styles.histCount}>{aboveZeroLabel}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          )}
         </main>
       </div>
     </AccessGate>

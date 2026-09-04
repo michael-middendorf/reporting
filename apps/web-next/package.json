@@ -16,7 +16,7 @@
     "test:stained-glass-windows": "npx tsx --test src/lib/reports/stained-glass-windows/shape.test.ts",
     "test:fall-appeal": "npx tsx --test src/lib/reports/fall-appeal/shape.test.ts",
     "test:access": "npx tsx --test src/lib/access.test.ts src/lib/report-nav.test.ts src/lib/reports/athletics-coaching/sports.test.ts src/lib/reports/athletics-coaching/enrollment.test.ts src/lib/reports/athletics-coaching/fundraising.test.ts src/lib/reports/athletics-coaching/academics.test.ts src/app/api/athletics-coaching/enrollment/route.test.ts src/app/api/athletics-coaching/fundraising/route.test.ts src/app/api/athletics-coaching/academics/route.test.ts src/app/aspiredu/api/students/route.test.ts src/app/aspiredu/api/mfa/enroll/route.test.ts src/app/aspiredu/api/auth/status/route.test.ts",
-    "test:aspiredu": "npx tsx --test src/lib/aspiredu-exact-reports.test.ts src/lib/aspiredu-risk-histogram.test.ts",
+    "test:aspiredu": "npx tsx --test src/lib/aspiredu-exact-reports.test.ts",
     "test:mfa": "npx tsx --test src/lib/totp.test.ts src/lib/auth-mfa.test.ts src/lib/webauthn.test.ts src/app/aspiredu/api/courses/route.test.ts src/app/aspiredu/api/mfa/verify/route.test.ts"
   },
   "dependencies": {
