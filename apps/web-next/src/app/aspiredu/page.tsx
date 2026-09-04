@@ -12,7 +12,7 @@ import {
   triggerXlsxDownload,
 } from "@/lib/aspiredu-exact-reports";
 import { loadAllCourses } from "@/lib/aspiredu-load-courses";
-import { riskHistogramBuckets, riskHistogramNonZeroSummary } from "@/lib/aspiredu-risk-histogram";
+import { riskHistogramBuckets, riskHistogramPercent } from "@/lib/aspiredu-risk-histogram";
 import styles from "./aspiredu.module.css";
 
 type Summary = {
@@ -66,9 +66,8 @@ export default function AcademicAffairsHubPage() {
       .catch((error) => setStatus(error instanceof Error ? error.message : "Unable to load summary"));
   }, []);
 
-  const buckets = riskHistogramBuckets(latest?.riskScores || latest?.riskBands);
-  const peak = Math.max(1, ...buckets.map((bucket) => bucket.count));
-  const histogramSummary = riskHistogramNonZeroSummary(buckets);
+  const histogram = riskHistogramBuckets(latest?.riskScores || latest?.riskBands);
+  const peak = Math.max(0, ...histogram.bins.map((bin) => bin.count));
 
   function downloadGap() {
     triggerXlsxDownload(GAP_WORKBOOK_FILENAME, buildPowerCampusGapWorkbook());
@@ -131,43 +130,52 @@ export default function AcademicAffairsHubPage() {
                   </div>
                 )}
               </div>
-              {buckets.length > 0 && (
+              {histogram.total > 0 && (
                 <figure className={styles.histogramFigure}>
                   <h2 id="risk-histogram-heading">Dropout Detective overall risk</h2>
-                  <div className={styles.histogramScroll}>
-                    <div
-                      className={styles.histogram}
-                      role="list"
-                      aria-labelledby="risk-histogram-heading"
-                    >
-                      {buckets.map((bucket) => {
-                        const label = `Risk ${bucket.score}: ${bucket.count} course rows`;
-                        const height = (bucket.count / peak) * 100;
-                        return (
-                          <div
-                            className={styles.histCol}
-                            key={bucket.score}
-                            role="listitem"
-                            aria-label={label}
-                            title={label}
-                          >
-                            <span className={styles.histCount} aria-hidden="true">
-                              {bucket.count === 0 ? "\u00a0" : bucket.count.toLocaleString()}
-                            </span>
-                            <div className={styles.histBarTrack} aria-hidden="true">
-                              <div className={styles.histBar} style={{ height: `${height}%` }} />
-                            </div>
-                            <span className={styles.histLabel} aria-hidden="true">
-                              {bucket.score}
-                            </span>
-                          </div>
-                        );
-                      })}
+                  <div className={styles.histogramStats}>
+                    <div>
+                      <span>At 0</span>
+                      <strong>
+                        {histogram.atZero.toLocaleString()} ({riskHistogramPercent(histogram.atZero, histogram.total)}%)
+                      </strong>
+                    </div>
+                    <div>
+                      <span>Above 0</span>
+                      <strong>
+                        {histogram.aboveZero.toLocaleString()} ({riskHistogramPercent(histogram.aboveZero, histogram.total)}%)
+                      </strong>
                     </div>
                   </div>
-                  {histogramSummary && (
-                    <p className={styles.histogramSummary}>{histogramSummary}</p>
-                  )}
+                  <div
+                    className={styles.histogram}
+                    role="list"
+                    aria-labelledby="risk-histogram-heading"
+                  >
+                    {histogram.bins.map((bin) => {
+                      const width = peak > 0 ? (bin.count / peak) * 100 : 0;
+                      const percent = riskHistogramPercent(bin.count, histogram.total);
+                      const label = `Risk ${bin.label}: ${bin.count.toLocaleString()} course rows`;
+                      return (
+                        <div
+                          className={styles.histRow}
+                          key={bin.label}
+                          role="listitem"
+                          aria-label={label}
+                        >
+                          <span className={styles.histLabel} aria-hidden="true">
+                            {bin.label}
+                          </span>
+                          <div className={styles.histBarTrack} aria-hidden="true">
+                            <div className={styles.histBar} style={{ width: `${width}%` }} />
+                          </div>
+                          <span className={styles.histCount} aria-hidden="true">
+                            {bin.count.toLocaleString()} ({percent}%)
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                   <figcaption className={styles.histogramCaption}>
                     This counts course rows, not unique students (the same student can appear more than once).
                   </figcaption>

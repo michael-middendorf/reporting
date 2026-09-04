@@ -232,75 +232,78 @@
 }
 
 .histogramFigure h2 {
-  margin: 0 0 14px;
+  margin: 0 0 12px;
   font-size: 18px;
 }
 
-.histogramScroll {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+.histogramStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  margin: 0 0 16px;
+}
+
+.histogramStats span {
+  display: block;
+  color: var(--t2);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.histogramStats strong {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
 }
 
 .histogram {
   display: flex;
-  align-items: flex-end;
-  gap: 6px;
-  min-width: max-content;
-  width: 100%;
-}
-
-.histCol {
-  display: flex;
   flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.histRow {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: flex-end;
-  flex: 1 0 36px;
-  min-width: 36px;
-}
-
-.histCount {
-  white-space: nowrap;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--blue);
-  font-variant-numeric: tabular-nums;
-  margin-bottom: 4px;
-  line-height: 1;
-  min-height: 10px;
-}
-
-.histBarTrack {
-  width: 100%;
-  max-width: 36px;
-  height: 140px;
-  display: flex;
-  align-items: flex-end;
-  background: var(--pale);
-  border-radius: 4px 4px 0 0;
-}
-
-.histBar {
-  width: 100%;
-  min-height: 0;
-  background: var(--blue);
-  border-radius: 4px 4px 0 0;
+  gap: 10px;
+  min-width: 0;
 }
 
 .histLabel {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--t2);
-  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.histBarTrack {
+  height: 14px;
+  min-width: 0;
+  background: var(--pale);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.histBar {
+  height: 100%;
+  min-width: 0;
+  background: var(--blue);
+  border-radius: 999px;
+}
+
+.histCount {
+  text-align: right;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--blue);
   font-variant-numeric: tabular-nums;
 }
 
-.histogramSummary {
-  margin: 12px 0 0;
-  color: var(--t2);
-  font-size: 13px;
-}
-
 .histogramCaption {
-  margin: 8px 0 0;
+  margin: 12px 0 0;
   color: var(--t2);
   font-size: 13px;
 }
