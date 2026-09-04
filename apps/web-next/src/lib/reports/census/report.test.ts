@@ -465,6 +465,18 @@ test("sports are A–Z; athlete tables list Athlete before Non-Athlete", () => {
   );
 });
 
+test("majors table is primary curriculum, one count per student", () => {
+  const rows = set([
+    raw({ pcid: "1", curriculumName: "Biology", classLevel: "Freshman" }),
+    raw({ pcid: "2", curriculumName: "Biology", classLevel: "Senior" }),
+    raw({ pcid: "3", curriculumName: "Theology", classLevel: "Junior" }),
+  ]);
+  const rpt = buildReport(filterStudents(rows, DEFAULT_FILTERS));
+  assert.equal(rpt.majors.reduce((s, m) => s + m.total, 0), 3);
+  assert.equal(rpt.majors.find((m) => m.label === "Biology")?.total, 2);
+  assert.equal(rpt.majors.find((m) => m.label === "Theology")?.total, 1);
+});
+
 test("CTHSTD majors display as Catholic Studies", () => {
   const rows = set([
     raw({ pcid: "1", curriculum: "CTHSTD", curriculumName: "CTHSTD", classLevel: "Junior" }),
