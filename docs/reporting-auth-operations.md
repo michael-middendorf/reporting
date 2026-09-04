@@ -30,6 +30,14 @@ There is no daily sign-in email and no unsolicited magic-link blast. People book
 - An email must be in at least one report list to receive a magic link. Add it to the specific report lists it should access; add it to every report list for full reporting access.
 - `ADMIN_EMAILS` in `apps/web-next/src/lib/access.ts` are source-controlled, full-access administrators. Do not add a normal report user there.
 
+## Athletics sport scoping
+
+Athletics Master is sport-scoped for head coaches. Hub admins (`ADMIN_EMAILS`) and Director of Athletic Recruitment `eric.vanheusen@avemaria.edu` see every sport, including rows with an empty sport. VanHeusen stays on `REPORT_ALLOWED.athletics` and an unrestricted-athletics set; he is not a hub admin.
+
+Head coaches are listed in `REPORT_ALLOWED.athletics` and the assignment map in `apps/web-next/src/lib/access.ts`. They may request a magic link and receive only matching `GET /api/athletics-data` rows: Slate PersonSport (ungendered names such as Basketball), plus Gender `M` / `F` when the assignment is men's or women's. Empty-sport rows are hidden from coaches. An athletics-allowlisted address with no map entry gets zero rows, not all sports.
+
+Do not add coaches to `ADMIN_EMAILS`. Do not invent an email for Ty Kaufman (interim golf). Filtering happens on the API after the process-wide unfiltered cache; the cache never stores a user-filtered copy.
+
 ## Safe update procedure
 
 1. Authenticate with `aws login`, then verify the intended account is `905418447941` with `aws sts get-caller-identity`.

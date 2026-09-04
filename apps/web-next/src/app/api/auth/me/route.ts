@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isAdmin, reportsForEmail } from "@/lib/access";
+import { athleticsSportsForEmail, isAdmin, reportsForEmail } from "@/lib/access";
 import { currentUserEmail } from "@/lib/auth";
 
 export async function GET(req: Request) {
@@ -12,5 +12,6 @@ export async function GET(req: Request) {
     email,
     admin: isAdmin(email),
     reports: reportsForEmail(email),
+    athleticsSports: athleticsSportsForEmail(email),
   });
 }
