@@ -42,8 +42,8 @@
         },
         {
           "number": "163",
-          "type": "Triple",
-          "cap": 3,
+          "type": "Triple · Emergency",
+          "cap": 0,
           "col": 4,
           "row": 8,
           "w": 1,
@@ -96,8 +96,8 @@
         },
         {
           "number": "151",
-          "type": "Triple",
-          "cap": 3,
+          "type": "Double · ADA",
+          "cap": 2,
           "col": 10,
           "row": 8,
           "w": 1,
@@ -393,7 +393,7 @@
         {
           "number": "251",
           "type": "Double-ADA",
-          "cap": 2,
+          "cap": 1,
           "col": 11,
           "row": 8,
           "w": 2,
@@ -684,7 +684,7 @@
         {
           "number": "351",
           "type": "Double-ADA",
-          "cap": 2,
+          "cap": 1,
           "col": 11,
           "row": 8,
           "w": 2,

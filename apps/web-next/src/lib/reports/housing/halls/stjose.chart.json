@@ -422,8 +422,8 @@
         },
         {
           "number": "215A",
-          "type": "Double",
-          "cap": 2,
+          "type": "Double · Priest",
+          "cap": 0,
           "col": 30,
           "row": 8,
           "w": 2,
@@ -431,8 +431,8 @@
         },
         {
           "number": "215B",
-          "type": "Double",
-          "cap": 2,
+          "type": "Double · Priest",
+          "cap": 0,
           "col": 32,
           "row": 8,
           "w": 2,

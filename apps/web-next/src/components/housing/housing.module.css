@@ -1035,6 +1035,11 @@
   margin: 8px 0 12px;
 }
 
+.btnroom:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .unavail {
   background: #fbeff3;
   color: var(--women);
