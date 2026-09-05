@@ -422,7 +422,7 @@
         },
         {
           "number": "215A",
-          "type": "Double · Priest",
+          "type": "Double · Emergency",
           "cap": 0,
           "col": 30,
           "row": 8,
@@ -431,7 +431,7 @@
         },
         {
           "number": "215B",
-          "type": "Double · Priest",
+          "type": "Double · Emergency",
           "cap": 0,
           "col": 32,
           "row": 8,
