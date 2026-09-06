@@ -1,3 +1,4 @@
+import { bibleCapOverride, isBibleUnavailable } from "./bible";
 import type {
   ChartFloor,
   ChartRoom,
@@ -112,8 +113,12 @@ export function roomKey(hall: string, num: string): string {
   return `${hall}-${num}`;
 }
 
-export function isOffLimits(edits: RoomVerificationState["edits"], hall: string, num: string): boolean {
+export function isStaffOffLimits(edits: RoomVerificationState["edits"], hall: string, num: string): boolean {
   return edits[roomKey(hall, num)]?.status === "Off-limits";
+}
+
+export function isOffLimits(edits: RoomVerificationState["edits"], hall: string, num: string): boolean {
+  return isStaffOffLimits(edits, hall, num) || isBibleUnavailable(hall, num);
 }
 
 export function effCap(edits: RoomVerificationState["edits"], hall: string, room: ChartRoom): number {
@@ -122,6 +127,8 @@ export function effCap(edits: RoomVerificationState["edits"], hall: string, room
     const n = typeof raw === "number" ? raw : parseInt(String(raw), 10);
     if (Number.isFinite(n)) return n;
   }
+  const override = bibleCapOverride(hall, room.number);
+  if (override != null) return override;
   return room.cap;
 }
 
@@ -260,7 +267,7 @@ export function isIsoDate(d: string): boolean {
 export function floorBands(floor: ChartFloor, hall: string, edits: RoomVerificationState["edits"]): ChartRoom[][] {
   const bands: Record<number, ChartRoom[]> = {};
   for (const r of floor.rooms) {
-    if (isOffLimits(edits, hall, r.number)) continue;
+    if (isStaffOffLimits(edits, hall, r.number)) continue;
     (bands[r.row] ??= []).push(r);
   }
   const arr = Object.keys(bands)

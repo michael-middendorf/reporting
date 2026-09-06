@@ -169,7 +169,7 @@
         {
           "number": "137",
           "type": "4-bedroom Suite",
-          "cap": 8,
+          "cap": 0,
           "col": 0,
           "row": 22,
           "w": 2,
@@ -633,7 +633,7 @@
         {
           "number": "355",
           "type": "Triple",
-          "cap": 3,
+          "cap": 0,
           "col": 6,
           "row": 8,
           "w": 1,

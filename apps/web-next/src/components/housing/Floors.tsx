@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { isBibleUnavailable } from "@/lib/reports/housing/bible";
 import {
   HALL_CHARTS,
   META,
@@ -12,6 +13,7 @@ import {
   isEarly,
   isIsoDate,
   isOffLimits,
+  isStaffOffLimits,
   peopleIn,
   roomKey,
   shade,
@@ -76,6 +78,7 @@ export function Floors({
     : undefined;
   const cap = selectedChartRoom ? effCap(edits, hall, selectedChartRoom) : 0;
   const off = selectedRoom ? isOffLimits(edits, hall, selectedRoom) : false;
+  const bibleOff = selectedRoom ? isBibleUnavailable(hall, selectedRoom) : false;
 
   return (
     <div className={styles.wrap}>
@@ -196,10 +199,15 @@ export function Floors({
                 <span className={styles.chip}>Filled <b>{people.length}</b></span>
                 <span className={styles.chip}>Open <b>{Math.max(0, cap - people.length)}</b></span>
               </div>
+              {bibleOff ? (
+                <div className={styles.sub}>Residence Hall Bible: not available for placement.</div>
+              ) : null}
               <button
                 type="button"
                 className={`${styles.btnroom} ${off ? styles.restore : styles.unavail}`}
+                disabled={bibleOff}
                 onClick={() => {
+                  if (bibleOff) return;
                   onRoomEdit(roomKey(hall, selectedRoom), "status", off ? "Confirmed available" : "Off-limits");
                   if (!off) setSelectedRoom(null);
                 }}
@@ -261,7 +269,7 @@ function FloorMap({
   const [top, bot] = floorBands(floor, hall, edits);
   const n = Math.max(top.length, bot.length);
   const meta = META[hall];
-  const visible = floor.rooms.filter((r) => !isOffLimits(edits, hall, r.number)).sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }));
+  const visible = floor.rooms.filter((r) => !isStaffOffLimits(edits, hall, r.number)).sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }));
 
   function box(r: (typeof floor.rooms)[number] | undefined, key: string) {
     if (!r) return <div key={key} className={`${styles.room} ${styles.spacer}`} />;

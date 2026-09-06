@@ -532,8 +532,8 @@
         },
         {
           "number": "318",
-          "type": "4-person",
-          "cap": 4,
+          "type": "4-person · Emergency",
+          "cap": 0,
           "col": 1,
           "row": 5,
           "w": 2,
