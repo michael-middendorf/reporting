@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import { MA_NAMES } from "./config.js";
 import { parseDate, scoreAll } from "./points.js";
 import { aggregate, weekKey } from "./aggregate.js";
+import { buildCalculationCSV, statusOf } from "./report.js";
 
 const ALANNA = MA_NAMES[0];
 
@@ -34,6 +35,9 @@ type ScoredRow = {
   day?: string;
   amount?: number;
   owner?: string;
+  source?: string;
+  label?: string;
+  type?: string;
 };
 
 function donationNote(overrides: Record<string, unknown> = {}) {
@@ -99,6 +103,33 @@ describe("MA points require a posted gift with dollars", () => {
     assert.equal(model.totals.points, 0);
     assert.equal(rows.filter((r) => r.bucket === "gift").length, 0);
     assert.ok(rows.some((r) => r.unmatched && r.bucket === "unmatched" && r.points === 0));
+    const waiting = rows.find((r) => r.unmatched);
+    assert.ok(waiting);
+    assert.notEqual(waiting.source, "unmatched");
+    assert.equal(statusOf(waiting), "NOT COUNTED: awaiting posted gift");
+    const csv = buildCalculationCSV(model);
+    assert.match(csv, /NOT COUNTED: awaiting posted gift/);
+    assert.doesNotMatch(csv, /type not in rubric/);
+  });
+
+  it("unknown MA note type is still a coverage gap, not awaiting a gift", () => {
+    const { rows, model } = run([
+      {
+        createdByUser: ALANNA,
+        type: "Mission Advancement | Mystery Type",
+        noteDate: "8/4/2026",
+        contactId: 101,
+        contactName: "Jane Donor",
+        id: 99,
+      },
+    ]);
+    const gap = rows.find((r) => r.unmatched);
+    assert.ok(gap);
+    assert.equal(gap.source, "unmatched");
+    assert.equal(statusOf(gap), "NOT COUNTED — type not in rubric");
+    const csv = buildCalculationCSV(model);
+    assert.match(csv, /type not in rubric/);
+    assert.doesNotMatch(csv, /awaiting posted gift/);
   });
 
   it("note plus amount 0 gift scores 0 gifts, $0, 0 pts", () => {

@@ -30,8 +30,12 @@ function cell(v) {
 const line = (cells) => cells.map(cell).join(",");
 
 /** Human status for a scored row. */
-function statusOf(r) {
-  if (r.unmatched) return "NOT COUNTED — type not in rubric";
+export function statusOf(r) {
+  if (r.unmatched) {
+    // Coverage-gap notes (unknown type) vs donation notes in the rubric waiting on dollars.
+    if (r.source === "unmatched" || !r.label) return "NOT COUNTED — type not in rubric";
+    return "NOT COUNTED: awaiting posted gift";
+  }
   if (r.points === 0) return "counted (0 pts)";
   return "counted";
 }

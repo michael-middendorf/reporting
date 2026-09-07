@@ -873,8 +873,8 @@ export default function PointsPage() {
               ) : (
                 <p className="footnote">
                   No posted Virtuous gifts attributed to an MA in this range. Gifts and dollars come from
-                  posted gifts with amount greater than 0, attributed by GFT_Solicitor or a donation note
-                  dated on or before the gift.
+                  posted gifts with amount greater than 0, attributed by an MA donation note on the same
+                  contact dated on or before the gift.
                 </p>
               )}
             </div>

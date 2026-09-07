@@ -241,7 +241,8 @@ export const DEFINITIONS = [
     term: "Dollars received",
     text:
       "Gift count and gift dollars both come from posted Virtuous gifts with amount greater than 0, attributed to an MA. " +
-      "A gift is attributed when GFT_Solicitor is that MA on the roster, or when the MA logged a New Donation / AC / Recurring Gift note on the same contact with noteDate on or before the giftDate. " +
+      "Attribution is the MA donation note (New Donation / AC / Recurring Gift) on the same contact with noteDate on or before giftDate. " +
+      "GFT_Solicitor is unused on this feed. " +
       "A later restart note does not pull earlier lapsed charges. Amounts are the posted Virtuous gift, not an annualized monthly figure.",
   },
 ];
