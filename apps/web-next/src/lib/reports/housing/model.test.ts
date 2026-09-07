@@ -67,8 +67,9 @@ test("named bible rooms are off-limits with empty edits", () => {
     ["SEBAST", "355"],
     ["STJOSE", "215A"],
     ["STJOSE", "215B"],
-    ["STJOSE", "307A"],
     ["STJOSE", "311A"],
+    ["TERESA", "102"],
+    ["TERESA", "104"],
     ["TERESA", "318"],
     ["TERESA", "402"],
   ] as const) {
@@ -112,13 +113,14 @@ test("Teresa 101 clinic is cap 0 and does not add to hallCap", () => {
   assert.equal(room.cap, 0);
   assert.equal(effCap(NONE, "TERESA", room), 0);
   assert.equal(isOffLimits(NONE, "TERESA", "101"), false);
-  assert.equal(hallCap(HALL_CHARTS.TERESA, "TERESA", NONE), 276);
+  assert.equal(hallCap(HALL_CHARTS.TERESA, "TERESA", NONE), 268);
 });
 
-test("Joseph 307A/311A priest rooms and Teresa 402 showroom are cap 0", () => {
+test("Joseph 311A priest, Teresa 102/104 extras and 402 showroom, JPII ghosts are cap 0", () => {
   for (const [hall, num] of [
-    ["STJOSE", "307A"],
     ["STJOSE", "311A"],
+    ["TERESA", "102"],
+    ["TERESA", "104"],
     ["TERESA", "402"],
     ["JPII", "240"],
     ["JPII", "340"],
@@ -128,20 +130,32 @@ test("Joseph 307A/311A priest rooms and Teresa 402 showroom are cap 0", () => {
     assert.equal(isOffLimits(NONE, hall, num), true, `${hall} ${num}`);
     assert.equal(effCap(NONE, hall, room), 0, `${hall} ${num} effCap`);
   }
-  assert.match(chartRoom("STJOSE", "307A").type || "", /Priest/);
   assert.match(chartRoom("STJOSE", "311A").type || "", /Priest/);
+  assert.match(chartRoom("TERESA", "102").type || "", /Extra/);
+  assert.match(chartRoom("TERESA", "104").type || "", /Extra/);
   assert.match(chartRoom("TERESA", "402").type || "", /Showroom/);
   assert.match(chartRoom("JPII", "240").type || "", /Ghost/);
   assert.match(chartRoom("JPII", "340").type || "", /Ghost/);
 });
 
-test("bible cap overrides: Joseph 207A is 1, Sebastian 153 is 2, 251/351 ADA are 1", () => {
+test("Joseph 307/308 are bible doubles, not this-year priest holds", () => {
+  for (const num of ["307A", "307B", "308A", "308B"] as const) {
+    const room = chartRoom("STJOSE", num);
+    assert.equal(room.cap, 2, `STJOSE ${num} chart cap`);
+    assert.equal(room.type, "Double", `STJOSE ${num} type`);
+    assert.equal(isOffLimits(NONE, "STJOSE", num), false, `STJOSE ${num}`);
+    assert.equal(effCap(NONE, "STJOSE", room), 2, `STJOSE ${num} effCap`);
+  }
+});
+
+test("bible cap overrides: Joseph 207A is 1, Sebastian 153 is 2, 251/351 ADA are 1, JPII 104 is 2", () => {
   const jose207a = chartRoom("STJOSE", "207A");
   const jose207b = chartRoom("STJOSE", "207B");
   const seb153 = chartRoom("SEBAST", "153");
   const seb167 = chartRoom("SEBAST", "167");
   const seb251 = chartRoom("SEBAST", "251");
   const seb351 = chartRoom("SEBAST", "351");
+  const jpii104 = chartRoom("JPII", "104");
   assert.equal(jose207a.cap, 1);
   assert.equal(effCap(NONE, "STJOSE", jose207a), 1);
   assert.equal(isOffLimits(NONE, "STJOSE", "207A"), false);
@@ -156,32 +170,34 @@ test("bible cap overrides: Joseph 207A is 1, Sebastian 153 is 2, 251/351 ADA are
   assert.equal(effCap(NONE, "SEBAST", seb251), 1);
   assert.equal(seb351.cap, 1);
   assert.equal(effCap(NONE, "SEBAST", seb351), 1);
+  assert.equal(jpii104.cap, 2);
+  assert.equal(effCap(NONE, "JPII", jpii104), 2);
+  assert.equal(isOffLimits(NONE, "JPII", "104"), false);
+  assert.match(jpii104.type || "", /ADA/);
 });
 
 /*
- * Campus 1201 here includes this-year Joseph 307/308 (Joseph 127 not bible 135).
- * JPII 104 is not on the chart so JPII is 260 vs bible 262. Teresa 276 vs bible
- * 268 (only 402 named). Remaining unlabeled Teresa extras are not guessed.
- *
- * Math from prior empty-edit 1241: -16 (4 priest quads) -8 (307/308) -1 (207A)
- * -4 (402) -1 (153) -8 (240+340) -2 (Sebastian 251/351 ADA) = 1201.
+ * 5.7.2024 bible mix: Goretti 182, Xavier 182, JPII 262, Sebastian 174,
+ * Joseph 135, Teresa 268. Women 626, Men 577, campus 1203.
+ * Joseph 307/308 restored (+8). Teresa 102/104 unlabeled extras (-8).
+ * JPII 104 is the ADA double (cap 2), so JPII is 262.
  */
-test("empty edits: women 624, men 577, campus 1201", () => {
+test("empty edits: women 626, men 577, campus 1203", () => {
   const capFn = (code: string) => hallCap(HALL_CHARTS[code], code, NONE);
   assert.equal(capFn("GORET"), 182);
   assert.equal(capFn("XAVIER"), 182);
-  assert.equal(capFn("JPII"), 260);
+  assert.equal(capFn("JPII"), 262);
   assert.equal(capFn("SEBAST"), 174);
-  assert.equal(capFn("STJOSE"), 127);
-  assert.equal(capFn("TERESA"), 276);
+  assert.equal(capFn("STJOSE"), 135);
+  assert.equal(capFn("TERESA"), 268);
   assert.equal(capFn("GORET") + capFn("XAVIER"), 364);
   const women = sumHalls(WOMEN_HALLS, capFn);
   const men = sumHalls(MEN_HALLS, capFn);
-  assert.equal(women, 624);
+  assert.equal(women, 626);
   assert.equal(men, 577);
-  assert.equal(women + men, 1201);
+  assert.equal(women + men, 1203);
   assert.equal(IRELAND_CAP.w, 50);
   assert.equal(IRELAND_CAP.m, 50);
   assert.equal(IRELAND_CAP.all, 100);
-  assert.equal(women + men + IRELAND_CAP.all, 1301);
+  assert.equal(women + men + IRELAND_CAP.all, 1303);
 });

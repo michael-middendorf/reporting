@@ -1,15 +1,18 @@
 /**
  * Residence Hall Bible (5.7.2024) capacity filter, plus Jeff Stankovsky
- * 7 Sep 2026 named rooms (Joseph priests 307/308/311-315, Teresa 402,
- * JPII ghost 240/340, Joseph 207A ADA, Sebastian 153 double).
+ * 7 Sep 2026 named rooms (Joseph priests 311-315, Teresa 402, JPII ghost
+ * 240/340, Joseph 207A ADA, Sebastian 153 double, JPII 104 ADA double).
  *
- * Campus 1201 here includes this-year Joseph 307/308 (Joseph 127 not bible
- * 135). JPII 104 is not on the chart so JPII is 260 vs bible 262. Teresa
- * 276 vs bible 268 (only 402 named). Remaining unlabeled Teresa extras
- * are not guessed. Sebastian 251/351 are bible ADA singles (chart was 2).
+ * Campus 1203 is the 5.7.2024 mix: Goretti 182, Xavier 182, JPII 262,
+ * Sebastian 174, Joseph 135, Teresa 268. Women 626, Men 577.
+ * Joseph 307/308 are this-year priest holds, not in that bible; they stay
+ * Double cap 2. Teresa 102/104 are unlabeled extras vs the 69-room bible
+ * (chart has 72 rooms; 101 clinic, 318 emergency, 402 show already 0).
+ * Empty in eRez Sep 2026; required to hit Jeff MT 268.
+ * Sebastian 251/351 are bible ADA singles (chart was 2).
  */
 
-/** Rooms the bible / Jeff count as 0 beds (emergency, priest, showroom, ghost tiles). */
+/** Rooms the bible / Jeff count as 0 beds (emergency, priest, showroom, ghost, extra tiles). */
 export const BIBLE_UNAVAILABLE: Record<string, ReadonlySet<string>> = {
   GORET: new Set(["163"]),
   XAVIER: new Set(["163"]),
@@ -18,10 +21,6 @@ export const BIBLE_UNAVAILABLE: Record<string, ReadonlySet<string>> = {
   STJOSE: new Set([
     "215A",
     "215B",
-    "307A",
-    "307B",
-    "308A",
-    "308B",
     "311A",
     "311B",
     "313A",
@@ -31,7 +30,7 @@ export const BIBLE_UNAVAILABLE: Record<string, ReadonlySet<string>> = {
     "315A",
     "315B",
   ]),
-  TERESA: new Set(["318", "402"]),
+  TERESA: new Set(["102", "104", "318", "402"]),
 };
 
 /** ADA / designed-cap corrections where the chart overstates beds. Staff edits still win at runtime. */
@@ -40,6 +39,7 @@ export const BIBLE_CAP_OVERRIDES: Record<string, Record<string, number>> = {
   XAVIER: { "251": 1, "351": 1 },
   STJOSE: { "207A": 1 },
   SEBAST: { "153": 2, "251": 1, "351": 1 },
+  JPII: { "104": 2 },
 };
 
 export function isBibleUnavailable(hall: string, room: string): boolean {

@@ -169,6 +169,15 @@
           "row": 8,
           "w": 2,
           "h": 1
+        },
+        {
+          "number": "104",
+          "type": "Double · ADA",
+          "cap": 2,
+          "col": 15,
+          "row": 5,
+          "w": 2,
+          "h": 1
         }
       ],
       "spaces": [
