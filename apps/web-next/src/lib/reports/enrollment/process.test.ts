@@ -5,7 +5,7 @@ import {
   emptyAcFunnel,
   isActivityCounselorKey,
 } from "./counselors";
-import { _procAdm, _procAME, _procPSW, _termStats } from "./process.js";
+import { _acRecScore, _procAdm, _procAME, _procPSW, _termStats } from "./process.js";
 
 function row(partial: Record<string, unknown> = {}) {
   return {
@@ -191,4 +191,133 @@ test("activityByAC drops Danielle, Georgiana, Anna, and Annie; keeps Unassigned 
   assert.equal(isActivityCounselorKey("annie.esposito"), false);
   assert.equal(isActivityCounselorKey("abel.cordero"), true);
   assert.equal(isActivityCounselorKey(""), true);
+});
+
+test("AC rec 3s and 4s count UG apps; graduate rec 4 is excluded", () => {
+  const rows = [
+    row({ InterviewACRating: "3", CreatedDate: "2026-08-01" }),
+    row({ InterviewACRating: 4, CreatedDate: "2026-08-01" }),
+    row({ InterviewACRating: "2", CreatedDate: "2026-08-01" }),
+    row({
+      ApplicationStudentType: "Graduate",
+      InterviewACRating: "4",
+      CreatedDate: "2026-08-01",
+    }),
+  ];
+  const adm = _procAdm(rows, "2026-09-07");
+  assert.equal(adm.fa27.acRec3, 1);
+  assert.equal(adm.fa27.acRec4, 1);
+  assert.equal(adm.fa27.acRec34, 2);
+});
+
+test("AC rec score reads 25/26 1-4 aliases and ignores leftover 0-3 keys", () => {
+  assert.equal(_acRecScore({ "PersonInterview-ACReccomendations2526": "3 - foo" }), 3);
+  assert.equal(_acRecScore({ InterviewACRecommendation: "3" }), null);
+  const rows = [
+    row({
+      "PersonInterview-ACReccomendations2526": "3 - foo",
+      CreatedDate: "2026-08-01",
+    }),
+    row({
+      InterviewACRating: "4",
+      InterviewACRating2425: "3",
+      CreatedDate: "2026-08-01",
+    }),
+  ];
+  const adm = _procAdm(rows, "2026-09-07");
+  assert.equal(adm.fa27.acRec3, 1);
+  assert.equal(adm.fa27.acRec4, 1);
+  assert.equal(adm.fa27.acRec34, 2);
+});
+
+test("Fall 2025 leftover and 1-4 person recs do not count; FA27 26-field still counts", () => {
+  const rows = [
+    row({
+      ApplicationTerm: "Fall 2025",
+      InterviewACRecommendation: "3",
+      InterviewACRating: "3",
+      CreatedDate: "2024-08-01",
+    }),
+    row({
+      ApplicationTerm: "Fall 2027",
+      "PersonInterview-ACReccomendations2526": "3 - foo",
+      CreatedDate: "2026-08-01",
+    }),
+  ];
+  const adm = _procAdm(rows, "2026-09-07");
+  assert.equal(adm.fa25.acRec3, 0);
+  assert.equal(adm.fa25.acRec4, 0);
+  assert.equal(adm.fa25.acRec34, 0);
+  assert.equal(adm.fa27.acRec3, 1);
+  assert.equal(adm.fa27.acRec4, 0);
+  assert.equal(adm.fa27.acRec34, 1);
+});
+
+test("Fall 2024 rec counts stay 0 even with a 1-4 rating on the row", () => {
+  const rows = [
+    row({
+      ApplicationTerm: "Fall 2024",
+      InterviewACRating: 4,
+      InterviewedDateFA27Apps: "2024-09-01",
+      CreatedDate: "2023-08-01",
+    }),
+  ];
+  const adm = _procAdm(rows, "2026-09-07");
+  assert.equal(adm.fa24.acRec3, 0);
+  assert.equal(adm.fa24.acRec4, 0);
+  assert.equal(adm.fa24.acRec34, 0);
+  assert.equal(adm.fa24Yoy2.acRec3, 0);
+  assert.equal(adm.fa24Yoy2.acRec4, 0);
+  assert.equal(adm.fa24Yoy2.acRec34, 0);
+});
+
+test("AC rec as-of requires interview date on or before last-year cutoff", () => {
+  const rows = [
+    row({
+      ApplicationTerm: "Fall 2026",
+      InterviewACRating: 4,
+      InterviewedDateFA26Apps: "2025-09-08",
+      CreatedDate: "2025-08-01",
+    }),
+    row({
+      ApplicationTerm: "Fall 2026",
+      InterviewACRating: 4,
+      InterviewedDateFA26Apps: "2025-09-07",
+      CreatedDate: "2025-08-01",
+    }),
+    row({
+      ApplicationTerm: "Fall 2026",
+      InterviewACRating: 3,
+      InterviewedDateFA26Apps: "2025-09-01",
+      CreatedDate: "2025-08-01",
+    }),
+    row({
+      ApplicationTerm: "Fall 2026",
+      InterviewACRating: 4,
+      CreatedDate: "2025-08-01",
+    }),
+  ];
+  const adm = _procAdm(rows, "2026-09-07");
+  assert.equal(adm.fa26.acRec3, 1);
+  assert.equal(adm.fa26.acRec4, 3);
+  assert.equal(adm.fa26.acRec34, 4);
+  assert.equal(adm.fa26Yoy.acRec3, 1);
+  assert.equal(adm.fa26Yoy.acRec4, 1);
+  assert.equal(adm.fa26Yoy.acRec34, 2);
+});
+
+test("missing AC rec field is 0 and existing created/accepted still hold", () => {
+  const rows = [
+    row({
+      CreatedDate: "2026-08-01",
+      AcceptCode: "AT",
+      AcceptDate: "2026-08-10",
+    }),
+  ];
+  const adm = _procAdm(rows, "2026-09-07");
+  assert.equal(adm.fa27.acRec3, 0);
+  assert.equal(adm.fa27.acRec4, 0);
+  assert.equal(adm.fa27.acRec34, 0);
+  assert.equal(adm.fa27.created, 1);
+  assert.equal(adm.fa27.accepted, 1);
 });

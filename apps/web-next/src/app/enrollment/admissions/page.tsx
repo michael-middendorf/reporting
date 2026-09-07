@@ -58,6 +58,17 @@ export default function AdmissionsPage() {
             { label: "FA26", tone: "secondary" as const, stats: fa26Yoy },
             { label: "FA27", tone: "gold" as const, stats: fa27 },
           ];
+  // 1-4 rec starts FA26. Do not put FA24/FA25 into rec history charts.
+  const recHistory =
+    cycle === "fa25"
+      ? []
+      : cycle === "fa26"
+        ? [{ label: "FA26", tone: "gold" as const, stats: fa26 }]
+        : [
+            { label: "FA26", tone: "secondary" as const, stats: fa26Yoy },
+            { label: "FA27", tone: "gold" as const, stats: fa27 },
+          ];
+  const recPrv = cycle === "fa27" ? prv : undefined;
 
   const funnelRows: [string, string, number | null | undefined, number | null | undefined][] = [
     ["Applications", DEFS.created, cur.created, prv.created],
@@ -69,6 +80,9 @@ export default function AdmissionsPage() {
     ["Deposit withdrawals", DEFS.depositsWithdrawn, cur.depositsWithdrawn, prv.depositsWithdrawn],
     ["Denied", DEFS.denied, cur.denied, prv.denied],
     ["Interviewed", DEFS.interviewed, cur.interviewed, prv.interviewed],
+    ["AC Rec 3s", DEFS.acRec3, cur.acRec3, recPrv?.acRec3],
+    ["AC Rec 4s", DEFS.acRec4, cur.acRec4, recPrv?.acRec4],
+    ["AC Rec 3s & 4s", DEFS.acRec34, cur.acRec34, recPrv?.acRec34],
   ];
 
   // Counselor activity
@@ -114,6 +128,53 @@ export default function AdmissionsPage() {
         <Kpi label="Total Deposits" cur={cur.deposits} prv={prv.deposits} info={DEFS.depositsNet} />
         <Kpi label="Accept Rate" cur={cur.acceptRate} prv={prv.acceptRate} format="pct" highlight info={DEFS.acceptRate} />
       </div>
+      <div className="kpi-strip">
+        <Kpi label="AC Rec 3s" cur={cur.acRec3} prv={recPrv?.acRec3} info={DEFS.acRec3} />
+        <Kpi label="AC Rec 4s" cur={cur.acRec4} prv={recPrv?.acRec4} info={DEFS.acRec4} />
+        <Kpi label="AC Rec 3s & 4s" cur={cur.acRec34} prv={recPrv?.acRec34} highlight info={DEFS.acRec34} />
+      </div>
+
+      <Section label="AC Recommendations (3s & 4s)" info={DEFS.acRecChart} />
+      <BarChart
+        title={label}
+        info={DEFS.acRecChart}
+        rows={[
+          { label: "Rec 3s", value: cur.acRec3 ?? 0, tone: "secondary" },
+          { label: "Rec 4s", value: cur.acRec4 ?? 0, tone: "gold" },
+          { label: "Rec 3s & 4s", value: cur.acRec34 ?? 0, tone: "muted" },
+        ]}
+      />
+      {recHistory.length > 0 ? (
+        <div className="g3" style={{ gap: 16, marginTop: 16 }}>
+          <BarChart
+            title="Rec 3s"
+            info={DEFS.acRecHistory}
+            rows={recHistory.map((t) => ({
+              label: t.label,
+              value: t.stats.acRec3 ?? 0,
+              tone: t.tone,
+            }))}
+          />
+          <BarChart
+            title="Rec 4s"
+            info={DEFS.acRecHistory}
+            rows={recHistory.map((t) => ({
+              label: t.label,
+              value: t.stats.acRec4 ?? 0,
+              tone: t.tone,
+            }))}
+          />
+          <BarChart
+            title="Rec 3s & 4s"
+            info={DEFS.acRecHistory}
+            rows={recHistory.map((t) => ({
+              label: t.label,
+              value: t.stats.acRec34 ?? 0,
+              tone: t.tone,
+            }))}
+          />
+        </div>
+      ) : null}
 
       <Section label="Academic Profile — Averages" />
       <div className="kpi-strip">

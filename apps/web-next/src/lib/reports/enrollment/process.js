@@ -139,6 +139,47 @@ function _interviewDate(r, termYear) {
   if (termYear === 2026) return r.InterviewedDateFA26Apps || null;
   return r.InterviewedDateFA27Apps || r.InterviewedDateFA26Apps || null;
 }
+
+/** 25/26 rating_1-4 only. Do not score 24/25 leftover (rating_0-3). */
+const AC_REC_KEYS_26 = [
+  'InterviewACRating',
+  'PersonInterview-ACReccomendations2526',
+  'Interview - AC Reccomendations (25/26)',
+  'PersonInterview-ACRating',
+];
+
+function _leadingInt(v) {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? Math.trunc(v) : null;
+  const m = String(v).trim().match(/^(-?\d+)/);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Leading integer from the 25/26 1-4 AC rec field, or null if missing. */
+export function _acRecScore(row) {
+  if (!row) return null;
+  for (const key of AC_REC_KEYS_26) {
+    const n = _leadingInt(row[key]);
+    if (n != null) return n;
+  }
+  return null;
+}
+
+function _acRecCounts(rows, dateGate) {
+  let acRec3 = 0;
+  let acRec4 = 0;
+  for (const r of rows) {
+    const s = _acRecScore(r);
+    if (s !== 3 && s !== 4) continue;
+    if (dateGate && !dateGate(r)) continue;
+    if (s === 3) acRec3++;
+    else acRec4++;
+  }
+  return { acRec3, acRec4, acRec34: acRec3 + acRec4 };
+}
+
 function _asOfDay(asOf) {
   if (!asOf) return _dateOnly(new Date());
   const parsed = _parseDate(asOf);
@@ -254,12 +295,19 @@ export function _termStatsAsOf(rows, cutoff, termYear) {
   const acts = rows.map(r => _parseNum(r.ACT)).filter(v => v !== null && v > 0);
   const sats = rows.map(r => _parseNum(r.SAT)).filter(v => v !== null && v > 0);
   const clts = rows.map(r => _parseNum(r.CLT)).filter(v => v !== null && v > 0);
+  // 1-4 rec field starts FA26 / 25-26. Do not count person-scoped current recs on FA24/FA25.
+  const rec = termYear < 2026
+    ? { acRec3: 0, acRec4: 0, acRec34: 0 }
+    : _acRecCounts(rows, r => _leDate(_interviewDate(r, termYear), cutoff));
   return _attachDemoAndAid({
     created,
     submitted,
     accepted,
     conditional: rows.filter(r => r.AcceptCode === 'CA' && _leDate(r.AcceptDate, cutoff)).length,
     interviewed: rows.filter(r => _leDate(_interviewDate(r, termYear), cutoff)).length,
+    acRec3: rec.acRec3,
+    acRec4: rec.acRec4,
+    acRec34: rec.acRec34,
     depositsGross: depGrossRows.length,
     depositsWithdrawn: depWithdrawnRows.length,
     deposits: depNetRows.length,
@@ -329,6 +377,10 @@ export function _termStats(rows, termYear, asOf) {
   const chgNet = rows.filter(r => _inLast7(r.DepositDate, asOf) && !_isPresent(r.WithdrawnDate)).length;
   const acceptRate = submitted ? accepted / submitted * 100 : null;
   const yieldRate = accepted ? depGrossRows.length / accepted * 100 : null;
+  // 1-4 rec field starts FA26 / 25-26. Do not count person-scoped current recs on FA24/FA25.
+  const rec = termYear < 2026
+    ? { acRec3: 0, acRec4: 0, acRec34: 0 }
+    : _acRecCounts(rows);
 
   const d6 = asOf ? new Date(asOf) : new Date();
   d6.setDate(d6.getDate() - 6);
@@ -350,6 +402,9 @@ export function _termStats(rows, termYear, asOf) {
     created,
     submitted,
     interviewed: rows.filter(r => r.InterviewStatus === 'Interviewed').length,
+    acRec3: rec.acRec3,
+    acRec4: rec.acRec4,
+    acRec34: rec.acRec34,
     accepted,
     deposits: depNetRows.length,
     depositsGross: depGrossRows.length,

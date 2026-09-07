@@ -37,6 +37,7 @@ export default function EnrollmentOverviewPage() {
   const { cur, prv } = pickCurPrv(adm, cycle);
   const c = cur as Record<string, number | null>;
   const p = prv as Record<string, number | null>;
+  const recPrv = cycle === "fa27" ? p : undefined;
 
   const ameData = data.ame as unknown as Record<string, Record<string, AmeCyc>>;
   const curCyc = (ameData.byCycle || {})[curKey] || {};
@@ -96,6 +97,9 @@ export default function EnrollmentOverviewPage() {
     { label: "Yield",                  info: DEFS.yield, cur: c.yield,                prv: p.yield,             delta: delta7d("yield"),             pct: true },
     { label: "Conditionally Accepted", info: DEFS.conditional, cur: c.conditional,    prv: p.conditional,       delta: delta7d("conditional") },
     { label: "Interviews Completed",   info: DEFS.interviewed, cur: c.interviewed,    prv: p.interviewed,       delta: delta7d("interviewed") },
+    { label: "AC Rec 3s", info: DEFS.acRec3, cur: c.acRec3, prv: recPrv?.acRec3 },
+    { label: "AC Rec 4s", info: DEFS.acRec4, cur: c.acRec4, prv: recPrv?.acRec4 },
+    { label: "AC Rec 3s & 4s", info: DEFS.acRec34, cur: c.acRec34, prv: recPrv?.acRec34 },
     { label: "Deposits Submitted",     info: DEFS.depositsGross, cur: c.depositsGross, prv: p.depositsGross,     delta: delta7d("depositsGross") },
     { label: "Deposits Withdrawn",     info: DEFS.depositsWithdrawn, cur: c.depositsWithdrawn, prv: p.depositsWithdrawn, delta: delta7d("depositsWithdrawn"), negativeIsGood: true },
     { label: "Total Deposits",         info: DEFS.depositsNet, cur: c.deposits,        prv: p.deposits,          delta: delta7d("deposits"),          bold: true },

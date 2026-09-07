@@ -14,6 +14,16 @@ export const DEFS = {
   conditional: "Accepted apps whose Accept Code is CA (Conditional Accept).",
   interviewed:
     "Apps with Interview Status = Interviewed. Prior cycle uses that term's interview date on or before this date last year.",
+  acRec3:
+    "UG apps with AC interview rec 3 on the 1-4 scale (Slate Interview AC Rec 25/26). Counts start FA26. FA25 and earlier used a 0-3 rec and are not included. Current cycle: the rating is present. Prior cycle (FA27 vs FA26 only): rating is 3 and that term's interview date is on or before this date last year.",
+  acRec4:
+    "UG apps with AC interview rec 4 on the 1-4 scale (Slate Interview AC Rec 25/26). Counts start FA26. FA25 and earlier used a 0-3 rec and are not included. Current cycle: the rating is present. Prior cycle (FA27 vs FA26 only): rating is 4 and that term's interview date is on or before this date last year.",
+  acRec34:
+    "UG apps with AC interview rec 3 or 4 on the 1-4 scale (Slate Interview AC Rec 25/26). Counts start FA26. FA25 and earlier used a 0-3 rec and are not included. Current cycle: the rating is present. Prior cycle (FA27 vs FA26 only): rating is 3 or 4 and that term's interview date is on or before this date last year.",
+  acRecHistory:
+    "Same calendar date in each recruiting cycle on the 1-4 rec scale (Slate Interview AC Rec 25/26). Counts start FA26. FA25 and earlier used a 0-3 rec and are not included. FA27 history is FA26 (this date last year) plus FA27 (today). FA26 history is FA26 only.",
+  acRecChart:
+    "Rec 3s, Rec 4s, and Rec 3s & 4s for the selected cycle. UG apps with AC interview rec 3 or 4 on the 1-4 scale (Slate Interview AC Rec 25/26). Counts start FA26. FA25 and earlier used a 0-3 rec and are not included.",
   depositsGross: "Apps with a Deposit Date, including people who later withdrew.",
   depositsWithdrawn: "Apps that have both a Deposit Date and a Withdrawn Date.",
   depositsNet:
