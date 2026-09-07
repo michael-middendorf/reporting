@@ -330,7 +330,7 @@
         {
           "number": "251",
           "type": "Double-ADA",
-          "cap": 2,
+          "cap": 1,
           "col": 6,
           "row": 8,
           "w": 2,
@@ -615,7 +615,7 @@
         {
           "number": "351",
           "type": "Double-ADA",
-          "cap": 2,
+          "cap": 1,
           "col": 3,
           "row": 8,
           "w": 2,

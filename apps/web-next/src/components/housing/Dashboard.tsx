@@ -8,9 +8,7 @@ import {
   bedsOpen,
   hallResidents,
   indexOccupancy,
-  isIreland,
   isIsoDate,
-  isRome,
 } from "@/lib/reports/housing/model";
 import type { OccIndex } from "@/lib/reports/housing/model";
 import type {
@@ -100,10 +98,7 @@ export function HousingDashboard() {
   }
 
   const inResidenceHalls = Object.keys(META).reduce((n, c) => n + hallResidents(occ, c), 0);
-  const ireland =
-    studyAbroad?.total ?? residents.filter((r) => isIreland(r.building)).length;
-  const rome = residents.filter(isRome).length;
-  const inHalls = inResidenceHalls + ireland + rome;
+  const inHalls = inResidenceHalls;
   const openBeds = Object.keys(META).reduce((n, c) => n + bedsOpen(HALL_CHARTS[c], c, occ, edits, asof), 0);
 
   return (

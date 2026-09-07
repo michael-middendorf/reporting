@@ -1,6 +1,7 @@
 import {
   ELIG,
   GOAL,
+  IRELAND_CAP,
   MEN_HALLS,
   MELT,
   RET,
@@ -66,6 +67,7 @@ export function Overview({
   const pW = capW ? (pOccW / capW) * 100 : 0;
   const pM = capM ? (pOccM / capM) * 100 : 0;
   const pT = capT ? (pOccT / capT) * 100 : 0;
+  const combinedCap = capT + IRELAND_CAP.all;
 
   const inc = residents.filter((r) => (r.student_type || "").startsWith("Incoming"));
   const ret = residents.filter((r) => r.student_type === "Returning");
@@ -84,12 +86,13 @@ export function Overview({
   const comW = com.filter((r) => r.gender === "F").length;
   const comM = com.filter((r) => r.gender === "M").length;
 
-  const ireland = studyAbroad?.total ?? residents.filter((r) => isIreland(r.building)).length;
   const cia = studyAbroad?.houses?.CIARA ?? residents.filter((r) => r.building === "CIARA").length;
   const mal = studyAbroad?.houses?.MALAC ?? residents.filter((r) => r.building === "MALAC").length;
   const romeRows = residents.filter(isRome);
   const rome = romeRows.length;
   const irelandRows = residents.filter((r) => isIreland(r.building));
+  const irelandOccW = irelandRows.filter((r) => r.gender === "F").length;
+  const irelandOccM = irelandRows.filter((r) => r.gender === "M").length;
   const commuterRows = residents.filter(isCommuter);
   const mbkRows = residents.filter((r) => r.building === "MBK");
   const unassignedRows = residents.filter(isUnassigned);
@@ -107,9 +110,9 @@ export function Overview({
   ].filter((s) => s.n > 0);
   const totalSeg = segs.reduce((a, s) => a + s.n, 0) || 1;
 
-  const hallRow = (label: string, codes: string[], cls: string, rem: number) => {
-    const cap = sumHalls(codes, capFn);
-    const now = sumHalls(codes, occFn);
+  const hallRow = (label: string, codes: string[], cls: string, rem: number, extraCap: number, extraOcc: number) => {
+    const cap = sumHalls(codes, capFn) + extraCap;
+    const now = sumHalls(codes, occFn) + extraOcc;
     const pOcc = Math.max(0, now - rem);
     const fill = cap ? (now / cap) * 100 : 0;
     return (
@@ -124,6 +127,14 @@ export function Overview({
       </tr>
     );
   };
+  const hallCapT = capT + IRELAND_CAP.all;
+  const hallOccW = occW + irelandOccW;
+  const hallOccM = occM + irelandOccM;
+  const hallOccT = hallOccW + hallOccM;
+  const hallPOccW = Math.max(0, hallOccW - remW);
+  const hallPOccM = Math.max(0, hallOccM - remM);
+  const hallPOccT = hallPOccW + hallPOccM;
+  const hallFillT = hallCapT ? (hallOccT / hallCapT) * 100 : 0;
 
   return (
     <div className={styles.wrap}>
@@ -140,7 +151,26 @@ export function Overview({
             <div><div className={styles.k}>Women</div><div className={`${styles.v} ${styles.cw}`}>{capW}</div></div>
             <div><div className={styles.k}>Men</div><div className={`${styles.v} ${styles.cm}`}>{capM}</div></div>
           </div>
-          <div className={styles.cnote}><span>Overseas (not for placement)</span><span>Ireland {ireland} · Rome {rome}</span></div>
+        </div>
+        <div className={styles.pcard}>
+          <div className={styles.lab}>Study Abroad · Ireland</div>
+          <div className={`${styles.big} ${styles.good}`}>{IRELAND_CAP.all.toLocaleString()}</div>
+          <div className={styles.split}>
+            <div><div className={styles.k}>Women</div><div className={`${styles.v} ${styles.cw}`}>{IRELAND_CAP.w}</div></div>
+            <div><div className={styles.k}>Men</div><div className={`${styles.v} ${styles.cm}`}>{IRELAND_CAP.m}</div></div>
+          </div>
+          <div className={styles.cnote}>
+            <span>Occupancy is eRez (CIARA {cia} · MALAC {mal})</span>
+            <span>{studyAbroad?.cached_at || cachedAt || ""}</span>
+          </div>
+        </div>
+        <div className={styles.pcard}>
+          <div className={styles.lab}>Domestic + Ireland</div>
+          <div className={`${styles.big} ${styles.gold}`}>{combinedCap.toLocaleString()}</div>
+          <div className={styles.split}>
+            <div><div className={styles.k}>Domestic</div><div className={styles.v}>{capT}</div></div>
+            <div><div className={styles.k}>Ireland</div><div className={styles.v}>{IRELAND_CAP.all}</div></div>
+          </div>
         </div>
         <div className={styles.pcard}>
           <div className={styles.lab}>Current Fill</div>
@@ -184,18 +214,6 @@ export function Overview({
             <div><div className={styles.k}>Men</div><div className={`${styles.v} ${styles.cm}`}>{pct(RET.m)}</div></div>
           </div>
         </div>
-        <div className={styles.pcard}>
-          <div className={styles.lab}>Study Abroad · eRez</div>
-          <div className={`${styles.big} ${styles.good}`}>{(ireland + rome).toLocaleString()}</div>
-          <div className={styles.split}>
-            <div><div className={styles.k}>Ireland</div><div className={styles.v}>{ireland}</div></div>
-            <div><div className={styles.k}>Rome</div><div className={styles.v}>{rome}</div></div>
-          </div>
-          <div className={styles.cnote}>
-            <span>CIARA {cia} · MALAC {mal}</span>
-            <span>{studyAbroad?.cached_at || cachedAt || ""}</span>
-          </div>
-        </div>
       </div>
 
       <div className={styles.panel}>
@@ -235,16 +253,16 @@ export function Overview({
               </tr>
             </thead>
             <tbody>
-              {hallRow("Women", WOMEN_HALLS, styles.cw, remW)}
-              {hallRow("Men", MEN_HALLS, styles.cm, remM)}
+              {hallRow("Women", WOMEN_HALLS, styles.cw, remW, IRELAND_CAP.w, irelandOccW)}
+              {hallRow("Men", MEN_HALLS, styles.cm, remM, IRELAND_CAP.m, irelandOccM)}
               <tr className={styles.tot}>
                 <td>Total</td>
-                <td>{capT}</td>
-                <td>{occT}</td>
-                <td>{pct(fT)}</td>
-                <td>{pOccT}</td>
-                <td>{Math.max(0, capT - occT)}</td>
-                <td>{Math.max(0, capT - pOccT)}</td>
+                <td>{hallCapT}</td>
+                <td>{hallOccT}</td>
+                <td>{pct(hallFillT)}</td>
+                <td>{hallPOccT}</td>
+                <td>{Math.max(0, hallCapT - hallOccT)}</td>
+                <td>{Math.max(0, hallCapT - hallPOccT)}</td>
               </tr>
             </tbody>
           </table>
@@ -294,8 +312,10 @@ export function Overview({
         Halls are the six residence buildings; Ireland is CIARA/MALAC; Rome is eRez price type RSTA
         (resident study abroad, no hall code); commuters are NODM. Incoming/returner splits are those
         same eRez rows, classified after the pull.{" "}
-        <b>Not eRez</b> — eligible returners (W {ELIG.w} · M {ELIG.m}), S25→FA25 retention, melt rate,
-        and incoming goals are planning constants. Predicted fill applies only remaining expected melt.
+        <b>Not eRez</b>: Ireland placement capacity is {IRELAND_CAP.all} ({IRELAND_CAP.w} women · {IRELAND_CAP.m} men),
+        not live headcount. Rome is occupancy-only and is not added to capacity. Eligible returners
+        (W {ELIG.w} · M {ELIG.m}), S25→FA25 retention, melt rate, and incoming goals are planning constants.
+        Predicted fill applies only remaining expected melt.
         {withdrawn?.excluded_from_feed ? ` ${withdrawn.excluded_from_feed} withdrawn deposits were removed from the feed.` : ""}
       </div>
     </div>
