@@ -52,7 +52,7 @@
         {
           "number": "153",
           "type": "Double",
-          "cap": 3,
+          "cap": 2,
           "col": 9,
           "row": 8,
           "w": 1,
@@ -114,7 +114,7 @@
         },
         {
           "number": "167",
-          "type": "Double",
+          "type": "Triple",
           "cap": 3,
           "col": 10,
           "row": 12,

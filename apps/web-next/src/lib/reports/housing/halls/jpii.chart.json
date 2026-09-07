@@ -270,8 +270,8 @@
       "rooms": [
         {
           "number": "240",
-          "type": "4-person",
-          "cap": 4,
+          "type": "4-person · Ghost",
+          "cap": 0,
           "col": 22,
           "row": 4,
           "w": 1,
@@ -523,8 +523,8 @@
       "rooms": [
         {
           "number": "340",
-          "type": "4-person",
-          "cap": 4,
+          "type": "4-person · Ghost",
+          "cap": 0,
           "col": 22,
           "row": 4,
           "w": 1,
