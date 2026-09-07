@@ -93,6 +93,7 @@ export function Overview({
   const irelandRows = residents.filter((r) => isIreland(r.building));
   const irelandOccW = irelandRows.filter((r) => r.gender === "F").length;
   const irelandOccM = irelandRows.filter((r) => r.gender === "M").length;
+  const irelandOccAll = irelandRows.length;
   const commuterRows = residents.filter(isCommuter);
   const mbkRows = residents.filter((r) => r.building === "MBK");
   const unassignedRows = residents.filter(isUnassigned);
@@ -130,10 +131,12 @@ export function Overview({
   const hallCapT = capT + IRELAND_CAP.all;
   const hallOccW = occW + irelandOccW;
   const hallOccM = occM + irelandOccM;
-  const hallOccT = hallOccW + hallOccM;
+  // Ireland rows without F/M still count in Total.
+  const hallOccT = occT + irelandOccAll;
   const hallPOccW = Math.max(0, hallOccW - remW);
   const hallPOccM = Math.max(0, hallOccM - remM);
-  const hallPOccT = hallPOccW + hallPOccM;
+  const ungenderedIreland = irelandOccAll - irelandOccW - irelandOccM;
+  const hallPOccT = hallPOccW + hallPOccM + ungenderedIreland;
   const hallFillT = hallCapT ? (hallOccT / hallCapT) * 100 : 0;
 
   return (
