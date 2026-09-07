@@ -47,6 +47,8 @@ export const ELIG = { w: 559, m: 510 };
 export const GOAL = { w: 254, m: 277 };
 /** Planning figure only. Occupancy Rome is eRez price type RSTA, not this constant. */
 export const ROME = 25;
+/** Placement capacity for Ireland (not eRez headcount). Rome is occupancy-only, not placement. */
+export const IRELAND_CAP = { w: 50, m: 50, all: 100 } as const;
 export const MAIN_MOVEIN = "2026-08-17";
 
 /** eRez `price_type_id` values on Fall 2026 assignments. */

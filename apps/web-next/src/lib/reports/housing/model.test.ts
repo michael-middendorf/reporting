@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   EREZ_PRICE,
   HALL_CHARTS,
+  IRELAND_CAP,
   MEN_HALLS,
   WOMEN_HALLS,
   bedsOpen,
@@ -134,11 +135,13 @@ test("Joseph 307A/311A priest rooms and Teresa 402 showroom are cap 0", () => {
   assert.match(chartRoom("JPII", "340").type || "", /Ghost/);
 });
 
-test("bible cap overrides: Joseph 207A is 1, Sebastian 153 is 2", () => {
+test("bible cap overrides: Joseph 207A is 1, Sebastian 153 is 2, 251/351 ADA are 1", () => {
   const jose207a = chartRoom("STJOSE", "207A");
   const jose207b = chartRoom("STJOSE", "207B");
   const seb153 = chartRoom("SEBAST", "153");
   const seb167 = chartRoom("SEBAST", "167");
+  const seb251 = chartRoom("SEBAST", "251");
+  const seb351 = chartRoom("SEBAST", "351");
   assert.equal(jose207a.cap, 1);
   assert.equal(effCap(NONE, "STJOSE", jose207a), 1);
   assert.equal(isOffLimits(NONE, "STJOSE", "207A"), false);
@@ -149,28 +152,36 @@ test("bible cap overrides: Joseph 207A is 1, Sebastian 153 is 2", () => {
   assert.equal(seb167.cap, 3);
   assert.equal(effCap(NONE, "SEBAST", seb167), 3);
   assert.equal(seb167.type, "Triple");
+  assert.equal(seb251.cap, 1);
+  assert.equal(effCap(NONE, "SEBAST", seb251), 1);
+  assert.equal(seb351.cap, 1);
+  assert.equal(effCap(NONE, "SEBAST", seb351), 1);
 });
 
 /*
- * Campus 1203 here includes this-year Joseph 307/308 (Joseph 127 not bible 135).
+ * Campus 1201 here includes this-year Joseph 307/308 (Joseph 127 not bible 135).
  * JPII 104 is not on the chart so JPII is 260 vs bible 262. Teresa 276 vs bible
  * 268 (only 402 named). Remaining unlabeled Teresa extras are not guessed.
  *
  * Math from prior empty-edit 1241: -16 (4 priest quads) -8 (307/308) -1 (207A)
- * -4 (402) -1 (153) -8 (240+340) = 1203.
+ * -4 (402) -1 (153) -8 (240+340) -2 (Sebastian 251/351 ADA) = 1201.
  */
-test("empty edits: women 624, men 579, campus 1203", () => {
+test("empty edits: women 624, men 577, campus 1201", () => {
   const capFn = (code: string) => hallCap(HALL_CHARTS[code], code, NONE);
   assert.equal(capFn("GORET"), 182);
   assert.equal(capFn("XAVIER"), 182);
   assert.equal(capFn("JPII"), 260);
-  assert.equal(capFn("SEBAST"), 176);
+  assert.equal(capFn("SEBAST"), 174);
   assert.equal(capFn("STJOSE"), 127);
   assert.equal(capFn("TERESA"), 276);
   assert.equal(capFn("GORET") + capFn("XAVIER"), 364);
   const women = sumHalls(WOMEN_HALLS, capFn);
   const men = sumHalls(MEN_HALLS, capFn);
   assert.equal(women, 624);
-  assert.equal(men, 579);
-  assert.equal(women + men, 1203);
+  assert.equal(men, 577);
+  assert.equal(women + men, 1201);
+  assert.equal(IRELAND_CAP.w, 50);
+  assert.equal(IRELAND_CAP.m, 50);
+  assert.equal(IRELAND_CAP.all, 100);
+  assert.equal(women + men + IRELAND_CAP.all, 1301);
 });
