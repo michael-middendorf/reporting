@@ -785,8 +785,8 @@
    "rooms": [
     {
      "number": "402",
-     "type": "4-person",
-     "cap": 4,
+     "type": "4-person · Showroom",
+     "cap": 0,
      "col": 3,
      "row": 7,
      "w": 2,

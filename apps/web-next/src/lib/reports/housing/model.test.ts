@@ -58,11 +58,18 @@ test("empty edits: Goretti and Xavier hallCap are 182", () => {
 test("named bible rooms are off-limits with empty edits", () => {
   for (const [hall, num] of [
     ["GORET", "163"],
+    ["XAVIER", "163"],
     ["JPII", "318"],
+    ["JPII", "240"],
+    ["JPII", "340"],
     ["SEBAST", "137"],
     ["SEBAST", "355"],
     ["STJOSE", "215A"],
+    ["STJOSE", "215B"],
+    ["STJOSE", "307A"],
+    ["STJOSE", "311A"],
     ["TERESA", "318"],
+    ["TERESA", "402"],
   ] as const) {
     assert.equal(isOffLimits(NONE, hall, num), true, `${hall} ${num}`);
   }
@@ -104,28 +111,66 @@ test("Teresa 101 clinic is cap 0 and does not add to hallCap", () => {
   assert.equal(room.cap, 0);
   assert.equal(effCap(NONE, "TERESA", room), 0);
   assert.equal(isOffLimits(NONE, "TERESA", "101"), false);
-  assert.equal(hallCap(HALL_CHARTS.TERESA, "TERESA", NONE), 280);
+  assert.equal(hallCap(HALL_CHARTS.TERESA, "TERESA", NONE), 276);
+});
+
+test("Joseph 307A/311A priest rooms and Teresa 402 showroom are cap 0", () => {
+  for (const [hall, num] of [
+    ["STJOSE", "307A"],
+    ["STJOSE", "311A"],
+    ["TERESA", "402"],
+    ["JPII", "240"],
+    ["JPII", "340"],
+  ] as const) {
+    const room = chartRoom(hall, num);
+    assert.equal(room.cap, 0, `${hall} ${num} chart cap`);
+    assert.equal(isOffLimits(NONE, hall, num), true, `${hall} ${num}`);
+    assert.equal(effCap(NONE, hall, room), 0, `${hall} ${num} effCap`);
+  }
+  assert.match(chartRoom("STJOSE", "307A").type || "", /Priest/);
+  assert.match(chartRoom("STJOSE", "311A").type || "", /Priest/);
+  assert.match(chartRoom("TERESA", "402").type || "", /Showroom/);
+  assert.match(chartRoom("JPII", "240").type || "", /Ghost/);
+  assert.match(chartRoom("JPII", "340").type || "", /Ghost/);
+});
+
+test("bible cap overrides: Joseph 207A is 1, Sebastian 153 is 2", () => {
+  const jose207a = chartRoom("STJOSE", "207A");
+  const jose207b = chartRoom("STJOSE", "207B");
+  const seb153 = chartRoom("SEBAST", "153");
+  const seb167 = chartRoom("SEBAST", "167");
+  assert.equal(jose207a.cap, 1);
+  assert.equal(effCap(NONE, "STJOSE", jose207a), 1);
+  assert.equal(isOffLimits(NONE, "STJOSE", "207A"), false);
+  assert.equal(jose207b.cap, 2);
+  assert.equal(effCap(NONE, "STJOSE", jose207b), 2);
+  assert.equal(seb153.cap, 2);
+  assert.equal(effCap(NONE, "SEBAST", seb153), 2);
+  assert.equal(seb167.cap, 3);
+  assert.equal(effCap(NONE, "SEBAST", seb167), 3);
+  assert.equal(seb167.type, "Triple");
 });
 
 /*
- * Bible campus is 1203. Remaining 38 beds are unlabeled (Joseph priests,
- * JPII extra/ADA, Teresa show, Sebastian ADA double) and are intentionally
- * omitted from BIBLE_UNAVAILABLE / BIBLE_CAP_OVERRIDES.
+ * Campus 1203 here includes this-year Joseph 307/308 (Joseph 127 not bible 135).
+ * JPII 104 is not on the chart so JPII is 260 vs bible 262. Teresa 276 vs bible
+ * 268 (only 402 named). Remaining unlabeled Teresa extras are not guessed.
  *
- * Chart 1275 minus named zeros (29) minus ADA (5) = 1241.
+ * Math from prior empty-edit 1241: -16 (4 priest quads) -8 (307/308) -1 (207A)
+ * -4 (402) -1 (153) -8 (240+340) = 1203.
  */
-test("empty edits: women 632, men 609, campus 1241", () => {
+test("empty edits: women 624, men 579, campus 1203", () => {
   const capFn = (code: string) => hallCap(HALL_CHARTS[code], code, NONE);
   assert.equal(capFn("GORET"), 182);
   assert.equal(capFn("XAVIER"), 182);
-  assert.equal(capFn("JPII"), 268);
-  assert.equal(capFn("SEBAST"), 177);
-  assert.equal(capFn("STJOSE"), 152);
-  assert.equal(capFn("TERESA"), 280);
+  assert.equal(capFn("JPII"), 260);
+  assert.equal(capFn("SEBAST"), 176);
+  assert.equal(capFn("STJOSE"), 127);
+  assert.equal(capFn("TERESA"), 276);
   assert.equal(capFn("GORET") + capFn("XAVIER"), 364);
   const women = sumHalls(WOMEN_HALLS, capFn);
   const men = sumHalls(MEN_HALLS, capFn);
-  assert.equal(women, 632);
-  assert.equal(men, 609);
-  assert.equal(women + men, 1241);
+  assert.equal(women, 624);
+  assert.equal(men, 579);
+  assert.equal(women + men, 1203);
 });
