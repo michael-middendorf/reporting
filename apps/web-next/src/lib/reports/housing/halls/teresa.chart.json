@@ -36,8 +36,8 @@
    "rooms": [
     {
      "number": "102",
-     "type": "4-person",
-     "cap": 4,
+     "type": "4-person · Extra",
+     "cap": 0,
      "col": 3,
      "row": 7,
      "w": 3,
@@ -45,8 +45,8 @@
     },
     {
      "number": "104",
-     "type": "4-person",
-     "cap": 4,
+     "type": "4-person · Extra",
+     "cap": 0,
      "col": 6,
      "row": 7,
      "w": 1,

@@ -697,8 +697,8 @@
         },
         {
           "number": "307A",
-          "type": "Double · Priest",
-          "cap": 0,
+          "type": "Double",
+          "cap": 2,
           "col": 14,
           "row": 8,
           "w": 2,
@@ -706,8 +706,8 @@
         },
         {
           "number": "307B",
-          "type": "Double · Priest",
-          "cap": 0,
+          "type": "Double",
+          "cap": 2,
           "col": 16,
           "row": 8,
           "w": 2,
@@ -841,8 +841,8 @@
         },
         {
           "number": "308A",
-          "type": "Double · Priest",
-          "cap": 0,
+          "type": "Double",
+          "cap": 2,
           "col": 18,
           "row": 11,
           "w": 2,
@@ -850,8 +850,8 @@
         },
         {
           "number": "308B",
-          "type": "Double · Priest",
-          "cap": 0,
+          "type": "Double",
+          "cap": 2,
           "col": 20,
           "row": 11,
           "w": 2,
