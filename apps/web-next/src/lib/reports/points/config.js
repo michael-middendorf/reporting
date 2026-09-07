@@ -18,15 +18,17 @@
 
 /* ---- Roster -------------------------------------------------------------
  * `createdByUser` is the exact string Virtuous stamps on each ContactNote.
- * Confirmed live from the ContactNote API (2026-08-04). */
+ * Confirmed live from the ContactNote API (2026-08-04).
+ * Optional startDate is a local calendar floor; notes and attributed gifts
+ * before that day do not score. */
 export const MA_ROSTER = [
   { name: "Alanna McCann",  email: "alanna.f.mccann@avemaria.edu",  short: "Alanna",  tableOrder: 0 },
   { name: "Sean Kelly",     email: "sean.e.kelly@avemaria.edu",     short: "Sean",    tableOrder: 1 },
   { name: "Joseph Blaso",   email: "joseph.c.blaso@avemaria.edu",   short: "Joseph",  tableOrder: 2 },
-  { name: "Elena Barnes",   email: "",                              short: "Elena",   tableOrder: 3 },
-  { name: "Caleb Metzen",   email: "",                              short: "Caleb",   tableOrder: 4 },
-  { name: "Betsy Scaletty", email: "",                              short: "Betsy",   tableOrder: 5 },
-  { name: "Natalia Abrams", email: "",                              short: "Natalia", tableOrder: 6 },
+  { name: "Elena Barnes",   email: "",                              short: "Elena",   tableOrder: 3, startDate: "2026-07-20" },
+  { name: "Caleb Metzen",   email: "",                              short: "Caleb",   tableOrder: 4, startDate: "2026-07-20" },
+  { name: "Betsy Scaletty", email: "",                              short: "Betsy",   tableOrder: 5, startDate: "2026-07-20" },
+  { name: "Natalia Abrams", email: "",                              short: "Natalia", tableOrder: 6, startDate: "2026-07-20" },
 ];
 
 export const MA_NAMES = MA_ROSTER.map((m) => m.name);
@@ -223,7 +225,8 @@ export const DEFINITIONS = [
       "Points land on the gift's week, not the note's week. Each donation note is matched to the earliest unused posted gift on the same contact with giftDate on or after the note date. " +
       "A donation note with no matching posted gift scores 0 points and is not counted as a secured gift. " +
       "Later monthly installments after the first match still count as gifts and dollars but do not award another 100 points. " +
-      "Points are attributed to whoever authored the note (Virtuous `createdByUser`).",
+      "Points are attributed to whoever authored the note (Virtuous `createdByUser`). " +
+      "Only notes and gifts on or after the author's roster start date count.",
   },
   {
     term: "Updated contact info / credit card (5 pts)",
@@ -243,6 +246,13 @@ export const DEFINITIONS = [
       "Gift count and gift dollars both come from posted Virtuous gifts with amount greater than 0, attributed to an MA. " +
       "Attribution is the MA donation note (New Donation / AC / Recurring Gift) on the same contact with noteDate on or before giftDate. " +
       "GFT_Solicitor is unused on this feed. " +
-      "A later restart note does not pull earlier lapsed charges. Amounts are the posted Virtuous gift, not an annualized monthly figure.",
+      "A later restart note does not pull earlier lapsed charges. Amounts are the posted Virtuous gift, not an annualized monthly figure. " +
+      "Only notes and gifts on or after the author's roster start date count.",
+  },
+  {
+    term: "MA start date",
+    text:
+      "An MA with startDate on the roster is scored only on that local calendar day and after. " +
+      "Notes before that day are ignored. A posted gift dated before that day is not attributed to them.",
   },
 ];

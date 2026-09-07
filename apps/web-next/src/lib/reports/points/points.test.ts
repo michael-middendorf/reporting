@@ -6,6 +6,7 @@ import { aggregate, weekKey } from "./aggregate.js";
 import { buildCalculationCSV, statusOf } from "./report.js";
 
 const ALANNA = MA_NAMES[0];
+const NATALIA = "Natalia Abrams";
 
 type WeekRec = {
   key: string;
@@ -64,11 +65,11 @@ function postedGift(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function run(notes: unknown[], gifts: unknown[] = []) {
+function run(notes: unknown[], gifts: unknown[] = [], ownerName: string = ALANNA) {
   const rows = scoreAll({ notes, gifts }) as ScoredRow[];
   const model = aggregate(rows) as Model;
-  const owner = model.tableOwners.find((o) => o.name === ALANNA);
-  assert.ok(owner, `expected ${ALANNA} on the MA roster`);
+  const owner = model.tableOwners.find((o) => o.name === ownerName);
+  assert.ok(owner, `expected ${ownerName} on the MA roster`);
   return { rows, model, owner };
 }
 
@@ -251,5 +252,118 @@ describe("MA points require a posted gift with dollars", () => {
     assert.equal(model.totals.giftAmount, 0);
     assert.equal(model.gifts.length, 0);
     assert.equal(rows.length, 0);
+  });
+});
+
+describe("MA startDate is a local calendar floor", () => {
+  it("includes Natalia Abrams on the roster", () => {
+    assert.ok(MA_NAMES.includes(NATALIA));
+  });
+
+  it("voicemail or letter on 7/19/2026 is not scored", () => {
+    const { owner, rows } = run(
+      [
+        donationNote({
+          createdByUser: NATALIA,
+          type: "Mission Advancement Call | Voicemail",
+          noteDate: "7/19/2026",
+          id: 1,
+        }),
+        donationNote({
+          createdByUser: NATALIA,
+          type: "Letter",
+          noteDate: "7/19/2026",
+          id: 2,
+        }),
+      ],
+      [],
+      NATALIA,
+    );
+    assert.equal(owner.points, 0);
+    assert.equal(rows.length, 0);
+  });
+
+  it("same type on 7/20/2026 still scores", () => {
+    const { owner, rows } = run(
+      [
+        donationNote({
+          createdByUser: NATALIA,
+          type: "Mission Advancement Call | Voicemail",
+          noteDate: "7/20/2026",
+          id: 1,
+        }),
+        donationNote({
+          createdByUser: NATALIA,
+          type: "Letter",
+          noteDate: "7/20/2026",
+          id: 2,
+        }),
+      ],
+      [],
+      NATALIA,
+    );
+    assert.equal(owner.points, 6);
+    assert.equal(rows.filter((r) => r.bucket === "dial" && r.points === 1).length, 1);
+    assert.equal(rows.filter((r) => r.bucket === "note" && r.points === 5).length, 1);
+  });
+
+  it("donation note 6/1/2026 plus gift 8/1/2026 is not attributed", () => {
+    const { model, owner, rows } = run(
+      [donationNote({ createdByUser: NATALIA, noteDate: "6/1/2026" })],
+      [postedGift({ giftDate: "8/1/2026", amount: 80 })],
+      NATALIA,
+    );
+    assert.equal(owner.gifts, 0);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.points, 0);
+    assert.equal(model.totals.gifts, 0);
+    assert.equal(model.totals.giftAmount, 0);
+    assert.equal(model.totals.points, 0);
+    assert.equal(rows.length, 0);
+    assert.equal(model.gifts.length, 0);
+  });
+
+  it("donation note 7/21/2026 plus gift 8/1/2026 scores 1 gift and 100 pts on the gift week", () => {
+    const { owner } = run(
+      [donationNote({ createdByUser: NATALIA, noteDate: "7/21/2026" })],
+      [postedGift({ giftDate: "8/1/2026", amount: 80 })],
+      NATALIA,
+    );
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 80);
+    assert.equal(owner.points, 100);
+    const wk = weekRec(owner, "8/1/2026");
+    assert.equal(wk.gifts, 1);
+    assert.equal(wk.giftAmount, 80);
+    assert.equal(wk.points, 100);
+  });
+
+  it("gift 7/19/2026 with GFT_Solicitor Natalia Abrams and no note is dropped", () => {
+    const { model, owner, rows } = run(
+      [],
+      [
+        postedGift({
+          giftDate: "7/19/2026",
+          amount: 90,
+          customFields: [{ name: "GFT_Solicitor", value: NATALIA }],
+        }),
+      ],
+      NATALIA,
+    );
+    assert.equal(owner.gifts, 0);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.points, 0);
+    assert.equal(model.totals.gifts, 0);
+    assert.equal(model.gifts.length, 0);
+    assert.equal(rows.length, 0);
+  });
+
+  it("MA with no startDate still scores a 6/4/2026 note", () => {
+    const { owner, rows } = run([
+      donationNote({ type: "Letter", noteDate: "6/4/2026" }),
+    ]);
+    assert.equal(ALANNA, "Alanna McCann");
+    assert.equal(owner.points, 5);
+    assert.ok(rows.some((r) => r.bucket === "note" && r.points === 5 && r.owner === ALANNA));
   });
 });

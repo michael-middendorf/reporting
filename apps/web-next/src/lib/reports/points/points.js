@@ -2,7 +2,7 @@
  * points.js — the scoring engine. Pure functions, no DOM, no I/O.
  * Turns raw Virtuous records into scored activity rows entirely client-side.
  */
-import { POINTS_MAP, EVENT_RULES, SETTINGS, MA_NAMES } from "./config.js";
+import { POINTS_MAP, EVENT_RULES, SETTINGS, MA_NAMES, MA_ROSTER } from "./config.js";
 
 /** Normalize a Virtuous date string ("8/4/2026" or ISO) to a Date (local). */
 export function parseDate(value) {
@@ -26,6 +26,18 @@ export function isWeekday(d) {
 }
 
 const rosterSet = new Set(MA_NAMES);
+const startByOwner = new Map(MA_ROSTER.map((m) => [m.name, m.startDate || null]));
+
+/** True when isoDay(date) is before the owner's optional roster startDate.
+ * Compare YYYY-MM-DD strings, not Date objects: parseDate("2026-07-20") is
+ * UTC midnight and can shift the local day. */
+function beforeStart(date, owner) {
+  const start = startByOwner.get(owner);
+  if (!start) return false;
+  const day = isoDay(date);
+  if (!day) return false;
+  return day < start;
+}
 
 /** Is this note authored by a scoped MA? */
 export function ownerOf(record) {
@@ -47,6 +59,7 @@ export function scoreNote(record) {
   const rule = POINTS_MAP[key];
   const date = parseDate(record.noteDate) || parseDate(record.createDateTimeUtc);
   if (!date) return null;
+  if (beforeStart(date, owner)) return null;
 
   if (!rule) {
     // Authored by an MA but the note type isn't in our map. Only surface
@@ -143,6 +156,7 @@ export function scoreGift(record, ownerHint = null) {
   if (!owner) return null;
   const date = giftDateOf(record);
   if (!date) return null;
+  if (beforeStart(date, owner)) return null;
   return {
     owner, type: "Gift", points: 0, amount, bucket: "donation",
     label: "Donation received",
