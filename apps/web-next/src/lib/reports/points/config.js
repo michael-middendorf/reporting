@@ -218,11 +218,12 @@ export const DEFINITIONS = [
   {
     term: "Secured gift (100 pts)",
     text:
-      "A new or increased gift earns 100 points only when the Mission Advancement rep LOGS it as a ContactNote in Virtuous " +
-      "(‘New Donation or New AC’, ‘Annunciation Circle updated’, or ‘Update recurring gift’). " +
-      "The logged note is what is counted and is REQUIRED for the gift to score — the dashboard reads MA-authored notes, " +
-      "not the underlying gift/transaction records. A gift with no corresponding MA note does not earn points, and the " +
-      "points are attributed to whoever authored the note (Virtuous `createdByUser`).",
+      "A new or increased gift earns 100 points only when an MA logs a donation note in Virtuous " +
+      "(‘New Donation or New AC’, ‘Annunciation Circle updated’, or ‘Update recurring gift’) and a matching posted gift exists with amount greater than 0. " +
+      "Points land on the gift's week, not the note's week. Each donation note is matched to the earliest unused posted gift on the same contact with giftDate on or after the note date. " +
+      "A donation note with no matching posted gift scores 0 points and is not counted as a secured gift. " +
+      "Later monthly installments after the first match still count as gifts and dollars but do not award another 100 points. " +
+      "Points are attributed to whoever authored the note (Virtuous `createdByUser`).",
   },
   {
     term: "Updated contact info / credit card (5 pts)",
@@ -239,8 +240,8 @@ export const DEFINITIONS = [
   {
     term: "Dollars received",
     text:
-      "Gift dollars are shown separately from the 100-pt gift credit. A gift is attributed to an MA when GFT_Solicitor " +
-      "is that MA, or when the MA logged a New Donation / AC / Recurring Gift note on the same contact. Amounts are the " +
-      "posted Virtuous gift, not an annualized monthly figure.",
+      "Gift count and gift dollars both come from posted Virtuous gifts with amount greater than 0, attributed to an MA. " +
+      "A gift is attributed when GFT_Solicitor is that MA on the roster, or when the MA logged a New Donation / AC / Recurring Gift note on the same contact with noteDate on or before the giftDate. " +
+      "A later restart note does not pull earlier lapsed charges. Amounts are the posted Virtuous gift, not an annualized monthly figure.",
   },
 ];

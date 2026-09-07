@@ -418,7 +418,7 @@ export default function PointsPage() {
               [
                 "Gifts Raised",
                 money(model.totals?.giftAmount),
-                `${model.totals?.gifts ?? 0} gifts logged · ${model.totals?.weekdays ?? 0} weekdays`,
+                `${model.totals?.gifts ?? 0} posted gifts · ${model.totals?.weekdays ?? 0} weekdays`,
               ],
               [
                 "Team Avg / Weekday",
@@ -872,8 +872,9 @@ export default function PointsPage() {
                 </table>
               ) : (
                 <p className="footnote">
-                  No Virtuous gifts attributed to an MA in this range. Dollars show up when the MA logged a
-                  New Donation / AC / Recurring Gift note on the same contact.
+                  No posted Virtuous gifts attributed to an MA in this range. Gifts and dollars come from
+                  posted gifts with amount greater than 0, attributed by GFT_Solicitor or a donation note
+                  dated on or before the gift.
                 </p>
               )}
             </div>

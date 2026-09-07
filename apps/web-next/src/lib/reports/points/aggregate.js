@@ -44,7 +44,7 @@ function tallyRow(target, r) {
   target.points += r.points || 0;
   if (r.bucket === "conversation") target.conversations += 1;
   if (isDial(r)) target.dials += 1;
-  if (r.bucket === "gift") target.gifts += 1;
+  if (r.bucket === "donation" && (r.amount || 0) > 0) target.gifts += 1;
   if (r.bucket === "donation") target.giftAmount += r.amount || 0;
   if (r.bucket === "obituary") target.obituaries += 1;
   if (r.bucket === "address") target.addresses += 1;
@@ -56,7 +56,7 @@ function tallyRow(target, r) {
 
 /**
  * Build the full aggregate model from scored rows within [start, end].
- * Gift-dollar rows (bucket "donation") add money, not points.
+ * Gift count and dollars both come from bucket "donation" rows with amount > 0.
  */
 export function aggregate(rows, { start, end } = {}) {
   const inRange = rows.filter((r) => {

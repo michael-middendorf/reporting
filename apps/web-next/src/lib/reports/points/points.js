@@ -116,19 +116,33 @@ export function giftProject(record) {
   return (des[0] && (des[0].project || des[0].display)) || record.segment || "";
 }
 
+/** Calendar-day compare (YYYY-MM-DD). Null if either date is missing. */
+function dayCmp(a, b) {
+  const ka = isoDay(a);
+  const kb = isoDay(b);
+  if (!ka || !kb) return null;
+  return ka < kb ? -1 : ka > kb ? 1 : 0;
+}
+
+function giftDateOf(record) {
+  return parseDate(record.giftDate || record.giftDateFormatted || record.createDateTimeUtc);
+}
+
 /**
- * Score a Virtuous Gift as dollars received (0 points — the 100-pt credit
+ * Score a Virtuous Gift as dollars received (0 points; the 100-pt credit
  * comes from the matching donation note so we don't double-count).
  * Owner is GFT_Solicitor when that person is on the MA roster, else the
- * MA who logged a donation note on the same contact (`ownerHint`).
+ * MA who logged a donation note on the same contact with noteDate on or
+ * before giftDate (`ownerHint`). Returns null when amount is 0 or less.
  */
 export function scoreGift(record, ownerHint = null) {
+  const amount = parseAmount(record.amount);
+  if (amount <= 0) return null;
   const solicitor = giftSolicitor(record);
   const owner = (solicitor && rosterSet.has(solicitor) ? solicitor : null) || ownerHint;
   if (!owner) return null;
-  const date = parseDate(record.giftDate || record.giftDateFormatted || record.createDateTimeUtc);
+  const date = giftDateOf(record);
   if (!date) return null;
-  const amount = parseAmount(record.amount);
   return {
     owner, type: "Gift", points: 0, amount, bucket: "donation",
     label: "Donation received",
@@ -140,22 +154,95 @@ export function scoreGift(record, ownerHint = null) {
   };
 }
 
-/** Score MA activity notes (and optional gifts) into a flat list of scored rows. */
+function sortByDayThenId(aDate, aId, bDate, bId) {
+  const cmp = dayCmp(aDate, bDate);
+  if (cmp) return cmp;
+  return String(aId ?? "").localeCompare(String(bId ?? ""));
+}
+
+/**
+ * Score MA activity notes (and optional gifts) into a flat list of scored rows.
+ *
+ * Donation notes (bucket "gift") award 100 pts only after they pair with a
+ * posted gift of amount > 0 on the same contact with giftDate on or after the
+ * note date. Points are moved onto that gift's week. Unmatched donation notes
+ * score 0 and leave the gift bucket. Later installments still count as gifts
+ * and dollars but do not award another 100 pts.
+ */
 export function scoreAll({ notes = [], gifts = [] }) {
   const rows = [];
-  for (const n of notes) { const r = scoreNote(n); if (r) rows.push(r); }
+  const donationNotes = [];
+  for (const n of notes) {
+    const r = scoreNote(n);
+    if (!r) continue;
+    rows.push(r);
+    if (r.bucket === "gift") donationNotes.push(r);
+  }
 
-  const ownerByContact = new Map();
-  for (const r of rows) {
-    if (r.bucket === "gift" && r.contactId != null && !ownerByContact.has(r.contactId)) {
-      ownerByContact.set(r.contactId, r.owner);
+  const notesByContact = new Map();
+  for (const r of donationNotes) {
+    if (r.contactId == null) continue;
+    const list = notesByContact.get(r.contactId) || [];
+    list.push(r);
+    notesByContact.set(r.contactId, list);
+  }
+  for (const list of notesByContact.values()) {
+    list.sort((a, b) => sortByDayThenId(a.date, a.noteId, b.date, b.noteId));
+  }
+
+  const scoredGifts = [];
+  for (const g of gifts) {
+    let hint = null;
+    const gDate = giftDateOf(g);
+    if (g.contactId != null && gDate) {
+      const list = notesByContact.get(g.contactId) || [];
+      for (const n of list) {
+        const cmp = dayCmp(n.date, gDate);
+        if (cmp != null && cmp <= 0) hint = n.owner;
+      }
+    }
+    const r = scoreGift(g, hint);
+    if (r) {
+      rows.push(r);
+      scoredGifts.push(r);
     }
   }
-  for (const g of gifts) {
-    const hint = g.contactId != null ? ownerByContact.get(g.contactId) : null;
-    const r = scoreGift(g, hint);
-    if (r) rows.push(r);
+
+  const giftsByContact = new Map();
+  for (const g of scoredGifts) {
+    if (g.contactId == null) continue;
+    const list = giftsByContact.get(g.contactId) || [];
+    list.push(g);
+    giftsByContact.set(g.contactId, list);
   }
+  for (const list of giftsByContact.values()) {
+    list.sort((a, b) => sortByDayThenId(a.date, a.giftId, b.date, b.giftId));
+  }
+
+  const used = new Set();
+  const notesInOrder = [...donationNotes].sort(
+    (a, b) => sortByDayThenId(a.date, a.noteId, b.date, b.noteId),
+  );
+  for (const note of notesInOrder) {
+    const candidates = note.contactId != null ? (giftsByContact.get(note.contactId) || []) : [];
+    const match = candidates.find((g) => {
+      if (used.has(g)) return false;
+      if ((g.amount || 0) <= 0) return false;
+      const cmp = dayCmp(g.date, note.date);
+      return cmp != null && cmp >= 0;
+    });
+    if (match) {
+      used.add(match);
+      note.date = match.date;
+      note.day = match.day;
+      note.weekday = match.weekday;
+    } else {
+      note.points = 0;
+      note.bucket = "unmatched";
+      note.unmatched = true;
+    }
+  }
+
   return rows;
 }
 
