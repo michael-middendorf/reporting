@@ -3,9 +3,9 @@
  * 7 Sep 2026 named rooms (Joseph priests 307/308/311-315, Teresa 402,
  * JPII ghost 240/340, Joseph 207A ADA, Sebastian 153 double).
  *
- * Campus 1201 here includes this-year Joseph 307/308 (Joseph 127 not bible
- * 135). JPII 104 is not on the chart so JPII is 260 vs bible 262. Teresa
- * 276 vs bible 268 (only 402 named). Remaining unlabeled Teresa extras
+ * Campus 1203 here includes this-year Joseph 307/308 (Joseph 127 not bible
+ * 135). JPII 104 is the ADA double (Jeff, 7 Sep 2026), so JPII is 262.
+ * Teresa 276 vs bible 268 (only 402 named). Remaining unlabeled Teresa extras
  * are not guessed. Sebastian 251/351 are bible ADA singles (chart was 2).
  */
 
@@ -40,6 +40,7 @@ export const BIBLE_CAP_OVERRIDES: Record<string, Record<string, number>> = {
   XAVIER: { "251": 1, "351": 1 },
   STJOSE: { "207A": 1 },
   SEBAST: { "153": 2, "251": 1, "351": 1 },
+  JPII: { "104": 2 },
 };
 
 export function isBibleUnavailable(hall: string, room: string): boolean {
