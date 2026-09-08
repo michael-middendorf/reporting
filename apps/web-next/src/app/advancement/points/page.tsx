@@ -881,7 +881,7 @@ export default function PointsPage() {
               ) : (
                 <p className="footnote">
                   No posted Virtuous gifts attributed to an MA in this range. A gift counts when the MA
-                  logged activity on that donor around the gift date. One-time gifts use the posted amount.
+                  logged activity on that donor on or before the gift date. One-time gifts use the posted amount.
                   New monthly commitments are counted once as monthly amount × 12.
                 </p>
               )}

@@ -208,18 +208,15 @@ function daysFromNoteToGift(noteDate, giftDate) {
 /** Tracker credits the MA who worked the donor, not only a donation-note type. */
 export function ownerHintForGift(giftDate, notesOnContact) {
   const before = SETTINGS.giftNoteDaysBefore ?? 45;
-  const after = SETTINGS.giftNoteDaysAfter ?? 14;
   let best = null;
   let bestScore = Infinity;
   for (const n of notesOnContact || []) {
     if (!GIFT_ATTRIBUTION_BUCKETS.has(n.bucket)) continue;
     const delta = daysFromNoteToGift(n.date, giftDate);
     if (delta == null) continue;
-    if (delta < -after || delta > before) continue;
-    const preferAfter = delta < 0 ? 1 : 0;
-    const score = preferAfter * 1000 + Math.abs(delta);
-    if (score < bestScore) {
-      bestScore = score;
+    if (delta < 0 || delta > before) continue;
+    if (delta < bestScore) {
+      bestScore = delta;
       best = n.owner;
     }
   }

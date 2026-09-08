@@ -205,9 +205,8 @@ export const SETTINGS = {
   invalidNumberScores: false,
   /** Tracker credits a new monthly AC as 12 months of the monthly amount. */
   monthlyAnnualizeFactor: 12,
-  /** Credit a gift if an MA activity note on that contact falls in this window. */
+  /** Credit a gift only if an MA activity note on that contact is on or before the gift, within this many days. */
   giftNoteDaysBefore: 45,
-  giftNoteDaysAfter: 14,
 };
 
 /* ---- Virtuous deep-link base --------------------------------------------
@@ -250,7 +249,7 @@ export const DEFINITIONS = [
     text:
       "Gift count and gift dollars both come from posted Virtuous gifts with amount greater than 0, attributed to an MA. " +
       "Attribution follows the tracker: an MA activity note on that contact (call, letter, in person, email, or donation note) " +
-      "within 45 days before the gift or 14 days after. GFT_Solicitor is not used (it is usually an MGO, not the MA). " +
+      "within 45 days before the gift (note on or before gift date). A later thank-you call does not claim an earlier gift. GFT_Solicitor is not used (it is usually an MGO, not the MA). " +
       "A later restart note does not pull earlier lapsed charges. " +
       "One-time gifts use the posted Virtuous amount. New monthly commitments (Virtuous Recurring Gift, frequency Monthly) are counted once as monthly amount × 12, matching the tracker Totals sheet. " +
       "The matching posted installment is not also added. Increases on an older recurring gift that did not create a new Recurring Gift still use the posted installment until that commitment is republished. " +

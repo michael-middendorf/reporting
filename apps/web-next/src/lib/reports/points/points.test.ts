@@ -226,16 +226,17 @@ describe("MA points require a posted gift with dollars", () => {
     assert.equal(second.points, 0);
   });
 
-  it("gift a few days before a donation note still counts dollars, not 100 pts", () => {
+  it("gift dated before the note on that contact is not attributed", () => {
     const { model, owner, rows } = run(
       [donationNote({ noteDate: "8/11/2026" })],
       [postedGift({ giftDate: "8/4/2026", amount: 90 })],
     );
-    assert.equal(owner.gifts, 1);
-    assert.equal(owner.giftAmount, 90);
+    assert.equal(owner.gifts, 0);
+    assert.equal(owner.giftAmount, 0);
     assert.equal(owner.points, 0);
-    assert.equal(model.totals.gifts, 1);
-    assert.equal(model.totals.giftAmount, 90);
+    assert.equal(model.totals.gifts, 0);
+    assert.equal(model.totals.giftAmount, 0);
+    assert.equal(model.gifts.length, 0);
     assert.ok(rows.some((r) => r.unmatched && r.bucket === "unmatched" && r.points === 0));
   });
 
@@ -527,6 +528,16 @@ describe("gift dollars follow MA activity notes", () => {
     assert.equal(owner.giftAmount, 0);
     assert.equal(owner.points, 5);
   });
+
+  it("thank-you call after a gift does not claim that gift", () => {
+    const { owner } = run(
+      [donationNote({ type: "Mission Advancement Call | Voicemail", noteDate: "8/6/2026" })],
+      [postedGift({ giftDate: "7/27/2026", amount: 1500 })],
+    );
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+  });
 });
+
 
 
