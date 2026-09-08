@@ -484,7 +484,7 @@ export const SUMMARY_DEFS: Record<string, string> = {
   "Returning Students":
     "UG degree-seeking who are not Incoming this fall. Incoming + Returning = Total Degree-Seeking. Not a residency total.",
   Residency:
-    "Complete split of Total Degree-Seeking by where they study: On Campus + Mount Melleray Abbey + Rome + Commuter. Separate from Incoming vs Returning.",
+    "Where UG degree-seeking students study this fall: On Campus + Mount Melleray Abbey + Rome + Commuter. Adds to Total Degree-Seeking, same as Incoming + Returning.",
   "Mount Melleray Abbey":
     "UG degree-seeking on session 03Ireland (Mount Melleray Abbey). Breakout of Total Degree-Seeking with On Campus, Rome, and Commuter. Not On Campus.",
   "On Campus":
