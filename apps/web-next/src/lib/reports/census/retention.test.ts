@@ -23,6 +23,8 @@ import {
   isFtcaIncoming,
   retentionPct,
   withLiveCurrentYearRate,
+  applyUnretainedEnrichment,
+  toUnretainedSeed,
   NO_FOOTBALL_ALL_UG_HISTORY,
   NO_FOOTBALL_FTCA_HISTORY,
 } from "./retention";
@@ -670,4 +672,20 @@ test("FTCA extras fill HS GPA ranges and copy scores onto FTCA raw", () => {
   );
   assert.equal(raw[0]?.hsGpa, 3.8);
   assert.equal(raw[0]?.dob, "03/28/2007");
+});
+
+test("unretained seed keeps HS GPA and overlay fills interview / withdrawal", () => {
+  const seed = toUnretainedSeed([prior({ pcid: "P1", first: "Left", last: "Campus", hsGpa: 3.4, act: 24, cathGroup: "Catholic" })]);
+  assert.equal(seed[0]?.hsGpa, 3.4);
+  assert.equal(seed[0]?.act, 24);
+  const rows = applyUnretainedEnrichment(
+    seed,
+    { P1: { interviewTotal: 22, athleticAid: 3000, schoolType: "Catholic" } },
+    { "left|campus": { reasonForLeaving: "Transferring to Another University" } },
+  );
+  assert.equal(rows[0]?.interviewTotal, 22);
+  assert.equal(rows[0]?.athleticAid, 3000);
+  assert.equal(rows[0]?.schoolType, "Catholic");
+  assert.equal(rows[0]?.reasonForLeaving, "Transferring to Another University");
+  assert.equal(rows[0]?.hsGpa, 3.4);
 });

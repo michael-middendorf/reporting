@@ -25,6 +25,8 @@ export type CensusSummary = {
   returning: CountFte;
   ireland: CountFte;
   onCampus: CountFte;
+  rome: CountFte;
+  commuter: CountFte;
   montMallary: CountFte;
   degreeSeeking: CountFte;
   dualEnrollment: CountFte;
@@ -60,8 +62,12 @@ export const HISTORICAL_ROWS: {
   { label: "SECB", key: "secb", indent: true },
   { label: "Lux Mundi", key: "luxMundiUg", indent: true },
   { label: "Returning Students", key: "returning", bold: true },
-  { label: "Mount Melleray Abbey", key: "ireland", indent: true },
   { label: "Total Degree-Seeking", key: "degreeSeeking", total: true, bold: true },
+  { label: "Residency" },
+  { label: "On Campus", key: "onCampus", indent: true },
+  { label: "Mount Melleray Abbey", key: "ireland", indent: true },
+  { label: "Rome", key: "rome", indent: true },
+  { label: "Commuter", key: "commuter", indent: true },
   { label: "" },
   { label: "On-campus dual enrollment", key: "dualEnrollment", bold: true },
   { label: "Online dual enrollment", key: "chestertonDual" },

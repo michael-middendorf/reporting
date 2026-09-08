@@ -114,6 +114,19 @@ export function isIrelandStudent(s: CensusRawStudent): boolean {
   return sess.includes("ireland") || res === "Ireland" || res === "Mount Melleray Abbey";
 }
 
+export function isRomeStudent(s: CensusRawStudent): boolean {
+  if (isIrelandStudent(s) || isMallaryStudent(s)) return false;
+  const res = (s.residency || "").trim();
+  const sess = (s.session || "").toLowerCase();
+  if (res === "Rome" || res === "Study Abroad" || res.toUpperCase() === "RSTA") return true;
+  return sess.includes("rome") || sess.includes("rsta");
+}
+
+export function isCommuterStudent(s: CensusRawStudent): boolean {
+  if (isIrelandStudent(s) || isMallaryStudent(s) || isRomeStudent(s)) return false;
+  return (s.residency || "").trim().toLowerCase() === "commuter";
+}
+
 export function isMallaryStudent(s: CensusRawStudent): boolean {
   const sess = (s.session || "").toLowerCase().replace(/\s+/g, "");
   return sess.includes("03mm") || sess.includes("mallary") || sess.includes("montmallary");
@@ -131,9 +144,13 @@ export function isChesterton(s: CensusRawStudent): boolean {
 }
 
 function isOnCampus(s: CensusRawStudent): boolean {
-  if (isIrelandStudent(s) || isMallaryStudent(s)) return false;
+  if (isIrelandStudent(s) || isMallaryStudent(s) || isRomeStudent(s)) return false;
   const r = (s.residency || "").trim().toLowerCase();
   return r === "on campus" || r === "resident";
+}
+
+function fteSum(...parts: CountFte[]): number {
+  return round1(parts.reduce((s, p) => s + (p.fte ?? 0), 0));
 }
 
 export function summaryFromStudents(students: CensusRawStudent[]): CensusSummary {
@@ -152,36 +169,67 @@ export function summaryFromStudents(students: CensusRawStudent[]): CensusSummary
   const maCrw = campusMa.filter(isMaCrw);
   const maTheo = campusMa.filter((s) => !isMaPhil(s) && !isMaCrw(s));
   const ug = [...ugds, ...dual, ...nonDegree, ...chestertonRows];
+  const ftca = hcFte(byCollege("FTCA"));
+  const tran = hcFte(byCollege("TRAN"));
+  const read = hcFte(byCollege("READ"));
+  const secb = hcFte(byCollege("SECB"));
+  const newOther = hcFte(incoming.filter((s) => !["FTCA", "TRAN", "READ", "SECB"].includes(college(s))));
+  const newStudents = { headcount: incoming.length, fte: fteSum(ftca, tran, read, secb, newOther) };
+  const returningHc = hcFte(returning);
+  const ireland = hcFte(ugds.filter(isIrelandStudent));
+  const onCampus = hcFte(ugds.filter(isOnCampus));
+  const rome = hcFte(ugds.filter(isRomeStudent));
+  const commuter = hcFte(ugds.filter(isCommuterStudent));
+  const montMallary = hcFte(ugds.filter(isMallaryStudent));
+  const dualEnrollment = hcFte(dual);
+  const chestertonDual = hcFte(chestertonRows);
+  const nonDegreeHc = hcFte(nonDegree);
+  const luxMundiNonDegree = hcFte(nonDegree.filter(isLuxMundi));
+  const degreeSeeking = { headcount: ugds.length, fte: fteSum(newStudents, returningHc) };
+  const gradMaPhil = hcFte(maPhil);
+  const gradMa = hcFte(maTheo);
+  const gradPhd = hcFte(byDeg("PHD"));
+  const gradMba = hcFte(byDeg("MBA"));
+  const gradMedcl = hcFte(grads.filter((s) => degree(s) === "MEDCL" && !isLuxMundi(s)));
+  const gradMaCrw = hcFte(maCrw);
+  const luxMundiGrad = hcFte(luxGrad);
+  const totalGraduate = { headcount: grads.length, fte: fteSum(gradMaPhil, gradMa, gradPhd, gradMba, gradMedcl, gradMaCrw, luxMundiGrad) };
+  const totalUndergraduate = {
+    headcount: ug.length,
+    fte: fteSum(degreeSeeking, dualEnrollment, chestertonDual, nonDegreeHc),
+  };
   return {
-    newStudents: hcFte(incoming),
-    ftca: hcFte(byCollege("FTCA")),
-    tran: hcFte(byCollege("TRAN")),
-    read: hcFte(byCollege("READ")),
-    secb: hcFte(byCollege("SECB")),
-    newOther: hcFte(incoming.filter((s) => !["FTCA", "TRAN", "READ", "SECB"].includes(college(s)))),
+    newStudents,
+    ftca,
+    tran,
+    read,
+    secb,
+    newOther,
     luxMundiUg: hcFte(ugds.filter(isLuxMundi)),
-    returning: hcFte(returning),
-    ireland: hcFte(ugds.filter(isIrelandStudent)),
-    onCampus: hcFte(ugds.filter(isOnCampus)),
-    montMallary: hcFte(ugds.filter(isMallaryStudent)),
-    degreeSeeking: hcFte(ugds),
-    dualEnrollment: hcFte(dual),
-    chesterton: hcFte(chestertonRows),
-    chestertonDual: hcFte(chestertonRows),
-    nonDegree: hcFte(nonDegree),
-    luxMundiNonDegree: hcFte(nonDegree.filter(isLuxMundi)),
-    totalUndergraduate: hcFte(ug),
-    gradMaPhil: hcFte(maPhil),
-    gradMa: hcFte(maTheo),
-    gradPhd: hcFte(byDeg("PHD")),
-    gradMba: hcFte(byDeg("MBA")),
-    gradMedcl: hcFte(grads.filter((s) => degree(s) === "MEDCL" && !isLuxMundi(s))),
-    gradMaCrw: hcFte(maCrw),
-    luxMundiGrad: hcFte(luxGrad),
-    totalGraduate: hcFte(grads),
+    returning: returningHc,
+    ireland,
+    onCampus,
+    rome,
+    commuter,
+    montMallary,
+    degreeSeeking,
+    dualEnrollment,
+    chesterton: chestertonDual,
+    chestertonDual,
+    nonDegree: nonDegreeHc,
+    luxMundiNonDegree,
+    totalUndergraduate,
+    gradMaPhil,
+    gradMa,
+    gradPhd,
+    gradMba,
+    gradMedcl,
+    gradMaCrw,
+    luxMundiGrad,
+    totalGraduate,
     totalEnrollment: {
       headcount: uniqueStudentCount(students),
-      fte: hcFte(students).fte,
+      fte: fteSum(totalUndergraduate, totalGraduate),
     },
   };
 }
@@ -412,9 +460,9 @@ export const KPI_DEFS: Record<string, string> = {
   ugStudents:
     "Registration Status rows with Program = UNDERG and College Attend not DUAL, EACO, or ND (B.A. and B.S.). Default Census Report view. Mount Melleray Abbey is included.",
   ireland:
-    "UG degree-seeking at Mount Melleray Abbey (session 03Ireland). Also counted in Returning and Total Degree-Seeking.",
+    "UG degree-seeking at Mount Melleray Abbey (session 03Ireland). Also counted in Returning and Total Degree-Seeking. Not On Campus, not Rome.",
   ugOnCampus:
-    "UG degree-seeking in campus halls (On Campus). Mount Melleray Abbey is not On Campus.",
+    "UG degree-seeking in campus halls (On Campus). Mount Melleray Abbey, Rome, and Commuter are separate.",
   incomingHsGpa:
     "Mean HS GPA for Fall 2026 incoming UG degree-seeking students with a score. Verified incoming extract; 0 is missing.",
   pctCatholic:
@@ -434,11 +482,18 @@ export const SUMMARY_DEFS: Record<string, string> = {
     "Incoming UG degree-seeking whose College Attend is not FTCA, TRAN, READ, or SECB (blank college or dual-BA coded GRAD).",
   "Lux Mundi": "UG degree-seeking with Session 01LuxMundi. Breakout; also in Incoming / Returning.",
   "Returning Students":
-    "UG degree-seeking who were already on the Fall 2025 census. Mount Melleray Abbey is included here.",
+    "UG degree-seeking who are not Incoming this fall. Incoming + Returning = Total Degree-Seeking. Not a residency total.",
+  Residency:
+    "Complete split of Total Degree-Seeking by where they study: On Campus + Mount Melleray Abbey + Rome + Commuter. Separate from Incoming vs Returning.",
   "Mount Melleray Abbey":
-    "UG degree-seeking on session 03Ireland (Mount Melleray Abbey). Breakout only — also in Returning and Total Degree-Seeking. Not On Campus.",
-  "On Campus": "UG degree-seeking in residence halls. Residential = On Campus. Mount Melleray Abbey is separate.",
-  "Total Degree-Seeking": "Program = UNDERG and College Attend not DUAL, EACO, or ND. Incoming + Returning.",
+    "UG degree-seeking on session 03Ireland (Mount Melleray Abbey). Breakout of Total Degree-Seeking with On Campus, Rome, and Commuter. Not On Campus.",
+  "On Campus":
+    "UG degree-seeking in residence halls. Residential = On Campus. Breakout of Total Degree-Seeking with Mount Melleray Abbey, Rome, and Commuter.",
+  Rome: "UG degree-seeking on the Rome program (residency Rome / Study Abroad / RSTA). Breakout of Total Degree-Seeking. Not On Campus and not Mount Melleray Abbey.",
+  Commuter:
+    "UG degree-seeking commuters. Breakout of Total Degree-Seeking with On Campus, Mount Melleray Abbey, and Rome.",
+  "Total Degree-Seeking":
+    "Program = UNDERG and College Attend not DUAL, EACO, or ND. Incoming + Returning. Same headcount as On Campus + Mount Melleray Abbey + Rome + Commuter. FTE is the sum of the Incoming and Returning FTE lines.",
   "On-campus dual enrollment":
     "College Attend = DUAL or Degree = HSDE. Online dual enrollment (Chesterton / Early College) is not this line. FTE is credits/12 when Full/Part is blank.",
   "Online dual enrollment":
@@ -447,7 +502,8 @@ export const SUMMARY_DEFS: Record<string, string> = {
     "Everyone who is not UG degree-seeking, not dual enrollment, not online dual enrollment, and not Program = GRAD (ND / PENRIC / NONDEG).",
   "Lux Mundi Non-Degree-Seeking / Personal Enrichment":
     "Non-degree rows with Session 01LuxMundi. Not UG Lux Mundi and not graduate Lux Mundi.",
-  "TOTAL UNDERGRADUATE ENROLLMENT": "UG degree-seeking + on-campus dual enrollment + online dual enrollment + non-degree.",
+  "TOTAL UNDERGRADUATE ENROLLMENT":
+    "UG degree-seeking + on-campus dual enrollment + online dual enrollment + non-degree. FTE is the sum of those lines.",
   "MA Philosophy": "Program = GRAD, curriculum MAPHIL (M.A. in Philosophy). Excludes Lux Mundi.",
   "MA Theology on-campus":
     "Program = GRAD, curriculum MATHEO (M.A. in Theology), excluding Lux Mundi. Same series as prior-year Graduate MA Students.",

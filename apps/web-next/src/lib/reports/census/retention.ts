@@ -916,6 +916,59 @@ export function buildFtcaExtras(
   };
 }
 
+const ENRICH_KEYS: (keyof UnretainedStudent)[] = [
+  "hsGpa",
+  "act",
+  "sat",
+  "clt",
+  "interviewTotal",
+  "interviewFaith",
+  "interviewCourage",
+  "interviewDesire",
+  "interviewHsInvolvement",
+  "interviewCollegeCareer",
+  "interviewPlans",
+  "acRecommendation",
+  "acComments",
+  "likelyToDeposit",
+  "milesFromCampus",
+  "applicationMajor",
+  "sector",
+  "athleticAid",
+  "unfundedAid",
+  "reasonForLeaving",
+  "withdrawalImprovement",
+  "withdrawalComments",
+  "schoolType",
+  "highSchoolName",
+];
+
+function unretainedNameKey(s: { first?: string; last?: string }): string {
+  return `${(s.first || "").trim().toLowerCase()}|${(s.last || "").trim().toLowerCase()}`;
+}
+
+/** Overlay admissions / withdrawal fields. Existing values win over blanks. */
+export function applyUnretainedEnrichment(
+  rows: UnretainedStudent[],
+  byPcid: Record<string, Partial<UnretainedStudent>> = {},
+  byName: Record<string, Partial<UnretainedStudent>> = {},
+): UnretainedStudent[] {
+  return rows.map((s) => {
+    const extra = {
+      ...(byName[unretainedNameKey(s)] || {}),
+      ...(byPcid[normPcid(s.pcid)] || {}),
+    };
+    const out: UnretainedStudent = { ...s };
+    for (const key of ENRICH_KEYS) {
+      const next = extra[key];
+      if (next == null || next === "") continue;
+      if (out[key] == null || out[key] === "") (out as Record<string, unknown>)[key] = next;
+    }
+    if (!out.applicationMajor) out.applicationMajor = out.curriculumName || "";
+    return out;
+  });
+}
+
 export function toUnretainedSeed(prior: CensusRawStudent[]): UnretainedStudent[] {
   return prior.map((s) => ({
     pcid: s.pcid,
@@ -929,6 +982,7 @@ export function toUnretainedSeed(prior: CensusRawStudent[]): UnretainedStudent[]
     honors: s.honors,
     sport: s.sport,
     religion: s.religion,
+    cathGroup: s.cathGroup,
     state: s.state,
     gender: s.gender,
     classLevel: s.classLevel,
@@ -938,5 +992,10 @@ export function toUnretainedSeed(prior: CensusRawStudent[]): UnretainedStudent[]
     institute: s.institute,
     credits: s.credits,
     earnedCredits: s.earnedCredits,
+    curriculumName: s.curriculumName,
+    hsGpa: s.hsGpa,
+    act: s.act,
+    sat: s.sat,
+    clt: s.clt,
   }));
 }

@@ -12,6 +12,7 @@ import {
   ayGraduatePcids,
   buildAllUgSplit,
   applyLiveRetentionHistory,
+  applyUnretainedEnrichment,
   buildFtcaAttritionFromPrior,
   collectGpa,
   deriveFtcaRaw,
@@ -30,9 +31,30 @@ import { presentSnapshot } from "./present";
 import { housingAssignmentRows, residencyFromErez, type HousingAssignmentRow } from "./residency";
 import { applyRegistrationTotals } from "./from-lists";
 import { HOUSING_PENDING, type CensusSnapshot } from "./types";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import type { UnretainedStudent } from "./lists-core";
 
 function cloneSnapshot(): CensusSnapshot {
   return structuredClone(snapshot) as CensusSnapshot;
+}
+
+function loadUnretainedEnrichment(): {
+  byPcid: Record<string, Partial<UnretainedStudent>>;
+  byName: Record<string, Partial<UnretainedStudent>>;
+} {
+  const empty = { byPcid: {}, byName: {} };
+  const path = join(process.cwd(), "src/lib/reports/census/data/unretained-enrichment.json");
+  if (!existsSync(path)) return empty;
+  try {
+    const raw = JSON.parse(readFileSync(path, "utf8")) as {
+      byPcid?: Record<string, Partial<UnretainedStudent>>;
+      byName?: Record<string, Partial<UnretainedStudent>>;
+    };
+    return { byPcid: raw.byPcid || {}, byName: raw.byName || {} };
+  } catch {
+    return empty;
+  }
 }
 
 export function applyHousingOverlay(
@@ -92,23 +114,34 @@ export async function loadCensusSnapshot(): Promise<{
     const notes = applyCensusRetentionNotes(lists.prior, lists.students.map((s) => s.pcid), lists.graduates);
     const gradIds = ayGraduatePcids(notes.graduates);
     const priorById = new Map(lists.prior.map((p) => [(p.pcid || "").toUpperCase(), p]));
+    const enrichment = loadUnretainedEnrichment();
     lists = {
       ...lists,
-      unretained: omitLeaveOfAbsence(
-        markUnretainedNotes(
-          deriveUnretained(
-            toUnretainedSeed(notes.prior),
-            notes.currentIds,
-            gradIds,
-          ).map((s) => {
-            const prior = priorById.get((s.pcid || "").toUpperCase());
-            return {
-              ...s,
-              credits: s.credits ?? prior?.credits ?? "",
-              earnedCredits: s.earnedCredits || prior?.earnedCredits || "",
-            };
-          }),
+      unretained: applyUnretainedEnrichment(
+        omitLeaveOfAbsence(
+          markUnretainedNotes(
+            deriveUnretained(
+              toUnretainedSeed(notes.prior),
+              notes.currentIds,
+              gradIds,
+            ).map((s) => {
+              const prior = priorById.get((s.pcid || "").toUpperCase());
+              return {
+                ...s,
+                credits: s.credits ?? prior?.credits ?? "",
+                earnedCredits: s.earnedCredits || prior?.earnedCredits || "",
+                cathGroup: s.cathGroup || prior?.cathGroup || "",
+                hsGpa: s.hsGpa ?? prior?.hsGpa ?? "",
+                act: s.act ?? prior?.act ?? "",
+                sat: s.sat ?? prior?.sat ?? "",
+                clt: s.clt ?? prior?.clt ?? "",
+                curriculumName: s.curriculumName || prior?.curriculumName || "",
+              };
+            }),
+          ),
         ),
+        enrichment.byPcid,
+        enrichment.byName,
       ),
     };
     const gpa = collectGpa(lists);

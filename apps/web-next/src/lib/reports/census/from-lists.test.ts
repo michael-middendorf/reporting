@@ -271,6 +271,41 @@ test("Ireland and Mont Mallary are not On Campus; DE is DUAL not Chesterton", ()
   assert.equal(sum.dualEnrollment.fte, 1); // 4/12 + 8/12
 });
 
+test("Summary residency lines partition UG DS; FTE follows those headcounts", () => {
+  const rows = [
+    s({ pcid: "1", residency: "On Campus", incomingReturning: "Incoming", fullPart: "FULL" }),
+    s({ pcid: "2", residency: "On Campus", incomingReturning: "Returning", fullPart: "FULL" }),
+    s({ pcid: "3", session: "03Ireland", residency: "Ireland", incomingReturning: "Returning", fullPart: "HALF" }),
+    s({ pcid: "4", residency: "Rome", incomingReturning: "Returning", fullPart: "FULL" }),
+    s({ pcid: "5", residency: "Commuter", incomingReturning: "Incoming", fullPart: "LESS", collegeAttend: "TRAN" }),
+    s({ pcid: "6", residency: "Commuter", incomingReturning: "Returning", fullPart: "FULL" }),
+  ];
+  const sum = summaryFromStudents(rows);
+  assert.equal(sum.degreeSeeking.headcount, 6);
+  assert.equal(sum.newStudents.headcount, 2);
+  assert.equal(sum.returning.headcount, 4);
+  assert.equal(sum.ftca.headcount, 1);
+  assert.equal(sum.tran.headcount, 1);
+  assert.equal(sum.onCampus.headcount, 2);
+  assert.equal(sum.ireland.headcount, 1);
+  assert.equal(sum.rome.headcount, 1);
+  assert.equal(sum.commuter.headcount, 2);
+  assert.equal(
+    sum.onCampus.headcount + sum.ireland.headcount + sum.rome.headcount + sum.commuter.headcount,
+    sum.degreeSeeking.headcount,
+  );
+  assert.equal(sum.onCampus.fte, 2);
+  assert.equal(sum.ireland.fte, 0.5);
+  assert.equal(sum.rome.fte, 1);
+  assert.equal(sum.commuter.fte, 1.3);
+  assert.equal(sum.ftca.fte, 1);
+  assert.equal(sum.tran.fte, 0.3);
+  assert.equal(sum.newStudents.fte, 1.3, "new FTE is FTCA + TRAN + READ + SECB + Other");
+  assert.equal(sum.returning.fte, 3.5);
+  assert.equal(sum.degreeSeeking.fte, 4.8, "DS FTE is new + returning");
+  assert.equal(sum.rome.headcount + sum.ireland.headcount + sum.onCampus.headcount, 4);
+});
+
 test("Early College (EACO/EACOL) is the Chesterton Summary line", () => {
   const rows = [
     s({ pcid: "1", program: "EACOL", collegeAttend: "EACO", degree: "BARTS", incomingReturning: "Incoming" }),

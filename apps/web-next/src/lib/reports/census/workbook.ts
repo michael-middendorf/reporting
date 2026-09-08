@@ -246,14 +246,17 @@ function writeSummary(wb: XlsxWorkbook, data: CensusSnapshot) {
     { label: "Other", c: s.newOther, indent: true },
     { label: "Lux Mundi", c: s.luxMundiUg, indent: true },
     { label: "Returning Students", c: s.returning },
-    { label: "Mount Melleray Abbey", c: s.ireland, indent: true },
-    { label: "On Campus", c: s.onCampus, indent: true },
     {
       label: "Total Degree-Seeking",
       c: s.degreeSeeking,
       total: true,
       hcText: `${s.degreeSeeking.headcount.toLocaleString()} (${ft.toLocaleString()} Full Time)`,
     },
+    { label: "Residency" },
+    { label: "On Campus", c: s.onCampus ?? { headcount: 0, fte: 0 }, indent: true },
+    { label: "Mount Melleray Abbey", c: s.ireland, indent: true },
+    { label: "Rome", c: s.rome ?? { headcount: 0, fte: 0 }, indent: true },
+    { label: "Commuter", c: s.commuter ?? { headcount: 0, fte: 0 }, indent: true },
     { label: "" },
     { label: "On-campus dual enrollment", c: s.dualEnrollment },
     { label: "Online dual enrollment", c: s.chestertonDual },
@@ -1555,6 +1558,7 @@ const UNRETAINED_HEADERS = [
   "Institute",
   "Sport",
   "Religion",
+  "Catholic/Non-Catholic",
   "State",
   "Gender",
   "Class",
@@ -1563,6 +1567,30 @@ const UNRETAINED_HEADERS = [
   "Program",
   "FA25 Credits",
   "Cumulative Earned Credits",
+  "HS GPA",
+  "ACT",
+  "SAT",
+  "CLT",
+  "Declared application major",
+  "Interview Faith",
+  "Interview Courage",
+  "Interview Desire",
+  "Interview HS Involvement",
+  "Interview College/Career",
+  "Interview Plans at AMU",
+  "Interview Total",
+  "AC Recommendation",
+  "AC Comments",
+  "Likely to deposit",
+  "Miles from campus",
+  "Sector",
+  "Athletic Aid",
+  "Unfunded aid",
+  "School type (Ave Type)",
+  "High School Name",
+  "Reason for leaving",
+  "Withdrawal improvement",
+  "Withdrawal comments",
 ];
 
 const LOA_HEADERS = [
@@ -1638,6 +1666,7 @@ function loaFallForExport(lists: CensusLists, filters?: ReportFilters): LoaWithS
 }
 
 function unretainedRow(s: UnretainedStudent): CellValue[] {
+  const incoming = (s.incomingReturning || "").trim().toLowerCase().startsWith("incoming");
   return [
     s.pcid,
     s.first,
@@ -1651,6 +1680,7 @@ function unretainedRow(s: UnretainedStudent): CellValue[] {
     s.institute || "",
     s.sport,
     s.religion || "",
+    incoming ? catholicOf({ cathGroup: s.cathGroup, religion: s.religion }) : "",
     s.state,
     s.gender,
     s.classLevel,
@@ -1659,6 +1689,30 @@ function unretainedRow(s: UnretainedStudent): CellValue[] {
     s.program || "",
     s.credits ?? "",
     s.earnedCredits ?? "",
+    s.hsGpa ?? "",
+    s.act ?? "",
+    s.sat ?? "",
+    s.clt ?? "",
+    s.applicationMajor || s.curriculumName || "",
+    s.interviewFaith ?? "",
+    s.interviewCourage ?? "",
+    s.interviewDesire ?? "",
+    s.interviewHsInvolvement ?? "",
+    s.interviewCollegeCareer ?? "",
+    s.interviewPlans ?? "",
+    s.interviewTotal ?? "",
+    s.acRecommendation ?? "",
+    s.acComments || "",
+    s.likelyToDeposit || "",
+    s.milesFromCampus ?? "",
+    s.sector || "",
+    s.athleticAid ?? "",
+    s.unfundedAid ?? "",
+    s.schoolType || "",
+    s.highSchoolName || "",
+    s.reasonForLeaving || "",
+    s.withdrawalImprovement || "",
+    s.withdrawalComments || "",
   ];
 }
 
@@ -1687,7 +1741,7 @@ function writeSources(
     ],
     [
       "Registration",
-      "Fall 2026 Registration Status-29.xlsx plus Registration Status w Residency-8.xlsx (Mount Melleray Abbey) and Residency-7.xlsx (Lux Mundi). Mount Melleray Abbey and Lux Mundi stay in the main totals, with separate Summary lines.",
+      "Fall 2026 Registration Status-29.xlsx plus Registration Status w Residency-8.xlsx (Mount Melleray Abbey) and Residency-7.xlsx (Lux Mundi). Cover-sheet residency of Total Degree-Seeking is On Campus + Mount Melleray Abbey + Rome + Commuter. Incoming + Returning is the same 1401. FTE on parent lines is the sum of those child FTE lines.",
     ],
     [
       "Institute scholars",
@@ -1714,7 +1768,7 @@ function writeSources(
     [
       "Not retained",
       unretainedCount
-        ? `${unretainedCount.toLocaleString()} Fall 2025 census students not in Fall 2026 registration, not 2025–26 graduates, and not the retention-sheet exceptions (AMSOL/enrolled/last credits, deceased, dropped after census, leave of absence).`
+        ? `${unretainedCount.toLocaleString()} Fall 2025 census students not in Fall 2026 registration, not 2025–26 graduates, and not the retention-sheet exceptions (AMSOL/enrolled/last credits, deceased, dropped after census, leave of absence). Incoming overlay: FA25 Incoming Students Census 20260908-102528.xlsx (interview 24/25 six + total, application major, school type/name). Aid from FA25 deposits scholarship. Reason for leaving from Institutional Withdrawal Exit Interview (name match).`
         : "Unretained list is not in the census cache yet.",
     ],
     [

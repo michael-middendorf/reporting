@@ -59,6 +59,7 @@ export type UnretainedStudent = {
   honors: string;
   sport: string;
   religion?: string;
+  cathGroup?: string;
   state: string;
   gender: string;
   classLevel: string;
@@ -70,6 +71,31 @@ export type UnretainedStudent = {
   earnedCredits?: number | string;
   athleticType?: string;
   rosterStatus?: string;
+  curriculumName?: string;
+  hsGpa?: number | string;
+  act?: number | string;
+  sat?: number | string;
+  clt?: number | string;
+  interviewTotal?: number | string;
+  interviewFaith?: number | string;
+  interviewCourage?: number | string;
+  interviewDesire?: number | string;
+  interviewHsInvolvement?: number | string;
+  interviewCollegeCareer?: number | string;
+  interviewPlans?: number | string;
+  acRecommendation?: number | string;
+  acComments?: string;
+  likelyToDeposit?: string;
+  milesFromCampus?: number | string;
+  applicationMajor?: string;
+  sector?: string;
+  athleticAid?: number | string;
+  unfundedAid?: number | string;
+  reasonForLeaving?: string;
+  withdrawalImprovement?: string;
+  withdrawalComments?: string;
+  schoolType?: string;
+  highSchoolName?: string;
 };
 
 export type LoaStudent = {
