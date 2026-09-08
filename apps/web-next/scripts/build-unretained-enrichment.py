@@ -25,7 +25,18 @@ OUT = DATA / "unretained-enrichment.json"
 ML_TRAINING = DOWNLOADS / "ML Training Data -_ Qlik 20260709-120623.xlsx"
 DEPOSITS = DOWNLOADS / "FA25 Deposits With Scholarship Info 20260410-105249.xlsx"
 HS_NAME = DOWNLOADS / "Qlik Sense - Untitled - Table - September 18, 2025.xlsx"
-WITHDRAWAL = DOWNLOADS / "Institutional Withdrawal Exit Interview 2024-2026 (1).xlsx"
+WITHDRAWAL = next(
+    (
+        p
+        for p in (
+            DOWNLOADS / "Institutional Withdrawal Exit Interview 2024-2026 (2).xlsx",
+            DOWNLOADS / "Institutional Withdrawal Exit Interview 2024-2026 (1).xlsx",
+            DOWNLOADS / "Institutional Withdrawal Exit Interview 2024-2026.xlsx",
+        )
+        if p.exists() and not p.name.startswith("~$")
+    ),
+    DOWNLOADS / "Institutional Withdrawal Exit Interview 2024-2026 (2).xlsx",
+)
 ADM_ML = DOWNLOADS / "FA25 Admissions Report ML -_ Qlik 20260408-160056.xlsx"
 INCOMING = DOWNLOADS / "FA25 Incoming Students Census 20260908-102528.xlsx"
 GOLD_FTCA = Path("/Users/regina.m.pirolli/Documents/Census Files/Fall 2025 Census Final 9.23.25.xlsx")

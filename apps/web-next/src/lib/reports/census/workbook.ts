@@ -1364,31 +1364,28 @@ function writeListSheet(
 ) {
   const ws = wb.addSheet(name);
   ws.gridLines = false;
-  widths.forEach((w, i) => ws.width(i + 1, w));
-  const missing = headers.map((_, c) => emptyCol(rows, c));
-  const labeled = headers.map((h, c) => (missing[c] ? `${h} (Needs data)` : h));
-  writeHeaders(ws, 1, 1, labeled);
-  if (!rows.length) {
+  const keep = rows.length ? headers.map((_, c) => !emptyCol(rows, c)) : headers.map(() => true);
+  const keptHeaders = headers.filter((_, c) => keep[c]);
+  const keptWidths = headers.map((_, c) => widths[c] ?? 12).filter((_, c) => keep[c]);
+  const keptRows = rows.map((row) => row.filter((_, c) => keep[c]));
+  keptWidths.forEach((w, i) => ws.width(i + 1, w));
+  writeHeaders(ws, 1, 1, keptHeaders);
+  if (!keptRows.length) {
     ws.set(2, 1, "Needs data — no student-level rows published yet.", NEEDS_STYLE);
-    for (let c = 2; c <= headers.length; c++) ws.set(2, c, NEEDS_DATA, NEEDS_STYLE);
-    ws.box(1, 1, 2, headers.length);
+    ws.box(1, 1, 2, keptHeaders.length);
     return;
   }
-  rows.forEach((row, i) => {
-    const filled = row.map((v, c) => (missing[c] && (v == null || v === "") ? NEEDS_DATA : v ?? ""));
-    writeRow(ws, i + 2, 1, filled);
+  keptRows.forEach((row, i) => {
+    writeRow(ws, i + 2, 1, row.map((v) => v ?? ""));
     if (i % 2 === 1) {
-      for (let c = 1; c <= headers.length; c++) ws.patch(i + 2, c, STRIPE);
+      for (let c = 1; c <= keptHeaders.length; c++) ws.patch(i + 2, c, STRIPE);
     }
-    missing.forEach((isMissing, c) => {
-      if (isMissing) ws.patch(i + 2, c + 1, NEEDS_STYLE);
-    });
   });
-  ws.box(1, 1, rows.length + 1, headers.length);
-  for (let c = 1; c <= headers.length; c++) {
+  ws.box(1, 1, keptRows.length + 1, keptHeaders.length);
+  for (let c = 1; c <= keptHeaders.length; c++) {
     ws.patch(1, c, { border: { b: { s: "medium", c: NAVY } } });
   }
-  ws.autoFilter = `A1:${cellRef(1, headers.length)}`;
+  ws.autoFilter = `A1:${cellRef(1, keptHeaders.length)}`;
   ws.freezeRows = 1;
 }
 
@@ -1553,17 +1550,9 @@ const LOA_HEADERS = [
   "FSP",
   "State",
   "Gender",
-  "FA26 program",
-  "FA26 class",
-  "FA26 sport",
-  "FA26 curriculum",
-  "FA26 session",
-  "FA26 residency",
-  "FA26 load",
-  "FA26 credits",
 ];
 
-const LOA_WIDTHS = [14, 14, 18, 14, 16, 16, 14, 16, 12, 18, 10, 10, 16, 8, 8, 10, 12, 12, 16, 18, 12, 14, 10, 10];
+const LOA_WIDTHS = [14, 14, 18, 14, 16, 16, 14, 16, 12, 18, 10, 10, 16, 8, 8, 10];
 
 function loaRow(s: LoaWithStatus): CellValue[] {
   return [
@@ -1583,14 +1572,6 @@ function loaRow(s: LoaWithStatus): CellValue[] {
     s.fsp,
     s.state,
     s.gender,
-    s.fa26Program,
-    s.fa26Class,
-    s.fa26Sport,
-    s.fa26Curriculum,
-    s.fa26Session,
-    s.fa26Residency,
-    s.fa26FullPart,
-    s.fa26Credits,
   ];
 }
 
