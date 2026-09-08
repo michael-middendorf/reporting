@@ -3,6 +3,8 @@
 const points = require("./points.js") as {
   scoreAll: (input: { notes: unknown[]; gifts?: unknown[] }) => unknown[];
   scoreEventsForDisplay: (events: unknown[]) => unknown[];
+  prepareGifts: (posted?: unknown[], recurring?: unknown[]) => unknown[];
+  isMonthlyRecurring: (record: unknown) => boolean;
 };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const aggregateMod = require("./aggregate.js") as {
@@ -36,6 +38,8 @@ const config = require("./config.js") as {
 
 export const scoreAll = points.scoreAll;
 export const scoreEventsForDisplay = points.scoreEventsForDisplay;
+export const prepareGifts = points.prepareGifts;
+export const isMonthlyRecurring = points.isMonthlyRecurring;
 export const buildCalculationCSV = reportMod.buildCalculationCSV;
 export const downloadText = reportMod.downloadText;
 export const virtuousContactUrl = reportMod.virtuousContactUrl;

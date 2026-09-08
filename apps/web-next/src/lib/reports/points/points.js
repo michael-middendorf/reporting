@@ -113,6 +113,59 @@ function parseAmount(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+const INSTALLMENT_TOLERANCE = 3;
+
+/** Tracker credits monthly AC as 12 × the monthly amount. */
+export function isMonthlyRecurring(record) {
+  if (!record) return false;
+  if (/^monthly$/i.test(String(record.frequency || "").trim())) return true;
+  if (Array.isArray(record.recurringGiftPayments) && record.recurringGiftPayments.length > 0) return true;
+  if (/instance of a recurring gift/i.test(String(record.notes || ""))) return true;
+  return false;
+}
+
+function roundCents(n) {
+  return Math.round(n * 100) / 100;
+}
+
+/** Map a Virtuous RecurringGift onto the gift shape the scorer already uses. */
+export function recurringToGift(record) {
+  const des = (record.designations && record.designations[0])
+    || (record.giftDesignations && record.giftDesignations[0]);
+  return {
+    id: record.id != null ? `rg-${record.id}` : record.id,
+    contactId: record.contactId,
+    contactName: record.contactName || "",
+    giftDate: record.startDate || record.recurringGiftDate || record.giftDate,
+    amount: record.amount,
+    giftType: record.giftType || "Recurring",
+    frequency: record.frequency || "Monthly",
+    segment: record.segment,
+    project: (des && (des.project || des.display)) || record.project || record.segment || "",
+    recurringGiftId: record.id,
+    solicitor: record.solicitor,
+    customFields: record.customFields,
+  };
+}
+
+/**
+ * Merge posted gifts with RecurringGift rows. Monthly commitments replace the
+ * matching posted installment so dollars are not counted twice.
+ */
+export function prepareGifts(posted = [], recurring = []) {
+  const monthly = recurring.filter((r) => /^monthly$/i.test(String(r.frequency || "").trim()));
+  const asGifts = monthly.map(recurringToGift);
+  const filtered = posted.filter((g) => {
+    const cid = Number(g.contactId);
+    if (!Number.isFinite(cid)) return true;
+    return !monthly.some((rg) => (
+      Number(rg.contactId) === cid
+      && Math.abs(parseAmount(g.amount) - parseAmount(rg.amount)) <= INSTALLMENT_TOLERANCE
+    ));
+  });
+  return [...filtered, ...asGifts];
+}
+
 /** Pull GFT_Solicitor off a FullGift customFields array. */
 export function giftSolicitor(record) {
   const fields = record.customFields || record.custom_fields || [];
@@ -149,8 +202,11 @@ function giftDateOf(record) {
  * before giftDate (`ownerHint`). Returns null when amount is 0 or less.
  */
 export function scoreGift(record, ownerHint = null) {
-  const amount = parseAmount(record.amount);
-  if (amount <= 0) return null;
+  const postedAmount = parseAmount(record.amount);
+  if (postedAmount <= 0) return null;
+  const monthly = isMonthlyRecurring(record);
+  const factor = SETTINGS.monthlyAnnualizeFactor || 12;
+  const amount = monthly ? roundCents(postedAmount * factor) : postedAmount;
   const solicitor = giftSolicitor(record);
   const owner = (solicitor && rosterSet.has(solicitor) ? solicitor : null) || ownerHint;
   if (!owner) return null;
@@ -158,11 +214,13 @@ export function scoreGift(record, ownerHint = null) {
   if (!date) return null;
   if (beforeStart(date, owner)) return null;
   return {
-    owner, type: "Gift", points: 0, amount, bucket: "donation",
-    label: "Donation received",
+    owner, type: "Gift", points: 0, amount, postedAmount, annualized: monthly,
+    bucket: "donation",
+    label: monthly ? "Monthly gift (annualized ×12)" : "Donation received",
     day: isoDay(date), date, weekday: isWeekday(date),
     contactId: record.contactId, contactName: record.contactName || "",
     giftId: record.id, giftType: record.giftType || "",
+    frequency: record.frequency || (monthly ? "Monthly" : ""),
     project: giftProject(record), solicitor: solicitor || "",
     source: "gift",
   };
@@ -180,8 +238,9 @@ function sortByDayThenId(aDate, aId, bDate, bId) {
  * Donation notes (bucket "gift") award 100 pts only after they pair with a
  * posted gift of amount > 0 on the same contact with giftDate on or after the
  * note date. Points are moved onto that gift's week. Unmatched donation notes
- * score 0 and leave the gift bucket. Later installments still count as gifts
- * and dollars but do not award another 100 pts.
+ * score 0 and leave the gift bucket. A new monthly Recurring Gift is one
+ * gift (annualized dollars) and one 100-pt credit; later installments of
+ * that commitment are dropped in prepareGifts.
  */
 export function scoreAll({ notes = [], gifts = [] }) {
   const rows = [];

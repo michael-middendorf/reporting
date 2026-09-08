@@ -1,4 +1,4 @@
-"""Virtuous raw publisher → sources/virtuous/{contact_notes,gifts,events,contacts}/."""
+"""Virtuous raw publisher → sources/virtuous/{contact_notes,gifts,recurring_gifts,events,contacts}/."""
 
 from __future__ import annotations
 
@@ -118,6 +118,21 @@ def _gift_query(start: dt.date, end: dt.date) -> dict[str, Any]:
     }
 
 
+def _recurring_gift_query(start: dt.date, end: dt.date) -> dict[str, Any]:
+    """New monthly commitments in the same window as posted gifts."""
+    return {
+        "groups": [
+            {
+                "conditions": [
+                    {"parameter": "Start Date", "operator": "OnOrAfter", "value": start.isoformat()},
+                    {"parameter": "Start Date", "operator": "OnOrBefore", "value": end.isoformat()},
+                    {"parameter": "Frequency", "operator": "Is", "value": "Monthly"},
+                ]
+            }
+        ]
+    }
+
+
 def _event_query(start: dt.date, end: dt.date) -> dict[str, Any]:
     date_conditions = [
         {"parameter": "Start Date", "operator": "OnOrAfter", "value": start.isoformat()},
@@ -201,6 +216,24 @@ def handler(event, context):  # noqa: ANN001, ARG001
         )
     )
 
+    print(f"Fetching monthly recurring gifts {start} → {today}", flush=True)
+    recurring_gifts = _dedupe(
+        client.paged_query("/api/RecurringGift/Query", _recurring_gift_query(start, today), page_size)
+    )
+    published.append(
+        publish_dataset(
+            source="virtuous",
+            dataset="recurring_gifts",
+            rows=recurring_gifts,
+            provenance={
+                "system": "virtuous",
+                "path": "/api/RecurringGift/Query",
+                "window_days": window,
+                "frequency": "Monthly",
+            },
+        )
+    )
+
     print(f"Fetching events {start} → {today}", flush=True)
     events = _dedupe(client.paged_query("/api/Event/Query", _event_query(start, today), page_size))
     published.append(
@@ -212,7 +245,7 @@ def handler(event, context):  # noqa: ANN001, ARG001
         )
     )
 
-    ids = _contact_ids(notes, gifts)[:max_contacts]
+    ids = _contact_ids(notes, gifts, recurring_gifts)[:max_contacts]
     print(f"Fetching {len(ids)} contacts", flush=True)
     # Contact Id is Int and only supports Is/Between/… — not IsAnyOf. Use OR-groups
     # of `Is` (same pattern as mas_follow_up_report), with binary-split fallback.
@@ -279,6 +312,7 @@ def handler(event, context):  # noqa: ANN001, ARG001
         "counts": {
             "contact_notes": len(notes),
             "gifts": len(gifts),
+            "recurring_gifts": len(recurring_gifts),
             "events": len(events),
             "contacts": len(contacts),
         },

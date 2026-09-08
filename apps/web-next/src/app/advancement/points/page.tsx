@@ -62,6 +62,9 @@ type GiftRow = {
   giftType?: string;
   project?: string;
   amount?: number;
+  postedAmount?: number;
+  annualized?: boolean;
+  label?: string;
 };
 
 type WeekRec = {
@@ -817,7 +820,7 @@ export default function PointsPage() {
 
           <section className="section">
             <h2>
-              Donations Received <span className="section-hint">Virtuous gifts attributed to each MA, plus grand total</span>
+              Donations Received <span className="section-hint">monthly AC is counted as 12 months, matching the tracker</span>
             </h2>
             <div className="panel">
               <table className="grid" style={{ marginBottom: 18 }}>
@@ -863,18 +866,22 @@ export default function PointsPage() {
                           <td>{g.owner}</td>
                           <td>{g.contactName || "—"}</td>
                           <td className="tabular">{g.day || "—"}</td>
-                          <td>{g.giftType || "—"}</td>
+                          <td>{g.annualized ? "Monthly ×12" : (g.giftType || "—")}</td>
                           <td>{g.project || "—"}</td>
-                          <td className="pts tabular">{money(g.amount)}</td>
+                          <td className="pts tabular">
+                            {money(g.amount)}
+                            {g.annualized && g.postedAmount != null ? (
+                              <span className="section-hint"> ({money(g.postedAmount)}/mo)</span>
+                            ) : null}
+                          </td>
                         </tr>
                       ))}
                   </tbody>
                 </table>
               ) : (
                 <p className="footnote">
-                  No posted Virtuous gifts attributed to an MA in this range. Gifts and dollars come from
-                  posted gifts with amount greater than 0, attributed by an MA donation note on the same
-                  contact dated on or before the gift.
+                  No posted Virtuous gifts attributed to an MA in this range. One-time gifts use the posted
+                  amount. New monthly commitments are counted once as monthly amount × 12.
                 </p>
               )}
             </div>
@@ -1010,8 +1017,8 @@ export default function PointsPage() {
             </table>
             <p className="footnote">
               Virtuous events carry no MA owner, so “Ave Near You” (300) and Marketing (75) events are shown here for
-              reference and are not included in any MA’s point total. An MA can take the credit by logging
-              <code> Mission Advancement | Event</code> once that note type exists.
+              reference and are not included in any MA’s point total. An MA takes the credit by logging
+              <code> Mission Advancement | Event</code> or <code> Mission Advancement | Marketing Event</code>.
             </p>
             </div>
           </section>

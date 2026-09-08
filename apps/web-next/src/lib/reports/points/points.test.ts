@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MA_NAMES } from "./config.js";
-import { parseDate, scoreAll } from "./points.js";
+import { isMonthlyRecurring, parseDate, prepareGifts, scoreAll, scoreGift } from "./points.js";
 import { aggregate, weekKey } from "./aggregate.js";
 import { buildCalculationCSV, statusOf } from "./report.js";
 
@@ -367,3 +367,121 @@ describe("MA startDate is a local calendar floor", () => {
     assert.ok(rows.some((r) => r.bucket === "note" && r.points === 5 && r.owner === ALANNA));
   });
 });
+
+describe("monthly AC annualization", () => {
+  it("detects monthly recurring from frequency, payments, or notes", () => {
+    assert.equal(isMonthlyRecurring({ frequency: "Monthly" }), true);
+    assert.equal(isMonthlyRecurring({ recurringGiftPayments: [{ id: 1 }] }), true);
+    assert.equal(isMonthlyRecurring({ notes: "This is an instance of a recurring gift." }), true);
+    assert.equal(isMonthlyRecurring({ giftType: "Credit", amount: 51.01 }), false);
+  });
+
+  it("annualizes a monthly gift as amount × 12", () => {
+    const row = scoreGift({
+      id: 3834,
+      contactId: 70510,
+      contactName: "Dustin and Margaret Hamacher",
+      giftDate: "2026-08-11",
+      amount: 51.01,
+      frequency: "Monthly",
+      solicitor: ALANNA,
+    });
+    assert.ok(row);
+    assert.equal(row.postedAmount, 51.01);
+    assert.equal(row.amount, 612.12);
+    assert.equal(row.annualized, true);
+    assert.equal(row.owner, ALANNA);
+  });
+
+  it("leaves a one-time gift at the posted amount", () => {
+    const row = scoreGift({
+      id: 1,
+      contactId: 99,
+      contactName: "Ursula Pfahl",
+      giftDate: "9/1/2026",
+      amount: 10000,
+      giftType: "Credit",
+      solicitor: "Sean Kelly",
+    });
+    assert.ok(row);
+    assert.equal(row.amount, 10000);
+    assert.equal(row.annualized, false);
+  });
+
+  it("replaces the posted installment with the monthly commitment", () => {
+    const merged = prepareGifts(
+      [
+        postedGift({
+          id: 451107,
+          contactId: 70510,
+          contactName: "Dustin and Margaret Hamacher",
+          giftDate: "8/11/2026",
+          amount: "$51.01",
+          giftType: "Electronic Funds Transfer",
+          segment: "Annunciation Circle",
+        }),
+        postedGift({
+          id: 8,
+          contactId: 70510,
+          contactName: "Dustin and Margaret Hamacher",
+          giftDate: "8/11/2026",
+          amount: 100,
+          giftType: "Credit",
+        }),
+      ],
+      [
+        {
+          id: 3834,
+          contactId: 70510,
+          startDate: "2026-08-11",
+          amount: 51.01,
+          frequency: "Monthly",
+          segment: "Annunciation Circle",
+          designations: [{ project: "Annunciation Circle" }],
+        },
+      ],
+    );
+    assert.equal(merged.length, 2);
+    const monthly = merged.find((g: { frequency?: string }) => g.frequency === "Monthly") as {
+      amount: number;
+      id: string;
+    };
+    const oneTime = merged.find((g: { id: number | string }) => g.id === 8) as { amount: number };
+    assert.ok(monthly);
+    assert.equal(monthly.id, "rg-3834");
+    assert.equal(monthly.amount, 51.01);
+    assert.equal(oneTime.amount, 100);
+  });
+
+  it("rolls annualized dollars into the MA total once", () => {
+    const { owner } = run(
+      [donationNote({ contactId: 70510, noteDate: "8/10/2026" })],
+      prepareGifts(
+        [
+          postedGift({
+            id: 451107,
+            contactId: 70510,
+            contactName: "Dustin and Margaret Hamacher",
+            giftDate: "8/11/2026",
+            amount: 51.01,
+          }),
+        ],
+        [
+          {
+            id: 3834,
+            contactId: 70510,
+            contactName: "Dustin and Margaret Hamacher",
+            startDate: "2026-08-11",
+            amount: 51.01,
+            frequency: "Monthly",
+            designations: [{ project: "Annunciation Circle" }],
+          },
+        ],
+      ),
+    );
+    assert.equal(owner.giftAmount, 612.12);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 100);
+  });
+});
+

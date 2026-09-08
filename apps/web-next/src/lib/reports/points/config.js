@@ -102,14 +102,14 @@ export const CONFLICTS = {
     pdf: "‘Ave Near You’ event = 300; Marketing event (Zena’s team) = 75.",
     spreadsheet: "Not a discrete line item.",
     resolved: "300 points for ‘Mission Advancement | Event’; 75 for ‘Mission Advancement | Marketing Event’",
-    note: "Virtuous Event records still have no MA owner. Once the Contact Note types exist, an MA can log the event they worked and receive the points.",
+    note: "Virtuous Event records still have no MA owner. An MA takes the credit by logging ‘Mission Advancement | Event’ or ‘Mission Advancement | Marketing Event’.",
   },
   mas_meeting_note: {
     title: "MAS Meeting note",
     pdf: "25 points per face-to-face (coffee/lunch with a prospect).",
     spreadsheet: "‘Live Mtg’ is scored at 25.",
     resolved: "25 points",
-    note: "Create the Virtuous Contact Note type ‘Mission Advancement | Meeting’. The existing ‘In Person’ type already scores 25 and continues to count.",
+    note: "Logged as ‘Mission Advancement | Meeting’. The existing ‘In Person’ type already scores 25 and continues to count.",
   },
 };
 
@@ -203,6 +203,8 @@ export const RAW_FILES = {
 /** If true, Invalid Number notes score 1 pt (spreadsheet behavior). */
 export const SETTINGS = {
   invalidNumberScores: false,
+  /** Tracker credits a new monthly AC as 12 months of the monthly amount. */
+  monthlyAnnualizeFactor: 12,
 };
 
 /* ---- Virtuous deep-link base --------------------------------------------
@@ -224,7 +226,7 @@ export const DEFINITIONS = [
       "(‘New Donation or New AC’, ‘Annunciation Circle updated’, or ‘Update recurring gift’) and a matching posted gift exists with amount greater than 0. " +
       "Points land on the gift's week, not the note's week. Each donation note is matched to the earliest unused posted gift on the same contact with giftDate on or after the note date. " +
       "A donation note with no matching posted gift scores 0 points and is not counted as a secured gift. " +
-      "Later monthly installments after the first match still count as gifts and dollars but do not award another 100 points. " +
+      "A new monthly commitment is one gift (annualized dollars) and one 100-pt credit; later installments of that same commitment are not counted again. " +
       "Points are attributed to whoever authored the note (Virtuous `createdByUser`). " +
       "Only notes and gifts on or after the author's roster start date count.",
   },
@@ -246,7 +248,9 @@ export const DEFINITIONS = [
       "Gift count and gift dollars both come from posted Virtuous gifts with amount greater than 0, attributed to an MA. " +
       "Attribution is the MA donation note (New Donation / AC / Recurring Gift) on the same contact with noteDate on or before giftDate. " +
       "GFT_Solicitor is unused on this feed. " +
-      "A later restart note does not pull earlier lapsed charges. Amounts are the posted Virtuous gift, not an annualized monthly figure. " +
+      "A later restart note does not pull earlier lapsed charges. " +
+      "One-time gifts use the posted Virtuous amount. New monthly commitments (Virtuous Recurring Gift, frequency Monthly) are counted once as monthly amount × 12, matching the tracker Totals sheet. " +
+      "The matching posted installment is not also added. Increases on an older recurring gift that did not create a new Recurring Gift still use the posted installment until that commitment is republished. " +
       "Only notes and gifts on or after the author's roster start date count.",
   },
   {
