@@ -77,8 +77,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 
 ## Q&A bot
 
-- Census page only: **Ask census**. Same `loadCensusSnapshot` as the report. Tools for name lookup.
-- Needs `XAI_API_KEY` in secret `amu-reporting/production/xai-api-key` (ECS wired in infra). Until that secret exists, the panel says not configured.
+- Ask census is off the census page.
 
 ## Do not
 

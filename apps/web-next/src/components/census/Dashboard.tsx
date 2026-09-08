@@ -3,7 +3,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { CensusReport } from "@/components/census/CensusReport";
-import { CensusChat } from "@/components/census/CensusChat";
 import { FtcaRawSheet, LoaSheet, RawDataSheet, UnretainedSheet, VerifySheet } from "@/components/census/CensusLists";
 import { FilterBar, fmtN, fmtPct } from "@/components/census/Sheet";
 import type { CensusRawStudent, LoaWithStatus, UnretainedStudent } from "@/lib/reports/census/lists-core";
@@ -282,7 +281,6 @@ export function CensusDashboard() {
             </p>
           </div>
           <div className="hero-actions">
-            <CensusChat />
             <details className="export-menu">
               <summary className="download" aria-disabled={downloading}>
                 {downloading ? "Building Excel…" : "Export"}
