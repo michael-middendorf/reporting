@@ -226,17 +226,16 @@ describe("MA points require a posted gift with dollars", () => {
     assert.equal(second.points, 0);
   });
 
-  it("gift dated before the note on that contact is not attributed and does not match", () => {
+  it("gift a few days before a donation note still counts dollars, not 100 pts", () => {
     const { model, owner, rows } = run(
       [donationNote({ noteDate: "8/11/2026" })],
       [postedGift({ giftDate: "8/4/2026", amount: 90 })],
     );
-    assert.equal(owner.gifts, 0);
-    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 90);
     assert.equal(owner.points, 0);
-    assert.equal(model.totals.gifts, 0);
-    assert.equal(model.totals.giftAmount, 0);
-    assert.equal(model.gifts.length, 0);
+    assert.equal(model.totals.gifts, 1);
+    assert.equal(model.totals.giftAmount, 90);
     assert.ok(rows.some((r) => r.unmatched && r.bucket === "unmatched" && r.points === 0));
   });
 
@@ -484,4 +483,50 @@ describe("monthly AC annualization", () => {
     assert.equal(owner.points, 100);
   });
 });
+
+describe("gift dollars follow MA activity notes", () => {
+  it("conversation before a gift attributes dollars without 100 pts", () => {
+    const { owner } = run(
+      [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026" })],
+      [postedGift({ giftDate: "8/11/2026", amount: 51.01 })],
+    );
+    assert.equal(owner.giftAmount, 51.01);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 10);
+  });
+
+  it("in-person tour 18 days before a gift still attributes", () => {
+    const { owner } = run(
+      [donationNote({
+        createdByUser: "Sean Kelly",
+        type: "In Person",
+        noteDate: "8/14/2026",
+        contactId: 84897,
+      })],
+      [postedGift({ contactId: 84897, giftDate: "9/1/2026", amount: 10000 })],
+      "Sean Kelly",
+    );
+    assert.equal(owner.giftAmount, 10000);
+    assert.equal(owner.points, 25);
+  });
+
+  it("note 50 days before a gift is outside the window", () => {
+    const { owner } = run(
+      [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "6/10/2026" })],
+      [postedGift({ giftDate: "8/1/2026", amount: 200 })],
+    );
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+  });
+
+  it("obituary note does not attribute a gift", () => {
+    const { owner } = run(
+      [donationNote({ type: "Obituary", noteDate: "8/10/2026" })],
+      [postedGift({ giftDate: "8/11/2026", amount: 200 })],
+    );
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.points, 5);
+  });
+});
+
 

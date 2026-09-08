@@ -37,12 +37,6 @@ const GIFT_FIELDS = [
   "recurringGiftId",
 ] as const;
 
-const DONATION_NOTE_TYPES = new Set([
-  "Mission Advancement | New Donation or New AC",
-  "Mission Advancement | Annunciation Circle Updated",
-  "Mission Advancement | Update Recurring Gift",
-]);
-
 /** Serve points payloads from sources/virtuous/{contact_notes,events}. */
 export async function GET(req: Request, ctx: Ctx) {
   const denied = requireReportAccess(req, "points");
@@ -70,7 +64,6 @@ export async function GET(req: Request, ctx: Ctx) {
       const contactIds = new Set<number>();
       for (const r of notes.rows) {
         if (!MA_NAMES.has(String(r.createdByUser || "").trim())) continue;
-        if (!DONATION_NOTE_TYPES.has(String(r.type || "").trim())) continue;
         const cid = Number(r.contactId);
         if (Number.isFinite(cid)) contactIds.add(cid);
       }

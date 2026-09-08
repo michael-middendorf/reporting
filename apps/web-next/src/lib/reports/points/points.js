@@ -194,12 +194,44 @@ function giftDateOf(record) {
   return parseDate(record.giftDate || record.giftDateFormatted || record.createDateTimeUtc);
 }
 
+const GIFT_ATTRIBUTION_BUCKETS = new Set([
+  "conversation", "dial", "email", "note", "facetoface", "gift", "event",
+]);
+
+function daysFromNoteToGift(noteDate, giftDate) {
+  const a = isoDay(noteDate);
+  const b = isoDay(giftDate);
+  if (!a || !b) return null;
+  return Math.round((new Date(`${b}T00:00:00`) - new Date(`${a}T00:00:00`)) / 86400000);
+}
+
+/** Tracker credits the MA who worked the donor, not only a donation-note type. */
+export function ownerHintForGift(giftDate, notesOnContact) {
+  const before = SETTINGS.giftNoteDaysBefore ?? 45;
+  const after = SETTINGS.giftNoteDaysAfter ?? 14;
+  let best = null;
+  let bestScore = Infinity;
+  for (const n of notesOnContact || []) {
+    if (!GIFT_ATTRIBUTION_BUCKETS.has(n.bucket)) continue;
+    const delta = daysFromNoteToGift(n.date, giftDate);
+    if (delta == null) continue;
+    if (delta < -after || delta > before) continue;
+    const preferAfter = delta < 0 ? 1 : 0;
+    const score = preferAfter * 1000 + Math.abs(delta);
+    if (score < bestScore) {
+      bestScore = score;
+      best = n.owner;
+    }
+  }
+  return best;
+}
+
 /**
  * Score a Virtuous Gift as dollars received (0 points; the 100-pt credit
  * comes from the matching donation note so we don't double-count).
- * Owner is GFT_Solicitor when that person is on the MA roster, else the
- * MA who logged a donation note on the same contact with noteDate on or
- * before giftDate (`ownerHint`). Returns null when amount is 0 or less.
+ * Owner is the MA with an activity note on the contact in the gift window
+ * (`ownerHint`). GFT_Solicitor is used only if that person is on the MA roster
+ * (it is usually an MGO and is ignored). Returns null when amount is 0 or less.
  */
 export function scoreGift(record, ownerHint = null) {
   const postedAmount = parseAmount(record.amount);
@@ -245,35 +277,24 @@ function sortByDayThenId(aDate, aId, bDate, bId) {
 export function scoreAll({ notes = [], gifts = [] }) {
   const rows = [];
   const donationNotes = [];
+  const activityByContact = new Map();
   for (const n of notes) {
     const r = scoreNote(n);
     if (!r) continue;
     rows.push(r);
     if (r.bucket === "gift") donationNotes.push(r);
-  }
-
-  const notesByContact = new Map();
-  for (const r of donationNotes) {
     if (r.contactId == null) continue;
-    const list = notesByContact.get(r.contactId) || [];
+    const list = activityByContact.get(r.contactId) || [];
     list.push(r);
-    notesByContact.set(r.contactId, list);
-  }
-  for (const list of notesByContact.values()) {
-    list.sort((a, b) => sortByDayThenId(a.date, a.noteId, b.date, b.noteId));
+    activityByContact.set(r.contactId, list);
   }
 
   const scoredGifts = [];
   for (const g of gifts) {
-    let hint = null;
     const gDate = giftDateOf(g);
-    if (g.contactId != null && gDate) {
-      const list = notesByContact.get(g.contactId) || [];
-      for (const n of list) {
-        const cmp = dayCmp(n.date, gDate);
-        if (cmp != null && cmp <= 0) hint = n.owner;
-      }
-    }
+    const hint = (g.contactId != null && gDate)
+      ? ownerHintForGift(gDate, activityByContact.get(g.contactId) || [])
+      : null;
     const r = scoreGift(g, hint);
     if (r) {
       rows.push(r);
