@@ -59,6 +59,13 @@ export type FtcaRawRow = {
   city: string;
   state: string;
   institute: string;
+  interviewFaith?: number | string;
+  interviewCourage?: number | string;
+  interviewDesire?: number | string;
+  interviewHsInvolvement?: number | string;
+  interviewCollegeCareer?: number | string;
+  interviewPlans?: number | string;
+  interviewTotal?: number | string;
 };
 
 export type SportRetentionRow = {
@@ -454,6 +461,13 @@ export function deriveFtcaRaw(
         city: s.city || "",
         state: censusStateLabel(s.state),
         institute: s.institute || "",
+        interviewFaith: s.interviewFaith ?? "",
+        interviewCourage: s.interviewCourage ?? "",
+        interviewDesire: s.interviewDesire ?? "",
+        interviewHsInvolvement: s.interviewHsInvolvement ?? "",
+        interviewCollegeCareer: s.interviewCollegeCareer ?? "",
+        interviewPlans: s.interviewPlans ?? "",
+        interviewTotal: s.interviewTotal ?? "",
       };
     })
     .sort((a, b) => a.last.localeCompare(b.last) || a.first.localeCompare(b.first));
@@ -928,9 +942,7 @@ const ENRICH_KEYS: (keyof UnretainedStudent)[] = [
   "interviewHsInvolvement",
   "interviewCollegeCareer",
   "interviewPlans",
-  "acRecommendation",
   "acComments",
-  "likelyToDeposit",
   "milesFromCampus",
   "applicationMajor",
   "sector",
@@ -997,5 +1009,16 @@ export function toUnretainedSeed(prior: CensusRawStudent[]): UnretainedStudent[]
     act: s.act,
     sat: s.sat,
     clt: s.clt,
+    interviewTotal: s.interviewTotal,
+    interviewFaith: s.interviewFaith,
+    interviewCourage: s.interviewCourage,
+    interviewDesire: s.interviewDesire,
+    interviewHsInvolvement: s.interviewHsInvolvement,
+    interviewCollegeCareer: s.interviewCollegeCareer,
+    interviewPlans: s.interviewPlans,
+    acComments: s.acComments,
+    applicationMajor: s.applicationMajor,
+    schoolType: s.schoolType,
+    highSchoolName: s.highSchoolName,
   }));
 }

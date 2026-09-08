@@ -28,6 +28,8 @@ HS_NAME = DOWNLOADS / "Qlik Sense - Untitled - Table - September 18, 2025.xlsx"
 WITHDRAWAL = DOWNLOADS / "Institutional Withdrawal Exit Interview 2024-2026 (1).xlsx"
 ADM_ML = DOWNLOADS / "FA25 Admissions Report ML -_ Qlik 20260408-160056.xlsx"
 INCOMING = DOWNLOADS / "FA25 Incoming Students Census 20260908-102528.xlsx"
+GOLD_FTCA = Path("/Users/regina.m.pirolli/Documents/Census Files/Fall 2025 Census Final 9.23.25.xlsx")
+GOLD_FTCA_SHEET = "F24-F25 FTCA Retention Raw Data"
 PRIOR_JSON = DATA / "prior.json"
 GEO_CACHE = DATA / "geo"
 GAZ_URL = "https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2024_Gazetteer/2024_Gaz_zcta_national.zip"
@@ -238,10 +240,24 @@ def main() -> None:
             put(rec, "interviewFaith", r[i_faith] if i_faith is not None else None)
             put(rec, "schoolType", blank(r[i_type] if i_type is not None else ""))
 
+    if GOLD_FTCA.exists():
+        wb_gold = load_workbook(GOLD_FTCA, data_only=True, read_only=True)
+        ws_gold = wb_gold[GOLD_FTCA_SHEET] if GOLD_FTCA_SHEET in wb_gold.sheetnames else wb_gold[wb_gold.sheetnames[0]]
+        gold_rows = list(ws_gold.iter_rows(values_only=True))
+        wb_gold.close()
+        headers = [str(h or "").strip() for h in gold_rows[0]]
+        i_id = col(headers, "PCID")
+        i_gpa = col(headers, "HS GPA")
+        for r in gold_rows[1:]:
+            pid = norm_id(r[i_id] if i_id is not None else "")
+            if not pid:
+                continue
+            rec = by_id.setdefault(pid, {"pcid": pid})
+            put(rec, "hsGpa", score(r[i_gpa] if i_gpa is not None else None))
+
     if ADM_ML.exists():
         headers, rows = load_sheet(ADM_ML)
         i_id = col(headers, "Person PowerCampus ID", "PCID")
-        i_pred = col(headers, "PREDICT: Deposit Status")
         i_major = col(headers, "Major")
         i_ath = col(headers, "Athletic Scholarship Recieved")
         i_unf = col(headers, "Unfunded Aid")
@@ -251,7 +267,6 @@ def main() -> None:
             if not pid:
                 continue
             rec = by_id.setdefault(pid, {"pcid": pid})
-            put(rec, "likelyToDeposit", blank(r[i_pred] if i_pred is not None else ""))
             put(rec, "applicationMajor", blank(r[i_major] if i_major is not None else ""))
             put(rec, "athleticAid", money(r[i_ath] if i_ath is not None else None))
             put(rec, "unfundedAid", money(r[i_unf] if i_unf is not None else None))
@@ -303,16 +318,13 @@ def main() -> None:
         i_act = col(headers, "ACT Superscore (verified only)")
         i_sat = col(headers, "SAT Superscore (verified only)")
         i_clt = col(headers, "CLT Superscore (verified only)")
-        i_total = col(headers, "Interview Total Rating")
         i_faith = col(headers, "Person Interview - Faith (24/25)")
         i_courage = col(headers, "Person Interview - Courage (24/25)")
         i_desire = col(headers, "Person Interview - Desire (24/25)")
         i_hsinv = col(headers, "Person Interview - High School Involvement (24/25)")
         i_career = col(headers, "Person Interview - College and Career Expectations (24/25)")
         i_plans = col(headers, "Person Interview - Plans and potential while at AMU(24/25)")
-        i_acrec = col(headers, "Person Interview - AC Reccomendations (25/26)")
         i_accom = col(headers, "Person Interview - AC Comments (24/25)")
-        i_likely = col(headers, "Person Interview - Likelihood to Deposit")
         i_sector = col(headers, "Person Recruit - Sector")
         i_major = col(headers, "Application Major")
         i_type = col(headers, "School Type")
@@ -333,20 +345,32 @@ def main() -> None:
                 continue
             seen.add(pid)
             rec = by_id.setdefault(pid, {"pcid": pid})
-            put(rec, "hsGpa", score(r[i_gpa] if i_gpa is not None else None), overwrite=True)
+            put(rec, "hsGpa", score(r[i_gpa] if i_gpa is not None else None))
             put(rec, "act", score(r[i_act] if i_act is not None else None), overwrite=True)
             put(rec, "sat", score(r[i_sat] if i_sat is not None else None, sat=True), overwrite=True)
             put(rec, "clt", score(r[i_clt] if i_clt is not None else None), overwrite=True)
-            put(rec, "interviewTotal", score(r[i_total] if i_total is not None else None), overwrite=True)
-            put(rec, "interviewFaith", score(r[i_faith] if i_faith is not None else None), overwrite=True)
-            put(rec, "interviewCourage", score(r[i_courage] if i_courage is not None else None), overwrite=True)
-            put(rec, "interviewDesire", score(r[i_desire] if i_desire is not None else None), overwrite=True)
-            put(rec, "interviewHsInvolvement", score(r[i_hsinv] if i_hsinv is not None else None), overwrite=True)
-            put(rec, "interviewCollegeCareer", score(r[i_career] if i_career is not None else None), overwrite=True)
-            put(rec, "interviewPlans", score(r[i_plans] if i_plans is not None else None), overwrite=True)
-            put(rec, "acRecommendation", score(r[i_acrec] if i_acrec is not None else None), overwrite=True)
-            put(rec, "acComments", blank(r[i_accom] if i_accom is not None else ""), overwrite=True)
-            put(rec, "likelyToDeposit", blank(r[i_likely] if i_likely is not None else ""), overwrite=True)
+            term = str(r[i_term] or "") if i_term is not None else ""
+            is_fa25 = "2025" in term.lower() and "fall" in term.lower()
+            # FA24/25 scores for the FA25 class only. Skip FA25/26 rubric and the
+            # extract's Interview Total Rating (it mixes 25/26 for Fall 2026).
+            if is_fa25:
+                faith = score(r[i_faith] if i_faith is not None else None)
+                courage = score(r[i_courage] if i_courage is not None else None)
+                desire = score(r[i_desire] if i_desire is not None else None)
+                hsinv = score(r[i_hsinv] if i_hsinv is not None else None)
+                career = score(r[i_career] if i_career is not None else None)
+                plans = score(r[i_plans] if i_plans is not None else None)
+                put(rec, "interviewFaith", faith, overwrite=True)
+                put(rec, "interviewCourage", courage, overwrite=True)
+                put(rec, "interviewDesire", desire, overwrite=True)
+                put(rec, "interviewHsInvolvement", hsinv, overwrite=True)
+                put(rec, "interviewCollegeCareer", career, overwrite=True)
+                put(rec, "interviewPlans", plans, overwrite=True)
+                parts = [v for v in (faith, courage, desire, hsinv, career, plans) if v is not None]
+                if parts:
+                    total = sum(parts)
+                    put(rec, "interviewTotal", int(total) if total == int(total) else total, overwrite=True)
+                put(rec, "acComments", blank(r[i_accom] if i_accom is not None else ""), overwrite=True)
             put(rec, "sector", blank(r[i_sector] if i_sector is not None else ""), overwrite=True)
             put(rec, "applicationMajor", blank(r[i_major] if i_major is not None else ""), overwrite=True)
             put(rec, "schoolType", blank(r[i_type] if i_type is not None else ""), overwrite=True)

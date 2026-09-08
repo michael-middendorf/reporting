@@ -30,7 +30,8 @@ RESIDENCY_OVERLAYS = [
 ]
 EOT_FILES = [DOWNLOADS / "End Of Term-6.xlsx", DOWNLOADS / "End Of Term-7.xlsx"]
 # Both years. Filenames still say FA25; 100450 is Fall 2025 incoming, 103105 is Fall 2026 incoming.
-INCOMING_PRIOR = DOWNLOADS / "FA25 Incoming Students Census 20260901-100450.xlsx"
+INCOMING_PRIOR = DOWNLOADS / "FA25 Incoming Students Census 20260908-102528.xlsx"
+INCOMING_PRIOR_SCORES = DOWNLOADS / "FA25 Incoming Students Census 20260901-100450.xlsx"
 INCOMING_CURRENT = DOWNLOADS / "FA25 Incoming Students Census 20260901-103105.xlsx"
 # Person State / Address 1 Region — fills blank FA25/FA26 states (ON, SK, AB, UT, etc.).
 INCOMING_REGION = DOWNLOADS / "FA25 Incoming Students Census 20260903-135650.xlsx"
@@ -45,6 +46,9 @@ FSP_NEW = DOWNLOADS / "Quick Query 20260902-125515.xlsx"
 MARINES_PRIOR = CENSUS_DIR / "S26 Census" / "Mary's Marines_Spring 2026_January 2026.xlsx"
 SCHOLARS = DOWNLOADS / "Scholars Fall 2026 (1).xlsx"
 PRIOR = CENSUS_DIR / "Fall 2025 Census Final 9.23.25.xlsx"
+GOLD_FTCA_RAW = PRIOR
+GOLD_FTCA_SHEET = "F24-F25 FTCA Retention Raw Data"
+ML_HS_GPA = DOWNLOADS / "ML Training Data -_ Qlik 20260709-120623.xlsx"
 FA25_ROSTER = CENSUS_DIR / "FA25 Athlete Roster For Slate.xlsx"
 FA25_HOUSING = CENSUS_DIR / "Copy of 9.4.2025 CENSUS Fall 25.xlsx"
 FA26_ENTRY = DOWNLOADS / "Roster -_ Housing Report 20260821-155657.xlsx"
@@ -1262,13 +1266,25 @@ def load_ireland_pcids() -> set[str]:
     return out
 
 
+def _skip_incoming_col(name: str) -> bool:
+    """Skip conversion columns and the FA25/26 rubric (this class is FA24/25)."""
+    k = name.lower()
+    return (
+        ">>" in name
+        or "25/26" in name
+        or "likelihood to deposit" in k
+        or "ac reccomendations" in k
+        or "ac recommendations" in k
+    )
+
+
 def _incoming_col(header: dict[str, int], names: list[str]) -> int | None:
     """Exact name first; skip SAT/CLT-to-ACT conversion columns (they contain '>>')."""
     for n in names:
-        if n in header and ">>" not in n:
+        if n in header and not _skip_incoming_col(n):
             return header[n]
     for k, i in header.items():
-        if ">>" in k:
+        if _skip_incoming_col(k):
             continue
         kl = k.lower()
         for n in names:
@@ -1312,15 +1328,17 @@ def _dob(v) -> str:
 
 
 def incoming_paths(prior: bool = False) -> list[Path]:
-    files = [INCOMING_PRIOR] if prior else [INCOMING_PRIOR, INCOMING_CURRENT, CHESTERTON_DE]
+    files = [INCOMING_PRIOR, INCOMING_PRIOR_SCORES] if prior else [INCOMING_CURRENT, CHESTERTON_DE]
     files.append(INCOMING_REGION)
     return [p for p in files if p.exists() and not p.name.startswith("~$")]
 
 
-def load_incoming_scores(paths: list[Path] | None = None) -> dict[str, dict]:
+def load_incoming_scores(paths: list[Path] | None = None, term: str | None = None) -> dict[str, dict]:
     """Slate incoming extract: Official AMU GPA = HS GPA. 0 scores are missing.
 
     Native verified ACT/SAT/CLT only — not SAT Super >> ACT / CLT Super >> ACT.
+    Interview scores are FA24/25 only. When Application Term is present, `term`
+    keeps that class (Fall 2025 for prior / Not Retained / FTCA Raw).
     """
     out: dict[str, dict] = {}
     for path in paths if paths is not None else incoming_paths():
@@ -1339,6 +1357,12 @@ def load_incoming_scores(paths: list[Path] | None = None) -> dict[str, dict]:
             pid = pcid_of(row[i_id])
             if not pid:
                 continue
+            if term:
+                i_term = _incoming_col(header, ["Application Term"])
+                if i_term is not None:
+                    row_term = str(row[i_term] or "").strip()
+                    if term.lower() not in row_term.lower():
+                        continue
             rec: dict = {}
             i_gpa = _incoming_col(header, ["Official AMU GPA", "HS GPA", "High School GPA"])
             i_act = _incoming_col(header, ["ACT Superscore (verified only)", "ACT Superscore", "ACT"])
@@ -1364,6 +1388,52 @@ def load_incoming_scores(paths: list[Path] | None = None) -> dict[str, dict]:
             st = dash(row[i_state] if i_state is not None else "").upper()
             if st and st not in {"-", "NONE", "NULL"}:
                 rec["state"] = st
+            # FA24/25 interview scores only. Do not take 25/26 rubric columns.
+            # Interview Total Rating on the extract mixes 25/26 for Fall 2026 rows.
+            i_faith = _incoming_col(header, ["Person Interview - Faith (24/25)"])
+            i_courage = _incoming_col(header, ["Person Interview - Courage (24/25)"])
+            i_desire = _incoming_col(header, ["Person Interview - Desire (24/25)"])
+            i_hsinv = _incoming_col(header, ["Person Interview - High School Involvement (24/25)"])
+            i_career = _incoming_col(header, ["Person Interview - College and Career Expectations (24/25)"])
+            i_plans = _incoming_col(header, ["Person Interview - Plans and potential while at AMU(24/25)"])
+            i_accom = _incoming_col(header, ["Person Interview - AC Comments (24/25)"])
+            i_major = _incoming_col(header, ["Application Major"])
+            i_type = _incoming_col(header, ["School Type"])
+            i_hs = _incoming_col(header, ["School Name"])
+            faith = _num_score(row[i_faith] if i_faith is not None else None)
+            courage = _num_score(row[i_courage] if i_courage is not None else None)
+            desire = _num_score(row[i_desire] if i_desire is not None else None)
+            hsinv = _num_score(row[i_hsinv] if i_hsinv is not None else None)
+            career = _num_score(row[i_career] if i_career is not None else None)
+            plans = _num_score(row[i_plans] if i_plans is not None else None)
+            if faith is not None:
+                rec["interviewFaith"] = faith
+            if courage is not None:
+                rec["interviewCourage"] = courage
+            if desire is not None:
+                rec["interviewDesire"] = desire
+            if hsinv is not None:
+                rec["interviewHsInvolvement"] = hsinv
+            if career is not None:
+                rec["interviewCollegeCareer"] = career
+            if plans is not None:
+                rec["interviewPlans"] = plans
+            parts = [v for v in (faith, courage, desire, hsinv, career, plans) if v is not None]
+            if parts:
+                total = sum(parts)
+                rec["interviewTotal"] = int(total) if total == int(total) else total
+            accom = dash(row[i_accom] if i_accom is not None else "")
+            if accom and accom not in {"-"}:
+                rec["acComments"] = accom
+            major = dash(row[i_major] if i_major is not None else "")
+            if major and major not in {"-"}:
+                rec["applicationMajor"] = major
+            stype = dash(row[i_type] if i_type is not None else "")
+            if stype and stype not in {"-"}:
+                rec["schoolType"] = stype
+            hsname = dash(row[i_hs] if i_hs is not None else "")
+            if hsname and hsname not in {"-"}:
+                rec["highSchoolName"] = hsname
             if rec:
                 prev = out.get(pid, {})
                 prev.update(rec)
@@ -1372,7 +1442,34 @@ def load_incoming_scores(paths: list[Path] | None = None) -> dict[str, dict]:
     return out
 
 
-SCORE_KEYS = ("hsGpa", "act", "sat", "clt", "dob")
+INTERVIEW_KEYS = (
+    "interviewTotal",
+    "interviewFaith",
+    "interviewCourage",
+    "interviewDesire",
+    "interviewHsInvolvement",
+    "interviewCollegeCareer",
+    "interviewPlans",
+    "acComments",
+)
+
+SCORE_KEYS = (
+    "hsGpa",
+    "act",
+    "sat",
+    "clt",
+    "dob",
+    *INTERVIEW_KEYS,
+    "applicationMajor",
+    "schoolType",
+    "highSchoolName",
+)
+
+
+def clear_interview_scores(rows: list[dict]) -> None:
+    for s in rows:
+        for k in INTERVIEW_KEYS:
+            s.pop(k, None)
 
 # Slate accept codes → FA25 Census Application Decision labels.
 DECISION_MAP = {
@@ -1402,6 +1499,28 @@ def clear_incoming_scores(rows: list[dict]) -> None:
             s.pop(k, None)
 
 
+def _score_present(v) -> bool:
+    if v in (None, "", "-"):
+        return False
+    try:
+        return float(v) > 0
+    except (TypeError, ValueError):
+        return str(v).strip() not in {"", "-", "None", "null"}
+
+
+# Do not wipe HS GPA / tests / school fields when restamping interview scores.
+PRESERVE_ON_APPLY = {
+    "hsGpa",
+    "act",
+    "sat",
+    "clt",
+    "dob",
+    "applicationMajor",
+    "schoolType",
+    "highSchoolName",
+}
+
+
 def apply_incoming_scores(rows: list[dict], scores: dict[str, dict]) -> int:
     n = 0
     for s in rows:
@@ -1412,10 +1531,92 @@ def apply_incoming_scores(rows: list[dict], scores: dict[str, dict]) -> int:
             v = rec.get(k)
             if v in (None, ""):
                 continue
+            if k in PRESERVE_ON_APPLY and _score_present(s.get(k)):
+                continue
             s[k] = v
         st = rec.get("state")
         if st and dash(s.get("state")) in {"", "-"}:
             s["state"] = st
+        n += 1
+    return n
+
+
+def _header_index(header: list[str], names: list[str]) -> int | None:
+    lower = {h.lower(): i for i, h in enumerate(header)}
+    for n in names:
+        if n.lower() in lower:
+            return lower[n.lower()]
+    for n in names:
+        nl = n.lower()
+        for h, i in lower.items():
+            if nl in h:
+                return i
+    return None
+
+
+def load_hs_gpa_file(path: Path, sheet: str | None, id_names: list[str], gpa_names: list[str]) -> dict[str, float]:
+    """One HS GPA per PCID. First column match wins. 0 is missing."""
+    out: dict[str, float] = {}
+    if not path.exists() or path.name.startswith("~$"):
+        return out
+    wb = load_workbook(path, read_only=True, data_only=True)
+    ws = wb[sheet] if sheet and sheet in wb.sheetnames else wb[wb.sheetnames[0]]
+    rows = ws.iter_rows(values_only=True)
+    header = [str(h or "").strip() for h in next(rows, ())]
+    i_id = _header_index(header, id_names)
+    i_gpa = _header_index(header, gpa_names)
+    if i_id is None or i_gpa is None:
+        wb.close()
+        return out
+    for row in rows:
+        pid = pcid_of(row[i_id] if i_id < len(row) else "")
+        gpa = _hs_gpa(row[i_gpa] if i_gpa < len(row) else None)
+        if pid and gpa is not None and pid not in out:
+            out[pid] = gpa
+    wb.close()
+    return out
+
+
+def load_historical_hs_gpa() -> dict[str, float]:
+    """Gold FTCA + ML + incoming extracts. First source keeps the value (do not overwrite)."""
+    out: dict[str, float] = {}
+    sources: list[tuple[Path, str | None, list[str], list[str]]] = [
+        (GOLD_FTCA_RAW, GOLD_FTCA_SHEET, ["PCID"], ["HS GPA"]),
+        (
+            CENSUS_DIR / "Copy of Fall 2025 Census Final 9.24.25.xlsx",
+            GOLD_FTCA_SHEET,
+            ["PCID"],
+            ["HS GPA"],
+        ),
+        (
+            CENSUS_DIR / "FA25 Census Report V.2.xlsx",
+            "F24-F24 FTCA Retention Raw Data",
+            ["PCID"],
+            ["raw_Official_AMU_GPA_HS", "HS GPA"],
+        ),
+        (ML_HS_GPA, None, ["PCID", "PowerCampus ID"], ["Official AMU GPA", "HS GPA"]),
+    ]
+    seen = set()
+    for path in incoming_paths(True) + incoming_paths(False):
+        if path in seen:
+            continue
+        seen.add(path)
+        sources.append((path, None, ["PowerCampus ID", "PCID"], ["Official AMU GPA", "HS GPA"]))
+    for path, sheet, ids, gpas in sources:
+        for pid, gpa in load_hs_gpa_file(path, sheet, ids, gpas).items():
+            out.setdefault(pid, gpa)
+    return out
+
+
+def apply_hs_gpa_if_missing(rows: list[dict], gpas: dict[str, float]) -> int:
+    n = 0
+    for s in rows:
+        if _score_present(s.get("hsGpa")):
+            continue
+        gpa = gpas.get(norm(s.get("pcid")))
+        if gpa is None:
+            continue
+        s["hsGpa"] = gpa
         n += 1
     return n
 
@@ -1501,11 +1702,12 @@ def apply_accept_decisions(rows: list[dict], decisions: dict[str, str]) -> int:
 
 
 def patch_incoming_only() -> None:
-    current_scores = load_incoming_scores(incoming_paths(False))
-    prior_scores = load_incoming_scores(incoming_paths(True))
+    current_scores = load_incoming_scores(incoming_paths(False), term="Fall 2026")
+    prior_scores = load_incoming_scores(incoming_paths(True), term="Fall 2025")
+    historical_gpa = load_historical_hs_gpa()
     intl = load_international()
     decisions = load_accept_decisions()
-    if not current_scores and not prior_scores and not intl and not decisions:
+    if not current_scores and not prior_scores and not intl and not decisions and not historical_gpa:
         print("no incoming extract, international file, or accept-decision file in Downloads")
         return
     for name in ("students.json", "prior.json"):
@@ -1513,8 +1715,10 @@ def patch_incoming_only() -> None:
         data = json.loads(path.read_text())
         rows = data.get("students") or []
         if name == "students.json":
-            clear_incoming_scores(rows)
+            clear_interview_scores(rows)
             n = apply_incoming_scores(rows, current_scores) if current_scores else 0
+            n += apply_incoming_scores(rows, prior_scores) if prior_scores else 0
+            n_hs = apply_hs_gpa_if_missing(rows, historical_gpa)
             n_int = apply_international(rows, intl) if intl else 0
             n_dec = apply_accept_decisions(rows, decisions) if decisions else 0
             n_ch = apply_chesterton_de(rows, load_chesterton_de())
@@ -1522,7 +1726,9 @@ def patch_incoming_only() -> None:
             apply_fa26_entry_terms(rows)
             scores_n = len(current_scores)
         else:
+            clear_interview_scores(rows)
             n = apply_incoming_scores(rows, prior_scores) if prior_scores else 0
+            n_hs = apply_hs_gpa_if_missing(rows, historical_gpa)
             n_int = 0
             n_dec = 0
             n_ch = 0
@@ -1531,9 +1737,9 @@ def patch_incoming_only() -> None:
             scores_n = len(prior_scores)
         path.write_text(json.dumps(data, default=str))
         print(
-            f"{name} incoming {n} of {data.get('count')} international {n_int} "
+            f"{name} incoming {n} of {data.get('count')} hsGpa filled {n_hs} international {n_int} "
             f"decisions {n_dec} chesterton {n_ch} roster {n_ros} "
-            f"({scores_n} incoming, {len(intl)} intl, {len(decisions)} decisions)"
+            f"({scores_n} incoming, {len(historical_gpa)} historical gpa, {len(intl)} intl, {len(decisions)} decisions)"
         )
 
 
@@ -1798,11 +2004,16 @@ def main() -> None:
             }
         )
 
-    incoming_scores = load_incoming_scores(incoming_paths(False))
-    prior_incoming_scores = load_incoming_scores(incoming_paths(True))
+    incoming_scores = load_incoming_scores(incoming_paths(False), term="Fall 2026")
+    prior_incoming_scores = load_incoming_scores(incoming_paths(True), term="Fall 2025")
+    historical_gpa = load_historical_hs_gpa()
     clear_incoming_scores(students)
     n_inc_stu = apply_incoming_scores(students, incoming_scores)
+    n_inc_stu += apply_incoming_scores(students, prior_incoming_scores)
+    n_hs_stu = apply_hs_gpa_if_missing(students, historical_gpa)
+    clear_interview_scores(prior)
     n_inc_prior = apply_incoming_scores(prior, prior_incoming_scores)
+    n_hs_prior = apply_hs_gpa_if_missing(prior, historical_gpa)
     intl = load_international()
     n_intl = apply_international(students, intl)
     decisions = load_accept_decisions()

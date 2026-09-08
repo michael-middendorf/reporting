@@ -113,6 +113,13 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
           email: "abbey@avemaria.edu",
           citizenship: "",
           visa: "",
+          interviewFaith: 3,
+          interviewCourage: 3,
+          interviewDesire: 2,
+          interviewHsInvolvement: 3,
+          interviewCollegeCareer: 3,
+          interviewPlans: 2,
+          interviewTotal: 16,
         },
       ],
       graduates: [],
@@ -246,6 +253,13 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
           classLevel: "Freshman",
           collegeAttend: "FTCA",
           incomingReturning: "Incoming",
+          interviewFaith: 2,
+          interviewCourage: 2,
+          interviewDesire: 2,
+          interviewHsInvolvement: 3,
+          interviewCollegeCareer: 2,
+          interviewPlans: 2,
+          interviewTotal: 13,
         },
       ],
       loa: [],
@@ -325,6 +339,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(reportXml, /Band and managers are Associated, not team Athletes/);
   assert.match(files["xl/styles.xml"], /formatCode="0.00"/);
   assert.match(reportXml, /Application Decisions Retention/);
+  assert.match(reportXml, /M\/F Retention/);
   assert.match(reportXml, /Not listed/);
   assert.match(reportXml, /Committee admits and admin overrides/);
   assert.match(reportXml, /Admit type/);
@@ -367,6 +382,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   const attritionXml = files["xl/worksheets/sheet6.xml"];
   assert.doesNotMatch(attritionXml, /Athletic Retention/);
   assert.match(attritionXml, /Incoming FTCA/);
+  assert.doesNotMatch(attritionXml, /Cohort = FA25 Incoming\+FTCA/);
   assert.doesNotMatch(attritionXml, /Athletic retention is on the Census Report/);
   assert.match(attritionXml, /CLT-only is No/);
   assert.match(attritionXml, /HS GPA Ranges/);
@@ -383,12 +399,20 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   const noFbFtcaXml = files["xl/worksheets/sheet7.xml"];
   assert.match(noFbFtcaXml, /Football removed/);
   assert.match(noFbFtcaXml, /Incoming FTCA/);
-  assert.match(noFbFtcaXml, /Football removed from each prior fall-to-fall gold file/);
-  assert.match(noFbFtcaXml, /Aiden Wilson/);
+  assert.doesNotMatch(noFbFtcaXml, /Cohort = FA25 Incoming\+FTCA/);
+  assert.doesNotMatch(noFbFtcaXml, /Football removed from each prior fall-to-fall gold file/);
   assert.doesNotMatch(attritionXml, /Football removed from each prior fall-to-fall gold file/);
   const ftcaRawXml = files["xl/worksheets/sheet8.xml"];
   assert.match(ftcaRawXml, /DOB \(Needs data\)/);
   assert.match(ftcaRawXml, /HS GPA \(Needs data\)/);
+  assert.match(ftcaRawXml, /Interview Faith/);
+  assert.match(ftcaRawXml, /Interview Courage/);
+  assert.match(ftcaRawXml, /Interview Total/);
+  assert.doesNotMatch(ftcaRawXml, /Interview Faith \(Needs data\)/);
+  assert.doesNotMatch(ftcaRawXml, /AC Recommendation/);
+  assert.doesNotMatch(ftcaRawXml, /Likely to deposit/);
+  assert.doesNotMatch(ftcaRawXml, /Curiosity/);
+  assert.doesNotMatch(ftcaRawXml, /Perseverance/);
   assert.match(ftcaRawXml, /Religious Affiliation/);
   assert.match(ftcaRawXml, /Application Decision/);
   const rawXml = files["xl/worksheets/sheet9.xml"];
@@ -412,9 +436,13 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.match(unretainedXml, /Interview Courage/);
   assert.match(unretainedXml, /Interview Desire/);
   assert.match(unretainedXml, /Interview HS Involvement/);
-  assert.match(unretainedXml, /AC Recommendation/);
+  assert.match(unretainedXml, /Interview Plans at AMU/);
   assert.match(unretainedXml, /AC Comments/);
-  assert.match(unretainedXml, /Likely to deposit/);
+  assert.doesNotMatch(unretainedXml, /Interview Faith \(Needs data\)/);
+  assert.doesNotMatch(unretainedXml, /AC Recommendation/);
+  assert.doesNotMatch(unretainedXml, /Likely to deposit/);
+  assert.doesNotMatch(unretainedXml, /Curiosity/);
+  assert.doesNotMatch(unretainedXml, /Perseverance/);
   assert.match(unretainedXml, /Miles from campus/);
   assert.match(unretainedXml, /Athletic Aid/);
   assert.match(unretainedXml, /Unfunded aid/);

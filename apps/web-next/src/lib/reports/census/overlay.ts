@@ -1,4 +1,4 @@
-import { readResidents } from "../housing/store";
+import { readJsonObject, readResidents } from "../housing/store";
 import type { Resident } from "../housing/types";
 import {
   applyErezResidency,
@@ -39,11 +39,27 @@ function cloneSnapshot(): CensusSnapshot {
   return structuredClone(snapshot) as CensusSnapshot;
 }
 
-function loadUnretainedEnrichment(): {
+const CENSUS_ENRICHMENT_KEY = "cache/census/unretained-enrichment.json";
+
+async function loadUnretainedEnrichment(): Promise<{
   byPcid: Record<string, Partial<UnretainedStudent>>;
   byName: Record<string, Partial<UnretainedStudent>>;
-} {
+}> {
   const empty = { byPcid: {}, byName: {} };
+  const preferLocal = process.env.CENSUS_LOCAL === "1";
+  if (!preferLocal) {
+    try {
+      const remote = await readJsonObject<{
+        byPcid?: Record<string, Partial<UnretainedStudent>>;
+        byName?: Record<string, Partial<UnretainedStudent>>;
+      }>(CENSUS_ENRICHMENT_KEY);
+      if (remote?.byPcid && Object.keys(remote.byPcid).length) {
+        return { byPcid: remote.byPcid, byName: remote.byName || {} };
+      }
+    } catch {
+      /* local fallback */
+    }
+  }
   const path = join(process.cwd(), "src/lib/reports/census/data/unretained-enrichment.json");
   if (!existsSync(path)) return empty;
   try {
@@ -114,7 +130,7 @@ export async function loadCensusSnapshot(): Promise<{
     const notes = applyCensusRetentionNotes(lists.prior, lists.students.map((s) => s.pcid), lists.graduates);
     const gradIds = ayGraduatePcids(notes.graduates);
     const priorById = new Map(lists.prior.map((p) => [(p.pcid || "").toUpperCase(), p]));
-    const enrichment = loadUnretainedEnrichment();
+    const enrichment = await loadUnretainedEnrichment();
     lists = {
       ...lists,
       unretained: applyUnretainedEnrichment(
@@ -136,6 +152,17 @@ export async function loadCensusSnapshot(): Promise<{
                 sat: s.sat ?? prior?.sat ?? "",
                 clt: s.clt ?? prior?.clt ?? "",
                 curriculumName: s.curriculumName || prior?.curriculumName || "",
+                interviewTotal: s.interviewTotal ?? prior?.interviewTotal ?? "",
+                interviewFaith: s.interviewFaith ?? prior?.interviewFaith ?? "",
+                interviewCourage: s.interviewCourage ?? prior?.interviewCourage ?? "",
+                interviewDesire: s.interviewDesire ?? prior?.interviewDesire ?? "",
+                interviewHsInvolvement: s.interviewHsInvolvement ?? prior?.interviewHsInvolvement ?? "",
+                interviewCollegeCareer: s.interviewCollegeCareer ?? prior?.interviewCollegeCareer ?? "",
+                interviewPlans: s.interviewPlans ?? prior?.interviewPlans ?? "",
+                acComments: s.acComments || prior?.acComments || "",
+                applicationMajor: s.applicationMajor || prior?.applicationMajor || "",
+                schoolType: s.schoolType || prior?.schoolType || "",
+                highSchoolName: s.highSchoolName || prior?.highSchoolName || "",
               };
             }),
           ),

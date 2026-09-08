@@ -29,6 +29,7 @@ import {
   buildSportRetention,
   catholicOf,
   collectGpa,
+  deriveFtcaRaw,
   retentionPct,
   whiteOf,
   type CrosstabRow,
@@ -399,6 +400,7 @@ type ReportExtras = {
   hasPrior: boolean;
   sportRetention: SportRetentionRow[];
   appDecisionRetention: CrosstabRow[];
+  genderRetention: CrosstabRow[];
   catholicAthlete: CrosstabRow[];
   athleteGender: CrosstabRow[];
   athleteEthnicity: CrosstabRow[];
@@ -407,6 +409,11 @@ type ReportExtras = {
   admitOverride: CrosstabRow[];
   ugSplit: ReturnType<typeof buildAllUgSplit>;
 };
+
+function genderRetentionOrder(rows: CrosstabRow[]): CrosstabRow[] {
+  const rank = (label: string) => (label === "Female" ? 0 : label === "Male" ? 1 : 2);
+  return [...rows].sort((a, b) => rank(a.label) - rank(b.label) || a.label.localeCompare(b.label));
+}
 
 function gradProgramRow(block: GraduateProgramStats): CellValue[] {
   return [
@@ -660,6 +667,15 @@ function writeCensusReport(
     ["Admit type", "Type", "Students", "# Non-Retained", "Retention %"],
     crosstabCells(extra.admitOverride, true, true, (r) => r.label2 === "Overall"),
     { intCols: [2, 3], pctCols: [4], total: true },
+  );
+  j = writeCountTable(
+    ws,
+    j + 2,
+    col.j,
+    "M/F Retention",
+    ["Gender", "Students", "# Non-Retained", "Retention %"],
+    crosstabCells(extra.genderRetention, false, true),
+    { intCols: [1, 2], pctCols: [3], total: true },
   );
   j = writeCountTable(
     ws,
@@ -1012,14 +1028,11 @@ function writeAttrition(
     ws.width(i + 1, w);
   });
   ws.set(1, 1, `Fall 2025 Incoming FTCA Cohort Attrition${opts?.titleSuffix ?? ""}`, TITLE18);
-  ws.merge(2, 1, 2, 23);
-  ws.set(
-    2,
-    1,
-    opts?.note || "Cohort = FA25 Incoming+FTCA 392 minus Aiden Wilson = 391.",
-    NOTE,
-  );
-  if (opts?.note) ws.height(2, 32);
+  if (opts?.note) {
+    ws.merge(2, 1, 2, 23);
+    ws.set(2, 1, opts.note, NOTE);
+    ws.height(2, 32);
+  }
 
   const a = data.ftcaAttrition;
   const colA = 1;
@@ -1293,75 +1306,7 @@ function writeAttrition(
 }
 
 function writeFtcaRaw(wb: XlsxWorkbook, rows: FtcaRawRow[]) {
-  writeListSheet(
-    wb,
-    "F25-F26 FTCA Retention Raw",
-    [
-      "First",
-      "Last",
-      "Retained F25?",
-      "PCID",
-      "FTCA",
-      "Religious Affiliation",
-      "Catholic, Christian, Other",
-      "Catholic Non-Catholic",
-      "Application Decision",
-      "Fall 25 Athletic Association",
-      "Fall 25 Curriculum",
-      "Fall 25 FULL PART TIME",
-      "Fall 25 Credits",
-      "Fall 25 GPA",
-      "Fall 25 Res Comm",
-      "Fall 26 Athletic Association",
-      "Fall 26 Curriculum",
-      "Fall 26 Class",
-      "Fall 26 FULL PART TIME",
-      "Fall 26 Credits",
-      "Fall 26 GPA",
-      "Fall 26 Res Comm",
-      "DOB",
-      "Gender",
-      "Ethnicity",
-      "HS GPA",
-      "City",
-      "State",
-      "Institute",
-      "PCID",
-    ],
-    [14, 16, 14, 14, 10, 18, 18, 16, 16, 22, 16, 14, 12, 12, 14, 22, 16, 12, 14, 12, 12, 14, 14, 10, 12, 10, 14, 8, 14, 14],
-    rows.map((r) => [
-      r.first,
-      r.last,
-      r.retained,
-      r.pcid,
-      r.ftca,
-      r.religion,
-      r.cathGroup,
-      r.catholicNonCatholic,
-      r.appDecision,
-      r.fa25Sport,
-      r.fa25Curriculum,
-      r.fa25FullPart,
-      r.fa25Credits,
-      r.fa25Gpa,
-      r.fa25Residency,
-      r.fa26Sport,
-      r.fa26Curriculum,
-      r.fa26Class,
-      r.fa26FullPart,
-      r.fa26Credits,
-      r.fa26Gpa,
-      r.fa26Residency,
-      r.dob,
-      r.gender,
-      r.ethnicity,
-      r.hsGpa,
-      r.city,
-      r.state,
-      r.institute,
-      r.pcid,
-    ]),
-  );
+  writeListSheet(wb, "F25-F26 FTCA Retention Raw", FTCA_RAW_HEADERS, FTCA_RAW_WIDTHS, rows.map(ftcaRawCells));
 }
 
 function writeHousing(wb: XlsxWorkbook, rows: HousingAssignmentRow[]) {
@@ -1579,9 +1524,7 @@ const UNRETAINED_HEADERS = [
   "Interview College/Career",
   "Interview Plans at AMU",
   "Interview Total",
-  "AC Recommendation",
   "AC Comments",
-  "Likely to deposit",
   "Miles from campus",
   "Sector",
   "Athletic Aid",
@@ -1701,9 +1644,7 @@ function unretainedRow(s: UnretainedStudent): CellValue[] {
     s.interviewCollegeCareer ?? "",
     s.interviewPlans ?? "",
     s.interviewTotal ?? "",
-    s.acRecommendation ?? "",
     s.acComments || "",
-    s.likelyToDeposit || "",
     s.milesFromCampus ?? "",
     s.sector || "",
     s.athleticAid ?? "",
@@ -1768,7 +1709,7 @@ function writeSources(
     [
       "Not retained",
       unretainedCount
-        ? `${unretainedCount.toLocaleString()} Fall 2025 census students not in Fall 2026 registration, not 2025–26 graduates, and not the retention-sheet exceptions (AMSOL/enrolled/last credits, deceased, dropped after census, leave of absence). Incoming overlay: FA25 Incoming Students Census 20260908-102528.xlsx (interview 24/25 six + total, application major, school type/name). Aid from FA25 deposits scholarship. Reason for leaving from Institutional Withdrawal Exit Interview (name match).`
+        ? `${unretainedCount.toLocaleString()} Fall 2025 census students not in Fall 2026 registration, not 2025–26 graduates, and not the retention-sheet exceptions (AMSOL/enrolled/last credits, deceased, dropped after census, leave of absence). Interview scores are FA24/25 only (no FA25/26 rubric). Overlay: FA25 Incoming Students Census 20260908-102528.xlsx.`
         : "Unretained list is not in the census cache yet.",
     ],
     [
@@ -1837,6 +1778,13 @@ function ftcaRawCells(r: FtcaRawRow): CellValue[] {
     r.city,
     r.state,
     r.institute,
+    r.interviewFaith ?? "",
+    r.interviewCourage ?? "",
+    r.interviewDesire ?? "",
+    r.interviewHsInvolvement ?? "",
+    r.interviewCollegeCareer ?? "",
+    r.interviewPlans ?? "",
+    r.interviewTotal ?? "",
     r.pcid,
   ];
 }
@@ -1871,8 +1819,19 @@ const FTCA_RAW_HEADERS = [
   "City",
   "State",
   "Institute",
+  "Interview Faith",
+  "Interview Courage",
+  "Interview Desire",
+  "Interview HS Involvement",
+  "Interview College/Career",
+  "Interview Plans at AMU",
+  "Interview Total",
   "PCID",
 ];
+
+const FTCA_RAW_WIDTHS = [14, 16, 14, 14, 10, 18, 18, 16, 16, 22, 16, 14, 12, 12, 14, 22, 16, 12, 14, 12, 12, 14, 14, 10, 12, 10, 14, 8, 14, 14, 8, 8, 8, 10, 10, 10, 8];
+
+const UNRETAINED_WIDTHS = [14, 16, 18, 14, 12, 10, 12, 16, 10, 16, 18, 16, 20, 8, 10, 12, 14, 16, 12, 12, 16, 10, 8, 8, 8, 22, 10, 10, 10, 12, 12, 12, 10, 16, 12, 16, 14, 16, 16, 22, 18, 22, 28];
 
 /** Student-level sheets for the Export menu: current filters, unretained, sports, etc. */
 export async function buildListsWorkbook(
@@ -1931,7 +1890,7 @@ export async function buildListsWorkbook(
       wb,
       "All Not Retained",
       UNRETAINED_HEADERS,
-      [14, 16, 18, 14, 12, 10, 12, 16, 10, 16, 18, 16, 8, 10, 12, 14, 16, 12, 12, 16],
+      UNRETAINED_WIDTHS,
       unretained.map(unretainedRow),
     );
   }
@@ -1969,7 +1928,7 @@ export async function buildListsWorkbook(
     );
   }
   if (want("ftca")) {
-    writeListSheet(wb, "FTCA Raw", FTCA_RAW_HEADERS, [14, 16, 14, 14, 10, 18, 18, 16, 16, 22, 16, 14, 12, 12, 14, 22, 16, 12, 14, 12, 12, 14, 14, 10, 12, 10, 14, 8, 14, 14], ftca.map(ftcaRawCells));
+    writeListSheet(wb, "FTCA Raw", FTCA_RAW_HEADERS, FTCA_RAW_WIDTHS, ftca.map(ftcaRawCells));
   }
   if (want("verify")) {
     writeListSheet(
@@ -2021,6 +1980,7 @@ function reportExtras(
       hasPrior: false,
       sportRetention: [],
       appDecisionRetention: [],
+      genderRetention: [],
       catholicAthlete: [],
       athleteGender: [],
       athleteEthnicity: [],
@@ -2045,6 +2005,9 @@ function reportExtras(
     hasPrior: true,
     sportRetention: buildSportRetention(prior, currentIds, graduates, excludedSports, gpa),
     appDecisionRetention: buildCrosstab(prior, currentIds, graduates, (s) => censusAppDecision(s.appDecision)),
+    genderRetention: genderRetentionOrder(
+      buildCrosstab(prior, currentIds, graduates, (s) => s.gender || "Not listed"),
+    ),
     catholicAthlete: buildCrosstab2On(ugds, currentIds, graduates, catholicOf, athleteOf),
     athleteGender: buildCrosstab2On(ugds, currentIds, graduates, athleteOf, (s) => s.gender || "—"),
     athleteEthnicity: buildCrosstab2On(ugds, currentIds, graduates, athleteOf, whiteOf),
@@ -2133,9 +2096,13 @@ export async function buildCensusWorkbook(
   writeAttrition(wb, noFbData, noFbFtcaExtras, {
     sheetName: "FA25 FTCA no Football",
     titleSuffix: " (Football removed)",
-    note: `Cohort = FA25 Incoming+FTCA 392 minus Aiden Wilson = 391. ${NO_FOOTBALL_HISTORY_NOTE}`,
   });
-  writeFtcaRaw(wb, ftcaRaw);
+  const ftcaRows = ftcaRaw.length
+    ? ftcaRaw
+    : lists.prior.length
+      ? deriveFtcaRaw(lists.prior, lists.students, lists.graduates)
+      : [];
+  writeFtcaRaw(wb, ftcaRows);
   const alumniIds = amuUndergraduateAlumniIds(lists.prior, lists.graduates);
   writeListSheet(
     wb,
@@ -2148,7 +2115,7 @@ export async function buildCensusWorkbook(
     wb,
     "Not Retained",
     UNRETAINED_HEADERS,
-    [14, 16, 18, 14, 12, 10, 12, 16, 10, 16, 18, 16, 8, 10, 12, 14, 16, 12, 12, 16],
+    UNRETAINED_WIDTHS,
     lists.unretained.map(unretainedRow),
   );
   writeListSheet(wb, "FA26 LOA", LOA_HEADERS, LOA_WIDTHS, loaFallForExport(lists).map(loaRow));

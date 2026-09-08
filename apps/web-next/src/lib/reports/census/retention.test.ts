@@ -400,6 +400,27 @@ test("All UG, FTCA, sports, and crosstabs use enrolled / (cohort minus graduates
   assert.equal(fb?.retentionPct, 2 / 3);
 });
 
+test("M/F Retention is UG degree-seeking by gender", () => {
+  const rows = buildCrosstab(
+    [
+      prior({ pcid: "P1", gender: "Female" }),
+      prior({ pcid: "P2", gender: "Female" }),
+      prior({ pcid: "P3", gender: "Male" }),
+      prior({ pcid: "P4", gender: "Male", program: "GRAD", collegeAttend: "GRAD", degree: "MARTS" }),
+    ],
+    ["P1", "P3"],
+    [],
+    (s) => s.gender || "Not listed",
+  );
+  const by = Object.fromEntries(rows.map((r) => [r.label, r]));
+  assert.equal(by.Female?.students, 2);
+  assert.equal(by.Female?.notRetained, 1);
+  assert.equal(by.Male?.students, 1);
+  assert.equal(by.Male?.notRetained, 0);
+  assert.equal(by.Female?.retentionPct, 0.5);
+  assert.equal(by.Male?.retentionPct, 1);
+});
+
 test("Application Decisions Retention includes Not listed so the total matches the cohort", () => {
   const rows = buildCrosstab(
     [
@@ -666,12 +687,15 @@ test("FTCA extras fill HS GPA ranges and copy scores onto FTCA raw", () => {
   assert.equal(withInst.byInstitute.find((r) => r.label === "Institute")?.students, 1);
   assert.equal(withInst.byInstitute.find((r) => r.label === "No Institute")?.students, 1);
   const raw = deriveFtcaRaw(
-    [prior({ pcid: "P1", hsGpa: 3.8, dob: "03/28/2007", act: 26 })],
+    [prior({ pcid: "P1", hsGpa: 3.8, dob: "03/28/2007", act: 26, interviewFaith: 4, interviewCourage: 3, interviewTotal: 22 })],
     [prior({ pcid: "P1" })],
     [],
   );
   assert.equal(raw[0]?.hsGpa, 3.8);
   assert.equal(raw[0]?.dob, "03/28/2007");
+  assert.equal(raw[0]?.interviewFaith, 4);
+  assert.equal(raw[0]?.interviewCourage, 3);
+  assert.equal(raw[0]?.interviewTotal, 22);
 });
 
 test("unretained seed keeps HS GPA and overlay fills interview / withdrawal", () => {

@@ -9,4 +9,7 @@ aws s3 cp "$DIR/students.json" "s3://$BUCKET/cache/census/students.json" --conte
 aws s3 cp "$DIR/unretained.json" "s3://$BUCKET/cache/census/unretained.json" --content-type "application/json"
 aws s3 cp "$DIR/prior.json" "s3://$BUCKET/cache/census/prior.json" --content-type "application/json"
 aws s3 cp "$DIR/graduates.json" "s3://$BUCKET/cache/census/graduates.json" --content-type "application/json"
+if [ -f "$DIR/unretained-enrichment.json" ]; then
+  aws s3 cp "$DIR/unretained-enrichment.json" "s3://$BUCKET/cache/census/unretained-enrichment.json" --content-type "application/json"
+fi
 echo "Published census lists to s3://$BUCKET/cache/census/"

@@ -45,6 +45,17 @@ export type CensusRawStudent = {
   sat?: number | string;
   clt?: number | string;
   admitTerm?: string;
+  interviewTotal?: number | string;
+  interviewFaith?: number | string;
+  interviewCourage?: number | string;
+  interviewDesire?: number | string;
+  interviewHsInvolvement?: number | string;
+  interviewCollegeCareer?: number | string;
+  interviewPlans?: number | string;
+  acComments?: string;
+  applicationMajor?: string;
+  schoolType?: string;
+  highSchoolName?: string;
 };
 
 export type UnretainedStudent = {
@@ -83,9 +94,7 @@ export type UnretainedStudent = {
   interviewHsInvolvement?: number | string;
   interviewCollegeCareer?: number | string;
   interviewPlans?: number | string;
-  acRecommendation?: number | string;
   acComments?: string;
-  likelyToDeposit?: string;
   milesFromCampus?: number | string;
   applicationMajor?: string;
   sector?: string;
