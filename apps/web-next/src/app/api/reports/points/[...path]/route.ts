@@ -35,6 +35,9 @@ const GIFT_FIELDS = [
   "segment",
   "project",
   "recurringGiftId",
+  "acIncrease",
+  "priorMonthly",
+  "newMonthly",
 ] as const;
 
 /** Serve points payloads from sources/virtuous/{contact_notes,events}. */

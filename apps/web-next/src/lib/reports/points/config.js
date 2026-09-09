@@ -312,6 +312,7 @@ export const DEFINITIONS = [
       "Points land on the gift's week, not the note's week. Each donation note is matched to the earliest unused posted gift on the same contact with giftDate on or after the note date. " +
       "A donation note with no matching posted gift scores 0 points and is not counted as a secured gift. " +
       "A new monthly commitment is one gift (annualized dollars) and one 100-pt credit; later installments of that same commitment are not counted again. " +
+      "An AC increase counts only the difference (new monthly − prior monthly) × 12, not the new full amount. " +
       "Points are attributed to whoever authored the note (Virtuous `createdByUser`). " +
       "Only notes and gifts on or after the author's roster start date count.",
   },
@@ -343,8 +344,9 @@ export const DEFINITIONS = [
     text:
       "A posted Virtuous gift counts for an MA only if that MA logged a note on that donor’s contact on or before the gift date (call, letter, in person, email, or donation note), within 45 days. " +
       "No note on the person = the gift is not counted. A thank-you after the gift does not claim it. GFT_Solicitor is not used (it is usually an MGO, not the MA). " +
-      "One-time gifts use the posted amount. New monthly commitments (Recurring Gift, frequency Monthly) are counted once as monthly amount × 12. " +
-      "The matching posted installment is not also added. Increases on an older recurring gift that did not create a new Recurring Gift still use the posted installment until that commitment is republished. " +
+      "One-time gifts use the posted amount. A new monthly AC (Recurring Gift, frequency Monthly) is counted once as monthly amount × 12. " +
+      "If that contact already had an Annunciation Circle monthly gift, only the increase is counted: (new monthly − prior monthly) × 12. " +
+      "The matching posted installment is not also added. Same-rate continuations are not counted again. " +
       "Only notes and gifts on or after the author's roster start date count.",
   },
   {

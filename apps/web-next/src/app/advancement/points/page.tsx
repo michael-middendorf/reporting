@@ -895,7 +895,7 @@ export default function PointsPage() {
 
           <section className="section">
             <h2>
-              Donations Received <span className="section-hint">monthly AC is counted as 12 months, matching the tracker</span>
+              Donations Received <span className="section-hint">new monthly AC is ×12 · an increase counts only the difference ×12</span>
             </h2>
             <div className="panel">
               <p className="footnote" style={{ marginTop: 0, marginBottom: 14 }}>

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MA_NAMES } from "./config.js";
-import { isMonthlyRecurring, parseDate, prepareGifts, scoreAll, scoreGift } from "./points.js";
+import { isMonthlyRecurring, parseDate, prepareGifts, priorAcMonthly, scoreAll, scoreGift } from "./points.js";
 import { aggregate, daysOfWeek, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
 import { buildCalculationCSV, statusOf } from "./report.js";
 
@@ -492,6 +492,111 @@ describe("monthly AC annualization", () => {
     assert.equal(owner.giftAmount, 612.12);
     assert.equal(owner.gifts, 1);
     assert.equal(owner.points, 100);
+  });
+
+  it("counts only the AC increase, not the new full monthly amount", () => {
+    const merged = prepareGifts(
+      [
+        postedGift({
+          id: 443204,
+          contactId: 88058,
+          contactName: "Prior AC member",
+          giftDate: "11/13/2025",
+          amount: 32.5,
+          segment: "FundraiseUp - Annunciation Circle",
+        }),
+        postedGift({
+          id: 450744,
+          contactId: 88058,
+          contactName: "Prior AC member",
+          giftDate: "7/30/2026",
+          amount: 40,
+          segment: "Annunciation Circle",
+        }),
+      ],
+      [
+        {
+          id: 3823,
+          contactId: 88058,
+          contactName: "Prior AC member",
+          startDate: "2026-07-30",
+          amount: 40,
+          frequency: "Monthly",
+          segment: "Annunciation Circle",
+          designations: [{ project: "Annunciation Circle" }],
+        },
+      ],
+    );
+    const monthly = merged.find((g: { frequency?: string }) => g.frequency === "Monthly") as {
+      amount: number;
+      acIncrease?: boolean;
+      priorMonthly?: number;
+      newMonthly?: number;
+    };
+    assert.ok(monthly);
+    assert.equal(monthly.amount, 7.5);
+    assert.equal(monthly.acIncrease, true);
+    assert.equal(monthly.priorMonthly, 32.5);
+    assert.equal(monthly.newMonthly, 40);
+    assert.equal(merged.some((g: { id?: number | string }) => g.id === 450744), false);
+
+    const { owner, rows } = run(
+      [donationNote({ contactId: 88058, noteDate: "7/28/2026", type: "Mission Advancement | Annunciation Circle Updated" })],
+      merged,
+    );
+    assert.equal(owner.giftAmount, 90);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 100);
+    const giftRow = rows.find((r) => r.bucket === "donation");
+    assert.ok(giftRow);
+    assert.equal(giftRow.amount, 90);
+    assert.match(String(giftRow.label), /AC increase/);
+  });
+
+  it("does not re-count a same-rate AC continuation", () => {
+    const merged = prepareGifts(
+      [
+        postedGift({
+          id: 1,
+          contactId: 41491,
+          giftDate: "12/8/2025",
+          amount: 27.2,
+          segment: "FundraiseUp - Annunciation Circle",
+        }),
+        postedGift({
+          id: 2,
+          contactId: 41491,
+          giftDate: "1/8/2026",
+          amount: 27.2,
+          segment: "Annunciation Circle",
+        }),
+      ],
+      [
+        {
+          id: 3513,
+          contactId: 41491,
+          startDate: "2026-01-08",
+          amount: 27.2,
+          frequency: "Monthly",
+          segment: "Annunciation Circle",
+          designations: [{ project: "Annunciation Circle" }],
+        },
+      ],
+    );
+    assert.equal(merged.some((g: { frequency?: string }) => g.frequency === "Monthly"), false);
+    assert.equal(merged.length, 0);
+    assert.equal(priorAcMonthly(
+      [
+        postedGift({
+          contactId: 41491,
+          giftDate: "12/8/2025",
+          amount: 27.2,
+          segment: "FundraiseUp - Annunciation Circle",
+        }),
+      ],
+      41491,
+      "2026-01-08",
+    ), 27.2);
   });
 });
 

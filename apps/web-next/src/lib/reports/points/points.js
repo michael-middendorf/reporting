@@ -128,16 +128,58 @@ function roundCents(n) {
   return Math.round(n * 100) / 100;
 }
 
+/** One-time gifts this large are not a monthly AC rate. */
+const AC_MONTHLY_CAP = 250;
+
+function isAcGift(record) {
+  const blob = `${record.segment || ""} ${record.project || ""}`;
+  return /annunciation/i.test(blob);
+}
+
+/**
+ * Most recent Annunciation Circle monthly amount on this contact before `beforeDay`.
+ * Tracker credits only the increase when an existing AC is raised.
+ */
+export function priorAcMonthly(posted, contactId, beforeDay) {
+  const cid = Number(contactId);
+  if (!Number.isFinite(cid) || !beforeDay) return 0;
+  let bestDay = "";
+  let bestAmt = 0;
+  for (const g of posted || []) {
+    if (Number(g.contactId) !== cid) continue;
+    if (!isAcGift(g)) continue;
+    const amt = parseAmount(g.amount);
+    if (amt <= 0 || amt >= AC_MONTHLY_CAP) continue;
+    const d = isoDay(parseDate(g.giftDate || g.giftDateFormatted));
+    if (!d || d >= beforeDay) continue;
+    if (d > bestDay) {
+      bestDay = d;
+      bestAmt = amt;
+    }
+  }
+  return bestAmt;
+}
+
 /** Map a Virtuous RecurringGift onto the gift shape the scorer already uses. */
-export function recurringToGift(record) {
+export function recurringToGift(record, posted = []) {
   const des = (record.designations && record.designations[0])
     || (record.giftDesignations && record.giftDesignations[0]);
+  const start = record.startDate || record.recurringGiftDate || record.giftDate;
+  const startDay = isoDay(parseDate(start));
+  const newAmt = parseAmount(record.amount);
+  const prior = priorAcMonthly(posted, record.contactId, startDay);
+  const increase = prior > 0 && newAmt > prior;
+  const continuation = prior > 0 && newAmt <= prior;
+  const creditMonthly = increase ? roundCents(newAmt - prior) : continuation ? 0 : newAmt;
   return {
     id: record.id != null ? `rg-${record.id}` : record.id,
     contactId: record.contactId,
     contactName: record.contactName || "",
-    giftDate: record.startDate || record.recurringGiftDate || record.giftDate,
-    amount: record.amount,
+    giftDate: start,
+    amount: creditMonthly,
+    newMonthly: newAmt,
+    priorMonthly: prior || null,
+    acIncrease: increase,
     giftType: record.giftType || "Recurring",
     frequency: record.frequency || "Monthly",
     segment: record.segment,
@@ -150,11 +192,14 @@ export function recurringToGift(record) {
 
 /**
  * Merge posted gifts with RecurringGift rows. Monthly commitments replace the
- * matching posted installment so dollars are not counted twice.
+ * matching posted installment so dollars are not counted twice. An AC raise
+ * credits only (new monthly − prior monthly); a same-rate continuation is $0.
  */
 export function prepareGifts(posted = [], recurring = []) {
   const monthly = recurring.filter((r) => /^monthly$/i.test(String(r.frequency || "").trim()));
-  const asGifts = monthly.map(recurringToGift);
+  const asGifts = monthly
+    .map((r) => recurringToGift(r, posted))
+    .filter((g) => parseAmount(g.amount) > 0);
   const filtered = posted.filter((g) => {
     const cid = Number(g.contactId);
     if (!Number.isFinite(cid)) return true;
@@ -242,10 +287,19 @@ export function scoreGift(record, ownerHint = null) {
   const date = giftDateOf(record);
   if (!date) return null;
   if (beforeStart(date, owner)) return null;
+  const increase = !!record.acIncrease;
+  const priorMonthly = parseAmount(record.priorMonthly);
+  const newMonthly = parseAmount(record.newMonthly) || postedAmount;
+  const label = increase
+    ? `AC increase ($${priorMonthly} → $${newMonthly}/mo, annualized ×12)`
+    : monthly
+      ? "Monthly gift (annualized ×12)"
+      : "Donation received";
   return {
     owner, type: "Gift", points: 0, amount, postedAmount, annualized: monthly,
+    acIncrease: increase, priorMonthly: priorMonthly || null, newMonthly: increase ? newMonthly : null,
     bucket: "donation",
-    label: monthly ? "Monthly gift (annualized ×12)" : "Donation received",
+    label,
     day: isoDay(date), date, weekday: isWeekday(date),
     contactId: record.contactId, contactName: record.contactName || "",
     giftId: record.id, giftType: record.giftType || "",
@@ -269,7 +323,8 @@ function sortByDayThenId(aDate, aId, bDate, bId) {
  * note date. Points are moved onto that gift's week. Unmatched donation notes
  * score 0 and leave the gift bucket. A new monthly Recurring Gift is one
  * gift (annualized dollars) and one 100-pt credit; later installments of
- * that commitment are dropped in prepareGifts.
+ * that commitment are dropped in prepareGifts. An AC raise credits only
+ * (new − prior monthly) × 12.
  */
 export function scoreAll({ notes = [], gifts = [] }) {
   const rows = [];
