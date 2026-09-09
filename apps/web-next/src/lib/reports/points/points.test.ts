@@ -536,7 +536,7 @@ describe("gift dollars follow MA activity notes", () => {
       [postedGift({ giftDate: "8/11/2026", amount: 200 })],
     );
     assert.equal(owner.giftAmount, 0);
-    assert.equal(owner.points, 5);
+    assert.equal(owner.points, 3);
   });
 
   it("thank-you call after a gift does not claim that gift", () => {
@@ -564,6 +564,30 @@ describe("invalid numbers count as 1-pt dials", () => {
   });
 });
 
+describe("email points follow the tracker sheet", () => {
+  it("Email Reach Out scores 2 pts (sheet Email Sent)", () => {
+    const { owner, rows } = run([
+      donationNote({ type: "Mission Advancement Call | Email Reach Out", id: 21 }),
+    ]);
+    const row = rows.find((r) => r.noteId === 21);
+    assert.ok(row);
+    assert.equal(row.points, 2);
+    assert.equal(row.bucket, "email");
+    assert.equal(owner.points, 2);
+  });
+
+  it("Email Conversation scores 3 pts (sheet Response Rec'd)", () => {
+    const { owner, rows } = run([
+      donationNote({ type: "Mission Advancement Call | Email Conversation", id: 22 }),
+    ]);
+    const row = rows.find((r) => r.noteId === 22);
+    assert.ok(row);
+    assert.equal(row.points, 3);
+    assert.equal(row.bucket, "email");
+    assert.equal(owner.points, 3);
+  });
+});
+
 describe("tracker category layout", () => {
   it("rolls LVM, disconnected, conversation, letter, and obituary into the sheet mix", () => {
     const scored = scoreAll({
@@ -574,6 +598,8 @@ describe("tracker category layout", () => {
         donationNote({ type: "Letter", id: 4 }),
         donationNote({ type: "Obituary", id: 5 }),
         donationNote({ type: "In Person", id: 6 }),
+        donationNote({ type: "Mission Advancement Call | Email Reach Out", id: 7 }),
+        donationNote({ type: "Mission Advancement Call | Email Conversation", id: 8 }),
       ],
     }) as ScoredRow[];
     const mix = trackerBreakdown(scored);
@@ -582,9 +608,11 @@ describe("tracker category layout", () => {
     assert.equal(byId.disconnected.points, 1);
     assert.equal(byId.conversation.points, 10);
     assert.equal(byId.letter_sent.points, 5);
-    assert.equal(byId.obituaries.points, 5);
+    assert.equal(byId.obituaries.points, 3);
     assert.equal(byId.tours.points, 25);
-    assert.equal(mix.totalPoints, 47);
+    assert.equal(byId.email_sent.points, 2);
+    assert.equal(byId.email_response.points, 3);
+    assert.equal(mix.totalPoints, 50);
   });
 
   it("filters rows to a tracker category", () => {
@@ -636,14 +664,13 @@ describe("week range bounds", () => {
 });
 
 describe("count/remove overrides", () => {
-  it("obituary is counted at 5 points by default", () => {
+  it("obituary is counted at 3 points by default", () => {
     const { owner, rows, model } = run([donationNote({ type: "Obituary", id: 77 })]);
-    assert.equal(owner.points, 5);
+    assert.equal(owner.points, 3);
     assert.equal(owner.obituaries, 1);
     const row = rows.find((r) => r.noteId === 77);
     assert.ok(row);
-    assert.equal(row.points, 5);
-    assert.equal(row.conflict, null);
+    assert.equal(row.points, 3);
     assert.equal(statusOf(row), "counted");
     assert.doesNotMatch(buildCalculationCSV(model), /removed/i);
   });
@@ -658,7 +685,7 @@ describe("count/remove overrides", () => {
     const row = model.rows.find((r) => String(r.noteId) === "77");
     assert.ok(row);
     assert.equal(row.removed, true);
-    assert.equal(row.points, 5);
+    assert.equal(row.points, 3);
     assert.equal(statusOf(row), "removed");
     assert.match(buildCalculationCSV(model, { flags: { "77": { status: "removed" } } }), /removed/i);
   });
@@ -668,7 +695,7 @@ describe("count/remove overrides", () => {
     const model = aggregate(scored, { flags: { "77": { status: "resolved" } } }) as Model;
     const owner = model.tableOwners.find((o) => o.name === ALANNA);
     assert.ok(owner);
-    assert.equal(owner.points, 5);
+    assert.equal(owner.points, 3);
     const row = model.rows.find((r) => String(r.noteId) === "77");
     assert.equal(row?.removed, false);
   });

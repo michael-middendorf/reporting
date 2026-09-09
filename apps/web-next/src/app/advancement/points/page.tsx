@@ -627,6 +627,7 @@ export default function PointsPage() {
                   <div className="tracker">
                     <div className="tracker-head">
                       <span>Category</span>
+                      <span>Count</span>
                       <span>Pts</span>
                     </div>
                     {dayMix.lines.map((line) => (
@@ -638,6 +639,9 @@ export default function PointsPage() {
                       >
                         <span>{line.label}</span>
                         <span className="tabular">
+                          {line.section ? "" : line.count.toLocaleString()}
+                        </span>
+                        <span className="tabular">
                           {line.section ? "" : line.points.toLocaleString()}
                         </span>
                       </button>
@@ -648,6 +652,7 @@ export default function PointsPage() {
                       onClick={() => setCategoryFilter(null)}
                     >
                       <span>TOTAL</span>
+                      <span className="tabular">{dayMix.totalCount.toLocaleString()}</span>
                       <span className="tabular">{dayMix.totalPoints.toLocaleString()}</span>
                     </button>
                   </div>

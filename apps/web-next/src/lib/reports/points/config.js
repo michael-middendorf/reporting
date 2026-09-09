@@ -65,12 +65,19 @@ export const CONFLICTS = {
     resolved: "1 point",
     note: "Counted as a 1-pt dial to match the tracker (confirmed 2026-09-09). Logged as ‘Mission Advancement Call | Invalid Number’.",
   },
+  email_sent: {
+    title: "Email sent",
+    pdf: "Email / text counts as 1 pt.",
+    spreadsheet: "‘Email Sent’ is given 2 points.",
+    resolved: "2 points",
+    note: "Counted at 2 points to match the tracker (confirmed 2026-09-09). Logged as ‘Mission Advancement Call | Email Reach Out’ or ‘Email Inactive’. Text message uses the same 2 pts (it sits in the tracker’s Sent row).",
+  },
   email_conversation: {
     title: "Two-way email exchange",
     pdf: "Email counts as 1 pt (‘email / text’). Only a phone conversation earns 10.",
     spreadsheet: "‘Response Rec’d’ is given 3 points.",
-    resolved: "1 point",
-    note: "We follow the PDF (email = 1). The spreadsheet’s 3-pt ‘Response Received’ has no PDF equivalent.",
+    resolved: "3 points",
+    note: "Counted at 3 points to match the tracker (confirmed 2026-09-09). Logged as ‘Mission Advancement Call | Email Conversation’.",
   },
   event_subtype: {
     title: "Event points (300 vs 75)",
@@ -93,9 +100,9 @@ export const CONFLICTS = {
   obituary: {
     title: "Obituary notes",
     pdf: "Not a named activity; closest bucket is 5 pts for updated contact info.",
-    spreadsheet: "Not tracked as a line item on the weekly totals.",
-    resolved: "5 points",
-    note: "Counted as a 5-pt contact-info update (confirmed 2026-09-09). Pulled from the Virtuous ‘Obituary’ note type, scoped to MA authors.",
+    spreadsheet: "‘Obituaries’ is given 3 points.",
+    resolved: "3 points",
+    note: "Counted at 3 points to match the tracker (confirmed 2026-09-09). Pulled from the Virtuous ‘Obituary’ note type, scoped to MA authors.",
   },
   mas_event_note: {
     title: "MAS Event note (attributed to an MA)",
@@ -125,11 +132,11 @@ export const POINTS_MAP = {
   "mission advancement call | voicemail":
     { points: 1, bucket: "dial", label: "Voicemail / dial", source: "pdf+spreadsheet" },
   "mission advancement call | email reach out":
-    { points: 1, bucket: "email", label: "Email reach-out", source: "pdf" },
+    { points: 2, bucket: "email", label: "Email reach-out", source: "spreadsheet", conflict: "email_sent" },
   "mission advancement call | email inactive":
-    { points: 1, bucket: "email", label: "Email (inactive)", source: "pdf" },
+    { points: 2, bucket: "email", label: "Email (inactive)", source: "spreadsheet", conflict: "email_sent" },
   "mission advancement call | email conversation":
-    { points: 1, bucket: "email", label: "Email conversation", source: "pdf", conflict: "email_conversation" },
+    { points: 3, bucket: "email", label: "Email conversation", source: "spreadsheet", conflict: "email_conversation" },
   "mission advancement call | invalid number":
     { points: 1, bucket: "failed", label: "Invalid number", source: "pdf+spreadsheet" },
 
@@ -141,7 +148,7 @@ export const POINTS_MAP = {
     { points: 100, bucket: "gift", label: "Increased recurring gift", source: "assumed" },
 
   "letter":     { points: 5, bucket: "note", label: "Handwritten note / letter", source: "pdf+spreadsheet" },
-  "text message": { points: 1, bucket: "email", label: "Text message", source: "pdf" },
+  "text message": { points: 2, bucket: "email", label: "Text message", source: "spreadsheet", conflict: "email_sent" },
   "in person":  { points: 25, bucket: "facetoface", label: "Face-to-face (coffee/lunch)", source: "pdf+spreadsheet" },
 
   "mission advancement | invalid mailing address":
@@ -150,7 +157,7 @@ export const POINTS_MAP = {
     { points: 5, bucket: "address", label: "Address change/update", source: "pdf" },
 
   "obituary":
-    { points: 5, bucket: "obituary", label: "Obituary", source: "pdf" },
+    { points: 3, bucket: "obituary", label: "Obituary", source: "spreadsheet", conflict: "obituary" },
 
   "mission advancement | event":
     { points: 300, bucket: "event", label: "MAS Event (Ave Near You)", source: "pdf", conflict: "mas_event_note" },
@@ -172,8 +179,8 @@ export const BUCKETS = [
   { id: "conversation", label: "Conversations",     points: 10,  color: "#3f7d54" },
   { id: "note",         label: "Letters / notes",   points: 5,   color: "#c85a3a" },
   { id: "address",      label: "Address updates",   points: 5,   color: "#0f766e" },
-  { id: "obituary",     label: "Obituaries",        points: 5,   color: "#64748b" },
-  { id: "email",        label: "Emails / texts",    points: 1,   color: "#5b8bb0" },
+  { id: "obituary",     label: "Obituaries",        points: 3,   color: "#64748b" },
+  { id: "email",        label: "Emails / texts",    points: 2,   color: "#5b8bb0" },
   { id: "dial",         label: "Dials / VMs",       points: 1,   color: "#8a97a6" },
   { id: "failed",       label: "Invalid / failed",  points: 1,  color: "#c2c9d1" },
   { id: "donation",     label: "Dollars received",  points: 0,   color: "#c8972d" },
@@ -316,9 +323,9 @@ export const DEFINITIONS = [
       "(Previously flagged for review; confirmed counting 2026-08-14.)",
   },
   {
-    term: "Obituary (5 pts)",
+    term: "Obituary (3 pts)",
     text:
-      "Obituary notes authored by an MA count as a contact-info update (5 pts). Non-MA authors are ignored.",
+      "Obituary notes authored by an MA count as 3 points, matching the tracker. Non-MA authors are ignored.",
   },
   {
     term: "Invalid number (1 pt)",

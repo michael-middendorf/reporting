@@ -232,15 +232,19 @@ table.grid tbody tr.clickable { cursor: pointer; }
 table.grid tbody tr.selected { background: var(--navy-100); }
 table.grid td.pts { font-weight: 500; color: var(--navy); }
 
-.ma-drill { display: grid; grid-template-columns: 240px 1fr; gap: 24px; align-items: start; margin-top: 22px; }
+.ma-drill { display: grid; grid-template-columns: 280px 1fr; gap: 24px; align-items: start; margin-top: 22px; }
 .tracker { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: .88rem; }
 .tracker-head, .tracker-row {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px;
+  grid-template-columns: 1fr 3.4rem 3.4rem;
+  gap: 8px;
   padding: 6px 12px;
   align-items: baseline;
 }
+.tracker-head span:nth-child(2),
+.tracker-head span:nth-child(3),
+.tracker-row span:nth-child(2),
+.tracker-row span:nth-child(3) { text-align: right; }
 .tracker-head {
   background: var(--navy);
   color: #fff;
