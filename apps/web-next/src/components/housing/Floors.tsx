@@ -255,7 +255,7 @@ export function Floors({
                   {status !== "available" ? ` · ${ROOM_STATUS_LABEL[status].toUpperCase()}` : ""}
                 </div>
               </div>
-              <button type="button" className={styles.x} onClick={() => setSelectedRoom(null)}>×</button>
+              <button type="button" className={styles.x} aria-label="Close room" onClick={() => setSelectedRoom(null)}>×</button>
             </div>
             <div className={styles.dcontent}>
               <div className={styles.roommeta}>

@@ -890,11 +890,13 @@
 
 .drawer {
   position: fixed;
-  top: 0;
+  /* Sit below the sticky .rc report chrome (z-index 100, ~54px) so the
+     close control is not covered by AMU / Sign out. */
+  top: 54px;
   right: 0;
   width: 440px;
   max-width: 92vw;
-  height: 100vh;
+  height: calc(100vh - 54px);
   background: var(--card);
   box-shadow: -14px 0 40px rgba(13, 43, 94, 0.2);
   z-index: 50;
@@ -903,11 +905,13 @@
 }
 
 .dh {
-  padding: 20px 24px;
+  padding: 16px 16px 16px 24px;
   border-bottom: 1px solid var(--border);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
+  flex-shrink: 0;
+  background: var(--card);
 }
 
 .dh h2 {
@@ -919,12 +923,20 @@
 
 .x {
   margin-left: auto;
-  background: none;
-  border: 0;
-  font-size: 26px;
-  color: var(--dim);
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--raised);
+  font-size: 22px;
+  color: var(--text);
   cursor: pointer;
   line-height: 1;
+}
+
+.x:hover {
+  background: var(--border);
 }
 
 .dcontent {
