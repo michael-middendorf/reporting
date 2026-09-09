@@ -77,7 +77,7 @@ export const CONFLICTS = {
     pdf: "Email / text counts as 1 pt.",
     spreadsheet: "‘Bounced’ is given 1 point.",
     resolved: "1 point",
-    note: "Counted at 1 point (confirmed 2026-09-09). Virtuous type ‘Mission Advancement Call | Email Inactive’ is Bounced. An email note whose write-up says bounced is also Bounced.",
+    note: "Counted at 1 point (confirmed 2026-09-09). Virtuous type ‘Mission Advancement Call | Email Inactive’ is Bounced.",
   },
   email_conversation: {
     title: "Two-way email exchange",
@@ -227,7 +227,6 @@ export const TRACKER_LAYOUT = [
       {
         id: "email_bounced",
         label: "Bounced",
-        bounced: true,
         types: ["mission advancement call | email inactive"],
       },
       {
@@ -296,7 +295,7 @@ export const SETTINGS = {
 
 /**
  * On-page tracking chart: tracker row → Virtuous note type → points.
- * Gifts first. Bounced is the write-up, not a separate type.
+ * Gifts first. Bounced is the Email Inactive note type.
  */
 export const TRACKING_CHART = {
   gifts: [
@@ -322,7 +321,6 @@ export const TRACKING_CHART = {
     { tracker: "Email Sent", type: "Mission Advancement Call | Email Reach Out", pts: 2 },
     { tracker: "Email Sent", type: "Text Message", pts: 2 },
     { tracker: "Bounced", type: "Mission Advancement Call | Email Inactive", pts: 1 },
-    { tracker: "Bounced", type: "Write-up says bounced (any email type)", pts: 1 },
     { tracker: "Response Rec’d", type: "Mission Advancement Call | Email Conversation", pts: 3 },
     { tracker: "Letter Sent", type: "Letter", pts: 5 },
     { tracker: "Obituaries", type: "Obituary", pts: 3 },

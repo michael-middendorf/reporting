@@ -31,7 +31,7 @@ export function weekKey(d) {
 
 export function weekLabel(key) {
   const d = new Date(key + "T00:00:00");
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 /** Seven YYYY-MM-DD days, Monday through Sunday, for a Monday week key. */
@@ -50,17 +50,16 @@ export function daysOfWeek(mondayKey) {
 }
 
 function matchTrackerLeaf(leaf, rows) {
-  const spec = {
-    types: (leaf.types || []).map((t) => String(t).toLowerCase()),
-    buckets: leaf.buckets || [],
-    bounced: !!leaf.bounced,
-  };
+  const types = new Set((leaf.types || []).map((t) => String(t).toLowerCase()));
+  const buckets = new Set(leaf.buckets || []);
   let count = 0;
   let points = 0;
   for (const r of rows) {
-    if (!rowMatchesTracker(r, spec)) continue;
-    count += 1;
-    points += r.points || 0;
+    const type = (r.type || "").trim().toLowerCase();
+    if ((types.size && types.has(type)) || (buckets.size && buckets.has(r.bucket))) {
+      count += 1;
+      points += r.points || 0;
+    }
   }
   return { id: leaf.id, label: leaf.label, section: false, indent: false, count, points };
 }
@@ -105,21 +104,18 @@ export function trackerSpec(id, layout = TRACKER_LAYOUT) {
   const collect = (leaf) => ({
     types: (leaf.types || []).map((t) => String(t).toLowerCase()),
     buckets: leaf.buckets || [],
-    bounced: !!leaf.bounced,
   });
   for (const group of layout) {
     if (group.id === id) {
       if (group.section) {
         const types = [];
         const buckets = [];
-        let bounced = false;
         for (const child of group.children || []) {
           const spec = collect(child);
           types.push(...spec.types);
           buckets.push(...spec.buckets);
-          if (spec.bounced) bounced = true;
         }
-        return { types, buckets, bounced };
+        return { types, buckets };
       }
       return collect(group);
     }
@@ -132,7 +128,6 @@ export function trackerSpec(id, layout = TRACKER_LAYOUT) {
 
 export function rowMatchesTracker(r, spec) {
   if (!spec) return true;
-  if (r.bounced) return !!spec.bounced;
   const type = (r.type || "").trim().toLowerCase();
   if (spec.types && spec.types.includes(type)) return true;
   if (spec.buckets && spec.buckets.includes(r.bucket)) return true;
@@ -322,20 +317,25 @@ function weekHasWork(t) {
 }
 
 /**
- * Personal best per category (not necessarily the same week).
- * Team best is one all-time best week (highest team points); every metric
- * is that week's count, not a mix of different weeks.
+ * Each MA’s best is one week (highest points); every metric is that week’s
+ * count. Team best is the all-time best team week the same way.
  */
 export function personalBests(tableOwners, weekGrid) {
   const owners = tableOwners.map((o) => {
-    const rec = { name: o.name, short: o.short };
-    for (const m of BEST_METRICS) {
-      let best = { value: 0, week: null };
-      for (const w of o.weekList) {
-        const v = w[m.id] || 0;
-        if (v > best.value) best = { value: v, week: w.key };
+    let bestWeek = null;
+    let bestPoints = -1;
+    for (const w of o.weekList) {
+      if (!weekHasWork(w)) continue;
+      const pts = w.points || 0;
+      if (pts > bestPoints || (pts === bestPoints && w.key > (bestWeek || ""))) {
+        bestPoints = pts;
+        bestWeek = w.key;
       }
-      rec[m.id] = best;
+    }
+    const week = o.weekList.find((w) => w.key === bestWeek) || {};
+    const rec = { name: o.name, short: o.short, bestWeek };
+    for (const m of BEST_METRICS) {
+      rec[m.id] = { value: week[m.id] || 0, week: bestWeek };
     }
     return rec;
   });

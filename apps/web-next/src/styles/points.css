@@ -280,18 +280,41 @@ table.grid td.pts { font-weight: 500; color: var(--navy); }
 .callout { background: var(--navy-100); border-left: 3px solid var(--gold); padding: 12px 16px; border-radius: 8px; font-size: .9rem; }
 
 .track-chart {
-  display: grid;
-  grid-template-columns: minmax(240px, .9fr) 1.4fr;
-  gap: 20px;
-  align-items: start;
   margin: 0 0 22px;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 16px 18px;
+  padding: 0 18px;
 }
-.track-gifts h2 { margin: 0 0 8px; font-size: 1.05rem; }
+.track-chart > summary {
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--serif);
+  font-weight: 700;
+  color: var(--navy);
+  font-size: 1.05rem;
+  padding: 14px 0;
+}
+.track-chart > summary::-webkit-details-marker { display: none; }
+.track-chart > summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 8px;
+  color: var(--gold);
+  font-family: var(--sans);
+}
+.track-chart[open] > summary::before { content: "▾"; }
+.track-chart > summary:hover { color: var(--navy-700); }
+.track-chart-body {
+  display: grid;
+  grid-template-columns: minmax(240px, .9fr) 1.4fr;
+  gap: 20px;
+  align-items: start;
+  padding: 0 0 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
 .track-lead { margin: 0 0 12px; font-size: .9rem; max-width: 52ch; }
 .track-gifts ul { margin: 0; padding: 0; list-style: none; }
 .track-gifts li {
@@ -346,8 +369,7 @@ table.weekgrid th.metric { text-align: left; color: var(--navy); font-weight: 50
 .bestcard .name { font-family: var(--serif); font-weight: 700; color: var(--navy); margin-bottom: 10px; }
 .bestcard .best-week { font-size: .78rem; color: var(--slate); margin: -6px 0 10px; }
 .bestcard.team { border-color: var(--gold); background: var(--gold-soft); }
-.best-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: baseline; font-size: .82rem; color: var(--slate-400); padding: 4px 0; border-bottom: 1px solid var(--line); }
-.bestcard.team .best-row { grid-template-columns: 1fr auto; }
+.best-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: baseline; font-size: .82rem; color: var(--slate-400); padding: 4px 0; border-bottom: 1px solid var(--line); }
 .best-row:last-child { border-bottom: 0; }
 .best-row b { color: var(--navy); font-weight: 500; }
 .best-row em { font-style: normal; font-size: .75rem; }
@@ -355,7 +377,7 @@ table.weekgrid th.metric { text-align: left; color: var(--navy); font-weight: 50
 @media (max-width: 820px) {
   .kpis { grid-template-columns: repeat(2, 1fr); }
   .two-col { grid-template-columns: 1fr; }
-  .track-chart { grid-template-columns: 1fr; }
+  .track-chart-body { grid-template-columns: 1fr; }
   .ma-drill { grid-template-columns: 1fr; }
   .topbar .wrap { flex-direction: column; align-items: flex-start; gap: 10px; }
   .page-head { align-items: flex-start; }

@@ -14,6 +14,13 @@
  */
 import { CONFLICTS, VIRTUOUS_APP_BASE } from "./config.js";
 
+function formatExportDay(iso) {
+  if (!iso) return "";
+  const d = new Date(String(iso) + (String(iso).includes("T") ? "" : "T00:00:00"));
+  if (Number.isNaN(+d)) return String(iso);
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
 /** Deep link to the contact in Virtuous; the conversation log is its Notes tab. */
 export function virtuousContactUrl(contactId) {
   if (!contactId) return "";
@@ -129,7 +136,7 @@ export function buildCalculationCSV(model, { meta = {}, rangeLabel = "All", gene
     if (!r.removed) subtotal += r.points;
     L.push(line([
       r.owner,
-      r.day,
+      formatExportDay(r.day),
       r.weekday ? "Y" : "N (weekend)",
       r.contactName || "",
       r.contactId || "",

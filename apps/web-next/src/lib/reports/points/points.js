@@ -76,27 +76,13 @@ export function scoreNote(record) {
 
   let points = rule.points;
   if (rule.conflict === "invalid_number" && SETTINGS.invalidNumberScores) points = 1;
-  const bounced =
-    key === "mission advancement call | email inactive" ||
-    (rule.bucket === "email" && noteLooksBounced(record));
-  if (bounced) points = 1;
 
   return {
-    owner, type, points, bucket: rule.bucket,
-    label: bounced ? "Email bounced" : rule.label,
-    bounced,
+    owner, type, points, bucket: rule.bucket, label: rule.label,
     day: isoDay(date), date, weekday: isWeekday(date),
     contactId: record.contactId, contactName: record.contactName || "",
-    noteId: record.id, source: bounced ? "spreadsheet" : rule.source,
-    conflict: bounced ? "email_bounced" : (rule.conflict || null),
+    noteId: record.id, source: rule.source, conflict: rule.conflict || null,
   };
-}
-
-/** Bounce from the write-up, used when the type is not Email Inactive. */
-export function noteLooksBounced(record) {
-  const raw = String(record?.note || record?.text || "");
-  const text = raw.replace(/<[^>]+>/g, " ");
-  return /bounc/i.test(text);
 }
 
 /**

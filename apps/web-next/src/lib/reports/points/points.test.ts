@@ -33,6 +33,7 @@ type Model = {
   bests?: {
     teamWeek?: string | null;
     team: Record<string, { value: number; week: string | null }>;
+    owners?: Array<{ name: string; bestWeek?: string | null } & Record<string, { value: number; week: string | null } | string | undefined>>;
   };
 };
 
@@ -707,17 +708,35 @@ describe("email points follow the tracker sheet", () => {
 
   it("Email Inactive is Bounced at 1 pt", () => {
     const scored = scoreAll({
-      notes: [donationNote({ type: "Mission Advancement Call | Email Inactive", id: 23, note: "Added email to file" })],
+      notes: [donationNote({ type: "Mission Advancement Call | Email Inactive", id: 23 })],
     }) as ScoredRow[];
-    const row = scored.find((r) => r.noteId === 23) as ScoredRow & { bounced?: boolean };
+    const row = scored.find((r) => r.noteId === 23);
     assert.ok(row);
     assert.equal(row.points, 1);
-    assert.equal(row.bounced, true);
     const mix = trackerBreakdown(scored);
     const byId = Object.fromEntries(mix.lines.map((l) => [l.id, l]));
     assert.equal(byId.email_bounced.count, 1);
     assert.equal(byId.email_bounced.points, 1);
     assert.equal(byId.email_sent.count, 0);
+  });
+
+  it("Email Reach Out is Sent even if the write-up says bounced", () => {
+    const scored = scoreAll({
+      notes: [
+        donationNote({
+          type: "Mission Advancement Call | Email Reach Out",
+          id: 25,
+          note: "email bounced",
+        }),
+      ],
+    }) as ScoredRow[];
+    const row = scored.find((r) => r.noteId === 25);
+    assert.ok(row);
+    assert.equal(row.points, 2);
+    const mix = trackerBreakdown(scored);
+    const byId = Object.fromEntries(mix.lines.map((l) => [l.id, l]));
+    assert.equal(byId.email_sent.count, 1);
+    assert.equal(byId.email_bounced.count, 0);
   });
 });
 
@@ -857,6 +876,15 @@ describe("team bests", () => {
     assert.equal(model.bests?.team.dials.week, weekB);
     assert.equal(model.bests?.team.gifts.week, weekB);
     assert.equal(model.bests?.team.giftAmount.week, weekB);
+    const alanna = model.bests?.owners?.find((o) => o.name === ALANNA);
+    assert.ok(alanna);
+    assert.equal(alanna.bestWeek, weekB);
+    const pts = alanna.points as { value: number; week: string | null };
+    const conv = alanna.conversations as { value: number; week: string | null };
+    assert.equal(pts.value, 300);
+    assert.equal(pts.week, weekB);
+    assert.equal(conv.value, 0);
+    assert.equal(conv.week, weekB);
   });
 });
 

@@ -106,7 +106,7 @@ type WeekGridRow = {
 
 type BestRec = { value: number; week: string | null };
 type Bests = {
-  owners: Array<{ name: string; short?: string } & Record<string, BestRec | string | undefined>>;
+  owners: Array<{ name: string; short?: string; bestWeek?: string | null } & Record<string, BestRec | string | undefined>>;
   team: Record<string, BestRec>;
   teamWeek?: string | null;
   metrics: Array<{ id: string; label: string }>;
@@ -116,7 +116,9 @@ const money = (n: number | undefined) => `$${Math.round(n || 0).toLocaleString()
 const pct = (n: number | undefined) => `${((n || 0) * 100).toFixed(1)}%`;
 function formatDay(iso: string) {
   if (!iso) return "";
-  return parseDay(iso).toLocaleDateString(undefined, {
+  const d = parseDay(iso);
+  if (Number.isNaN(+d)) return iso;
+  return d.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -196,6 +198,7 @@ export default function PointsPage() {
   const [pickedWeek, setPickedWeek] = useState<string | null>(null);
   const [pickedDay, setPickedDay] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [giftOwner, setGiftOwner] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("Loading…");
   const [flags, setFlags] = useState<Record<string, ReviewFlag>>({});
@@ -344,8 +347,14 @@ export default function PointsPage() {
     showWeekTotal && activeWeek
       ? `Week of ${weekLabel(activeWeek)}`
       : activeDay
-        ? parseDay(activeDay).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })
+        ? formatDay(activeDay)
         : "Categories";
+  const listedGifts = useMemo(() => {
+    if (!giftOwner) return [] as GiftRow[];
+    return [...(model.gifts || [])]
+      .filter((g) => giftOwner === "all" || g.owner === giftOwner)
+      .sort((a, b) => (b.day || "").localeCompare(a.day || ""));
+  }, [model.gifts, giftOwner]);
 
   async function saveFlag(input: FlagInput) {
     setFlagBusy(String(input.noteId));
@@ -488,46 +497,48 @@ export default function PointsPage() {
             </div>
           </div>
 
-          <section className="track-chart" aria-label="How activities are tracked">
-            <div className="track-gifts">
-              <h2>How this is tracked</h2>
-              <p className="track-lead">
-                Virtuous note type on the donor’s contact, logged as yourself. Gifts are linked by the same
-                contact when the note is on or before the gift, within 45 days.
-              </p>
-              <ul>
-                {TRACKING_CHART.gifts.map((g) => (
-                  <li key={g.label}>
-                    <strong>{g.label}.</strong> {g.detail}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="track-types">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Counts as</th>
-                    <th>Virtuous note type</th>
-                    <th>Pts</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {TRACKING_CHART.rows.map((r) => (
-                    <tr key={`${r.tracker}-${r.type}`}>
-                      <td>{r.tracker}</td>
-                      <td>{r.type}</td>
-                      <td className="tabular">{r.pts}</td>
-                    </tr>
+          <details className="track-chart">
+            <summary>Tracking chart</summary>
+            <div className="track-chart-body">
+              <div className="track-gifts">
+                <p className="track-lead">
+                  Virtuous note type on the donor’s contact, logged as yourself. Gifts are linked by the same
+                  contact when the note is on or before the gift, within 45 days.
+                </p>
+                <ul>
+                  {TRACKING_CHART.gifts.map((g) => (
+                    <li key={g.label}>
+                      <strong>{g.label}.</strong> {g.detail}
+                    </li>
                   ))}
-                </tbody>
-              </table>
-              <p className="footnote">
-                Wrong person, wrong type, or no note = not counted.{" "}
-                <a href="/advancement/points/methodology">Full rules</a>
-              </p>
+                </ul>
+              </div>
+              <div className="track-types">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Counts as</th>
+                      <th>Virtuous note type</th>
+                      <th>Pts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {TRACKING_CHART.rows.map((r) => (
+                      <tr key={`${r.tracker}-${r.type}`}>
+                        <td>{r.tracker}</td>
+                        <td>{r.type}</td>
+                        <td className="tabular">{r.pts}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="footnote">
+                  Wrong person, wrong type, or no note = not counted.{" "}
+                  <a href="/advancement/points/methodology">Full rules</a>
+                </p>
+              </div>
             </div>
-          </section>
+          </details>
 
           <section className="kpis">
             {[
@@ -707,8 +718,7 @@ export default function PointsPage() {
                   Total
                 </button>
                 {weekDayList.map((d) => {
-                  const dt = parseDay(d);
-                  const label = dt.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+                  const label = formatDay(d);
                   const has = daysWithActivity.has(d);
                   return (
                     <button
@@ -902,12 +912,15 @@ export default function PointsPage() {
           <section className="section">
             <h2>
               Personal Bests{" "}
-              <span className="section-hint">each MA’s best week per category · team is the all-time best week</span>
+              <span className="section-hint">highest-points week for each MA and for the team</span>
             </h2>
             <div className="bests">
               {(model.bests?.owners || []).map((o) => (
                 <div key={String(o.name)} className="bestcard">
                   <div className="name">{String(o.short || o.name)}</div>
+                  <div className="best-week">
+                    {o.bestWeek ? `Week of ${weekLabel(String(o.bestWeek))}` : "—"}
+                  </div>
                   {(model.bests?.metrics || []).map((m) => {
                     const rec = o[m.id] as BestRec | undefined;
                     const val = m.id === "giftAmount" ? money(rec?.value) : (rec?.value ?? 0).toLocaleString();
@@ -915,7 +928,6 @@ export default function PointsPage() {
                       <div key={m.id} className="best-row">
                         <span>{m.label}</span>
                         <b className="tabular">{val}</b>
-                        <em>wk {rec?.week ? weekLabel(rec.week) : "—"}</em>
                       </div>
                     );
                   })}
@@ -944,7 +956,8 @@ export default function PointsPage() {
 
           <section className="section">
             <h2>
-              Donations Received <span className="section-hint">new monthly AC is ×12 · an increase counts only the difference ×12</span>
+              Donations Received{" "}
+              <span className="section-hint">click a name or Grand total for the gift list · monthly AC is ×12 · an increase is the difference ×12</span>
             </h2>
             <div className="panel">
               <p className="footnote" style={{ marginTop: 0, marginBottom: 14 }}>
@@ -963,39 +976,49 @@ export default function PointsPage() {
                 </thead>
                 <tbody>
                   {(model.tableOwners || []).map((o) => (
-                    <tr key={o.name}>
+                    <tr
+                      key={o.name}
+                      className={`clickable${giftOwner === o.name ? " selected" : ""}`}
+                      onClick={() => setGiftOwner((cur) => (cur === o.name ? null : o.name))}
+                    >
                       <td>{o.name}</td>
                       <td className="tabular">{o.gifts ?? 0}</td>
                       <td className="pts tabular">{money(o.giftAmount)}</td>
                     </tr>
                   ))}
-                  <tr className="grand">
+                  <tr
+                    className={`grand clickable${giftOwner === "all" ? " selected" : ""}`}
+                    onClick={() => setGiftOwner((cur) => (cur === "all" ? null : "all"))}
+                  >
                     <td>Grand total</td>
                     <td className="tabular">{model.totals?.gifts ?? 0}</td>
                     <td className="pts tabular">{money(model.totals?.giftAmount)}</td>
                   </tr>
                 </tbody>
               </table>
-              {(model.gifts || []).length > 0 ? (
-                <table className="grid">
-                  <thead>
-                    <tr>
-                      <th>MA</th>
-                      <th>Donor</th>
-                      <th>Date</th>
-                      <th>Type</th>
-                      <th>Designation</th>
-                      <th>Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[...model.gifts]
-                      .sort((a, b) => (b.day || "").localeCompare(a.day || ""))
-                      .map((g, i) => (
+              {giftOwner ? (
+                listedGifts.length === 0 ? (
+                  <p className="footnote">
+                    No posted Virtuous gifts with an MA note on that donor in this range.
+                  </p>
+                ) : (
+                  <table className="grid">
+                    <thead>
+                      <tr>
+                        <th>MA</th>
+                        <th>Donor</th>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Designation</th>
+                        <th>Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {listedGifts.map((g, i) => (
                         <tr key={i}>
                           <td>{g.owner}</td>
                           <td>{g.contactName || "—"}</td>
-                          <td className="tabular">{g.day || "—"}</td>
+                          <td style={{ whiteSpace: "nowrap" }}>{g.day ? formatDay(g.day) : "—"}</td>
                           <td>{g.annualized ? "Monthly ×12" : (g.giftType || "—")}</td>
                           <td>{g.project || "—"}</td>
                           <td className="pts tabular">
@@ -1006,14 +1029,11 @@ export default function PointsPage() {
                           </td>
                         </tr>
                       ))}
-                  </tbody>
-                </table>
+                    </tbody>
+                  </table>
+                )
               ) : (
-                <p className="footnote">
-                  No posted Virtuous gifts with an MA note on that donor in this range. Log the note on the
-                  contact on or before the gift date or it will not count. One-time gifts use the posted amount.
-                  New monthly commitments are counted once as monthly amount × 12.
-                </p>
+                <p className="footnote">Click a name or Grand total to see the gifts.</p>
               )}
             </div>
           </section>
