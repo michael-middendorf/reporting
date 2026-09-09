@@ -28,7 +28,7 @@ type OwnerRec = {
 type Model = {
   totals: { gifts: number; giftAmount: number; points: number; unmatched: number };
   tableOwners: OwnerRec[];
-  gifts: Array<{ amount?: number; owner?: string; giftId?: unknown }>;
+  gifts: Array<{ amount?: number; owner?: string; giftId?: unknown; contactId?: unknown }>;
   rows: Array<{ noteId?: string | number; removed?: boolean; points?: number; day?: string }>;
   bests?: {
     teamWeek?: string | null;
@@ -180,13 +180,14 @@ describe("MA points require a posted gift with dollars", () => {
     assert.equal(String(secured.giftId), "501");
     const csv = buildCalculationCSV(model);
     assert.match(csv, /Open gift in Virtuous/);
-    assert.match(csv, /Gift\/View\/501/);
+    assert.match(csv, /Contact\/Gifts\/101/);
+    assert.doesNotMatch(csv, /Gift\/View\//);
     assert.match(csv, /GIFTS — posted gifts/);
     const gift = model.gifts.find((g) => String(g.giftId) === "501");
     assert.ok(gift);
-    assert.match(virtuousGiftUrl(gift.giftId), /Gift\/View\/501/);
-    assert.equal(virtuousGiftUrl("rg-3834"), "");
+    assert.match(virtuousGiftUrl(gift.contactId), /Contact\/Gifts\/101/);
     assert.equal(virtuousGiftUrl(null), "");
+    assert.equal(virtuousGiftUrl(""), "");
   });
 
   it("note week 1 and gift week 2 put gifts, dollars, and 100 pts on week 2", () => {

@@ -82,6 +82,7 @@ type Owner = {
 type GiftRow = {
   owner: string;
   contactName?: string;
+  contactId?: string | number | null;
   day?: string;
   giftType?: string;
   project?: string;
@@ -840,10 +841,10 @@ export default function PointsPage() {
                             ) : (
                               "—"
                             )}
-                            {virtuousGiftUrl(r.giftId) ? (
+                            {r.giftId && virtuousGiftUrl(r.contactId) ? (
                               <>
                                 {" "}
-                                <a href={virtuousGiftUrl(r.giftId)} target="_blank" rel="noopener noreferrer">
+                                <a href={virtuousGiftUrl(r.contactId)} target="_blank" rel="noopener noreferrer">
                                   Gift ↗
                                 </a>
                               </>
@@ -1059,8 +1060,8 @@ export default function PointsPage() {
                             ) : null}
                           </td>
                           <td>
-                            {virtuousGiftUrl(g.giftId) ? (
-                              <a href={virtuousGiftUrl(g.giftId)} target="_blank" rel="noopener noreferrer">
+                            {virtuousGiftUrl(g.contactId) ? (
+                              <a href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
                                 Gift ↗
                               </a>
                             ) : (

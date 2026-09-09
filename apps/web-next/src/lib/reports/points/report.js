@@ -27,12 +27,10 @@ export function virtuousContactUrl(contactId) {
   return `${VIRTUOUS_APP_BASE}/Generosity/Contact/View/${contactId}`;
 }
 
-/** Deep link to a posted gift. Recurring-gift ids (`rg-123`) have no Gift/View page. */
-export function virtuousGiftUrl(giftId) {
-  if (giftId == null || giftId === "") return "";
-  const raw = String(giftId);
-  if (raw.startsWith("rg-")) return "";
-  return `${VIRTUOUS_APP_BASE}/Generosity/Gift/View/${raw}`;
+/** Deep link to the contact's Giving tab (gifts list). Gift/View is the raw record page. */
+export function virtuousGiftUrl(contactId) {
+  if (contactId == null || contactId === "") return "";
+  return `${VIRTUOUS_APP_BASE}/Generosity/Contact/Gifts/${contactId}`;
 }
 
 /* ---- CSV helpers (RFC-4180) --------------------------------------------- */
@@ -154,7 +152,7 @@ export function buildCalculationCSV(model, { meta = {}, rangeLabel = "All", gene
       r.noteId || "",
       virtuousContactUrl(r.contactId),
       r.giftId || "",
-      virtuousGiftUrl(r.giftId),
+      r.giftId ? virtuousGiftUrl(r.contactId) : "",
     ]));
   }
   flush();
@@ -178,7 +176,7 @@ export function buildCalculationCSV(model, { meta = {}, rangeLabel = "All", gene
       g.project || "",
       g.amount || 0,
       g.giftId || "",
-      virtuousGiftUrl(g.giftId),
+      virtuousGiftUrl(g.contactId),
     ]));
   }
 

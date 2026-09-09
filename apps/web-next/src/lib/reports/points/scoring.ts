@@ -41,7 +41,7 @@ const reportMod = require("./report.js") as {
   ) => string;
   downloadText: (filename: string, text: string, mime?: string) => void;
   virtuousContactUrl: (contactId: unknown) => string;
-  virtuousGiftUrl: (giftId: unknown) => string;
+  virtuousGiftUrl: (contactId: unknown) => string;
 };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const config = require("./config.js") as {

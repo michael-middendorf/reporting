@@ -353,7 +353,9 @@ export const TRACKING_CHART = {
  * click-through to the source record. A contact opens at
  * `${VIRTUOUS_APP_BASE}/Generosity/Contact/View/{id}` (same convention as the
  * annunciation publisher); the conversation log lives on that contact's Notes
- * tab. Org: Ave Maria University (org 6339). */
+ * tab. A gift opens the contact's Giving tab at
+ * `${VIRTUOUS_APP_BASE}/Generosity/Contact/Gifts/{id}` (not Gift/View, which is
+ * the raw record page). Org: Ave Maria University (org 6339). */
 export const VIRTUOUS_APP_BASE = "https://app.virtuoussoftware.com";
 
 /* ---- Activity definitions -----------------------------------------------
