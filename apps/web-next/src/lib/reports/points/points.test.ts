@@ -748,6 +748,19 @@ describe("email points follow the tracker sheet", () => {
     assert.equal(byId.email_sent.count, 1);
     assert.equal(byId.email_bounced.count, 0);
   });
+
+  it("Invalid Address scores 1 pt", () => {
+    const { owner, rows } = run([
+      donationNote({ type: "AS - Address Change/Update", id: 31 }),
+    ]);
+    const row = rows.find((r) => r.noteId === 31);
+    assert.ok(row);
+    assert.equal(row.points, 1);
+    assert.equal(owner.points, 1);
+    const mix = trackerBreakdown(rows);
+    const byId = Object.fromEntries(mix.lines.map((l) => [l.id, l]));
+    assert.equal(byId.invalid_updates.points, 1);
+  });
 });
 
 describe("tracker category layout", () => {

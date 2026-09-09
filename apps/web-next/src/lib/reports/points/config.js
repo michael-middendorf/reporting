@@ -100,10 +100,13 @@ export const CONFLICTS = {
     resolved: "Mapped to MGO task/note types (see below), else unmatched",
     note: "Best-effort mapped to the ‘FY27 MGO Goal Activity’ note type / ‘FY27 MGO Goal Task’. Confirm this is how MAs log MGO appointments.",
   },
-  // NOTE: the former `contact_update` conflict was RESOLVED (2026-08-14, per
-  // Regina) — contact-info / credit-card changes count for 5 pts per the PDF
-  // rubric. The two note-type mappings below now carry source "pdf" (no
-  // conflict flag); the rule is documented in DEFINITIONS instead.
+  invalid_address: {
+    title: "Invalid / updated mailing address",
+    pdf: "Updated contact info / credit card is 5 pts.",
+    spreadsheet: "‘Invalid Address’ is given 1 point.",
+    resolved: "1 point",
+    note: "Counted at 1 point to match the tracker (confirmed 2026-09-09). Logged as ‘Mission Advancement | Invalid Mailing Address’ or ‘AS - Address Change/Update’.",
+  },
   obituary: {
     title: "Obituary notes",
     pdf: "Not a named activity; closest bucket is 5 pts for updated contact info.",
@@ -159,9 +162,9 @@ export const POINTS_MAP = {
   "in person":  { points: 25, bucket: "facetoface", label: "Face-to-face (coffee/lunch)", source: "pdf+spreadsheet" },
 
   "mission advancement | invalid mailing address":
-    { points: 5, bucket: "address", label: "Invalid mailing address", source: "pdf" },
+    { points: 1, bucket: "address", label: "Invalid mailing address", source: "spreadsheet", conflict: "invalid_address" },
   "as - address change/update":
-    { points: 5, bucket: "address", label: "Address change/update", source: "pdf" },
+    { points: 1, bucket: "address", label: "Address change/update", source: "spreadsheet", conflict: "invalid_address" },
 
   "obituary":
     { points: 3, bucket: "obituary", label: "Obituary", source: "spreadsheet", conflict: "obituary" },
@@ -185,7 +188,7 @@ export const BUCKETS = [
   { id: "mgo",          label: "MGO appts",         points: 10,  color: "#2f6fed" },
   { id: "conversation", label: "Conversations",     points: 10,  color: "#3f7d54" },
   { id: "note",         label: "Letters / notes",   points: 5,   color: "#c85a3a" },
-  { id: "address",      label: "Address updates",   points: 5,   color: "#0f766e" },
+  { id: "address",      label: "Address updates",   points: 1,   color: "#0f766e" },
   { id: "obituary",     label: "Obituaries",        points: 3,   color: "#64748b" },
   { id: "email",        label: "Emails / texts",    points: 2,   color: "#5b8bb0" },
   { id: "dial",         label: "Dials / VMs",       points: 1,   color: "#8a97a6" },
@@ -326,7 +329,7 @@ export const TRACKING_CHART = {
     { tracker: "Response Rec’d", type: "Mission Advancement Call | Email Conversation", pts: 3 },
     { tracker: "Letter Sent", type: "Letter", pts: 5 },
     { tracker: "Obituaries", type: "Obituary", pts: 3 },
-    { tracker: "Invalid Address", type: "Invalid Mailing Address · Address Change/Update", pts: 5 },
+    { tracker: "Invalid Address", type: "Invalid Mailing Address · Address Change/Update", pts: 1 },
     { tracker: "Live Mtg / Tour", type: "In Person · Mission Advancement | Meeting", pts: 25 },
     { tracker: "Event", type: "Mission Advancement | Event", pts: 300 },
     { tracker: "Marketing Event", type: "Mission Advancement | Marketing Event", pts: 75 },
@@ -368,11 +371,10 @@ export const DEFINITIONS = [
       "Only notes and gifts on or after the author's roster start date count.",
   },
   {
-    term: "Updated contact info / credit card (5 pts)",
+    term: "Invalid Address (1 pt)",
     text:
-      "Contact-information and credit-card updates COUNT for 5 points, per the PDF rubric (grouped with handwritten note / " +
-      "TSM book). Logged via the ‘Mission Advancement | Invalid Mailing Address’ and address change/update note types. " +
-      "(Previously flagged for review; confirmed counting 2026-08-14.)",
+      "Invalid mailing address and address change/update notes count as 1 point, matching the tracker’s Invalid Address row. " +
+      "Logged as ‘Mission Advancement | Invalid Mailing Address’ or ‘AS - Address Change/Update’.",
   },
   {
     term: "Obituary (3 pts)",
