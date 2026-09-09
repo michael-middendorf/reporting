@@ -294,7 +294,18 @@ export const SETTINGS = {
   monthlyAnnualizeFactor: 12,
   /** Credit a gift only if an MA activity note on that contact is on or before the gift, within this many days. */
   giftNoteDaysBefore: 45,
+  /**
+   * Monday of the first All / leaderboard week. Second week of August 2026
+   * (Mon Aug 10 – Sun Aug 16). Weeks before this are not listed.
+   */
+  evalStart: "2026-08-10",
 };
+
+/** Local calendar date for SETTINGS.evalStart (YYYY-MM-DD, not UTC midnight). */
+export function evalStartDate() {
+  const [y, m, d] = String(SETTINGS.evalStart).split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
 
 /**
  * On-page tracking chart: tracker row → Virtuous note type → points.
@@ -407,5 +418,11 @@ export const DEFINITIONS = [
     text:
       "An MA with startDate on the roster is scored only on that local calendar day and after. " +
       "Notes before that day are ignored. A posted gift dated before that day is not attributed to them.",
+  },
+  {
+    term: "Leaderboard period",
+    text:
+      "All-weeks ranks, totals, and personal bests start on Monday of the second week of August (Aug 10, 2026) and run forward. " +
+      "Activity before that week is not on the All leaderboard. Pick a single week to see only that week.",
   },
 ];

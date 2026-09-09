@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { MA_NAMES } from "./config.js";
+import { MA_NAMES, SETTINGS, evalStartDate } from "./config.js";
 import { isMonthlyRecurring, parseDate, prepareGifts, priorAcMonthly, scoreAll, scoreGift } from "./points.js";
 import { aggregate, daysOfWeek, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
 import { buildCalculationCSV, statusOf, virtuousGiftUrl } from "./report.js";
@@ -29,7 +29,7 @@ type Model = {
   totals: { gifts: number; giftAmount: number; points: number; unmatched: number };
   tableOwners: OwnerRec[];
   gifts: Array<{ amount?: number; owner?: string; giftId?: unknown }>;
-  rows: Array<{ noteId?: string | number; removed?: boolean; points?: number }>;
+  rows: Array<{ noteId?: string | number; removed?: boolean; points?: number; day?: string }>;
   bests?: {
     teamWeek?: string | null;
     team: Record<string, { value: number; week: string | null }>;
@@ -815,6 +815,26 @@ describe("tracker category layout", () => {
       "2026-09-05",
       "2026-09-06",
     ]);
+  });
+});
+
+describe("leaderboard period", () => {
+  it("All range starts Monday of the second week of August 2026", () => {
+    assert.equal(SETTINGS.evalStart, "2026-08-10");
+    const start = evalStartDate();
+    assert.equal(weekKey(start), "2026-08-10");
+    const scored = scoreAll({
+      notes: [
+        donationNote({ type: "Letter", noteDate: "8/9/2026", id: 1 }),
+        donationNote({ type: "Letter", noteDate: "8/10/2026", id: 2 }),
+      ],
+    }) as ScoredRow[];
+    const model = aggregate(scored, { start, end: null }) as Model;
+    assert.equal(model.rows.length, 1);
+    assert.equal(model.rows[0].day, "2026-08-10");
+    const owner = model.tableOwners.find((o) => o.name === ALANNA);
+    assert.ok(owner);
+    assert.equal(owner.points, 5);
   });
 });
 

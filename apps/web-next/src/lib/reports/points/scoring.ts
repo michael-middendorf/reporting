@@ -58,6 +58,8 @@ const config = require("./config.js") as {
     gifts: Array<{ label: string; detail: string }>;
     rows: Array<{ tracker: string; type: string; pts: number }>;
   };
+  SETTINGS: { evalStart: string };
+  evalStartDate: () => Date;
 };
 
 export const scoreAll = points.scoreAll;
@@ -86,3 +88,5 @@ export const BUCKETS = config.BUCKETS;
 export const DEFINITIONS = config.DEFINITIONS;
 export const TRACKER_LAYOUT = config.TRACKER_LAYOUT;
 export const TRACKING_CHART = config.TRACKING_CHART;
+export const SETTINGS = config.SETTINGS;
+export const evalStartDate = config.evalStartDate;

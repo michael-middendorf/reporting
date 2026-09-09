@@ -18,6 +18,8 @@ import {
   trackerSpec,
   rowMatchesTracker,
   TRACKING_CHART,
+  evalStartDate,
+  SETTINGS,
   virtuousContactUrl,
   virtuousGiftUrl,
   weekKey,
@@ -157,9 +159,9 @@ type Row = {
   removed?: boolean;
 };
 
-/** Inclusive Monday–Sunday bounds for one week, or the full range. */
+/** Inclusive Monday–Sunday bounds for one week, or All from the eval start. */
 function bounds(key: RangeKey, selectedWeek: string | null) {
-  if (key === "all") return { start: null, end: null };
+  if (key === "all") return { start: evalStartDate(), end: null };
   const monday = key === "custom" && selectedWeek ? parseDay(selectedWeek) : thisMonday();
   return { start: monday, end: sundayOf(monday) };
 }
@@ -237,7 +239,8 @@ export default function PointsPage() {
   }, []);
 
   const weekOptions = useMemo(() => {
-    const keys = new Set<string>([weekKey(thisMonday())]);
+    const floorKey = SETTINGS.evalStart;
+    const keys = new Set<string>([weekKey(thisMonday()), floorKey]);
     for (const r of rows || []) {
       const raw = r.date;
       const d =
@@ -246,7 +249,10 @@ export default function PointsPage() {
           : typeof r.day === "string"
             ? parseDay(r.day)
             : null;
-      if (d && !Number.isNaN(+d)) keys.add(weekKey(d));
+      if (d && !Number.isNaN(+d)) {
+        const k = weekKey(d);
+        if (k >= floorKey) keys.add(k);
+      }
     }
     const sorted = [...keys].sort();
     if (!sorted.length) return [weekKey(thisMonday())];
@@ -305,10 +311,10 @@ export default function PointsPage() {
   );
 
   const boundWindow = bounds(range, selectedWeek || null);
-  const selectWeek = boundWindow.start ? weekKey(boundWindow.start) : "";
+  const selectWeek = range === "all" ? "" : boundWindow.start ? weekKey(boundWindow.start) : "";
   const rangeLabel =
     range === "all"
-      ? "All"
+      ? `All (from week of ${weekLabel(SETTINGS.evalStart)})`
       : `Week of ${weekLabel(selectWeek || weekKey(thisMonday()))}`;
 
   const ownerRows = useMemo(() => {
@@ -503,7 +509,7 @@ export default function PointsPage() {
                     setCategoryFilter(null);
                   }}
                 >
-                  <option value="">All weeks</option>
+                  <option value="">All weeks (from {weekLabel(SETTINGS.evalStart)})</option>
                   {weekOptions.map((k) => (
                     <option key={k} value={k}>
                       Week of {weekLabel(k)}
@@ -592,7 +598,12 @@ export default function PointsPage() {
 
           <section className="section">
             <h2>
-              Leaderboard <span className="section-hint">click an MA to see their weekly breakdown</span>
+              Leaderboard{" "}
+              <span className="section-hint">
+                {range === "all"
+                  ? `from week of ${weekLabel(SETTINGS.evalStart)} · click an MA to see their weekly breakdown`
+                  : "click an MA to see their weekly breakdown"}
+              </span>
             </h2>
             <div className="cards">
               {model.owners.map((o, idx) => {
