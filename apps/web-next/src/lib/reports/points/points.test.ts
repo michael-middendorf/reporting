@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { MA_NAMES } from "./config.js";
 import { isMonthlyRecurring, parseDate, prepareGifts, priorAcMonthly, scoreAll, scoreGift } from "./points.js";
 import { aggregate, daysOfWeek, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
-import { buildCalculationCSV, statusOf } from "./report.js";
+import { buildCalculationCSV, statusOf, virtuousGiftUrl } from "./report.js";
 
 const ALANNA = MA_NAMES[0];
 const NATALIA = "Natalia Abrams";
@@ -28,7 +28,7 @@ type OwnerRec = {
 type Model = {
   totals: { gifts: number; giftAmount: number; points: number; unmatched: number };
   tableOwners: OwnerRec[];
-  gifts: Array<{ amount?: number; owner?: string }>;
+  gifts: Array<{ amount?: number; owner?: string; giftId?: unknown }>;
   rows: Array<{ noteId?: string | number; removed?: boolean; points?: number }>;
   bests?: {
     teamWeek?: string | null;
@@ -178,6 +178,15 @@ describe("MA points require a posted gift with dollars", () => {
     const secured = rows.find((r) => r.bucket === "gift" && r.points === 100) as ScoredRow & { giftId?: unknown };
     assert.ok(secured);
     assert.equal(String(secured.giftId), "501");
+    const csv = buildCalculationCSV(model);
+    assert.match(csv, /Open gift in Virtuous/);
+    assert.match(csv, /Gift\/View\/501/);
+    assert.match(csv, /GIFTS — posted gifts/);
+    const gift = model.gifts.find((g) => String(g.giftId) === "501");
+    assert.ok(gift);
+    assert.match(virtuousGiftUrl(gift.giftId), /Gift\/View\/501/);
+    assert.equal(virtuousGiftUrl("rg-3834"), "");
+    assert.equal(virtuousGiftUrl(null), "");
   });
 
   it("note week 1 and gift week 2 put gifts, dollars, and 100 pts on week 2", () => {

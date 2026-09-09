@@ -87,6 +87,7 @@ type GiftRow = {
   postedAmount?: number;
   annualized?: boolean;
   label?: string;
+  giftId?: string | number | null;
 };
 
 type WeekRec = {
@@ -456,7 +457,7 @@ export default function PointsPage() {
                 type="button"
                 onClick={exportCalculation}
                 disabled={!rows}
-                title="Download a spreadsheet of every task and how its points were calculated, with a link to each record in Virtuous"
+                title="Download a spreadsheet of every task and gift, with links to the contact and posted gift in Virtuous"
                 className="mini-btn solid"
               >
                 Export calculation report
@@ -1029,11 +1030,12 @@ export default function PointsPage() {
                         <th>Type</th>
                         <th>Designation</th>
                         <th>Amount</th>
+                        <th>Gift</th>
                       </tr>
                     </thead>
                     <tbody>
                       {listedGifts.map((g, i) => (
-                        <tr key={i}>
+                        <tr key={g.giftId != null && g.giftId !== "" ? String(g.giftId) : i}>
                           <td>{g.owner}</td>
                           <td>{g.contactName || "—"}</td>
                           <td style={{ whiteSpace: "nowrap" }}>{g.day ? formatDay(g.day) : "—"}</td>
@@ -1044,6 +1046,15 @@ export default function PointsPage() {
                             {g.annualized && g.postedAmount != null ? (
                               <span className="section-hint"> ({money(g.postedAmount)}/mo)</span>
                             ) : null}
+                          </td>
+                          <td>
+                            {virtuousGiftUrl(g.giftId) ? (
+                              <a href={virtuousGiftUrl(g.giftId)} target="_blank" rel="noopener noreferrer">
+                                Gift ↗
+                              </a>
+                            ) : (
+                              "—"
+                            )}
                           </td>
                         </tr>
                       ))}

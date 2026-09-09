@@ -27,7 +27,7 @@ export function virtuousContactUrl(contactId) {
   return `${VIRTUOUS_APP_BASE}/Generosity/Contact/View/${contactId}`;
 }
 
-/** Deep link to a posted gift. Recurring-gift ids (`rg-123`) open the contact instead. */
+/** Deep link to a posted gift. Recurring-gift ids (`rg-123`) have no Gift/View page. */
 export function virtuousGiftUrl(giftId) {
   if (giftId == null || giftId === "") return "";
   const raw = String(giftId);
@@ -106,11 +106,11 @@ export function buildCalculationCSV(model, { meta = {}, rangeLabel = "All", gene
   L.push("");
 
   // --- Detail: one row per task -------------------------------------------
-  L.push(line(["DETAIL — every task (click 'Open in Virtuous' to read the log)"]));
+  L.push(line(["DETAIL — every task (click 'Open in Virtuous' / 'Open gift in Virtuous')"]));
   const cols = [
     "MA", "Date", "Weekday?", "Contact", "Contact ID", "Note Type (Virtuous)",
     "Activity", "Category", "Points", "Status", "Rule Source", "Conflict Flag",
-    "Count/Remove", "Note ID", "Open in Virtuous",
+    "Count/Remove", "Note ID", "Open in Virtuous", "Gift ID", "Open gift in Virtuous",
   ];
   L.push(line(cols));
 
@@ -123,7 +123,10 @@ export function buildCalculationCSV(model, { meta = {}, rangeLabel = "All", gene
   const flush = () => {
     if (curOwner === null) return;
     // Subtotal row: label under "Activity", value under "Points".
-    L.push(line(["", "", "", "", "", "", `Subtotal — ${curOwner}`, "", subtotal, "", "", "", "", "", ""]));
+    const blank = Array(cols.length).fill("");
+    blank[6] = `Subtotal — ${curOwner}`;
+    blank[8] = subtotal;
+    L.push(line(blank));
     L.push("");
   };
 
@@ -150,9 +153,34 @@ export function buildCalculationCSV(model, { meta = {}, rangeLabel = "All", gene
       reviewText(r, flags),
       r.noteId || "",
       virtuousContactUrl(r.contactId),
+      r.giftId || "",
+      virtuousGiftUrl(r.giftId),
     ]));
   }
   flush();
+
+  // --- Gifts (same list as Donations Received) -----------------------------
+  L.push(line(["GIFTS — posted gifts attributed in this range"]));
+  L.push(line([
+    "MA", "Date", "Donor", "Contact ID", "Type", "Designation",
+    "Amount", "Gift ID", "Open gift in Virtuous",
+  ]));
+  const giftRows = [...(model.gifts || [])].sort(
+    (a, b) => (a.owner || "").localeCompare(b.owner || "") || (a.day || "").localeCompare(b.day || ""),
+  );
+  for (const g of giftRows) {
+    L.push(line([
+      g.owner,
+      formatExportDay(g.day),
+      g.contactName || "",
+      g.contactId || "",
+      g.annualized ? "Monthly ×12" : (g.giftType || ""),
+      g.project || "",
+      g.amount || 0,
+      g.giftId || "",
+      virtuousGiftUrl(g.giftId),
+    ]));
+  }
 
   return L.join("\r\n");
 }
