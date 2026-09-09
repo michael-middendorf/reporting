@@ -294,7 +294,8 @@ table.grid td.pts { font-weight: 500; color: var(--navy); }
   box-shadow: var(--shadow);
   padding: 0 18px;
 }
-.track-chart > summary {
+.track-chart > summary,
+.fold > summary {
   cursor: pointer;
   list-style: none;
   font-family: var(--serif);
@@ -303,16 +304,22 @@ table.grid td.pts { font-weight: 500; color: var(--navy); }
   font-size: 1.05rem;
   padding: 14px 0;
 }
-.track-chart > summary::-webkit-details-marker { display: none; }
-.track-chart > summary::before {
+.fold > summary { font-size: 1.3rem; padding: 0 0 12px; }
+.track-chart > summary::-webkit-details-marker,
+.fold > summary::-webkit-details-marker { display: none; }
+.track-chart > summary::before,
+.fold > summary::before {
   content: "▸";
   display: inline-block;
   margin-right: 8px;
   color: var(--gold);
   font-family: var(--sans);
+  font-size: 1rem;
 }
-.track-chart[open] > summary::before { content: "▾"; }
-.track-chart > summary:hover { color: var(--navy-700); }
+.track-chart[open] > summary::before,
+.fold[open] > summary::before { content: "▾"; }
+.track-chart > summary:hover,
+.fold > summary:hover { color: var(--navy-700); }
 .track-chart-body {
   display: grid;
   grid-template-columns: minmax(240px, .9fr) 1.4fr;

@@ -126,28 +126,14 @@ function formatDay(iso: string) {
   });
 }
 
-function formatRefreshed(iso: string) {
+/** Eastern clock as "Last refresh: 12:18 PM, 09/09/2026". */
+function formatLastRefresh(iso: string) {
   const d = new Date(iso);
   if (Number.isNaN(+d)) return iso;
-  return d.toLocaleString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function formatAgo(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(+d)) return "";
-  const mins = Math.max(0, Math.round((Date.now() - d.getTime()) / 60000));
-  if (mins < 1) return "just now";
-  if (mins === 1) return "1 minute ago";
-  if (mins < 60) return `${mins} minutes ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs === 1) return "1 hour ago";
-  return `${hrs} hours ago`;
+  const et = { timeZone: "America/New_York" as const };
+  const time = d.toLocaleTimeString("en-US", { ...et, hour: "numeric", minute: "2-digit", hour12: true });
+  const date = d.toLocaleDateString("en-US", { ...et, month: "2-digit", day: "2-digit", year: "numeric" });
+  return `${time}, ${date}`;
 }
 
 /** One scored activity row (from points.js scoreNote / aggregate model.rows). */
@@ -225,7 +211,6 @@ export default function PointsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [giftOwner, setGiftOwner] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState("Loading…");
   const [flags, setFlags] = useState<Record<string, ReviewFlag>>({});
   const [flagBusy, setFlagBusy] = useState<string | null>(null);
   const [flagError, setFlagError] = useState<string | null>(null);
@@ -238,7 +223,6 @@ export default function PointsPage() {
         setRows(scored);
         setEvents(ev);
         setMeta(raw.meta as Record<string, unknown>);
-        setStatus(`${raw.notes.length.toLocaleString()} raw notes · ${raw.gifts.length.toLocaleString()} gifts`);
       })
       .catch((e) => setError(String(e)));
   }, []);
@@ -461,19 +445,13 @@ export default function PointsPage() {
             <div>
               <h1>Points Dashboard</h1>
               <p className="page-updated">
-                {meta?.generated_at != null ? (
-                  <>
-                    Last updated {formatAgo(String(meta.generated_at))}
-                    <span> · {formatRefreshed(String(meta.generated_at))}</span>
-                    <span> · pulls from Virtuous every 15 min</span>
-                  </>
-                ) : (
-                  "Pulls from Virtuous every 15 min"
-                )}
+                {meta?.generated_at != null
+                  ? `Last refresh: ${formatLastRefresh(String(meta.generated_at))}`
+                  : "Last refresh: pending"}
               </p>
             </div>
             <div className="page-head-actions">
-              <span className="page-head-meta">{error || status}</span>
+              {error ? <span className="page-head-meta">{error}</span> : null}
               <button
                 type="button"
                 onClick={exportCalculation}
@@ -883,10 +861,10 @@ export default function PointsPage() {
             </section>
           )}
 
-          <section className="section">
-            <h2>
+          <details className="fold section">
+            <summary>
               Weekly Totals <span className="section-hint">same layout as the tracker — conversations, dials, rate, points, gifts, dollars</span>
-            </h2>
+            </summary>
             <div className="panel week-stack">
               {!(model.weekGrid || []).length && <p className="footnote">No weekly activity in range.</p>}
               {[...(model.weekGrid || [])].reverse().map((g) => {
@@ -945,7 +923,7 @@ export default function PointsPage() {
                 );
               })}
             </div>
-          </section>
+          </details>
 
           <section className="section">
             <h2>
@@ -1226,11 +1204,6 @@ export default function PointsPage() {
               ))}
             </div>
           </section>
-          {meta?.generated_at != null && (
-            <p style={{ opacity: 0.6, marginTop: 16 }}>
-              Last pull from Virtuous {formatRefreshed(String(meta.generated_at))} · every 15 minutes
-            </p>
-          )}
         </main>
     </div>
   );
