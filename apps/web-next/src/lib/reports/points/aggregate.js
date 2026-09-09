@@ -50,16 +50,17 @@ export function daysOfWeek(mondayKey) {
 }
 
 function matchTrackerLeaf(leaf, rows) {
-  const types = new Set((leaf.types || []).map((t) => String(t).toLowerCase()));
-  const buckets = new Set(leaf.buckets || []);
+  const spec = {
+    types: (leaf.types || []).map((t) => String(t).toLowerCase()),
+    buckets: leaf.buckets || [],
+    bounced: !!leaf.bounced,
+  };
   let count = 0;
   let points = 0;
   for (const r of rows) {
-    const type = (r.type || "").trim().toLowerCase();
-    if ((types.size && types.has(type)) || (buckets.size && buckets.has(r.bucket))) {
-      count += 1;
-      points += r.points || 0;
-    }
+    if (!rowMatchesTracker(r, spec)) continue;
+    count += 1;
+    points += r.points || 0;
   }
   return { id: leaf.id, label: leaf.label, section: false, indent: false, count, points };
 }
@@ -104,18 +105,21 @@ export function trackerSpec(id, layout = TRACKER_LAYOUT) {
   const collect = (leaf) => ({
     types: (leaf.types || []).map((t) => String(t).toLowerCase()),
     buckets: leaf.buckets || [],
+    bounced: !!leaf.bounced,
   });
   for (const group of layout) {
     if (group.id === id) {
       if (group.section) {
         const types = [];
         const buckets = [];
+        let bounced = false;
         for (const child of group.children || []) {
           const spec = collect(child);
           types.push(...spec.types);
           buckets.push(...spec.buckets);
+          if (spec.bounced) bounced = true;
         }
-        return { types, buckets };
+        return { types, buckets, bounced };
       }
       return collect(group);
     }
@@ -128,6 +132,7 @@ export function trackerSpec(id, layout = TRACKER_LAYOUT) {
 
 export function rowMatchesTracker(r, spec) {
   if (!spec) return true;
+  if (r.bounced) return !!spec.bounced;
   const type = (r.type || "").trim().toLowerCase();
   if (spec.types && spec.types.includes(type)) return true;
   if (spec.buckets && spec.buckets.includes(r.bucket)) return true;

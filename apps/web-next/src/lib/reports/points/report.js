@@ -20,6 +20,14 @@ export function virtuousContactUrl(contactId) {
   return `${VIRTUOUS_APP_BASE}/Generosity/Contact/View/${contactId}`;
 }
 
+/** Deep link to a posted gift. Recurring-gift ids (`rg-123`) open the contact instead. */
+export function virtuousGiftUrl(giftId) {
+  if (giftId == null || giftId === "") return "";
+  const raw = String(giftId);
+  if (raw.startsWith("rg-")) return "";
+  return `${VIRTUOUS_APP_BASE}/Generosity/Gift/View/${raw}`;
+}
+
 /* ---- CSV helpers (RFC-4180) --------------------------------------------- */
 /** Escape one cell. Also neutralizes CSV/formula injection (leading = + - @). */
 function cell(v) {

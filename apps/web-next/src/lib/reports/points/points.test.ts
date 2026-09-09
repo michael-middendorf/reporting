@@ -159,7 +159,7 @@ describe("MA points require a posted gift with dollars", () => {
   });
 
   it("note plus amount > 0 gift in the same week is 1 gift, $X, 100 pts", () => {
-    const { model, owner } = run(
+    const { model, owner, rows } = run(
       [donationNote()],
       [postedGift({ amount: 75 })],
     );
@@ -173,6 +173,9 @@ describe("MA points require a posted gift with dollars", () => {
     assert.equal(wk.gifts, 1);
     assert.equal(wk.giftAmount, 75);
     assert.equal(wk.points, 100);
+    const secured = rows.find((r) => r.bucket === "gift" && r.points === 100) as ScoredRow & { giftId?: unknown };
+    assert.ok(secured);
+    assert.equal(String(secured.giftId), "501");
   });
 
   it("note week 1 and gift week 2 put gifts, dollars, and 100 pts on week 2", () => {
@@ -635,6 +638,16 @@ describe("gift dollars follow MA activity notes", () => {
     assert.equal(owner.gifts, 0);
   });
 
+  it("donation note more than 45 days before a gift does not get 100 pts", () => {
+    const { owner, rows } = run(
+      [donationNote({ noteDate: "6/10/2026" })],
+      [postedGift({ giftDate: "8/1/2026", amount: 200 })],
+    );
+    assert.equal(owner.points, 0);
+    assert.equal(owner.gifts, 0);
+    assert.ok(rows.some((r) => r.unmatched && r.bucket === "unmatched"));
+  });
+
   it("obituary note does not attribute a gift", () => {
     const { owner } = run(
       [donationNote({ type: "Obituary", noteDate: "8/10/2026" })],
@@ -690,6 +703,21 @@ describe("email points follow the tracker sheet", () => {
     assert.equal(row.points, 3);
     assert.equal(row.bucket, "email");
     assert.equal(owner.points, 3);
+  });
+
+  it("Email Inactive is Bounced at 1 pt", () => {
+    const scored = scoreAll({
+      notes: [donationNote({ type: "Mission Advancement Call | Email Inactive", id: 23, note: "Added email to file" })],
+    }) as ScoredRow[];
+    const row = scored.find((r) => r.noteId === 23) as ScoredRow & { bounced?: boolean };
+    assert.ok(row);
+    assert.equal(row.points, 1);
+    assert.equal(row.bounced, true);
+    const mix = trackerBreakdown(scored);
+    const byId = Object.fromEntries(mix.lines.map((l) => [l.id, l]));
+    assert.equal(byId.email_bounced.count, 1);
+    assert.equal(byId.email_bounced.points, 1);
+    assert.equal(byId.email_sent.count, 0);
   });
 });
 

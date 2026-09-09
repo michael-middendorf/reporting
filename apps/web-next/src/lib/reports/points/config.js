@@ -70,7 +70,14 @@ export const CONFLICTS = {
     pdf: "Email / text counts as 1 pt.",
     spreadsheet: "‘Email Sent’ is given 2 points.",
     resolved: "2 points",
-    note: "Counted at 2 points to match the tracker (confirmed 2026-09-09). Logged as ‘Mission Advancement Call | Email Reach Out’ or ‘Email Inactive’. Text message uses the same 2 pts (it sits in the tracker’s Sent row).",
+    note: "Counted at 2 points to match the tracker (confirmed 2026-09-09). Logged as ‘Mission Advancement Call | Email Reach Out’. Text message uses the same 2 pts (it sits in the tracker’s Sent row).",
+  },
+  email_bounced: {
+    title: "Email bounced",
+    pdf: "Email / text counts as 1 pt.",
+    spreadsheet: "‘Bounced’ is given 1 point.",
+    resolved: "1 point",
+    note: "Counted at 1 point (confirmed 2026-09-09). Virtuous type ‘Mission Advancement Call | Email Inactive’ is Bounced. An email note whose write-up says bounced is also Bounced.",
   },
   email_conversation: {
     title: "Two-way email exchange",
@@ -134,7 +141,7 @@ export const POINTS_MAP = {
   "mission advancement call | email reach out":
     { points: 2, bucket: "email", label: "Email reach-out", source: "spreadsheet", conflict: "email_sent" },
   "mission advancement call | email inactive":
-    { points: 2, bucket: "email", label: "Email (inactive)", source: "spreadsheet", conflict: "email_sent" },
+    { points: 1, bucket: "email", label: "Email bounced", source: "spreadsheet", conflict: "email_bounced" },
   "mission advancement call | email conversation":
     { points: 3, bucket: "email", label: "Email conversation", source: "spreadsheet", conflict: "email_conversation" },
   "mission advancement call | invalid number":
@@ -214,11 +221,15 @@ export const TRACKER_LAYOUT = [
         label: "Sent",
         types: [
           "mission advancement call | email reach out",
-          "mission advancement call | email inactive",
           "text message",
         ],
       },
-      { id: "email_bounced", label: "Bounced", types: [] },
+      {
+        id: "email_bounced",
+        label: "Bounced",
+        bounced: true,
+        types: ["mission advancement call | email inactive"],
+      },
       {
         id: "email_response",
         label: "Response Rec'd",
@@ -281,6 +292,46 @@ export const SETTINGS = {
   monthlyAnnualizeFactor: 12,
   /** Credit a gift only if an MA activity note on that contact is on or before the gift, within this many days. */
   giftNoteDaysBefore: 45,
+};
+
+/**
+ * On-page tracking chart: tracker row → Virtuous note type → points.
+ * Gifts first. Bounced is the write-up, not a separate type.
+ */
+export const TRACKING_CHART = {
+  gifts: [
+    {
+      label: "Dollars received",
+      detail:
+        "Posted gift on the same contact as an MA note. Note date on or before the gift, within 45 days. Linked by contact, not a field on the gift. A thank-you after the gift does not count.",
+    },
+    {
+      label: "Secured gift · 100 pts",
+      detail:
+        "Note type New Donation or New AC, Annunciation Circle Updated, or Update Recurring Gift, plus a posted gift on that contact within 45 days after the note.",
+    },
+    {
+      label: "Monthly AC",
+      detail: "New monthly commitment is amount × 12. An increase is only the difference × 12.",
+    },
+  ],
+  rows: [
+    { tracker: "LVM", type: "Mission Advancement Call | Voicemail", pts: 1 },
+    { tracker: "Disconnected", type: "Mission Advancement Call | Invalid Number", pts: 1 },
+    { tracker: "Conversation", type: "Mission Advancement Call | Conversation", pts: 10 },
+    { tracker: "Email Sent", type: "Mission Advancement Call | Email Reach Out", pts: 2 },
+    { tracker: "Email Sent", type: "Text Message", pts: 2 },
+    { tracker: "Bounced", type: "Mission Advancement Call | Email Inactive", pts: 1 },
+    { tracker: "Bounced", type: "Write-up says bounced (any email type)", pts: 1 },
+    { tracker: "Response Rec’d", type: "Mission Advancement Call | Email Conversation", pts: 3 },
+    { tracker: "Letter Sent", type: "Letter", pts: 5 },
+    { tracker: "Obituaries", type: "Obituary", pts: 3 },
+    { tracker: "Invalid Address", type: "Invalid Mailing Address · Address Change/Update", pts: 5 },
+    { tracker: "Live Mtg / Tour", type: "In Person · Mission Advancement | Meeting", pts: 25 },
+    { tracker: "Event", type: "Mission Advancement | Event", pts: 300 },
+    { tracker: "Marketing Event", type: "Mission Advancement | Marketing Event", pts: 75 },
+    { tracker: "Secured gift", type: "New Donation or New AC · AC Updated · Update Recurring Gift", pts: 100 },
+  ],
 };
 
 /* ---- Virtuous deep-link base --------------------------------------------

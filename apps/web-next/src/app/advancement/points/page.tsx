@@ -17,7 +17,9 @@ import {
   trackerBreakdown,
   trackerSpec,
   rowMatchesTracker,
+  TRACKING_CHART,
   virtuousContactUrl,
+  virtuousGiftUrl,
   weekKey,
   weekLabel,
 } from "@/lib/reports/points/scoring";
@@ -134,6 +136,7 @@ type Row = {
   contactName?: string | null;
   noteId?: string | number | null;
   giftId?: string | number | null;
+  giftAmount?: number | null;
   source?: string | null;
   conflict?: string | null;
   unmatched?: boolean;
@@ -485,13 +488,45 @@ export default function PointsPage() {
             </div>
           </div>
 
-          <section className="panel callout" style={{ marginBottom: 22 }}>
-            <strong>How this is tracked.</strong> Virtuous is the source. Log the activity on the donor’s
-            contact, with the right note type, as yourself. Wrong person, wrong type, or no note = not counted.{" "}
-            <strong>Gifts:</strong> there must be an MA note on that contact on or before the gift date
-            (within 45 days). A thank-you after the gift does not pull it. 100 points also need a donation
-            note type plus a posted gift.{" "}
-            <a href="/advancement/points/methodology">Full rules</a>
+          <section className="track-chart" aria-label="How activities are tracked">
+            <div className="track-gifts">
+              <h2>How this is tracked</h2>
+              <p className="track-lead">
+                Virtuous note type on the donor’s contact, logged as yourself. Gifts are linked by the same
+                contact when the note is on or before the gift, within 45 days.
+              </p>
+              <ul>
+                {TRACKING_CHART.gifts.map((g) => (
+                  <li key={g.label}>
+                    <strong>{g.label}.</strong> {g.detail}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="track-types">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Counts as</th>
+                    <th>Virtuous note type</th>
+                    <th>Pts</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {TRACKING_CHART.rows.map((r) => (
+                    <tr key={`${r.tracker}-${r.type}`}>
+                      <td>{r.tracker}</td>
+                      <td>{r.type}</td>
+                      <td className="tabular">{r.pts}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="footnote">
+                Wrong person, wrong type, or no note = not counted.{" "}
+                <a href="/advancement/points/methodology">Full rules</a>
+              </p>
+            </div>
           </section>
 
           <section className="kpis">
@@ -741,6 +776,12 @@ export default function PointsPage() {
                           <td>
                             {r.label}
                             {r.contactName ? <span style={{ color: "var(--slate-400)" }}> · {r.contactName}</span> : null}
+                            {r.giftId && r.giftAmount != null ? (
+                              <span style={{ color: "var(--slate-400)" }}>
+                                {" "}
+                                · linked gift {money(r.giftAmount)}
+                              </span>
+                            ) : null}
                           </td>
                           <td style={{ fontSize: ".78rem", color: "var(--slate-400)" }}>{r.type}</td>
                           <td className="pts">{r.points}</td>
@@ -756,11 +797,19 @@ export default function PointsPage() {
                           <td>
                             {r.contactId ? (
                               <a href={virtuousContactUrl(r.contactId)} target="_blank" rel="noopener noreferrer">
-                                Open ↗
+                                Contact ↗
                               </a>
                             ) : (
                               "—"
                             )}
+                            {virtuousGiftUrl(r.giftId) ? (
+                              <>
+                                {" "}
+                                <a href={virtuousGiftUrl(r.giftId)} target="_blank" rel="noopener noreferrer">
+                                  Gift ↗
+                                </a>
+                              </>
+                            ) : null}
                           </td>
                           <td style={{ whiteSpace: "nowrap" }}>
                             {!key || (r.unmatched && !removed) ? (

@@ -41,6 +41,7 @@ const reportMod = require("./report.js") as {
   ) => string;
   downloadText: (filename: string, text: string, mime?: string) => void;
   virtuousContactUrl: (contactId: unknown) => string;
+  virtuousGiftUrl: (giftId: unknown) => string;
 };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const config = require("./config.js") as {
@@ -52,6 +53,10 @@ const config = require("./config.js") as {
   BUCKETS: Array<{ id: string; label: string; points: number; color: string }>;
   DEFINITIONS: Array<{ term: string; text: string }>;
   TRACKER_LAYOUT: unknown[];
+  TRACKING_CHART: {
+    gifts: Array<{ label: string; detail: string }>;
+    rows: Array<{ tracker: string; type: string; pts: number }>;
+  };
 };
 
 export const scoreAll = points.scoreAll;
@@ -61,6 +66,7 @@ export const isMonthlyRecurring = points.isMonthlyRecurring;
 export const buildCalculationCSV = reportMod.buildCalculationCSV;
 export const downloadText = reportMod.downloadText;
 export const virtuousContactUrl = reportMod.virtuousContactUrl;
+export const virtuousGiftUrl = reportMod.virtuousGiftUrl;
 export const aggregate = aggregateMod.aggregate;
 export const dailyTotals = aggregateMod.dailyTotals;
 export const rowId = aggregateMod.rowId;
@@ -78,3 +84,4 @@ export const DAY_TARGETS = config.DAY_TARGETS;
 export const BUCKETS = config.BUCKETS;
 export const DEFINITIONS = config.DEFINITIONS;
 export const TRACKER_LAYOUT = config.TRACKER_LAYOUT;
+export const TRACKING_CHART = config.TRACKING_CHART;
