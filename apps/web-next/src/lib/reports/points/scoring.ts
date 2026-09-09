@@ -25,6 +25,8 @@ const aggregateMod = require("./aggregate.js") as {
     totalPoints: number;
     totalCount: number;
   };
+  trackerSpec: (id: string | null, layout?: unknown) => { types: string[]; buckets: string[] } | null;
+  rowMatchesTracker: (r: unknown, spec: { types: string[]; buckets: string[] } | null) => boolean;
 };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const reportMod = require("./report.js") as {
@@ -66,6 +68,8 @@ export const weekKey = aggregateMod.weekKey;
 export const weekLabel = aggregateMod.weekLabel;
 export const daysOfWeek = aggregateMod.daysOfWeek;
 export const trackerBreakdown = aggregateMod.trackerBreakdown;
+export const trackerSpec = aggregateMod.trackerSpec;
+export const rowMatchesTracker = aggregateMod.rowMatchesTracker;
 export const TIERS = config.TIERS;
 export const tierFor = config.tierFor;
 export const POINTS_MAP = config.POINTS_MAP;

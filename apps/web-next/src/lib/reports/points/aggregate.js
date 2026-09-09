@@ -98,6 +98,42 @@ export function trackerBreakdown(rows, layout = TRACKER_LAYOUT) {
   return { lines, totalPoints, totalCount };
 }
 
+/** Types/buckets for one tracker category (or all children of a section). */
+export function trackerSpec(id, layout = TRACKER_LAYOUT) {
+  if (!id) return null;
+  const collect = (leaf) => ({
+    types: (leaf.types || []).map((t) => String(t).toLowerCase()),
+    buckets: leaf.buckets || [],
+  });
+  for (const group of layout) {
+    if (group.id === id) {
+      if (group.section) {
+        const types = [];
+        const buckets = [];
+        for (const child of group.children || []) {
+          const spec = collect(child);
+          types.push(...spec.types);
+          buckets.push(...spec.buckets);
+        }
+        return { types, buckets };
+      }
+      return collect(group);
+    }
+    for (const child of group.children || []) {
+      if (child.id === id) return collect(child);
+    }
+  }
+  return null;
+}
+
+export function rowMatchesTracker(r, spec) {
+  if (!spec) return true;
+  const type = (r.type || "").trim().toLowerCase();
+  if (spec.types && spec.types.includes(type)) return true;
+  if (spec.buckets && spec.buckets.includes(r.bucket)) return true;
+  return false;
+}
+
 function blankWeek(key) {
   return {
     key,
@@ -276,7 +312,15 @@ const BEST_METRICS = [
   { id: "giftAmount", label: "Dollars received" },
 ];
 
-/** Personal best per category (not necessarily the same week) + team's best week per category. */
+function weekHasWork(t) {
+  return (t?.points || 0) > 0 || (t?.dials || 0) > 0 || (t?.gifts || 0) > 0;
+}
+
+/**
+ * Personal best per category (not necessarily the same week).
+ * Team best is one all-time best week (highest team points); every metric
+ * is that week's count, not a mix of different weeks.
+ */
 export function personalBests(tableOwners, weekGrid) {
   const owners = tableOwners.map((o) => {
     const rec = { name: o.name, short: o.short };
@@ -291,18 +335,22 @@ export function personalBests(tableOwners, weekGrid) {
     return rec;
   });
 
+  let bestWeek = null;
+  let bestPoints = -1;
+  for (const g of weekGrid) {
+    if (!weekHasWork(g.totals)) continue;
+    const pts = g.totals.points || 0;
+    if (pts > bestPoints || (pts === bestPoints && g.key > (bestWeek || ""))) {
+      bestPoints = pts;
+      bestWeek = g.key;
+    }
+  }
+  const totals = (weekGrid.find((g) => g.key === bestWeek) || {}).totals || {};
   const team = {};
   for (const m of BEST_METRICS) {
-    let best = { value: 0, week: null };
-    for (const g of weekGrid) {
-      const v = m.id === "points" ? (g.totals.avgPoints || 0) : (g.totals[m.id] || 0);
-      // Team "best points" follows the tracker: best *average* points that week.
-      const compare = m.id === "points" ? (g.totals.avgPoints || 0) : v;
-      if (compare > best.value) best = { value: m.id === "points" ? g.totals.avgPoints : g.totals[m.id], week: g.key };
-    }
-    team[m.id] = best;
+    team[m.id] = { value: totals[m.id] || 0, week: bestWeek };
   }
-  return { owners, team, metrics: BEST_METRICS };
+  return { owners, team, teamWeek: bestWeek, metrics: BEST_METRICS };
 }
 
 /** Combined daily timeseries across all MAs (for the trend chart). */

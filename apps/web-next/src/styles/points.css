@@ -249,10 +249,24 @@ table.grid td.pts { font-weight: 500; color: var(--navy); }
   letter-spacing: .06em;
   text-transform: uppercase;
 }
-.tracker-row { border-top: 1px solid var(--line); }
+.tracker-row {
+  border-top: 1px solid var(--line);
+  width: 100%;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  background: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+.tracker-row:hover { background: var(--bg-soft); }
 .tracker-row.section { font-weight: 700; background: var(--bg-soft); color: var(--navy); }
 .tracker-row.indent { padding-left: 22px; color: var(--slate); }
 .tracker-row.total { background: var(--gold-soft); font-weight: 700; color: var(--navy); border-top: 2px solid var(--gold); }
+.tracker-row.active { background: var(--navy); color: #fff; }
+.tracker-row.section.active, .tracker-row.total.active { background: var(--navy); color: #fff; }
 .day-seg { margin-bottom: 4px; }
 .day-seg button.empty { opacity: .45; }
 
@@ -298,8 +312,10 @@ table.weekgrid th.metric { text-align: left; color: var(--navy); font-weight: 50
 .bests { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
 .bestcard { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
 .bestcard .name { font-family: var(--serif); font-weight: 700; color: var(--navy); margin-bottom: 10px; }
+.bestcard .best-week { font-size: .78rem; color: var(--slate); margin: -6px 0 10px; }
 .bestcard.team { border-color: var(--gold); background: var(--gold-soft); }
 .best-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: baseline; font-size: .82rem; color: var(--slate-400); padding: 4px 0; border-bottom: 1px solid var(--line); }
+.bestcard.team .best-row { grid-template-columns: 1fr auto; }
 .best-row:last-child { border-bottom: 0; }
 .best-row b { color: var(--navy); font-weight: 500; }
 .best-row em { font-style: normal; font-size: .75rem; }

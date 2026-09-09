@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MA_NAMES } from "./config.js";
 import { isMonthlyRecurring, parseDate, prepareGifts, scoreAll, scoreGift } from "./points.js";
-import { aggregate, daysOfWeek, trackerBreakdown, weekKey } from "./aggregate.js";
+import { aggregate, daysOfWeek, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
 import { buildCalculationCSV, statusOf } from "./report.js";
 
 const ALANNA = MA_NAMES[0];
@@ -30,6 +30,10 @@ type Model = {
   tableOwners: OwnerRec[];
   gifts: Array<{ amount?: number; owner?: string }>;
   rows: Array<{ noteId?: string | number; removed?: boolean; points?: number }>;
+  bests?: {
+    teamWeek?: string | null;
+    team: Record<string, { value: number; week: string | null }>;
+  };
 };
 
 type ScoredRow = {
@@ -583,6 +587,21 @@ describe("tracker category layout", () => {
     assert.equal(mix.totalPoints, 47);
   });
 
+  it("filters rows to a tracker category", () => {
+    const scored = scoreAll({
+      notes: [
+        donationNote({ type: "Mission Advancement Call | Voicemail", id: 1 }),
+        donationNote({ type: "Letter", id: 2 }),
+        donationNote({ type: "Obituary", id: 3 }),
+      ],
+    }) as ScoredRow[];
+    const lvm = scored.filter((r) => rowMatchesTracker(r, trackerSpec("lvm")));
+    assert.equal(lvm.length, 1);
+    assert.equal(lvm[0].type, "Mission Advancement Call | Voicemail");
+    const letters = scored.filter((r) => rowMatchesTracker(r, trackerSpec("letter")));
+    assert.equal(letters.length, 2);
+  });
+
   it("daysOfWeek is Monday through Sunday", () => {
     assert.deepEqual(daysOfWeek("2026-08-31"), [
       "2026-08-31",
@@ -652,6 +671,32 @@ describe("count/remove overrides", () => {
     assert.equal(owner.points, 5);
     const row = model.rows.find((r) => String(r.noteId) === "77");
     assert.equal(row?.removed, false);
+  });
+});
+
+describe("team bests", () => {
+  it("uses one all-time best week, not a mix of different weeks", () => {
+    const scored = scoreAll({
+      notes: [
+        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/3/2026", id: 1 }),
+        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/4/2026", id: 2 }),
+        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/5/2026", id: 3 }),
+        donationNote({ type: "Mission Advancement | Event", noteDate: "8/11/2026", id: 4 }),
+      ],
+    }) as ScoredRow[];
+    const model = aggregate(scored) as Model;
+    const weekA = weekOf("8/3/2026");
+    const weekB = weekOf("8/11/2026");
+    assert.equal(weekA, "2026-08-03");
+    assert.equal(weekB, "2026-08-10");
+    assert.equal(model.bests?.teamWeek, weekB);
+    assert.equal(model.bests?.team.points.value, 300);
+    assert.equal(model.bests?.team.points.week, weekB);
+    assert.equal(model.bests?.team.conversations.value, 0);
+    assert.equal(model.bests?.team.conversations.week, weekB);
+    assert.equal(model.bests?.team.dials.week, weekB);
+    assert.equal(model.bests?.team.gifts.week, weekB);
+    assert.equal(model.bests?.team.giftAmount.week, weekB);
   });
 });
 

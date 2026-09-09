@@ -15,6 +15,8 @@ import {
   tierFor,
   TIERS,
   trackerBreakdown,
+  trackerSpec,
+  rowMatchesTracker,
   virtuousContactUrl,
   weekKey,
   weekLabel,
@@ -22,16 +24,16 @@ import {
 import type { FlagInput, ReviewFlag } from "@/lib/reports/points/flags";
 import "@/styles/points.css";
 
-type RangeKey = "week" | "2" | "4" | "all" | "custom";
+type RangeKey = "week" | "all" | "custom";
 
-const RANGES: Record<string, { label: string; weeks?: number }> = {
-  week: { label: "This week", weeks: 1 },
-  "2": { label: "Last 2 weeks", weeks: 2 },
-  "4": { label: "Last 4 weeks", weeks: 4 },
+const RANGES: Record<string, { label: string }> = {
+  week: { label: "This week" },
   all: { label: "All" },
 };
 
-const RANGE_KEYS = ["week", "2", "4", "all"] as const;
+const RANGE_KEYS = ["week", "all"] as const;
+/** Sentinel for the day picker: mix + tasks cover the whole selected week. */
+const WEEK_TOTAL = "total";
 
 function parseDay(iso: string): Date {
   return new Date(iso + "T00:00:00");
@@ -104,11 +106,20 @@ type BestRec = { value: number; week: string | null };
 type Bests = {
   owners: Array<{ name: string; short?: string } & Record<string, BestRec | string | undefined>>;
   team: Record<string, BestRec>;
+  teamWeek?: string | null;
   metrics: Array<{ id: string; label: string }>;
 };
 
 const money = (n: number | undefined) => `$${Math.round(n || 0).toLocaleString()}`;
 const pct = (n: number | undefined) => `${((n || 0) * 100).toFixed(1)}%`;
+function formatDay(iso: string) {
+  if (!iso) return "";
+  return parseDay(iso).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
 
 /** One scored activity row (from points.js scoreNote / aggregate model.rows). */
 type Row = {
@@ -129,19 +140,11 @@ type Row = {
   removed?: boolean;
 };
 
-/** Inclusive Monday–Sunday bounds. `weekStart` / `weekEnd` are Monday keys. */
-function bounds(key: RangeKey, weekStart: string | null, weekEnd: string | null) {
-  if (key === "custom") {
-    return {
-      start: weekStart ? parseDay(weekStart) : null,
-      end: weekEnd ? sundayOf(parseDay(weekEnd)) : null,
-    };
-  }
-  if (key === "all" || !RANGES[key]?.weeks) return { start: null, end: null };
-  const mon = thisMonday();
-  const weeks = RANGES[key].weeks || 1;
-  const start = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() - (weeks - 1) * 7);
-  return { start, end: sundayOf(mon) };
+/** Inclusive Monday–Sunday bounds for one week, or the full range. */
+function bounds(key: RangeKey, selectedWeek: string | null) {
+  if (key === "all") return { start: null, end: null };
+  const monday = key === "custom" && selectedWeek ? parseDay(selectedWeek) : thisMonday();
+  return { start: monday, end: sundayOf(monday) };
 }
 
 async function loadRaw() {
@@ -185,11 +188,11 @@ export default function PointsPage() {
   const [events, setEvents] = useState<Array<Record<string, unknown>> | null>(null);
   const [meta, setMeta] = useState<Record<string, unknown>>({});
   const [range, setRange] = useState<RangeKey>("all");
-  const [weekStart, setWeekStart] = useState("");
-  const [weekEnd, setWeekEnd] = useState("");
+  const [selectedWeek, setSelectedWeek] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [pickedWeek, setPickedWeek] = useState<string | null>(null);
   const [pickedDay, setPickedDay] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("Loading…");
   const [flags, setFlags] = useState<Record<string, ReviewFlag>>({});
@@ -238,11 +241,11 @@ export default function PointsPage() {
       filled.push(weekKey(cursor));
       cursor.setDate(cursor.getDate() + 7);
     }
-    return filled;
+    return filled.reverse();
   }, [rows]);
 
   const model = useMemo(() => {
-    const { start, end } = bounds(range, weekStart || null, weekEnd || null);
+    const { start, end } = bounds(range, selectedWeek || null);
     return aggregate(rows || [], { start, end, flags }) as {
       totals: {
         points?: number;
@@ -262,7 +265,7 @@ export default function PointsPage() {
       weekGrid: WeekGridRow[];
       bests: Bests;
     };
-  }, [rows, range, weekStart, weekEnd, flags]);
+  }, [rows, range, selectedWeek, flags]);
 
   const daily = useMemo(
     () => dailyTotals(model.rows) as Array<{ day?: string; date: string | Date; points: number }>,
@@ -285,19 +288,12 @@ export default function PointsPage() {
       .map(([, v]) => v),
   );
 
-  const boundWindow = bounds(range, weekStart || null, weekEnd || null);
-  const selectStart = boundWindow.start ? weekKey(boundWindow.start) : "";
-  const selectEnd = boundWindow.end ? weekKey(boundWindow.end) : "";
+  const boundWindow = bounds(range, selectedWeek || null);
+  const selectWeek = boundWindow.start ? weekKey(boundWindow.start) : "";
   const rangeLabel =
-    range === "custom"
-      ? selectStart && selectEnd
-        ? `Week of ${weekLabel(selectStart)} – week of ${weekLabel(selectEnd)}`
-        : selectStart
-          ? `Week of ${weekLabel(selectStart)} onward`
-          : selectEnd
-            ? `Through week of ${weekLabel(selectEnd)}`
-            : "All"
-      : RANGES[range]?.label || "All";
+    range === "all"
+      ? "All"
+      : `Week of ${weekLabel(selectWeek || weekKey(thisMonday()))}`;
 
   const ownerRows = useMemo(() => {
     if (!selectedOwner) return [] as Row[];
@@ -323,15 +319,30 @@ export default function PointsPage() {
     [ownerRows, activeWeek],
   );
   const daysWithActivity = useMemo(() => new Set(weekRows.map((r) => r.day)), [weekRows]);
-  const activeDay =
-    pickedDay && weekDayList.includes(pickedDay)
+  const showWeekTotal = pickedDay === WEEK_TOTAL;
+  const activeDay = showWeekTotal
+    ? null
+    : pickedDay && weekDayList.includes(pickedDay)
       ? pickedDay
       : [...weekDayList].reverse().find((d) => daysWithActivity.has(d)) || weekDayList[0] || null;
-  const dayRows = useMemo(
-    () => ownerRows.filter((r) => r.day === activeDay).sort((a, b) => b.points - a.points),
-    [ownerRows, activeDay],
-  );
-  const dayMix = useMemo(() => trackerBreakdown(dayRows), [dayRows]);
+  const scopeRows = useMemo(() => {
+    const src = showWeekTotal ? weekRows : ownerRows.filter((r) => r.day === activeDay);
+    return [...src].sort((a, b) => b.day.localeCompare(a.day) || b.points - a.points);
+  }, [showWeekTotal, weekRows, ownerRows, activeDay]);
+  const dayMix = useMemo(() => trackerBreakdown(scopeRows), [scopeRows]);
+  const filteredDayRows = useMemo(() => {
+    const spec = categoryFilter ? trackerSpec(categoryFilter) : null;
+    return spec ? scopeRows.filter((r) => rowMatchesTracker(r, spec)) : scopeRows;
+  }, [scopeRows, categoryFilter]);
+  const activeCategoryLabel = categoryFilter
+    ? dayMix.lines.find((l) => l.id === categoryFilter)?.label
+    : null;
+  const mixHeading =
+    showWeekTotal && activeWeek
+      ? `Week of ${weekLabel(activeWeek)}`
+      : activeDay
+        ? parseDay(activeDay).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })
+        : "Categories";
 
   async function saveFlag(input: FlagInput) {
     setFlagBusy(String(input.noteId));
@@ -437,8 +448,10 @@ export default function PointsPage() {
                     aria-pressed={active}
                     onClick={() => {
                       setRange(key);
-                      setWeekStart("");
-                      setWeekEnd("");
+                      setSelectedWeek(key === "week" ? weekKey(thisMonday()) : "");
+                      setPickedWeek(key === "week" ? weekKey(thisMonday()) : null);
+                      setPickedDay(null);
+                      setCategoryFilter(null);
                     }}
                   >
                     {cfg.label}
@@ -446,47 +459,24 @@ export default function PointsPage() {
                 );
               })}
             </div>
-            <div className={`daterange${range === "custom" ? " active" : ""}`} role="group" aria-label="Week range">
+            <div className={`daterange${range === "custom" ? " active" : ""}`}>
               <label>
-                From week
+                Week
                 <select
-                  aria-label="From week"
-                  value={selectStart}
+                  aria-label="Week"
+                  value={selectWeek}
                   onChange={(e) => {
                     const v = e.target.value;
-                    const nextEnd = v && selectEnd && v > selectEnd ? v : selectEnd;
-                    setWeekStart(v);
-                    setWeekEnd(nextEnd);
-                    setRange(v || nextEnd ? "custom" : "all");
+                    setSelectedWeek(v);
+                    setRange(v ? "custom" : "all");
+                    setPickedWeek(v || null);
+                    setPickedDay(null);
+                    setCategoryFilter(null);
                   }}
                 >
                   <option value="">All weeks</option>
                   {weekOptions.map((k) => (
-                    <option key={`from-${k}`} value={k}>
-                      Week of {weekLabel(k)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <span className="daterange-sep" aria-hidden="true">
-                –
-              </span>
-              <label>
-                To week
-                <select
-                  aria-label="To week"
-                  value={selectEnd}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    const nextStart = v && selectStart && v < selectStart ? v : selectStart;
-                    setWeekStart(nextStart);
-                    setWeekEnd(v);
-                    setRange(nextStart || v ? "custom" : "all");
-                  }}
-                >
-                  <option value="">All weeks</option>
-                  {weekOptions.map((k) => (
-                    <option key={`to-${k}`} value={k}>
+                    <option key={k} value={k}>
                       Week of {weekLabel(k)}
                     </option>
                   ))}
@@ -553,6 +543,7 @@ export default function PointsPage() {
                       setSelected(o.name === selected ? null : o.name);
                       setPickedWeek(null);
                       setPickedDay(null);
+                      setCategoryFilter(null);
                     }}
                   >
                     <div className="rank">{idx + 1}</div>
@@ -612,9 +603,10 @@ export default function PointsPage() {
                       onClick={() => {
                         setPickedWeek(w.key);
                         setPickedDay(null);
+                        setCategoryFilter(null);
                       }}
                     >
-                      <td>Week of {w.key.slice(5)}</td>
+                      <td>Week of {weekLabel(w.key)}</td>
                       <td className="pts tabular">{w.points.toLocaleString()}</td>
                       <td className="tabular">{w.conversations}</td>
                       <td className="tabular">{w.dials}</td>
@@ -629,10 +621,8 @@ export default function PointsPage() {
               <div className="ma-drill">
                 <div>
                   <h3 style={{ marginTop: 0 }}>
-                    {activeDay
-                      ? parseDay(activeDay).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })
-                      : "Categories"}
-                    <span className="section-hint"> tracker mix</span>
+                    {mixHeading}
+                    <span className="section-hint"> click a category to filter tasks</span>
                   </h3>
                   <div className="tracker">
                     <div className="tracker-head">
@@ -640,28 +630,42 @@ export default function PointsPage() {
                       <span>Pts</span>
                     </div>
                     {dayMix.lines.map((line) => (
-                      <div
+                      <button
                         key={line.id}
-                        className={`tracker-row${line.section ? " section" : ""}${line.indent ? " indent" : ""}`}
+                        type="button"
+                        className={`tracker-row${line.section ? " section" : ""}${line.indent ? " indent" : ""}${categoryFilter === line.id ? " active" : ""}`}
+                        onClick={() => setCategoryFilter((cur) => (cur === line.id ? null : line.id))}
                       >
                         <span>{line.label}</span>
                         <span className="tabular">
                           {line.section ? "" : line.points.toLocaleString()}
                         </span>
-                      </div>
+                      </button>
                     ))}
-                    <div className="tracker-row total">
+                    <button
+                      type="button"
+                      className={`tracker-row total${!categoryFilter ? " active" : ""}`}
+                      onClick={() => setCategoryFilter(null)}
+                    >
                       <span>TOTAL</span>
                       <span className="tabular">{dayMix.totalPoints.toLocaleString()}</span>
-                    </div>
+                    </button>
                   </div>
                 </div>
                 <div>
               <h3 style={{ marginTop: 0 }}>
                 Day{" "}
-                <span className="section-hint">pick a date to see that day’s activities</span>
+                <span className="section-hint">Total for the week, or a date for that day</span>
               </h3>
               <div className="seg day-seg" role="group" aria-label="Day in week">
+                <button
+                  type="button"
+                  className={showWeekTotal ? "active" : ""}
+                  aria-pressed={showWeekTotal}
+                  onClick={() => setPickedDay(WEEK_TOTAL)}
+                >
+                  Total
+                </button>
                 {weekDayList.map((d) => {
                   const dt = parseDay(d);
                   const label = dt.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
@@ -680,7 +684,8 @@ export default function PointsPage() {
                 })}
               </div>
               <h3 style={{ marginTop: 18 }}>
-                Tasks — {dayRows.length} {dayRows.length === 1 ? "activity" : "activities"}{" "}
+                Tasks — {filteredDayRows.length} {filteredDayRows.length === 1 ? "activity" : "activities"}
+                {activeCategoryLabel ? ` · ${activeCategoryLabel}` : ""}{" "}
                 <span className="section-hint">
                   Wrong note type or note on the wrong contact will not count · Count/Remove changes totals · Open ↗ verifies in Virtuous
                 </span>
@@ -699,14 +704,18 @@ export default function PointsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {dayRows.length === 0 && (
+                    {filteredDayRows.length === 0 && (
                       <tr>
                         <td colSpan={7} style={{ color: "var(--slate-400)" }}>
-                          No activities on this day.
+                          {categoryFilter
+                            ? "No activities in this category."
+                            : showWeekTotal
+                              ? "No activities this week."
+                              : "No activities on this day."}
                         </td>
                       </tr>
                     )}
-                    {dayRows.map((r, i) => {
+                    {filteredDayRows.map((r, i) => {
                       const key = rowId(r);
                       const removed = !!r.removed;
                       return (
@@ -721,7 +730,7 @@ export default function PointsPage() {
                           }
                         >
                           <td style={{ whiteSpace: "nowrap" }}>
-                            {r.day}
+                            {formatDay(r.day)}
                             {!r.weekday && <span style={{ color: "var(--slate-400)" }}> (wknd)</span>}
                           </td>
                           <td>
@@ -838,7 +847,8 @@ export default function PointsPage() {
 
           <section className="section">
             <h2>
-              Personal Bests <span className="section-hint">best week in each category — not necessarily the same week</span>
+              Personal Bests{" "}
+              <span className="section-hint">each MA’s best week per category · team is the all-time best week</span>
             </h2>
             <div className="bests">
               {(model.bests?.owners || []).map((o) => (
@@ -851,7 +861,7 @@ export default function PointsPage() {
                       <div key={m.id} className="best-row">
                         <span>{m.label}</span>
                         <b className="tabular">{val}</b>
-                        <em>wk {rec?.week ? rec.week.slice(5) : "—"}</em>
+                        <em>wk {rec?.week ? weekLabel(rec.week) : "—"}</em>
                       </div>
                     );
                   })}
@@ -860,14 +870,16 @@ export default function PointsPage() {
               {model.bests?.team && (
                 <div className="bestcard team">
                   <div className="name">Team best</div>
+                  <div className="best-week">
+                    {model.bests.teamWeek ? `Week of ${weekLabel(model.bests.teamWeek)}` : "—"}
+                  </div>
                   {(model.bests.metrics || []).map((m) => {
                     const rec = model.bests.team[m.id];
-                    const val = m.id === "giftAmount" ? money(rec?.value) : Math.round(rec?.value || 0).toLocaleString();
+                    const val = m.id === "giftAmount" ? money(rec?.value) : (rec?.value ?? 0).toLocaleString();
                     return (
                       <div key={m.id} className="best-row">
                         <span>{m.label}</span>
                         <b className="tabular">{val}</b>
-                        <em>wk {rec?.week ? rec.week.slice(5) : "—"}</em>
                       </div>
                     );
                   })}
