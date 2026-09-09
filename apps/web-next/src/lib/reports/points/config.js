@@ -298,6 +298,8 @@ export const SETTINGS = {
  * Gifts first. Bounced is the Email Inactive note type.
  */
 export const TRACKING_CHART = {
+  refresh:
+    "Virtuous is pulled every 15 minutes. A note usually shows on this page within 15 minutes of being saved.",
   gifts: [
     {
       label: "Dollars received",

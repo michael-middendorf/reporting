@@ -54,6 +54,7 @@ const config = require("./config.js") as {
   DEFINITIONS: Array<{ term: string; text: string }>;
   TRACKER_LAYOUT: unknown[];
   TRACKING_CHART: {
+    refresh: string;
     gifts: Array<{ label: string; detail: string }>;
     rows: Array<{ tracker: string; type: string; pts: number }>;
   };

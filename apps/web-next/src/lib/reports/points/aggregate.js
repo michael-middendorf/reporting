@@ -333,7 +333,7 @@ export function personalBests(tableOwners, weekGrid) {
       }
     }
     const week = o.weekList.find((w) => w.key === bestWeek) || {};
-    const rec = { name: o.name, short: o.short, bestWeek };
+    const rec = { name: o.name, short: o.short, bestWeek, totalPoints: o.points || 0 };
     for (const m of BEST_METRICS) {
       rec[m.id] = { value: week[m.id] || 0, week: bestWeek };
     }
@@ -355,7 +355,8 @@ export function personalBests(tableOwners, weekGrid) {
   for (const m of BEST_METRICS) {
     team[m.id] = { value: totals[m.id] || 0, week: bestWeek };
   }
-  return { owners, team, teamWeek: bestWeek, metrics: BEST_METRICS };
+  const teamTotalPoints = tableOwners.reduce((s, o) => s + (o.points || 0), 0);
+  return { owners, team, teamWeek: bestWeek, teamTotalPoints, metrics: BEST_METRICS };
 }
 
 /** Combined daily timeseries across all MAs (for the trend chart). */

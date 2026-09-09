@@ -106,9 +106,10 @@ type WeekGridRow = {
 
 type BestRec = { value: number; week: string | null };
 type Bests = {
-  owners: Array<{ name: string; short?: string; bestWeek?: string | null } & Record<string, BestRec | string | undefined>>;
+  owners: Array<{ name: string; short?: string; bestWeek?: string | null; totalPoints?: number } & Record<string, BestRec | string | number | undefined>>;
   team: Record<string, BestRec>;
   teamWeek?: string | null;
+  teamTotalPoints?: number;
   metrics: Array<{ id: string; label: string }>;
 };
 
@@ -123,6 +124,30 @@ function formatDay(iso: string) {
     month: "short",
     day: "numeric",
   });
+}
+
+function formatRefreshed(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(+d)) return iso;
+  return d.toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatAgo(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(+d)) return "";
+  const mins = Math.max(0, Math.round((Date.now() - d.getTime()) / 60000));
+  if (mins < 1) return "just now";
+  if (mins === 1) return "1 minute ago";
+  if (mins < 60) return `${mins} minutes ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs === 1) return "1 hour ago";
+  return `${hrs} hours ago`;
 }
 
 /** One scored activity row (from points.js scoreNote / aggregate model.rows). */
@@ -433,7 +458,20 @@ export default function PointsPage() {
     <div className="points-root">
         <main className="wrap dash">
           <header className="page-head">
-            <h1>Points Dashboard</h1>
+            <div>
+              <h1>Points Dashboard</h1>
+              <p className="page-updated">
+                {meta?.generated_at != null ? (
+                  <>
+                    Last updated {formatAgo(String(meta.generated_at))}
+                    <span> · {formatRefreshed(String(meta.generated_at))}</span>
+                    <span> · pulls from Virtuous every 15 min</span>
+                  </>
+                ) : (
+                  "Pulls from Virtuous every 15 min"
+                )}
+              </p>
+            </div>
             <div className="page-head-actions">
               <span className="page-head-meta">{error || status}</span>
               <button
@@ -503,7 +541,7 @@ export default function PointsPage() {
               <div className="track-gifts">
                 <p className="track-lead">
                   Virtuous note type on the donor’s contact, logged as yourself. Gifts are linked by the same
-                  contact when the note is on or before the gift, within 45 days.
+                  contact when the note is on or before the gift, within 45 days. {TRACKING_CHART.refresh}
                 </p>
                 <ul>
                   {TRACKING_CHART.gifts.map((g) => (
@@ -918,6 +956,7 @@ export default function PointsPage() {
               {(model.bests?.owners || []).map((o) => (
                 <div key={String(o.name)} className="bestcard">
                   <div className="name">{String(o.short || o.name)}</div>
+                  <div className="best-total tabular">{(Number(o.totalPoints) || 0).toLocaleString()} total pts</div>
                   <div className="best-week">
                     {o.bestWeek ? `Week of ${weekLabel(String(o.bestWeek))}` : "—"}
                   </div>
@@ -936,6 +975,7 @@ export default function PointsPage() {
               {model.bests?.team && (
                 <div className="bestcard team">
                   <div className="name">Team best</div>
+                  <div className="best-total tabular">{(model.bests.teamTotalPoints || 0).toLocaleString()} total pts</div>
                   <div className="best-week">
                     {model.bests.teamWeek ? `Week of ${weekLabel(model.bests.teamWeek)}` : "—"}
                   </div>
@@ -1187,7 +1227,9 @@ export default function PointsPage() {
             </div>
           </section>
           {meta?.generated_at != null && (
-            <p style={{ opacity: 0.6, marginTop: 16 }}>Refreshed {String(meta.generated_at)}</p>
+            <p style={{ opacity: 0.6, marginTop: 16 }}>
+              Last pull from Virtuous {formatRefreshed(String(meta.generated_at))} · every 15 minutes
+            </p>
           )}
         </main>
     </div>

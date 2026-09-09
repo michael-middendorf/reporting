@@ -76,6 +76,13 @@ main.wrap.dash { max-width: 1280px; padding: 28px 24px 64px; }
   margin: 0 0 16px;
 }
 .page-head h1 { margin: 0; }
+.page-updated {
+  margin: 6px 0 0;
+  font-size: .88rem;
+  color: var(--navy);
+  font-weight: 500;
+}
+.page-updated span { color: var(--slate-400); font-weight: 400; }
 .page-head-actions {
   display: flex;
   align-items: center;
@@ -366,8 +373,9 @@ table.weekgrid th.metric { text-align: left; color: var(--navy); font-weight: 50
 
 .bests { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
 .bestcard { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
-.bestcard .name { font-family: var(--serif); font-weight: 700; color: var(--navy); margin-bottom: 10px; }
-.bestcard .best-week { font-size: .78rem; color: var(--slate); margin: -6px 0 10px; }
+.bestcard .name { font-family: var(--serif); font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+.bestcard .best-total { font-size: .88rem; font-weight: 600; color: var(--navy); }
+.bestcard .best-week { font-size: .78rem; color: var(--slate); margin: 2px 0 10px; }
 .bestcard.team { border-color: var(--gold); background: var(--gold-soft); }
 .best-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: baseline; font-size: .82rem; color: var(--slate-400); padding: 4px 0; border-bottom: 1px solid var(--line); }
 .best-row:last-child { border-bottom: 0; }

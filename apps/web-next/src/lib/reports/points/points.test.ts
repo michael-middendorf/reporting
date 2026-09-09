@@ -33,7 +33,8 @@ type Model = {
   bests?: {
     teamWeek?: string | null;
     team: Record<string, { value: number; week: string | null }>;
-    owners?: Array<{ name: string; bestWeek?: string | null } & Record<string, { value: number; week: string | null } | string | undefined>>;
+    teamTotalPoints?: number;
+    owners?: Array<{ name: string; bestWeek?: string | null; totalPoints?: number } & Record<string, { value: number; week: string | null } | string | number | undefined>>;
   };
 };
 
@@ -879,6 +880,8 @@ describe("team bests", () => {
     const alanna = model.bests?.owners?.find((o) => o.name === ALANNA);
     assert.ok(alanna);
     assert.equal(alanna.bestWeek, weekB);
+    assert.equal(alanna.totalPoints, 330);
+    assert.equal(model.bests?.teamTotalPoints, 330);
     const pts = alanna.points as { value: number; week: string | null };
     const conv = alanna.conversations as { value: number; week: string | null };
     assert.equal(pts.value, 300);
