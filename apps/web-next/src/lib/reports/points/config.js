@@ -62,8 +62,8 @@ export const CONFLICTS = {
     title: "Invalid / disconnected number",
     pdf: "Not listed as a scoring activity (treated as 0 — a dial that reached no one).",
     spreadsheet: "‘Disconnected’ rows are given 1 point.",
-    resolved: "0 points",
-    note: "PDF only awards the 1-pt dial credit for a dial that resulted in a voicemail/email/text. Set `invalidNumberScores: true` in config to give these 1 pt to match the spreadsheet.",
+    resolved: "1 point",
+    note: "Counted as a 1-pt dial to match the tracker (confirmed 2026-09-09). Logged as ‘Mission Advancement Call | Invalid Number’.",
   },
   email_conversation: {
     title: "Two-way email exchange",
@@ -95,7 +95,7 @@ export const CONFLICTS = {
     pdf: "Not a named activity; closest bucket is 5 pts for updated contact info.",
     spreadsheet: "Not tracked as a line item on the weekly totals.",
     resolved: "5 points",
-    note: "Pulled from the Virtuous ‘Obituary’ note type, scoped to MA authors.",
+    note: "Counted as a 5-pt contact-info update (confirmed 2026-09-09). Pulled from the Virtuous ‘Obituary’ note type, scoped to MA authors.",
   },
   mas_event_note: {
     title: "MAS Event note (attributed to an MA)",
@@ -131,7 +131,7 @@ export const POINTS_MAP = {
   "mission advancement call | email conversation":
     { points: 1, bucket: "email", label: "Email conversation", source: "pdf", conflict: "email_conversation" },
   "mission advancement call | invalid number":
-    { points: 0, bucket: "failed", label: "Invalid number", source: "pdf", conflict: "invalid_number" },
+    { points: 1, bucket: "failed", label: "Invalid number", source: "pdf+spreadsheet" },
 
   "mission advancement | new donation or new ac":
     { points: 100, bucket: "gift", label: "New donation / Annunciation Circle", source: "pdf+spreadsheet" },
@@ -150,7 +150,7 @@ export const POINTS_MAP = {
     { points: 5, bucket: "address", label: "Address change/update", source: "pdf" },
 
   "obituary":
-    { points: 5, bucket: "obituary", label: "Obituary", source: "assumed", conflict: "obituary" },
+    { points: 5, bucket: "obituary", label: "Obituary", source: "pdf" },
 
   "mission advancement | event":
     { points: 300, bucket: "event", label: "MAS Event (Ave Near You)", source: "pdf", conflict: "mas_event_note" },
@@ -175,8 +175,75 @@ export const BUCKETS = [
   { id: "obituary",     label: "Obituaries",        points: 5,   color: "#64748b" },
   { id: "email",        label: "Emails / texts",    points: 1,   color: "#5b8bb0" },
   { id: "dial",         label: "Dials / VMs",       points: 1,   color: "#8a97a6" },
-  { id: "failed",       label: "Invalid / failed",  points: 0,  color: "#c2c9d1" },
+  { id: "failed",       label: "Invalid / failed",  points: 1,  color: "#c2c9d1" },
   { id: "donation",     label: "Dollars received",  points: 0,   color: "#c8972d" },
+];
+
+/* ---- Tracker category layout (Totals sheet) -----------------------------
+ * Same groups the spreadsheet uses. `types` match Virtuous note type
+ * (lowercased). Donation is the 100-pt gift credit, not gift dollars. */
+export const TRACKER_LAYOUT = [
+  {
+    id: "dial",
+    label: "Dial",
+    section: true,
+    children: [
+      { id: "lvm", label: "LVM", types: ["mission advancement call | voicemail"] },
+      { id: "disconnected", label: "Disconnected", types: ["mission advancement call | invalid number"] },
+    ],
+  },
+  {
+    id: "conversation",
+    label: "Conversation",
+    types: ["mission advancement call | conversation"],
+  },
+  {
+    id: "email",
+    label: "Email",
+    section: true,
+    children: [
+      {
+        id: "email_sent",
+        label: "Sent",
+        types: [
+          "mission advancement call | email reach out",
+          "mission advancement call | email inactive",
+          "text message",
+        ],
+      },
+      { id: "email_bounced", label: "Bounced", types: [] },
+      {
+        id: "email_response",
+        label: "Response Rec'd",
+        types: ["mission advancement call | email conversation"],
+      },
+    ],
+  },
+  {
+    id: "letter",
+    label: "Letter",
+    section: true,
+    children: [
+      { id: "letter_sent", label: "Sent", types: ["letter"] },
+      { id: "obituaries", label: "Obituaries", types: ["obituary"] },
+      {
+        id: "invalid_updates",
+        label: "Invalid Updates",
+        types: [
+          "mission advancement | invalid mailing address",
+          "as - address change/update",
+        ],
+      },
+    ],
+  },
+  { id: "tours", label: "Tours", types: ["in person"] },
+  { id: "live_mtg", label: "Live Mtg", types: ["mission advancement | meeting"] },
+  {
+    id: "events",
+    label: "Events",
+    types: ["mission advancement | event", "mission advancement | marketing event"],
+  },
+  { id: "donation", label: "Donation", buckets: ["gift"] },
 ];
 
 /* ---- Event scoring (300 / 75) -------------------------------------------
@@ -200,9 +267,9 @@ export const RAW_FILES = {
   meta: "meta.json",
 };
 
-/** If true, Invalid Number notes score 1 pt (spreadsheet behavior). */
+/** If true, Invalid Number notes score 1 pt (tracker Disconnected). */
 export const SETTINGS = {
-  invalidNumberScores: false,
+  invalidNumberScores: true,
   /** Tracker credits a new monthly AC as 12 months of the monthly amount. */
   monthlyAnnualizeFactor: 12,
   /** Credit a gift only if an MA activity note on that contact is on or before the gift, within this many days. */
@@ -221,6 +288,15 @@ export const VIRTUOUS_APP_BASE = "https://app.virtuoussoftware.com";
  * Plain-language rules the Methodology page shows so reviewers know exactly
  * what makes an activity count (beyond the raw point value). */
 export const DEFINITIONS = [
+  {
+    term: "How logging works",
+    text:
+      "The dashboard only sees what is logged in Virtuous, on the donor’s contact, with the correct note type, authored by the MA. " +
+      "A note on the wrong person, a generic type, a note after the gift, or no note at all will not count. " +
+      "Gifts are the same: there must be an MA note on that contact on or before the gift date (within 45 days). " +
+      "A posted gift with no MA note on the contact is not attributed. A thank-you logged after the gift does not pull that gift. " +
+      "100 points additionally require a donation note type (‘New Donation or New AC’, ‘Annunciation Circle updated’, or ‘Update recurring gift’) paired with a posted gift.",
+  },
   {
     term: "Secured gift (100 pts)",
     text:
@@ -245,13 +321,22 @@ export const DEFINITIONS = [
       "Obituary notes authored by an MA count as a contact-info update (5 pts). Non-MA authors are ignored.",
   },
   {
+    term: "Invalid number (1 pt)",
+    text:
+      "Invalid / disconnected numbers count as 1 point, matching the tracker’s Disconnected rows. " +
+      "Logged as ‘Mission Advancement Call | Invalid Number’. They also count as a dial.",
+  },
+  {
+    term: "Count / Remove",
+    text:
+      "Every scored task is counted in the totals by default. Remove drops that task from points, activity counts, and gift totals. Count puts it back. The choice is shared for everyone looking at the dashboard.",
+  },
+  {
     term: "Dollars received",
     text:
-      "Gift count and gift dollars both come from posted Virtuous gifts with amount greater than 0, attributed to an MA. " +
-      "Attribution follows the tracker: an MA activity note on that contact (call, letter, in person, email, or donation note) " +
-      "within 45 days before the gift (note on or before gift date). A later thank-you call does not claim an earlier gift. GFT_Solicitor is not used (it is usually an MGO, not the MA). " +
-      "A later restart note does not pull earlier lapsed charges. " +
-      "One-time gifts use the posted Virtuous amount. New monthly commitments (Virtuous Recurring Gift, frequency Monthly) are counted once as monthly amount × 12, matching the tracker Totals sheet. " +
+      "A posted Virtuous gift counts for an MA only if that MA logged a note on that donor’s contact on or before the gift date (call, letter, in person, email, or donation note), within 45 days. " +
+      "No note on the person = the gift is not counted. A thank-you after the gift does not claim it. GFT_Solicitor is not used (it is usually an MGO, not the MA). " +
+      "One-time gifts use the posted amount. New monthly commitments (Recurring Gift, frequency Monthly) are counted once as monthly amount × 12. " +
       "The matching posted installment is not also added. Increases on an older recurring gift that did not create a new Recurring Gift still use the posted installment until that commitment is republished. " +
       "Only notes and gifts on or after the author's roster start date count.",
   },

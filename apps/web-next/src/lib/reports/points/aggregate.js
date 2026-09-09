@@ -4,7 +4,22 @@
  * plus tier assignment (average points per weekday), a spreadsheet-style weekly
  * grid, gift-dollar totals, and personal-best / best-week records.
  */
-import { MA_ROSTER, BUCKETS, tierFor } from "./config.js";
+import { MA_ROSTER, BUCKETS, TRACKER_LAYOUT, tierFor } from "./config.js";
+
+/** Stable id for a scored row (note or gift) used by count/remove overrides. */
+export function rowId(r) {
+  if (r == null) return null;
+  if (r.noteId != null && r.noteId !== "") return String(r.noteId);
+  if (r.giftId != null && r.giftId !== "") return `gift:${r.giftId}`;
+  return null;
+}
+
+function rowRemoved(r, flags) {
+  if (!flags) return false;
+  const id = rowId(r);
+  if (!id) return false;
+  return flags[id]?.status === "removed";
+}
 
 /** Monday-anchored week key for a Date. */
 export function weekKey(d) {
@@ -17,6 +32,70 @@ export function weekKey(d) {
 export function weekLabel(key) {
   const d = new Date(key + "T00:00:00");
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/** Seven YYYY-MM-DD days, Monday through Sunday, for a Monday week key. */
+export function daysOfWeek(mondayKey) {
+  if (!mondayKey) return [];
+  const mon = new Date(mondayKey + "T00:00:00");
+  if (Number.isNaN(+mon)) return [];
+  const out = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + i);
+    out.push(
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+    );
+  }
+  return out;
+}
+
+function matchTrackerLeaf(leaf, rows) {
+  const types = new Set((leaf.types || []).map((t) => String(t).toLowerCase()));
+  const buckets = new Set(leaf.buckets || []);
+  let count = 0;
+  let points = 0;
+  for (const r of rows) {
+    const type = (r.type || "").trim().toLowerCase();
+    if ((types.size && types.has(type)) || (buckets.size && buckets.has(r.bucket))) {
+      count += 1;
+      points += r.points || 0;
+    }
+  }
+  return { id: leaf.id, label: leaf.label, section: false, indent: false, count, points };
+}
+
+/**
+ * Spreadsheet-style category mix for a set of scored rows (one MA, one week
+ * or day). Skips removed rows, unmatched notes, and gift-dollar lines.
+ */
+export function trackerBreakdown(rows, layout = TRACKER_LAYOUT) {
+  const scored = (rows || []).filter(
+    (r) => !r.removed && !r.unmatched && r.bucket !== "donation",
+  );
+  const lines = [];
+  let totalPoints = 0;
+  let totalCount = 0;
+  for (const group of layout) {
+    if (group.section) {
+      const children = (group.children || []).map((leaf) => {
+        const rec = matchTrackerLeaf(leaf, scored);
+        rec.indent = true;
+        return rec;
+      });
+      const points = children.reduce((s, c) => s + c.points, 0);
+      const count = children.reduce((s, c) => s + c.count, 0);
+      lines.push({ id: group.id, label: group.label, section: true, indent: false, count, points });
+      for (const child of children) lines.push(child);
+      totalPoints += points;
+      totalCount += count;
+    } else {
+      const rec = matchTrackerLeaf(group, scored);
+      lines.push(rec);
+      totalPoints += rec.points;
+      totalCount += rec.count;
+    }
+  }
+  return { lines, totalPoints, totalCount };
 }
 
 function blankWeek(key) {
@@ -57,14 +136,17 @@ function tallyRow(target, r) {
 /**
  * Build the full aggregate model from scored rows within [start, end].
  * Gift count and dollars both come from bucket "donation" rows with amount > 0.
+ * `flags` is the shared count/remove map (row id -> { status }). A status of
+ * "removed" keeps the row in `model.rows` for the activity table but drops it
+ * from points, activity counts, and gift totals.
  */
-export function aggregate(rows, { start, end } = {}) {
+export function aggregate(rows, { start, end, flags } = {}) {
   const inRange = rows.filter((r) => {
     if (!r.date) return false;
     if (start && r.date < start) return false;
     if (end && r.date > end) return false;
     return true;
-  });
+  }).map((r) => ({ ...r, removed: rowRemoved(r, flags) }));
 
   const byOwner = new Map(MA_ROSTER.map((m) => [m.name, blankOwner(m)]));
   const days = new Set();
@@ -74,6 +156,7 @@ export function aggregate(rows, { start, end } = {}) {
   for (const r of inRange) {
     const o = byOwner.get(r.owner);
     if (!o) continue;
+    if (r.removed) continue;
     o.count += 1;
     o.buckets[r.bucket] = (o.buckets[r.bucket] || 0) + 1;
     o.bucketPoints[r.bucket] = (o.bucketPoints[r.bucket] || 0) + (r.points || 0);
@@ -226,6 +309,7 @@ export function personalBests(tableOwners, weekGrid) {
 export function dailyTotals(rows) {
   const map = new Map();
   for (const r of rows) {
+    if (r.removed) continue;
     if (r.bucket === "donation") continue;
     const rec = map.get(r.day) || { day: r.day, date: r.date, points: 0 };
     rec.points += r.points || 0;

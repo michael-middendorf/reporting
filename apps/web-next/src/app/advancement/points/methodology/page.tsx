@@ -11,8 +11,9 @@ export default function PointsMethodologyPage() {
         <main style={{ padding: "24px 20px 48px", maxWidth: 900, margin: "0 auto" }}>
           <h1>Methodology &amp; Scoring</h1>
           <p style={{ maxWidth: "70ch" }}>
-            Points are computed in this Next.js app from raw Virtuous notes/events. Scoring follows the MAS
-            Points PDF rubric; spreadsheet divergences are listed below.
+            Points and gifts are scored only from Virtuous. The MA must log the correct note type on the
+            donor’s contact, as themselves. A note on the wrong person, the wrong type, or after the gift
+            will not count. A posted gift with no MA note on that contact is not attributed.
           </p>
 
           <section style={{ marginTop: 28 }}>

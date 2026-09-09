@@ -1,5 +1,5 @@
 /**
- * flags-store.ts — server-only persistence for Points review flags.
+ * flags-store.ts — server-only persistence for Points count/remove overrides.
  *
  * Stores the whole flag set as ONE JSON object at FLAGS_KEY in the ReportData
  * bucket. Reads/writes go through the same S3 client the read proxy uses.
@@ -8,7 +8,7 @@
  * writes are read-modify-write guarded by an S3 conditional put (If-Match on the
  * object ETag, or If-None-Match:* when creating). On a 412 PreconditionFailed we
  * re-read and retry a few times — last writer no longer clobbers the other's
- * concurrent flag.
+ * concurrent override.
  */
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { dataBucket, s3 } from "@/lib/s3-proxy";
@@ -68,7 +68,7 @@ async function put(doc: FlagsDoc, etag: string | null): Promise<void> {
   );
 }
 
-/** Public read: the shared flag map (noteId -> flag). */
+/** Public read: the shared override map (row id -> flag). */
 export async function readFlags(): Promise<Record<string, ReviewFlag>> {
   const { doc } = await load();
   return doc.flags;
@@ -96,7 +96,7 @@ async function mutateWithRetry(
   }
   throw lastErr instanceof Error
     ? lastErr
-    : new Error("Could not persist review flag after concurrent retries");
+    : new Error("Could not persist count/remove after concurrent retries");
 }
 
 /** Create or update a flag. Server stamps identity + timestamps. */

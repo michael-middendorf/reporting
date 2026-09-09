@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MA_NAMES } from "./config.js";
 import { isMonthlyRecurring, parseDate, prepareGifts, scoreAll, scoreGift } from "./points.js";
-import { aggregate, weekKey } from "./aggregate.js";
+import { aggregate, daysOfWeek, trackerBreakdown, weekKey } from "./aggregate.js";
 import { buildCalculationCSV, statusOf } from "./report.js";
 
 const ALANNA = MA_NAMES[0];
@@ -20,6 +20,8 @@ type OwnerRec = {
   gifts: number;
   giftAmount: number;
   points: number;
+  dials?: number;
+  obituaries?: number;
   weekList: WeekRec[];
 };
 
@@ -27,6 +29,7 @@ type Model = {
   totals: { gifts: number; giftAmount: number; points: number; unmatched: number };
   tableOwners: OwnerRec[];
   gifts: Array<{ amount?: number; owner?: string }>;
+  rows: Array<{ noteId?: string | number; removed?: boolean; points?: number }>;
 };
 
 type ScoredRow = {
@@ -39,6 +42,9 @@ type ScoredRow = {
   source?: string;
   label?: string;
   type?: string;
+  noteId?: string | number;
+  removed?: boolean;
+  conflict?: string | null;
 };
 
 function donationNote(overrides: Record<string, unknown> = {}) {
@@ -536,6 +542,116 @@ describe("gift dollars follow MA activity notes", () => {
     );
     assert.equal(owner.giftAmount, 0);
     assert.equal(owner.gifts, 0);
+  });
+});
+
+describe("invalid numbers count as 1-pt dials", () => {
+  it("Mission Advancement Call | Invalid Number scores 1 pt and counts as a dial", () => {
+    const { owner, rows } = run([
+      donationNote({ type: "Mission Advancement Call | Invalid Number", id: 88 }),
+    ]);
+    const row = rows.find((r) => r.noteId === 88);
+    assert.ok(row);
+    assert.equal(row.points, 1);
+    assert.equal(row.bucket, "failed");
+    assert.equal(statusOf(row), "counted");
+    assert.equal(owner.points, 1);
+    assert.equal(owner.dials, 1);
+  });
+});
+
+describe("tracker category layout", () => {
+  it("rolls LVM, disconnected, conversation, letter, and obituary into the sheet mix", () => {
+    const scored = scoreAll({
+      notes: [
+        donationNote({ type: "Mission Advancement Call | Voicemail", id: 1 }),
+        donationNote({ type: "Mission Advancement Call | Invalid Number", id: 2 }),
+        donationNote({ type: "Mission Advancement Call | Conversation", id: 3 }),
+        donationNote({ type: "Letter", id: 4 }),
+        donationNote({ type: "Obituary", id: 5 }),
+        donationNote({ type: "In Person", id: 6 }),
+      ],
+    }) as ScoredRow[];
+    const mix = trackerBreakdown(scored);
+    const byId = Object.fromEntries(mix.lines.map((l) => [l.id, l]));
+    assert.equal(byId.lvm.points, 1);
+    assert.equal(byId.disconnected.points, 1);
+    assert.equal(byId.conversation.points, 10);
+    assert.equal(byId.letter_sent.points, 5);
+    assert.equal(byId.obituaries.points, 5);
+    assert.equal(byId.tours.points, 25);
+    assert.equal(mix.totalPoints, 47);
+  });
+
+  it("daysOfWeek is Monday through Sunday", () => {
+    assert.deepEqual(daysOfWeek("2026-08-31"), [
+      "2026-08-31",
+      "2026-09-01",
+      "2026-09-02",
+      "2026-09-03",
+      "2026-09-04",
+      "2026-09-05",
+      "2026-09-06",
+    ]);
+  });
+});
+
+describe("week range bounds", () => {
+  it("includes Sunday of the To week and excludes the next Monday", () => {
+    const scored = scoreAll({
+      notes: [
+        donationNote({ type: "Letter", noteDate: "8/3/2026", id: 1 }),
+        donationNote({ type: "Letter", noteDate: "8/9/2026", id: 2 }),
+        donationNote({ type: "Letter", noteDate: "8/10/2026", id: 3 }),
+      ],
+    }) as ScoredRow[];
+    const model = aggregate(scored, {
+      start: parseDate("8/3/2026"),
+      end: parseDate("8/9/2026"),
+    }) as Model;
+    const owner = model.tableOwners.find((o) => o.name === ALANNA);
+    assert.ok(owner);
+    assert.equal(owner.points, 10);
+    assert.equal(model.rows.length, 2);
+  });
+});
+
+describe("count/remove overrides", () => {
+  it("obituary is counted at 5 points by default", () => {
+    const { owner, rows, model } = run([donationNote({ type: "Obituary", id: 77 })]);
+    assert.equal(owner.points, 5);
+    assert.equal(owner.obituaries, 1);
+    const row = rows.find((r) => r.noteId === 77);
+    assert.ok(row);
+    assert.equal(row.points, 5);
+    assert.equal(row.conflict, null);
+    assert.equal(statusOf(row), "counted");
+    assert.doesNotMatch(buildCalculationCSV(model), /removed/i);
+  });
+
+  it("removing a row drops its points from totals and keeps it listed", () => {
+    const scored = scoreAll({ notes: [donationNote({ type: "Obituary", id: 77 })] }) as ScoredRow[];
+    const model = aggregate(scored, { flags: { "77": { status: "removed" } } }) as Model;
+    const owner = model.tableOwners.find((o) => o.name === ALANNA);
+    assert.ok(owner);
+    assert.equal(owner.points, 0);
+    assert.equal(owner.obituaries, 0);
+    const row = model.rows.find((r) => String(r.noteId) === "77");
+    assert.ok(row);
+    assert.equal(row.removed, true);
+    assert.equal(row.points, 5);
+    assert.equal(statusOf(row), "removed");
+    assert.match(buildCalculationCSV(model, { flags: { "77": { status: "removed" } } }), /removed/i);
+  });
+
+  it("old resolved flags do not exclude the row", () => {
+    const scored = scoreAll({ notes: [donationNote({ type: "Obituary", id: 77 })] }) as ScoredRow[];
+    const model = aggregate(scored, { flags: { "77": { status: "resolved" } } }) as Model;
+    const owner = model.tableOwners.find((o) => o.name === ALANNA);
+    assert.ok(owner);
+    assert.equal(owner.points, 5);
+    const row = model.rows.find((r) => String(r.noteId) === "77");
+    assert.equal(row?.removed, false);
   });
 });
 

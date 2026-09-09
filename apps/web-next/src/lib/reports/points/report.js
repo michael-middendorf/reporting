@@ -7,7 +7,7 @@
  * same aggregate `model` the page renders, the summary block is guaranteed to
  * tie out to the on-screen totals — that's the whole point of an audit sheet.
  *
- * Uncounted / flagged tasks are included on purpose: to verify that *every*
+ * Uncounted / removed tasks are included on purpose: to verify that *every*
  * task counted correctly you also have to see the ones that did NOT score.
  *
  * No external libraries: builds a string, triggers a Blob download.
@@ -31,6 +31,7 @@ const line = (cells) => cells.map(cell).join(",");
 
 /** Human status for a scored row. */
 export function statusOf(r) {
+  if (r.removed) return "removed";
   if (r.unmatched) {
     // Coverage-gap notes (unknown type) vs donation notes in the rubric waiting on dollars.
     if (r.source === "unmatched" || !r.label) return "NOT COUNTED — type not in rubric";
@@ -47,20 +48,24 @@ function conflictText(r) {
   return c ? `${c.title} → scored as ${c.resolved}` : r.conflict;
 }
 
-/** Review-flag text for a row, given the shared flag map keyed by noteId. */
+/** Count/remove text for a row, given the shared override map keyed by row id. */
 function reviewText(r, flags) {
-  const f = flags && r.noteId != null ? flags[String(r.noteId)] : null;
-  if (!f) return "";
+  if (!flags) return r.removed ? "REMOVED" : "";
+  const id = r.noteId != null && r.noteId !== ""
+    ? String(r.noteId)
+    : (r.giftId != null && r.giftId !== "" ? `gift:${r.giftId}` : null);
+  const f = id ? flags[id] : null;
+  if (!f || f.status !== "removed") return r.removed ? "REMOVED" : "";
   const who = f.flaggedBy ? ` by ${f.flaggedBy}` : "";
   const reason = f.reason ? `: ${f.reason}` : "";
-  return `${f.status === "resolved" ? "RESOLVED" : "FLAGGED FOR REVIEW"}${who}${reason}`;
+  return `REMOVED${who}${reason}`;
 }
 
 /**
  * Build the full calculation/audit CSV from an aggregate `model`
  * (see aggregate.js) for the currently selected date range. `flags` is the
- * shared review-flag map (noteId -> flag) so the audit sheet carries the same
- * review state shown in the dashboard.
+ * shared count/remove map (row id -> flag) so the audit sheet carries the same
+ * inclusion state shown in the dashboard.
  */
 export function buildCalculationCSV(model, { meta = {}, rangeLabel = "All", generatedOn = "", flags = {} } = {}) {
   const L = [];
@@ -90,7 +95,7 @@ export function buildCalculationCSV(model, { meta = {}, rangeLabel = "All", gene
   const cols = [
     "MA", "Date", "Weekday?", "Contact", "Contact ID", "Note Type (Virtuous)",
     "Activity", "Category", "Points", "Status", "Rule Source", "Conflict Flag",
-    "Review Flag", "Note ID", "Open in Virtuous",
+    "Count/Remove", "Note ID", "Open in Virtuous",
   ];
   L.push(line(cols));
 
@@ -113,7 +118,7 @@ export function buildCalculationCSV(model, { meta = {}, rangeLabel = "All", gene
       curOwner = r.owner;
       subtotal = 0;
     }
-    subtotal += r.points;
+    if (!r.removed) subtotal += r.points;
     L.push(line([
       r.owner,
       r.day,

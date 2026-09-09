@@ -1,23 +1,28 @@
 /**
- * flags.ts — shared types + constants for the Points review-flag workflow.
+ * flags.ts — shared types + constants for Points count/remove overrides.
  *
- * A "review flag" marks one scored task (a Virtuous ContactNote, keyed by its
- * note id) for follow-up verification: someone wants to confirm it counted
- * correctly. Flags are SHARED — persisted in the ReportData S3 bucket so every
- * reviewer (Regina, Cole, …) sees the same queue across browsers and sessions.
+ * A stored flag with status "removed" excludes that task from totals. No flag
+ * (or any other status) means the task is counted as scored. Overrides are
+ * SHARED — persisted in the ReportData S3 bucket so every reviewer sees the
+ * same counted/removed set across browsers and sessions.
  *
- * This module is client-safe: pure types + constants, NO aws-sdk imports, so it
- * can be pulled into the browser page bundle. The S3 read/write lives in the
- * server-only companion `flags-store.ts`.
+ * Older documents may still contain "open" / "resolved" review flags; those
+ * do not change scoring. This module is client-safe: pure types + constants,
+ * NO aws-sdk imports. S3 read/write lives in `flags-store.ts`.
  */
 
 /** Where the shared flag document lives in the ReportData bucket. */
 export const FLAGS_KEY = "points/review-flags.json";
 
-export type FlagStatus = "open" | "resolved";
+export type FlagStatus = "open" | "resolved" | "removed";
 
-/** One review flag. Context fields are captured at flag time so the review
- * queue renders without re-joining to the scored rows. */
+/** True when this override excludes the task from dashboard totals. */
+export function isRemovedFlag(flag?: { status?: FlagStatus } | null): boolean {
+  return flag?.status === "removed";
+}
+
+/** One count/remove override. Context fields are captured at save time so a
+ * removed row can still render without re-joining to the scored rows. */
 export type ReviewFlag = {
   noteId: string;
   contactId?: string | null;

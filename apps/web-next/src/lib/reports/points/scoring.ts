@@ -8,8 +8,23 @@ const points = require("./points.js") as {
 };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const aggregateMod = require("./aggregate.js") as {
-  aggregate: (rows: unknown[], opts: { start: Date | null; end: Date | null }) => unknown;
+  aggregate: (
+    rows: unknown[],
+    opts: { start: Date | null; end: Date | null; flags?: Record<string, unknown> },
+  ) => unknown;
   dailyTotals: (rows: unknown[]) => unknown[];
+  rowId: (r: unknown) => string | null;
+  weekKey: (d: Date) => string;
+  weekLabel: (key: string) => string;
+  daysOfWeek: (mondayKey: string) => string[];
+  trackerBreakdown: (
+    rows: unknown[],
+    layout?: unknown,
+  ) => {
+    lines: Array<{ id: string; label: string; section: boolean; indent: boolean; count: number; points: number }>;
+    totalPoints: number;
+    totalCount: number;
+  };
 };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const reportMod = require("./report.js") as {
@@ -34,6 +49,7 @@ const config = require("./config.js") as {
   DAY_TARGETS: Record<string, { points: number; blurb: string }>;
   BUCKETS: Array<{ id: string; label: string; points: number; color: string }>;
   DEFINITIONS: Array<{ term: string; text: string }>;
+  TRACKER_LAYOUT: unknown[];
 };
 
 export const scoreAll = points.scoreAll;
@@ -45,6 +61,11 @@ export const downloadText = reportMod.downloadText;
 export const virtuousContactUrl = reportMod.virtuousContactUrl;
 export const aggregate = aggregateMod.aggregate;
 export const dailyTotals = aggregateMod.dailyTotals;
+export const rowId = aggregateMod.rowId;
+export const weekKey = aggregateMod.weekKey;
+export const weekLabel = aggregateMod.weekLabel;
+export const daysOfWeek = aggregateMod.daysOfWeek;
+export const trackerBreakdown = aggregateMod.trackerBreakdown;
 export const TIERS = config.TIERS;
 export const tierFor = config.tierFor;
 export const POINTS_MAP = config.POINTS_MAP;
@@ -52,3 +73,4 @@ export const CONFLICTS = config.CONFLICTS;
 export const DAY_TARGETS = config.DAY_TARGETS;
 export const BUCKETS = config.BUCKETS;
 export const DEFINITIONS = config.DEFINITIONS;
+export const TRACKER_LAYOUT = config.TRACKER_LAYOUT;

@@ -136,7 +136,8 @@ main.wrap.dash { max-width: 1280px; padding: 28px 24px 64px; }
   color: var(--slate-400);
 }
 .daterange-sep { color: var(--line); font-weight: 300; }
-.daterange input[type="date"] {
+.daterange input[type="date"],
+.daterange select {
   appearance: none;
   -webkit-appearance: none;
   font-family: var(--sans);
@@ -150,7 +151,16 @@ main.wrap.dash { max-width: 1280px; padding: 28px 24px 64px; }
   min-height: 32px;
   color-scheme: light;
 }
-.daterange input[type="date"]:focus {
+.daterange select {
+  min-width: 10.5rem;
+  padding-right: 28px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%230c233f' d='M1 1l5 5 5-5'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
+}
+.daterange input[type="date"]:focus,
+.daterange select:focus {
   outline: none;
   border-color: var(--navy);
   box-shadow: 0 0 0 3px var(--gold-soft);
@@ -218,7 +228,33 @@ table.grid th, table.grid td { text-align: right; padding: 10px 12px; border-bot
 table.grid th:first-child, table.grid td:first-child { text-align: left; }
 table.grid thead th { color: var(--slate-400); font-weight: 500; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; }
 table.grid tbody tr:hover { background: var(--bg-soft); }
+table.grid tbody tr.clickable { cursor: pointer; }
+table.grid tbody tr.selected { background: var(--navy-100); }
 table.grid td.pts { font-weight: 500; color: var(--navy); }
+
+.ma-drill { display: grid; grid-template-columns: 240px 1fr; gap: 24px; align-items: start; margin-top: 22px; }
+.tracker { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: .88rem; }
+.tracker-head, .tracker-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  padding: 6px 12px;
+  align-items: baseline;
+}
+.tracker-head {
+  background: var(--navy);
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 500;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.tracker-row { border-top: 1px solid var(--line); }
+.tracker-row.section { font-weight: 700; background: var(--bg-soft); color: var(--navy); }
+.tracker-row.indent { padding-left: 22px; color: var(--slate); }
+.tracker-row.total { background: var(--gold-soft); font-weight: 700; color: var(--navy); border-top: 2px solid var(--gold); }
+.day-seg { margin-bottom: 4px; }
+.day-seg button.empty { opacity: .45; }
 
 .two-col { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; align-items: start; }
 
@@ -235,7 +271,7 @@ table.grid td.pts { font-weight: 500; color: var(--navy); }
 .pill.assumed { background: #fdf1e7; border-color: #f0c9a8; color: #9a4a1e; }
 .pill.pdf { background: var(--gold-soft); border-color: #e6cf94; color: #7a5a10; }
 
-/* ---- Verification drill-in + review flags ---- */
+/* ---- Verification drill-in + count/remove ---- */
 .mini-btn { border: 1px solid var(--line); background: #fff; color: var(--navy); font-family: var(--sans); font-size: .78rem; font-weight: 500; padding: 4px 10px; border-radius: 999px; cursor: pointer; }
 .mini-btn:hover { border-color: var(--gold); }
 .mini-btn:disabled { opacity: .5; cursor: default; }
@@ -271,6 +307,7 @@ table.weekgrid th.metric { text-align: left; color: var(--navy); font-weight: 50
 @media (max-width: 820px) {
   .kpis { grid-template-columns: repeat(2, 1fr); }
   .two-col { grid-template-columns: 1fr; }
+  .ma-drill { grid-template-columns: 1fr; }
   .topbar .wrap { flex-direction: column; align-items: flex-start; gap: 10px; }
   .page-head { align-items: flex-start; }
   .seg {

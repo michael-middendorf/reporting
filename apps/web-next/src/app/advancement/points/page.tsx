@@ -6,29 +6,47 @@ import {
   aggregate,
   BUCKETS,
   buildCalculationCSV,
-  CONFLICTS,
   dailyTotals,
+  daysOfWeek,
   downloadText,
+  rowId,
   scoreAll,
   scoreEventsForDisplay,
   tierFor,
   TIERS,
+  trackerBreakdown,
   virtuousContactUrl,
+  weekKey,
+  weekLabel,
 } from "@/lib/reports/points/scoring";
 import type { FlagInput, ReviewFlag } from "@/lib/reports/points/flags";
 import "@/styles/points.css";
 
-type RangeKey = "today" | "7" | "14" | "week" | "all" | "custom";
+type RangeKey = "week" | "2" | "4" | "all" | "custom";
 
-const RANGES: Record<string, { label: string; days?: number; weekToDate?: boolean }> = {
-  "7": { label: "Last 7 days", days: 7 },
-  "14": { label: "Last 14 days", days: 14 },
-  today: { label: "Today", days: 1 },
-  week: { label: "This week", weekToDate: true },
+const RANGES: Record<string, { label: string; weeks?: number }> = {
+  week: { label: "This week", weeks: 1 },
+  "2": { label: "Last 2 weeks", weeks: 2 },
+  "4": { label: "Last 4 weeks", weeks: 4 },
   all: { label: "All" },
 };
 
-const RANGE_KEYS = ["7", "14", "today", "week", "all"] as const;
+const RANGE_KEYS = ["week", "2", "4", "all"] as const;
+
+function parseDay(iso: string): Date {
+  return new Date(iso + "T00:00:00");
+}
+
+function thisMonday(): Date {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const day = (today.getDay() + 6) % 7;
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate() - day);
+}
+
+function sundayOf(monday: Date): Date {
+  return new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+}
 
 type Owner = {
   name: string;
@@ -104,30 +122,26 @@ type Row = {
   contactId?: string | number | null;
   contactName?: string | null;
   noteId?: string | number | null;
+  giftId?: string | number | null;
   source?: string | null;
   conflict?: string | null;
   unmatched?: boolean;
+  removed?: boolean;
 };
 
-function bounds(key: RangeKey, customStart: string | null, customEnd: string | null) {
+/** Inclusive Monday–Sunday bounds. `weekStart` / `weekEnd` are Monday keys. */
+function bounds(key: RangeKey, weekStart: string | null, weekEnd: string | null) {
   if (key === "custom") {
     return {
-      start: customStart ? new Date(customStart + "T00:00:00") : null,
-      end: customEnd ? new Date(customEnd + "T00:00:00") : null,
+      start: weekStart ? parseDay(weekStart) : null,
+      end: weekEnd ? sundayOf(parseDay(weekEnd)) : null,
     };
   }
-  const now = new Date();
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const cfg = RANGES[key];
-  if (!cfg || (!cfg.days && !cfg.weekToDate)) return { start: null, end: null };
-  if (cfg.weekToDate) {
-    const day = (end.getDay() + 6) % 7;
-    return { start: new Date(end.getFullYear(), end.getMonth(), end.getDate() - day), end: null };
-  }
-  return {
-    start: new Date(end.getFullYear(), end.getMonth(), end.getDate() - (cfg.days || 1) + 1),
-    end: null,
-  };
+  if (key === "all" || !RANGES[key]?.weeks) return { start: null, end: null };
+  const mon = thisMonday();
+  const weeks = RANGES[key].weeks || 1;
+  const start = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() - (weeks - 1) * 7);
+  return { start, end: sundayOf(mon) };
 }
 
 async function loadRaw() {
@@ -171,15 +185,16 @@ export default function PointsPage() {
   const [events, setEvents] = useState<Array<Record<string, unknown>> | null>(null);
   const [meta, setMeta] = useState<Record<string, unknown>>({});
   const [range, setRange] = useState<RangeKey>("all");
-  const [customStart, setCustomStart] = useState("");
-  const [customEnd, setCustomEnd] = useState("");
+  const [weekStart, setWeekStart] = useState("");
+  const [weekEnd, setWeekEnd] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [pickedWeek, setPickedWeek] = useState<string | null>(null);
+  const [pickedDay, setPickedDay] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("Loading…");
   const [flags, setFlags] = useState<Record<string, ReviewFlag>>({});
   const [flagBusy, setFlagBusy] = useState<string | null>(null);
   const [flagError, setFlagError] = useState<string | null>(null);
-  const [showQueue, setShowQueue] = useState(true);
 
   useEffect(() => {
     loadRaw()
@@ -194,7 +209,7 @@ export default function PointsPage() {
       .catch((e) => setError(String(e)));
   }, []);
 
-  // Shared review-flag queue (persisted in S3; see /api/reports/points/flags).
+  // Shared count/remove overrides (persisted in S3; see /api/reports/points/flags).
   useEffect(() => {
     apiFetch("/api/reports/points/flags")
       .then((r) => (r.ok ? r.json() : { flags: {} }))
@@ -202,9 +217,33 @@ export default function PointsPage() {
       .catch(() => {});
   }, []);
 
+  const weekOptions = useMemo(() => {
+    const keys = new Set<string>([weekKey(thisMonday())]);
+    for (const r of rows || []) {
+      const raw = r.date;
+      const d =
+        raw instanceof Date
+          ? raw
+          : typeof r.day === "string"
+            ? parseDay(r.day)
+            : null;
+      if (d && !Number.isNaN(+d)) keys.add(weekKey(d));
+    }
+    const sorted = [...keys].sort();
+    if (!sorted.length) return [weekKey(thisMonday())];
+    const filled: string[] = [];
+    const cursor = parseDay(sorted[0]);
+    const last = parseDay(sorted[sorted.length - 1]);
+    while (cursor <= last) {
+      filled.push(weekKey(cursor));
+      cursor.setDate(cursor.getDate() + 7);
+    }
+    return filled;
+  }, [rows]);
+
   const model = useMemo(() => {
-    const { start, end } = bounds(range, customStart || null, customEnd || null);
-    return aggregate(rows || [], { start, end }) as {
+    const { start, end } = bounds(range, weekStart || null, weekEnd || null);
+    return aggregate(rows || [], { start, end, flags }) as {
       totals: {
         points?: number;
         count?: number;
@@ -223,7 +262,7 @@ export default function PointsPage() {
       weekGrid: WeekGridRow[];
       bests: Bests;
     };
-  }, [rows, range, customStart, customEnd]);
+  }, [rows, range, weekStart, weekEnd, flags]);
 
   const daily = useMemo(
     () => dailyTotals(model.rows) as Array<{ day?: string; date: string | Date; points: number }>,
@@ -246,23 +285,19 @@ export default function PointsPage() {
       .map(([, v]) => v),
   );
 
+  const boundWindow = bounds(range, weekStart || null, weekEnd || null);
+  const selectStart = boundWindow.start ? weekKey(boundWindow.start) : "";
+  const selectEnd = boundWindow.end ? weekKey(boundWindow.end) : "";
   const rangeLabel =
     range === "custom"
-      ? `${customStart || "…"} to ${customEnd || "…"}`
+      ? selectStart && selectEnd
+        ? `Week of ${weekLabel(selectStart)} – week of ${weekLabel(selectEnd)}`
+        : selectStart
+          ? `Week of ${weekLabel(selectStart)} onward`
+          : selectEnd
+            ? `Through week of ${weekLabel(selectEnd)}`
+            : "All"
       : RANGES[range]?.label || "All";
-
-  const flagList = useMemo(
-    () =>
-      Object.values(flags).sort((a, b) =>
-        a.status === b.status
-          ? (b.flaggedAt || "").localeCompare(a.flaggedAt || "")
-          : a.status === "open"
-            ? -1
-            : 1,
-      ),
-    [flags],
-  );
-  const openFlagCount = flagList.filter((f) => f.status === "open").length;
 
   const ownerRows = useMemo(() => {
     if (!selectedOwner) return [] as Row[];
@@ -270,6 +305,33 @@ export default function PointsPage() {
       .filter((r) => r.owner === selectedOwner.name)
       .sort((a, b) => b.day.localeCompare(a.day) || b.points - a.points);
   }, [model.rows, selectedOwner]);
+
+  const ownerWeeks = selectedOwner?.weekList || [];
+  const activeWeek =
+    pickedWeek && ownerWeeks.some((w) => w.key === pickedWeek)
+      ? pickedWeek
+      : ownerWeeks.length
+        ? ownerWeeks[ownerWeeks.length - 1].key
+        : null;
+  const weekDayList = activeWeek ? daysOfWeek(activeWeek) : [];
+  const weekRows = useMemo(
+    () =>
+      ownerRows.filter((r) => {
+        if (!activeWeek || !r.day) return false;
+        return weekKey(parseDay(r.day)) === activeWeek;
+      }),
+    [ownerRows, activeWeek],
+  );
+  const daysWithActivity = useMemo(() => new Set(weekRows.map((r) => r.day)), [weekRows]);
+  const activeDay =
+    pickedDay && weekDayList.includes(pickedDay)
+      ? pickedDay
+      : [...weekDayList].reverse().find((d) => daysWithActivity.has(d)) || weekDayList[0] || null;
+  const dayRows = useMemo(
+    () => ownerRows.filter((r) => r.day === activeDay).sort((a, b) => b.points - a.points),
+    [ownerRows, activeDay],
+  );
+  const dayMix = useMemo(() => trackerBreakdown(dayRows), [dayRows]);
 
   async function saveFlag(input: FlagInput) {
     setFlagBusy(String(input.noteId));
@@ -284,7 +346,7 @@ export default function PointsPage() {
       const flag = data.flag as ReviewFlag;
       setFlags((f) => ({ ...f, [String(flag.noteId)]: flag }));
     } catch (e) {
-      setFlagError(`Could not save flag: ${String(e)}`);
+      setFlagError(`Could not save: ${String(e)}`);
     } finally {
       setFlagBusy(null);
     }
@@ -308,20 +370,17 @@ export default function PointsPage() {
         return n;
       });
     } catch (e) {
-      setFlagError(`Could not remove flag: ${String(e)}`);
+      setFlagError(`Could not count: ${String(e)}`);
     } finally {
       setFlagBusy(null);
     }
   }
 
-  function onFlag(r: Row) {
-    const reason = window.prompt(
-      `Flag this task for review?\n\n${r.owner} · ${r.day} · ${r.label} (${r.points} pts)\n\nReason / what to verify:`,
-      "",
-    );
-    if (reason == null) return; // cancelled
+  function onRemove(r: Row) {
+    const id = rowId(r);
+    if (!id) return;
     saveFlag({
-      noteId: String(r.noteId),
+      noteId: id,
       contactId: r.contactId != null ? String(r.contactId) : null,
       contactName: r.contactName || null,
       owner: r.owner,
@@ -329,8 +388,14 @@ export default function PointsPage() {
       type: r.type,
       label: r.label,
       points: r.points,
-      reason: reason.trim(),
+      status: "removed",
     });
+  }
+
+  function onCount(r: Row) {
+    const id = rowId(r);
+    if (!id) return;
+    deleteFlag(id);
   }
 
   function exportCalculation() {
@@ -372,8 +437,8 @@ export default function PointsPage() {
                     aria-pressed={active}
                     onClick={() => {
                       setRange(key);
-                      setCustomStart("");
-                      setCustomEnd("");
+                      setWeekStart("");
+                      setWeekEnd("");
                     }}
                   >
                     {cfg.label}
@@ -381,34 +446,63 @@ export default function PointsPage() {
                 );
               })}
             </div>
-            <div className={`daterange${range === "custom" ? " active" : ""}`}>
+            <div className={`daterange${range === "custom" ? " active" : ""}`} role="group" aria-label="Week range">
               <label>
-                From
-                <input
-                  type="date"
-                  value={customStart}
+                From week
+                <select
+                  aria-label="From week"
+                  value={selectStart}
                   onChange={(e) => {
-                    setCustomStart(e.target.value);
-                    setRange("custom");
+                    const v = e.target.value;
+                    const nextEnd = v && selectEnd && v > selectEnd ? v : selectEnd;
+                    setWeekStart(v);
+                    setWeekEnd(nextEnd);
+                    setRange(v || nextEnd ? "custom" : "all");
                   }}
-                />
+                >
+                  <option value="">All weeks</option>
+                  {weekOptions.map((k) => (
+                    <option key={`from-${k}`} value={k}>
+                      Week of {weekLabel(k)}
+                    </option>
+                  ))}
+                </select>
               </label>
               <span className="daterange-sep" aria-hidden="true">
                 –
               </span>
               <label>
-                To
-                <input
-                  type="date"
-                  value={customEnd}
+                To week
+                <select
+                  aria-label="To week"
+                  value={selectEnd}
                   onChange={(e) => {
-                    setCustomEnd(e.target.value);
-                    setRange("custom");
+                    const v = e.target.value;
+                    const nextStart = v && selectStart && v < selectStart ? v : selectStart;
+                    setWeekStart(nextStart);
+                    setWeekEnd(v);
+                    setRange(nextStart || v ? "custom" : "all");
                   }}
-                />
+                >
+                  <option value="">All weeks</option>
+                  {weekOptions.map((k) => (
+                    <option key={`to-${k}`} value={k}>
+                      Week of {weekLabel(k)}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
           </div>
+
+          <section className="panel callout" style={{ marginBottom: 22 }}>
+            <strong>How this is tracked.</strong> Virtuous is the source. Log the activity on the donor’s
+            contact, with the right note type, as yourself. Wrong person, wrong type, or no note = not counted.{" "}
+            <strong>Gifts:</strong> there must be an MA note on that contact on or before the gift date
+            (within 45 days). A thank-you after the gift does not pull it. 100 points also need a donation
+            note type plus a posted gift.{" "}
+            <a href="/advancement/points/methodology">Full rules</a>
+          </section>
 
           <section className="kpis">
             {[
@@ -439,99 +533,8 @@ export default function PointsPage() {
             ))}
           </section>
 
-          {flagList.length > 0 && (
-            <section
-              className="panel"
-              style={{ marginBottom: 24, borderLeft: "3px solid var(--warn)" }}
-            >
-              <div style={{ display: "flex", alignItems: "baseline", gap: 10, justifyContent: "space-between" }}>
-                <h2 style={{ margin: 0 }}>
-                  Review queue{" "}
-                  <span style={{ fontFamily: "var(--sans)", fontWeight: 400, fontSize: ".9rem", color: "var(--slate-400)" }}>
-                    {openFlagCount} open · {flagList.length - openFlagCount} resolved
-                  </span>
-                </h2>
-                <button type="button" className="mini-btn" onClick={() => setShowQueue((s) => !s)}>
-                  {showQueue ? "Hide" : "Show"}
-                </button>
-              </div>
-              {flagError && <p style={{ color: "var(--warn)", fontSize: ".85rem", margin: "8px 0 0" }}>{flagError}</p>}
-              {showQueue && (
-                <div style={{ overflowX: "auto", marginTop: 12 }}>
-                  <table className="grid audit">
-                    <thead>
-                      <tr>
-                        <th>Status</th>
-                        <th>MA</th>
-                        <th>Date</th>
-                        <th>Activity</th>
-                        <th style={{ textAlign: "right" }}>Pts</th>
-                        <th>Reason</th>
-                        <th>Flagged by</th>
-                        <th>Virtuous</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {flagList.map((f) => (
-                        <tr key={f.noteId}>
-                          <td>
-                            {f.status === "open" ? (
-                              <span className="pill warn">Open</span>
-                            ) : (
-                              <span className="pill">Resolved</span>
-                            )}
-                          </td>
-                          <td>{f.owner || "—"}</td>
-                          <td style={{ whiteSpace: "nowrap" }}>{f.day || "—"}</td>
-                          <td>{f.label || f.type || "—"}</td>
-                          <td className="pts">{f.points ?? "—"}</td>
-                          <td style={{ maxWidth: 260, whiteSpace: "normal" }}>{f.reason || "—"}</td>
-                          <td style={{ fontSize: ".78rem", color: "var(--slate-400)" }}>{f.flaggedBy}</td>
-                          <td>
-                            {f.contactId ? (
-                              <a href={virtuousContactUrl(f.contactId)} target="_blank" rel="noopener noreferrer">
-                                Open ↗
-                              </a>
-                            ) : (
-                              "—"
-                            )}
-                          </td>
-                          <td style={{ whiteSpace: "nowrap" }}>
-                            {f.status === "open" ? (
-                              <button
-                                className="mini-btn"
-                                disabled={flagBusy === f.noteId}
-                                onClick={() => saveFlag({ noteId: f.noteId, status: "resolved" })}
-                              >
-                                Resolve
-                              </button>
-                            ) : (
-                              <button
-                                className="mini-btn"
-                                disabled={flagBusy === f.noteId}
-                                onClick={() => saveFlag({ noteId: f.noteId, status: "open" })}
-                              >
-                                Reopen
-                              </button>
-                            )}{" "}
-                            <button
-                              className="mini-btn danger"
-                              disabled={flagBusy === f.noteId}
-                              onClick={() => {
-                                if (window.confirm("Remove this flag?")) deleteFlag(f.noteId);
-                              }}
-                            >
-                              Remove
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
+          {flagError && (
+            <p style={{ color: "var(--warn)", fontSize: ".85rem", margin: "0 0 16px" }}>{flagError}</p>
           )}
 
           <section className="section">
@@ -546,7 +549,11 @@ export default function PointsPage() {
                     key={o.name}
                     type="button"
                     className={`macard${selected === o.name ? " selected" : ""}`}
-                    onClick={() => setSelected(o.name === selected ? null : o.name)}
+                    onClick={() => {
+                      setSelected(o.name === selected ? null : o.name);
+                      setPickedWeek(null);
+                      setPickedDay(null);
+                    }}
                   >
                     <div className="rank">{idx + 1}</div>
                     <div className="name">{o.name}</div>
@@ -599,7 +606,14 @@ export default function PointsPage() {
                 </thead>
                 <tbody>
                   {(selectedOwner.weekList || []).map((w) => (
-                    <tr key={w.key}>
+                    <tr
+                      key={w.key}
+                      className={`clickable${w.key === activeWeek ? " selected" : ""}`}
+                      onClick={() => {
+                        setPickedWeek(w.key);
+                        setPickedDay(null);
+                      }}
+                    >
                       <td>Week of {w.key.slice(5)}</td>
                       <td className="pts tabular">{w.points.toLocaleString()}</td>
                       <td className="tabular">{w.conversations}</td>
@@ -612,10 +626,63 @@ export default function PointsPage() {
                 </tbody>
               </table>
 
-              <h3 style={{ marginTop: 22 }}>
-                Tasks — {ownerRows.length} activities{" "}
-                <span style={{ fontFamily: "var(--sans)", fontWeight: 400, fontSize: ".85rem", color: "var(--slate-400)" }}>
-                  “Open ↗” verifies the record in Virtuous · ⚑ flags a task for review
+              <div className="ma-drill">
+                <div>
+                  <h3 style={{ marginTop: 0 }}>
+                    {activeDay
+                      ? parseDay(activeDay).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })
+                      : "Categories"}
+                    <span className="section-hint"> tracker mix</span>
+                  </h3>
+                  <div className="tracker">
+                    <div className="tracker-head">
+                      <span>Category</span>
+                      <span>Pts</span>
+                    </div>
+                    {dayMix.lines.map((line) => (
+                      <div
+                        key={line.id}
+                        className={`tracker-row${line.section ? " section" : ""}${line.indent ? " indent" : ""}`}
+                      >
+                        <span>{line.label}</span>
+                        <span className="tabular">
+                          {line.section ? "" : line.points.toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="tracker-row total">
+                      <span>TOTAL</span>
+                      <span className="tabular">{dayMix.totalPoints.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+                <div>
+              <h3 style={{ marginTop: 0 }}>
+                Day{" "}
+                <span className="section-hint">pick a date to see that day’s activities</span>
+              </h3>
+              <div className="seg day-seg" role="group" aria-label="Day in week">
+                {weekDayList.map((d) => {
+                  const dt = parseDay(d);
+                  const label = dt.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+                  const has = daysWithActivity.has(d);
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      className={`${d === activeDay ? "active" : ""}${has ? "" : " empty"}`}
+                      aria-pressed={d === activeDay}
+                      onClick={() => setPickedDay(d)}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <h3 style={{ marginTop: 18 }}>
+                Tasks — {dayRows.length} {dayRows.length === 1 ? "activity" : "activities"}{" "}
+                <span className="section-hint">
+                  Wrong note type or note on the wrong contact will not count · Count/Remove changes totals · Open ↗ verifies in Virtuous
                 </span>
               </h3>
               <div style={{ overflow: "auto", maxHeight: 520, border: "1px solid var(--line)", borderRadius: 10 }}>
@@ -628,18 +695,31 @@ export default function PointsPage() {
                       <th style={{ textAlign: "right" }}>Pts</th>
                       <th>Status</th>
                       <th>Virtuous</th>
-                      <th>Review</th>
+                      <th>Count / Remove</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {ownerRows.map((r, i) => {
-                      const noteKey = r.noteId != null ? String(r.noteId) : null;
-                      const flag = noteKey ? flags[noteKey] : undefined;
-                      const conflict = r.conflict
-                        ? (CONFLICTS as Record<string, { title: string; resolved: string }>)[r.conflict]
-                        : null;
+                    {dayRows.length === 0 && (
+                      <tr>
+                        <td colSpan={7} style={{ color: "var(--slate-400)" }}>
+                          No activities on this day.
+                        </td>
+                      </tr>
+                    )}
+                    {dayRows.map((r, i) => {
+                      const key = rowId(r);
+                      const removed = !!r.removed;
                       return (
-                        <tr key={noteKey || `row-${i}`} style={r.unmatched ? { background: "#fdf4ef" } : undefined}>
+                        <tr
+                          key={key || `row-${i}`}
+                          style={
+                            removed
+                              ? { opacity: 0.55 }
+                              : r.unmatched
+                                ? { background: "#fdf4ef" }
+                                : undefined
+                          }
+                        >
                           <td style={{ whiteSpace: "nowrap" }}>
                             {r.day}
                             {!r.weekday && <span style={{ color: "var(--slate-400)" }}> (wknd)</span>}
@@ -651,12 +731,10 @@ export default function PointsPage() {
                           <td style={{ fontSize: ".78rem", color: "var(--slate-400)" }}>{r.type}</td>
                           <td className="pts">{r.points}</td>
                           <td>
-                            {r.unmatched ? (
-                              <span className="pill warn">NOT COUNTED</span>
-                            ) : conflict ? (
-                              <span className="pill assumed" title={`${conflict.title} → scored as ${conflict.resolved}`}>
-                                conflict
-                              </span>
+                            {removed ? (
+                              <span className="pill warn">removed</span>
+                            ) : r.unmatched ? (
+                              <span className="pill warn">not counted</span>
                             ) : (
                               <span className="pill">counted</span>
                             )}
@@ -671,38 +749,16 @@ export default function PointsPage() {
                             )}
                           </td>
                           <td style={{ whiteSpace: "nowrap" }}>
-                            {!noteKey ? (
+                            {!key || (r.unmatched && !removed) ? (
                               <span style={{ color: "var(--slate-400)" }}>—</span>
-                            ) : !flag ? (
-                              <button className="mini-btn" disabled={flagBusy === noteKey} onClick={() => onFlag(r)}>
-                                ⚑ Flag
+                            ) : removed ? (
+                              <button className="mini-btn solid" disabled={flagBusy === key} onClick={() => onCount(r)}>
+                                Count
                               </button>
-                            ) : flag.status === "open" ? (
-                              <>
-                                <span className="pill warn" title={flag.reason}>
-                                  ⚑ Flagged
-                                </span>{" "}
-                                <button
-                                  className="mini-btn"
-                                  disabled={flagBusy === noteKey}
-                                  onClick={() => saveFlag({ noteId: noteKey, status: "resolved" })}
-                                >
-                                  Resolve
-                                </button>
-                              </>
                             ) : (
-                              <>
-                                <span className="pill" title={flag.reason}>
-                                  ✓ Resolved
-                                </span>{" "}
-                                <button
-                                  className="mini-btn danger"
-                                  disabled={flagBusy === noteKey}
-                                  onClick={() => deleteFlag(noteKey)}
-                                >
-                                  Remove
-                                </button>
-                              </>
+                              <button className="mini-btn danger" disabled={flagBusy === key} onClick={() => onRemove(r)}>
+                                Remove
+                              </button>
                             )}
                           </td>
                         </tr>
@@ -710,6 +766,8 @@ export default function PointsPage() {
                     })}
                   </tbody>
                 </table>
+              </div>
+                </div>
               </div>
             </section>
           )}
@@ -823,6 +881,12 @@ export default function PointsPage() {
               Donations Received <span className="section-hint">monthly AC is counted as 12 months, matching the tracker</span>
             </h2>
             <div className="panel">
+              <p className="footnote" style={{ marginTop: 0, marginBottom: 14 }}>
+                A gift is counted only when the MA logged a note on that donor in Virtuous on or before the
+                gift date. No note on the contact = the gift is not on this list. 100 points require a
+                donation note (‘New Donation or New AC’, ‘Annunciation Circle updated’, or ‘Update recurring
+                gift’) and a posted gift. Incorrect logging will not be tracked.
+              </p>
               <table className="grid" style={{ marginBottom: 18 }}>
                 <thead>
                   <tr>
@@ -880,8 +944,8 @@ export default function PointsPage() {
                 </table>
               ) : (
                 <p className="footnote">
-                  No posted Virtuous gifts attributed to an MA in this range. A gift counts when the MA
-                  logged activity on that donor on or before the gift date. One-time gifts use the posted amount.
+                  No posted Virtuous gifts with an MA note on that donor in this range. Log the note on the
+                  contact on or before the gift date or it will not count. One-time gifts use the posted amount.
                   New monthly commitments are counted once as monthly amount × 12.
                 </p>
               )}

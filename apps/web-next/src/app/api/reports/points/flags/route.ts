@@ -1,10 +1,11 @@
 /**
- * /api/reports/points/flags — shared review-flag queue for the Points report.
+ * /api/reports/points/flags — shared count/remove overrides for the Points report.
  *
- *   GET    -> { flags: { [noteId]: ReviewFlag } }        (read the shared queue)
- *   POST   -> body FlagInput; create/update a flag        (server stamps identity)
- *   DELETE -> ?noteId=...  ; remove a flag (un-flag)
+ *   GET    -> { flags: { [noteId]: ReviewFlag } }        (read the shared map)
+ *   POST   -> body FlagInput; create/update an override   (server stamps identity)
+ *   DELETE -> ?noteId=...  ; drop the override (count again)
  *
+ * Status "removed" excludes that task from totals. DELETE (or no flag) counts it.
  * All verbs require login + access to the `points` report. The reviewer's email
  * (from the signed session) is the authoritative `flaggedBy` / `updatedBy` — the
  * client cannot spoof it. This explicit `flags/` segment takes precedence over
@@ -44,8 +45,8 @@ export async function POST(req: Request) {
   if (!body || body.noteId == null || String(body.noteId).trim() === "") {
     return NextResponse.json({ error: "noteId is required" }, { status: 400 });
   }
-  if (body.status && body.status !== "open" && body.status !== "resolved") {
-    return NextResponse.json({ error: "status must be 'open' or 'resolved'" }, { status: 400 });
+  if (body.status && body.status !== "open" && body.status !== "resolved" && body.status !== "removed") {
+    return NextResponse.json({ error: "status must be 'removed', 'open', or 'resolved'" }, { status: 400 });
   }
   if (body.reason != null && String(body.reason).length > 2000) {
     return NextResponse.json({ error: "reason too long" }, { status: 400 });
