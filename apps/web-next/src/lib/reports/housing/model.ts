@@ -5,9 +5,11 @@ import type {
   HallChart,
   HallMeta,
   Resident,
+  RoomStaffStatus,
   RoomVerificationState,
   Sec,
 } from "./types";
+import { HALL_REGISTRY } from "./names";
 import goret from "./halls/goret.chart.json";
 import jpii from "./halls/jpii.chart.json";
 import sebast from "./halls/sebast.chart.json";
@@ -15,14 +17,9 @@ import stjose from "./halls/stjose.chart.json";
 import teresa from "./halls/teresa.chart.json";
 import xavier from "./halls/xavier.chart.json";
 
-export const META: Record<string, HallMeta> = {
-  JPII: { abbr: "JPII", name: "St. John Paul II Hall", sec: "w", std: 4 },
-  XAVIER: { abbr: "Xav", name: "Francis Xavier Hall", sec: "w", std: 3 },
-  GORET: { abbr: "Gor", name: "Maria Goretti Hall", sec: "w", std: 3 },
-  TERESA: { abbr: "MT", name: "St. Mother Teresa Hall", sec: "m", std: 4 },
-  SEBAST: { abbr: "Seb", name: "St. Sebastian Hall", sec: "m", std: 3 },
-  STJOSE: { abbr: "JOS", name: "St. Joseph Hall", sec: "m", std: 2 },
-};
+export { HALL_CODES, HALL_REGISTRY, TERM } from "./names";
+
+export const META: Record<string, HallMeta> = HALL_REGISTRY;
 
 export const HALL_CHARTS: Record<string, HallChart> = {
   JPII: jpii as HallChart,
@@ -115,12 +112,128 @@ export function roomKey(hall: string, num: string): string {
   return `${hall}-${num}`;
 }
 
+export const ROOM_STATUSES: RoomStaffStatus[] = [
+  "available",
+  "off-limits",
+  "checked-out",
+  "maintenance",
+  "inventory-flag",
+];
+
+export const ROOM_STATUS_STORED: Record<RoomStaffStatus, string> = {
+  available: "Confirmed available",
+  "off-limits": "Off-limits",
+  "checked-out": "checked-out",
+  maintenance: "maintenance",
+  "inventory-flag": "inventory-flag",
+};
+
+export const ROOM_STATUS_LABEL: Record<RoomStaffStatus, string> = {
+  available: "Available",
+  "off-limits": "Off-limits",
+  "checked-out": "Checked out",
+  maintenance: "Maintenance",
+  "inventory-flag": "Inventory flag",
+};
+
+export const ROOM_STATUS_COLOR: Record<RoomStaffStatus, string | null> = {
+  available: null,
+  "off-limits": "#5c6578",
+  "checked-out": "#c47a2c",
+  maintenance: "#8a4b2e",
+  "inventory-flag": "#6b3fa0",
+};
+
+export function roomStatus(
+  edits: RoomVerificationState["edits"],
+  hall: string,
+  num: string,
+): RoomStaffStatus {
+  if (isBibleUnavailable(hall, num)) return "off-limits";
+  const raw = String(edits[roomKey(hall, num)]?.status || "")
+    .trim()
+    .toLowerCase();
+  if (!raw || raw === "available" || raw === "confirmed available") return "available";
+  if (raw === "off-limits") return "off-limits";
+  if (raw === "checked-out") return "checked-out";
+  if (raw === "maintenance") return "maintenance";
+  if (raw === "inventory-flag") return "inventory-flag";
+  return "available";
+}
+
 export function isStaffOffLimits(edits: RoomVerificationState["edits"], hall: string, num: string): boolean {
-  return edits[roomKey(hall, num)]?.status === "Off-limits";
+  return String(edits[roomKey(hall, num)]?.status || "").trim().toLowerCase() === "off-limits";
 }
 
 export function isOffLimits(edits: RoomVerificationState["edits"], hall: string, num: string): boolean {
   return isStaffOffLimits(edits, hall, num) || isBibleUnavailable(hall, num);
+}
+
+export function roomCellFill(sec: Sec, occ: number, cap: number, status: RoomStaffStatus): string {
+  return ROOM_STATUS_COLOR[status] || shade(sec, occ, cap);
+}
+
+export function occupantLabel(p: Resident): string {
+  const n = (p.name || "").trim();
+  return n || p.pcid || "";
+}
+
+export function roomFill(
+  edits: RoomVerificationState["edits"],
+  hall: string,
+  room: ChartRoom,
+  occ: OccIndex,
+  asof: string | null,
+): { cap: number; filled: number; open: number } {
+  const cap = effCap(edits, hall, room);
+  const filled = peopleIn(occ, hall, room.number, asof).length;
+  const open = isOffLimits(edits, hall, room.number) ? 0 : Math.max(0, cap - filled);
+  return { cap, filled, open };
+}
+
+export type RoomListRow = {
+  hall: string;
+  hallCode: string;
+  floor: number;
+  room: string;
+  type: string;
+  cap: number;
+  filled: number;
+  open: number;
+  occupants: string;
+  status: RoomStaffStatus;
+};
+
+export function roomListRows(
+  chart: HallChart,
+  hall: string,
+  occ: OccIndex,
+  edits: RoomVerificationState["edits"],
+  asof: string | null,
+  floorLevel: number | "all",
+): RoomListRow[] {
+  const meta = META[hall];
+  const floors = floorLevel === "all" ? chart.floors : chart.floors.filter((f) => f.level === floorLevel);
+  const rows: RoomListRow[] = [];
+  for (const f of floors) {
+    for (const r of f.rooms) {
+      const people = peopleIn(occ, hall, r.number, asof);
+      const counts = roomFill(edits, hall, r, occ, asof);
+      rows.push({
+        hall: meta?.abbr || hall,
+        hallCode: hall,
+        floor: f.level,
+        room: r.number,
+        type: r.type || "",
+        cap: counts.cap,
+        filled: counts.filled,
+        open: counts.open,
+        occupants: people.map(occupantLabel).filter(Boolean).join(", "),
+        status: roomStatus(edits, hall, r.number),
+      });
+    }
+  }
+  return rows;
 }
 
 export function effCap(edits: RoomVerificationState["edits"], hall: string, room: ChartRoom): number {
@@ -266,10 +379,9 @@ export function isIsoDate(d: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(d);
 }
 
-export function floorBands(floor: ChartFloor, hall: string, edits: RoomVerificationState["edits"]): ChartRoom[][] {
+export function floorBands(floor: ChartFloor): ChartRoom[][] {
   const bands: Record<number, ChartRoom[]> = {};
   for (const r of floor.rooms) {
-    if (isStaffOffLimits(edits, hall, r.number)) continue;
     (bands[r.row] ??= []).push(r);
   }
   const arr = Object.keys(bands)

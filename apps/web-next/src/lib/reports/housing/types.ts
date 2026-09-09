@@ -128,6 +128,14 @@ export type StudyAbroad = {
 export type HallMeta = {
   abbr: string;
   name: string;
+  short: string;
   sec: Sec;
   std: number;
 };
+
+export type RoomStaffStatus =
+  | "available"
+  | "off-limits"
+  | "checked-out"
+  | "maintenance"
+  | "inventory-flag";

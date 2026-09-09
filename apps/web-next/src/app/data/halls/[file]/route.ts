@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireReportAccess } from "@/lib/s3-proxy";
+import { requireHousingPreviewAccess } from "@/lib/s3-proxy";
 import { HALL_CHARTS } from "@/lib/reports/housing/store";
 import goret from "@/lib/reports/housing/halls/goret.chart.json";
 import jpii from "@/lib/reports/housing/halls/jpii.chart.json";
@@ -20,7 +20,7 @@ const CHARTS: Record<string, unknown> = {
 };
 
 export async function GET(req: Request, ctx: { params: Promise<{ file: string }> }) {
-  const denied = requireReportAccess(req, "housing");
+  const denied = requireHousingPreviewAccess(req);
   if (denied) return denied;
 
   const { file } = await ctx.params;

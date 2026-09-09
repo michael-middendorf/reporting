@@ -1,5 +1,7 @@
 /** Building metadata + occupancy shaping (from legacy amu_housing_combined.html). */
 
+import { HALL_REGISTRY } from "./names";
+
 export type HousingRecord = {
   session_id?: string;
   student_id?: string;
@@ -38,10 +40,10 @@ const META: Record<
     suiteThreshold?: number;
   }
 > = {
-  JPII: { full: "John Paul II Hall", gender: "women", maxOcc: 4, mixedRooms: false },
-  TERESA: { full: "Mother Teresa Hall", gender: "men", maxOcc: 4, mixedRooms: false },
+  JPII: { full: HALL_REGISTRY.JPII.name, gender: "women", maxOcc: 4, mixedRooms: false },
+  TERESA: { full: HALL_REGISTRY.TERESA.name, gender: "men", maxOcc: 4, mixedRooms: false },
   XAVIER: {
-    full: "Francis Xavier Hall",
+    full: HALL_REGISTRY.XAVIER.name,
     gender: "women",
     maxOcc: null,
     mixedRooms: true,
@@ -50,7 +52,7 @@ const META: Record<
     suiteThreshold: 6,
   },
   GORET: {
-    full: "Maria Goretti Hall",
+    full: HALL_REGISTRY.GORET.name,
     gender: "women",
     maxOcc: null,
     mixedRooms: true,
@@ -59,7 +61,7 @@ const META: Record<
     suiteThreshold: 6,
   },
   SEBAST: {
-    full: "St. Sebastian Hall",
+    full: HALL_REGISTRY.SEBAST.name,
     gender: "men",
     maxOcc: null,
     mixedRooms: true,
@@ -67,7 +69,7 @@ const META: Record<
     suiteMax: 8,
     suiteThreshold: 6,
   },
-  STJOSE: { full: "St. Joseph Hall", gender: "men", maxOcc: 2, mixedRooms: false },
+  STJOSE: { full: HALL_REGISTRY.STJOSE.name, gender: "men", maxOcc: 2, mixedRooms: false },
   MBK: { full: "Middle Brook Townhomes", gender: "other", maxOcc: null, mixedRooms: false },
   CIARA: { full: "Study Abroad", gender: "other", maxOcc: null, mixedRooms: false },
   MALAC: { full: "Study Abroad", gender: "other", maxOcc: null, mixedRooms: false },

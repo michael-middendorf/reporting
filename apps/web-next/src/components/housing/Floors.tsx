@@ -1,30 +1,40 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { isBibleUnavailable } from "@/lib/reports/housing/bible";
 import {
   HALL_CHARTS,
   META,
+  ROOM_STATUS_COLOR,
+  ROOM_STATUS_LABEL,
+  ROOM_STATUS_STORED,
+  ROOM_STATUSES,
   SEC_NAME,
   SEC_ORDER,
   bedsOpen,
-  effCap,
   floorBands,
   fmtDate,
   hallResidents,
   isEarly,
   isIsoDate,
-  isOffLimits,
-  isStaffOffLimits,
   peopleIn,
+  roomCellFill,
+  roomFill,
   roomKey,
+  roomListRows,
+  roomStatus,
   shade,
   srcLabel,
   todayIso,
 } from "@/lib/reports/housing/model";
-import type { OccIndex } from "@/lib/reports/housing/model";
-import type { ChartFloor, RoomVerificationState } from "@/lib/reports/housing/types";
+import type { OccIndex, RoomListRow } from "@/lib/reports/housing/model";
+import type { ChartFloor, RoomStaffStatus, RoomVerificationState } from "@/lib/reports/housing/types";
 import styles from "./housing.module.css";
 
 const TODAY = todayIso();
+
+type ListSortKey = keyof Pick<
+  RoomListRow,
+  "hall" | "floor" | "room" | "type" | "cap" | "filled" | "open" | "occupants" | "status"
+>;
 
 export function Floors({
   occ,
@@ -38,6 +48,8 @@ export function Floors({
   selectedRoom,
   setSelectedRoom,
   onRoomEdit,
+  mode,
+  setMode,
 }: {
   occ: OccIndex;
   edits: RoomVerificationState["edits"];
@@ -50,7 +62,12 @@ export function Floors({
   selectedRoom: string | null;
   setSelectedRoom: (n: string | null) => void;
   onRoomEdit: (key: string, field: "status" | "capacity", value: string) => void;
+  mode: "chart" | "list";
+  setMode: (m: "chart" | "list") => void;
 }) {
+  const [listScope, setListScope] = useState<"floor" | "hall">("floor");
+  const [sortKey, setSortKey] = useState<ListSortKey>("room");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const chart = HALL_CHARTS[hall];
   const meta = META[hall];
   const floors = chart?.floors || [];
@@ -76,9 +93,31 @@ export function Floors({
   const selectedChartRoom = selectedRoom
     ? chart?.floors.flatMap((f) => f.rooms).find((r) => r.number === selectedRoom)
     : undefined;
-  const cap = selectedChartRoom ? effCap(edits, hall, selectedChartRoom) : 0;
-  const off = selectedRoom ? isOffLimits(edits, hall, selectedRoom) : false;
+  const cap = selectedChartRoom ? roomFill(edits, hall, selectedChartRoom, occ, asof).cap : 0;
+  const status = selectedRoom ? roomStatus(edits, hall, selectedRoom) : "available";
+  const off = status === "off-limits";
   const bibleOff = selectedRoom ? isBibleUnavailable(hall, selectedRoom) : false;
+
+  const listRows = useMemo(() => {
+    if (!chart || mode !== "list") return [];
+    const level = listScope === "hall" ? "all" : activeFloor?.level ?? "all";
+    const rows = roomListRows(chart, hall, occ, edits, asof, level);
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+      return String(av).localeCompare(String(bv), undefined, { numeric: true }) * dir;
+    });
+  }, [chart, mode, listScope, activeFloor, hall, occ, edits, asof, sortKey, sortDir]);
+
+  function toggleSort(key: ListSortKey) {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
 
   return (
     <div className={styles.wrap}>
@@ -96,10 +135,26 @@ export function Floors({
         </label>
         {asof && asofSum && typeof asofSum !== "string" && (
           <span>
-            <b>{asofSum.inn.toLocaleString()}</b> in dorms as of {asofSum.label}
+            <b>{asofSum.inn.toLocaleString()}</b> in residence halls as of {asofSum.label}
             {asofSum.arr ? <> · <b style={{ color: "#1B5EA8" }}>{asofSum.arr}</b> moving in that day</> : null}
           </span>
         )}
+        <span className={styles.modeSep} />
+        <button type="button" className={`${styles.db} ${mode === "chart" ? styles.dbOn : ""}`} onClick={() => setMode("chart")}>Chart View</button>
+        <button type="button" className={`${styles.db} ${mode === "list" ? styles.dbOn : ""}`} onClick={() => setMode("list")}>List View</button>
+      </div>
+
+      <div className={styles.statusLegend} aria-label="Room status legend">
+        {ROOM_STATUSES.filter((s) => s !== "available").map((s) => (
+          <span key={s}>
+            <i style={{ background: ROOM_STATUS_COLOR[s] || "#cbd8ec" }} />
+            {ROOM_STATUS_LABEL[s]}
+          </span>
+        ))}
+        <span>
+          <i style={{ background: "#F4F8FE", boxShadow: "inset 0 0 0 1px #c0d0e8" }} />
+          Occupancy shade
+        </span>
       </div>
 
       <div className={styles.sectitle}>
@@ -147,8 +202,7 @@ export function Floors({
               {floors.map((f) => {
                 let open = 0;
                 for (const r of f.rooms) {
-                  if (isOffLimits(edits, hall, r.number)) continue;
-                  open += Math.max(0, effCap(edits, hall, r) - peopleIn(occ, hall, r.number, asof).length);
+                  open += roomFill(edits, hall, r, occ, asof).open;
                 }
                 const on = (floor ?? activeFloor.level) === f.level;
                 return (
@@ -160,15 +214,32 @@ export function Floors({
               })}
             </div>
           </div>
-          <FloorMap
-            hall={hall}
-            floor={activeFloor}
-            occ={occ}
-            edits={edits}
-            asof={asof}
-            selected={selectedRoom}
-            onSelect={setSelectedRoom}
-          />
+          {mode === "chart" ? (
+            <FloorMap
+              hall={hall}
+              floor={activeFloor}
+              occ={occ}
+              edits={edits}
+              asof={asof}
+              selected={selectedRoom}
+              onSelect={setSelectedRoom}
+            />
+          ) : (
+            <RoomList
+              rows={listRows}
+              selected={selectedRoom}
+              onSelect={(room, fl) => {
+                setFloor(fl);
+                setSelectedRoom(room);
+              }}
+              listScope={listScope}
+              setListScope={setListScope}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={toggleSort}
+              floorLabel={activeFloor.level}
+            />
+          )}
         </div>
       )}
 
@@ -179,7 +250,10 @@ export function Floors({
             <div className={styles.dh}>
               <div>
                 <h2>{meta.abbr} {selectedRoom}</h2>
-                <div className={styles.sub}>{selectedChartRoom.type || "Room"} · {people.length}/{cap} filled{off ? " · UNAVAILABLE" : ""}</div>
+                <div className={styles.sub}>
+                  {selectedChartRoom.type || "Room"} · {people.length}/{cap} filled
+                  {status !== "available" ? ` · ${ROOM_STATUS_LABEL[status].toUpperCase()}` : ""}
+                </div>
               </div>
               <button type="button" className={styles.x} onClick={() => setSelectedRoom(null)}>×</button>
             </div>
@@ -197,24 +271,34 @@ export function Floors({
                   />
                 </span>
                 <span className={styles.chip}>Filled <b>{people.length}</b></span>
-                <span className={styles.chip}>Open <b>{Math.max(0, cap - people.length)}</b></span>
+                <span className={styles.chip}>Open <b>{Math.max(0, off ? 0 : cap - people.length)}</b></span>
               </div>
               {bibleOff ? (
                 <div className={styles.sub}>Residence Hall Bible: not available for placement.</div>
               ) : null}
-              <button
-                type="button"
-                className={`${styles.btnroom} ${off ? styles.restore : styles.unavail}`}
-                disabled={bibleOff}
-                onClick={() => {
-                  if (bibleOff) return;
-                  onRoomEdit(roomKey(hall, selectedRoom), "status", off ? "Confirmed available" : "Off-limits");
-                  if (!off) setSelectedRoom(null);
-                }}
-              >
-                {off ? "Restore to floor plan" : "Mark unavailable"}
+              <label className={styles.statusField}>
+                Status
+                <select
+                  className={styles.statusSel}
+                  value={status}
+                  disabled={bibleOff}
+                  onChange={(e) =>
+                    onRoomEdit(
+                      roomKey(hall, selectedRoom),
+                      "status",
+                      ROOM_STATUS_STORED[e.target.value as RoomStaffStatus],
+                    )
+                  }
+                >
+                  {ROOM_STATUSES.map((s) => (
+                    <option key={s} value={s}>{ROOM_STATUS_LABEL[s]}</option>
+                  ))}
+                </select>
+              </label>
+              <button type="button" className={styles.moveBtn} disabled>
+                Move student — coming in a later ticket
               </button>
-              {!people.length && <div className={styles.sub}>No residents assigned to this room.</div>}
+              {!people.length && <div className={styles.sub}>No residents assigned to this dorm room.</div>}
               {people.map((p) => (
                 <div key={p.pcid} className={styles.person}>
                   <div className={styles.pn}>
@@ -249,6 +333,100 @@ function Kv({ k, v }: { k: string; v: string }) {
   );
 }
 
+function RoomList({
+  rows,
+  selected,
+  onSelect,
+  listScope,
+  setListScope,
+  sortKey,
+  sortDir,
+  onSort,
+  floorLabel,
+}: {
+  rows: RoomListRow[];
+  selected: string | null;
+  onSelect: (room: string, floor: number) => void;
+  listScope: "floor" | "hall";
+  setListScope: (s: "floor" | "hall") => void;
+  sortKey: ListSortKey;
+  sortDir: "asc" | "desc";
+  onSort: (k: ListSortKey) => void;
+  floorLabel: number;
+}) {
+  const cols: { key: ListSortKey; label: string }[] = [
+    { key: "hall", label: "Hall" },
+    { key: "floor", label: "Floor" },
+    { key: "room", label: "Room" },
+    { key: "type", label: "Type" },
+    { key: "cap", label: "Cap" },
+    { key: "filled", label: "Filled" },
+    { key: "open", label: "Open" },
+    { key: "occupants", label: "Occupants" },
+    { key: "status", label: "Status" },
+  ];
+  return (
+    <div className={styles.listWrap}>
+      <div className={styles.listBar}>
+        <span className={styles.listCount}>
+          {rows.length} rooms · {listScope === "hall" ? "whole hall" : `floor ${floorLabel}`}
+        </span>
+        <button type="button" className={`${styles.db} ${listScope === "floor" ? styles.dbOn : ""}`} onClick={() => setListScope("floor")}>This floor</button>
+        <button type="button" className={`${styles.db} ${listScope === "hall" ? styles.dbOn : ""}`} onClick={() => setListScope("hall")}>Whole hall</button>
+      </div>
+      <div className={styles.listScroll}>
+        <table className={styles.listTable}>
+          <thead>
+            <tr>
+              {cols.map((c) => (
+                <th key={c.key}>
+                  <button type="button" className={styles.thBtn} onClick={() => onSort(c.key)}>
+                    {c.label}
+                    {sortKey === c.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+                  </button>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr
+                key={`${r.hallCode}-${r.room}`}
+                className={`${styles.listRow} ${selected === r.room ? styles.listRowOn : ""}`}
+                tabIndex={0}
+                role="button"
+                aria-label={`Open room ${r.room}`}
+                onClick={() => onSelect(r.room, r.floor)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelect(r.room, r.floor);
+                  }
+                }}
+              >
+                <td>{r.hall}</td>
+                <td>{r.floor}</td>
+                <td className={styles.listRoom}>{r.room}</td>
+                <td>{r.type || "—"}</td>
+                <td>{r.cap}</td>
+                <td>{r.filled}</td>
+                <td>{r.open}</td>
+                <td className={styles.listOcc}>{r.occupants || "—"}</td>
+                <td>
+                  <span className={styles.stPill}>
+                    <i style={{ background: ROOM_STATUS_COLOR[r.status] || shade("o", r.filled, r.cap) }} />
+                    {ROOM_STATUS_LABEL[r.status]}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function FloorMap({
   hall,
   floor,
@@ -266,24 +444,30 @@ function FloorMap({
   selected: string | null;
   onSelect: (n: string) => void;
 }) {
-  const [top, bot] = floorBands(floor, hall, edits);
+  const [top, bot] = floorBands(floor);
   const n = Math.max(top.length, bot.length);
   const meta = META[hall];
-  const visible = floor.rooms.filter((r) => !isStaffOffLimits(edits, hall, r.number)).sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }));
+  const visible = floor.rooms.slice().sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true }));
 
   function box(r: (typeof floor.rooms)[number] | undefined, key: string) {
     if (!r) return <div key={key} className={`${styles.room} ${styles.spacer}`} />;
     const ppl = peopleIn(occ, hall, r.number, asof);
     const occN = ppl.length;
-    const cap = effCap(edits, hall, r);
+    const cap = roomFill(edits, hall, r, occ, asof).cap;
+    const st = roomStatus(edits, hall, r.number);
     const movingIn = Boolean(asof && ppl.some((p) => p.move_in === asof));
-    const dark = occN / Math.max(cap, 1) > 0.55;
+    const fill = roomCellFill(meta.sec, occN, cap, st);
+    const dark = st !== "available" || occN / Math.max(cap, 1) > 0.55;
     return (
       <button
         type="button"
         key={r.number}
-        className={`${styles.room} ${cap >= 6 ? styles.suite : ""} ${cap < meta.std && cap <= 2 ? styles.reduced : ""} ${movingIn ? styles.movein : ""} ${selected === r.number ? styles.selroom : ""}`}
-        style={{ background: shade(meta.sec, occN, cap), color: dark ? "#fff" : "var(--text)" }}
+        className={`${styles.room} ${cap >= 6 ? styles.suite : ""} ${cap < meta.std && cap <= 2 ? styles.reduced : ""} ${movingIn ? styles.movein : ""} ${selected === r.number ? styles.selroom : ""} ${st !== "available" ? styles.stMark : ""}`}
+        style={{
+          background: fill,
+          color: dark ? "#fff" : "var(--text)",
+          ["--st" as string]: ROOM_STATUS_COLOR[st] || "transparent",
+        }}
         onClick={() => onSelect(r.number)}
       >
         <div className={styles.rn}>{r.number}</div>
@@ -313,7 +497,8 @@ function FloorMap({
         <div className={styles.ulist}>
           {visible.map((r) => {
             const occN = peopleIn(occ, hall, r.number, asof).length;
-            const cap = effCap(edits, hall, r);
+            const cap = roomFill(edits, hall, r, occ, asof).cap;
+            const st = roomStatus(edits, hall, r.number);
             return (
               <button
                 type="button"
@@ -321,9 +506,9 @@ function FloorMap({
                 className={`${styles.urow} ${selected === r.number ? styles.urowOn : ""}`}
                 onClick={() => onSelect(r.number)}
               >
-                <span className={styles.rdot} style={{ background: shade(meta.sec, occN, cap) }} />
+                <span className={styles.rdot} style={{ background: roomCellFill(meta.sec, occN, cap, st) }} />
                 <span className={styles.un}>{r.number}</span>
-                <span className={styles.ut}>{r.type || ""}</span>
+                <span className={styles.ut}>{r.type || ROOM_STATUS_LABEL[st]}</span>
                 <span className={styles.uoc}>{occN}/{cap}</span>
               </button>
             );

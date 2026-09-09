@@ -2,6 +2,7 @@ import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
 import { canAccessReport, type ReportId } from "@/lib/access";
 import { currentUserEmail } from "@/lib/auth";
+import { housingLocalDevEnabled } from "@/lib/housing-local-dev";
 
 const region = process.env.AWS_REGION || "us-east-2";
 
@@ -37,6 +38,12 @@ export function requireReportAccess(req: Request, report: ReportId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   return null;
+}
+
+/** Local-dev skip for housing reads and room-overlay POST. Never on in production. */
+export function requireHousingPreviewAccess(req: Request) {
+  if (housingLocalDevEnabled()) return null;
+  return requireReportAccess(req, "housing");
 }
 
 export async function streamS3Object(bucket: string, key: string) {

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { requireReportAccess } from "@/lib/s3-proxy";
+import { requireHousingPreviewAccess } from "@/lib/s3-proxy";
 import { buildingsFromRecords, type HousingRecord } from "@/lib/reports/housing/shape";
 import { loadSourceRows, readJson } from "@/lib/sources";
 
 /** Housing occupancy from eRez (mirrored to qlik/housing_occupancy during cutover). */
 export async function GET(req: Request) {
-  const denied = requireReportAccess(req, "housing");
+  const denied = requireHousingPreviewAccess(req);
   if (denied) return denied;
 
   try {

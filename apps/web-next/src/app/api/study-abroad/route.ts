@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireReportAccess } from "@/lib/s3-proxy";
+import { requireHousingPreviewAccess } from "@/lib/s3-proxy";
 import { readJsonObject, STUDY_ABROAD_KEY, readResidents } from "@/lib/reports/housing/store";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ function fromResidents(residents: { building?: string }[] | undefined): StudyAbr
 }
 
 export async function GET(req: Request) {
-  const denied = requireReportAccess(req, "housing");
+  const denied = requireHousingPreviewAccess(req);
   if (denied) return denied;
 
   try {

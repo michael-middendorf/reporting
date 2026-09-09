@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireReportAccess } from "@/lib/s3-proxy";
+import { requireHousingPreviewAccess } from "@/lib/s3-proxy";
 import {
   putJsonObject,
   readJsonObject,
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 const emptyState = (): RoomVerificationState => ({ edits: {} });
 
 export async function GET(req: Request) {
-  const denied = requireReportAccess(req, "housing");
+  const denied = requireHousingPreviewAccess(req);
   if (denied) return denied;
 
   try {
@@ -26,7 +26,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const denied = requireReportAccess(req, "housing");
+  const denied = requireHousingPreviewAccess(req);
   if (denied) return denied;
 
   let body: { edits?: Record<string, unknown> };

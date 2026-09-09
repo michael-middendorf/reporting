@@ -23,6 +23,7 @@ import { Verification } from "./Verification";
 import styles from "./housing.module.css";
 
 type View = "overview" | "floor" | "movein" | "verify";
+type FloorMode = "chart" | "list";
 
 export function HousingDashboard() {
   const [payload, setPayload] = useState<ResidentsPayload | null>(null);
@@ -34,6 +35,8 @@ export function HousingDashboard() {
   const [floor, setFloor] = useState<number | null>(null);
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
   const [asof, setAsof] = useState<string | null>(null);
+  const [mode, setMode] = useState<FloorMode>("chart");
+  const [urlReady, setUrlReady] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -47,7 +50,27 @@ export function HousingDashboard() {
     if (viewParam === "floor" || viewParam === "movein" || viewParam === "verify") setView(viewParam);
     const roomParam = params.get("room");
     if (roomParam) setSelectedRoom(roomParam);
+    const modeParam = params.get("mode");
+    if (modeParam === "list" || modeParam === "chart") setMode(modeParam);
+    setUrlReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!urlReady) return;
+    const params = new URLSearchParams();
+    if (view !== "overview") params.set("view", view);
+    if (view === "floor") {
+      params.set("hall", hall);
+      params.set("mode", mode);
+      if (floor != null) params.set("floor", String(floor));
+      if (asof) params.set("asof", asof);
+      if (selectedRoom) params.set("room", selectedRoom);
+    }
+    const qs = params.toString();
+    const next = `${window.location.pathname}${qs ? `?${qs}` : ""}`;
+    const cur = `${window.location.pathname}${window.location.search}`;
+    if (next !== cur) window.history.replaceState(null, "", next);
+  }, [urlReady, view, hall, floor, asof, selectedRoom, mode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -172,6 +195,8 @@ export function HousingDashboard() {
           selectedRoom={selectedRoom}
           setSelectedRoom={setSelectedRoom}
           onRoomEdit={onRoomEdit}
+          mode={mode}
+          setMode={setMode}
         />
       )}
       {!error && payload && view === "movein" && (

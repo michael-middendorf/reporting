@@ -3,8 +3,11 @@ import { test } from "node:test";
 import {
   EREZ_PRICE,
   HALL_CHARTS,
+  HALL_REGISTRY,
   IRELAND_CAP,
   MEN_HALLS,
+  META,
+  TERM,
   WOMEN_HALLS,
   bedsOpen,
   effCap,
@@ -17,9 +20,13 @@ import {
   isOffLimits,
   isRome,
   isUnassigned,
+  occupantLabel,
+  roomFill,
+  roomListRows,
+  roomStatus,
   sumHalls,
 } from "./model";
-import type { ChartRoom, RoomVerificationState } from "./types";
+import type { ChartRoom, HallChart, RoomVerificationState } from "./types";
 
 const NONE: RoomVerificationState["edits"] = {};
 
@@ -200,4 +207,87 @@ test("empty edits: women 626, men 577, campus 1203", () => {
   assert.equal(IRELAND_CAP.m, 50);
   assert.equal(IRELAND_CAP.all, 100);
   assert.equal(women + men + IRELAND_CAP.all, 1303);
+});
+
+test("META official names come from the hall registry", () => {
+  assert.equal(META.JPII.name, "St. John Paul II Hall");
+  assert.equal(META.JPII.short, "John Paul II");
+  assert.equal(META.JPII.abbr, "JPII");
+  assert.equal(META.XAVIER.name, "Francis Xavier Hall");
+  assert.equal(META.GORET.name, "Maria Goretti Hall");
+  assert.equal(META.TERESA.name, "St. Mother Teresa Hall");
+  assert.equal(META.TERESA.short, "Mother Teresa");
+  assert.equal(META.TERESA.abbr, "MT");
+  assert.equal(META.SEBAST.name, "St. Sebastian Hall");
+  assert.equal(META.STJOSE.name, "St. Joseph Hall");
+  assert.equal(META.STJOSE.abbr, "JOS");
+  assert.deepEqual(META, HALL_REGISTRY);
+  assert.equal(TERM.FA, "FA");
+  assert.equal(TERM.SP, "SP");
+  assert.equal(TERM.SU, "SU");
+  assert.equal(TERM.WI, "WI");
+});
+
+test("roomStatus maps staff overlays and keeps bible rooms off-limits", () => {
+  const off = { "JPII-101": { status: "Off-limits" } };
+  assert.equal(roomStatus(off, "JPII", "101"), "off-limits");
+  assert.equal(isOffLimits(off, "JPII", "101"), true);
+  assert.equal(isOffLimits(off, "JPII", "102"), false);
+  assert.equal(roomStatus({ "JPII-101": { status: "Confirmed available" } }, "JPII", "101"), "available");
+  assert.equal(roomStatus({}, "JPII", "101"), "available");
+  assert.equal(roomStatus({ "JPII-101": { status: "checked-out" } }, "JPII", "101"), "checked-out");
+  assert.equal(isOffLimits({ "JPII-101": { status: "checked-out" } }, "JPII", "101"), false);
+  assert.equal(roomStatus({ "JPII-101": { status: "maintenance" } }, "JPII", "101"), "maintenance");
+  assert.equal(roomStatus({ "JPII-101": { status: "inventory-flag" } }, "JPII", "101"), "inventory-flag");
+  assert.equal(roomStatus(NONE, "JPII", "318"), "off-limits");
+  assert.equal(isOffLimits(NONE, "JPII", "318"), true);
+});
+
+const listChart: HallChart = {
+  hall: { code: "JPII", name: "St. John Paul II Hall" },
+  floors: [
+    { level: 1, rooms: [{ number: "101", type: "4-person", cap: 4, col: 1, row: 1 }] },
+    { level: 2, rooms: [{ number: "201", type: "4-person", cap: 4, col: 1, row: 1 }] },
+  ],
+};
+
+test("roomFill and list rows use peopleIn + effCap for filled/open", () => {
+  const occ = indexOccupancy([
+    { pcid: "1", name: "Ann Smith", building: "JPII", room: "101" },
+    { pcid: "2", building: "JPII", room: "101" },
+    { pcid: "3", name: "Pat Lee", building: "JPII", room: "201" },
+  ]);
+  const room = listChart.floors[0].rooms[0];
+  const counts = roomFill({}, "JPII", room, occ, null);
+  assert.equal(counts.cap, 4);
+  assert.equal(counts.filled, 2);
+  assert.equal(counts.open, 2);
+  assert.equal(occupantLabel({ pcid: "2" }), "2");
+
+  const capped = roomFill({ "JPII-101": { capacity: 3 } }, "JPII", room, occ, null);
+  assert.equal(capped.cap, 3);
+  assert.equal(capped.open, 1);
+
+  const off = roomFill({ "JPII-101": { status: "Off-limits" } }, "JPII", room, occ, null);
+  assert.equal(off.filled, 2);
+  assert.equal(off.open, 0);
+
+  const floorRows = roomListRows(listChart, "JPII", occ, {}, null, 1);
+  assert.equal(floorRows.length, 1);
+  assert.equal(floorRows[0].hall, "JPII");
+  assert.equal(floorRows[0].floor, 1);
+  assert.equal(floorRows[0].room, "101");
+  assert.equal(floorRows[0].type, "4-person");
+  assert.equal(floorRows[0].filled, 2);
+  assert.equal(floorRows[0].open, 2);
+  assert.equal(floorRows[0].occupants, "Ann Smith, 2");
+  assert.equal(floorRows[0].status, "available");
+
+  const all = roomListRows(listChart, "JPII", occ, { "JPII-101": { status: "Off-limits" } }, null, "all");
+  assert.equal(all.length, 2);
+  assert.equal(all[0].open, 0);
+  assert.equal(all[0].status, "off-limits");
+  assert.equal(all[1].room, "201");
+  assert.equal(all[1].filled, 1);
+  assert.equal(all[1].open, 3);
 });
