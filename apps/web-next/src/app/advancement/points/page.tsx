@@ -257,8 +257,10 @@ export default function PointsPage() {
 
   useEffect(() => {
     apiFetch("/api/reports/points/me")
-      .then((r) => (r.ok ? r.json() : {}))
-      .then((d) => setSessionMa(typeof d?.maName === "string" ? d.maName : null))
+      .then((r) => (r.ok ? r.json() : { maName: null }))
+      .then((d: { maName?: string | null }) =>
+        setSessionMa(typeof d?.maName === "string" ? d.maName : null),
+      )
       .catch(() => {});
   }, []);
 
