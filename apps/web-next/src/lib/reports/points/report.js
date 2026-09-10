@@ -208,6 +208,30 @@ export function buildCalculationCSV(model, { meta = {}, rangeLabel = "All", gene
     ]));
   }
 
+  L.push("");
+  L.push(line(["MGO-CODED GIFTS — listed for review, not in Raised until assigned"]));
+  L.push(line([
+    "MA (note owner)", "Date", "Donor", "Contact ID", "Type", "Designation",
+    "Amount", "Gift ID", "Open gift in Virtuous", "Status",
+  ]));
+  const reviewRows = [...(model.reviewGifts || [])].sort(
+    (a, b) => (a.owner || "").localeCompare(b.owner || "") || (a.day || "").localeCompare(b.day || ""),
+  );
+  for (const g of reviewRows) {
+    L.push(line([
+      g.owner,
+      formatExportDay(g.day),
+      g.contactName || "",
+      g.contactId || "",
+      g.annualized ? "Monthly ×12" : (g.giftType || ""),
+      g.project || "",
+      g.amount || 0,
+      g.giftId || "",
+      virtuousGiftUrl(g.contactId),
+      "not in Raised until assigned",
+    ]));
+  }
+
   return L.join("\r\n");
 }
 

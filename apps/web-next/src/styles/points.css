@@ -367,6 +367,10 @@ table.grid.audit td.pts { text-align: right; font-weight: 500; color: var(--navy
 table.grid.audit thead th { position: sticky; top: 0; background: #fff; z-index: 1; }
 
 table.grid tr.grand td { font-weight: 600; color: var(--navy); background: var(--gold-soft); }
+.mgo-review { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
+.mgo-review h3 { margin: 0 0 8px; }
+.mgo-review .footnote { margin: 0 0 14px; }
+.mgo-review input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--navy); }
 .muted { color: var(--slate-400); font-weight: 400; font-size: .8em; }
 .section-hint { font-family: var(--sans); font-weight: 300; font-size: .85rem; color: var(--slate-400); }
 

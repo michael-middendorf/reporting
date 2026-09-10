@@ -48,6 +48,8 @@ export function assignedNotesFromFlags(flags = {}) {
   const out = [];
   for (const f of Object.values(flags || {})) {
     if (!f || f.status !== "assigned") continue;
+    // MGO review assignments credit dollars in scoreAll; they are not gift notes.
+    if (String(f.reason || "") === "mgo-review") continue;
     if (!f.owner || !f.contactId || !f.day) continue;
     const giftId = String(f.noteId || "").replace(/^gift:/, "");
     out.push({
@@ -214,24 +216,43 @@ export function recurringToGift(record, posted = []) {
   };
 }
 
+function matchesMonthlyInstallment(rg, gift) {
+  const cid = Number(rg.contactId);
+  if (!Number.isFinite(cid)) return false;
+  return Number(gift.contactId) === cid
+    && Math.abs(parseAmount(gift.amount) - parseAmount(rg.amount)) <= INSTALLMENT_TOLERANCE;
+}
+
+/**
+ * RecurringGift rows copy RecurringGift.segment/project. If a matching posted
+ * installment is MGO-coded and the RecurringGift is not (e.g. AC), keep MGO
+ * so the merge does not auto-credit as Annunciation Circle.
+ */
+function withPostedMgoCoding(mapped, rg, posted) {
+  if (isMgoAttributedGift(mapped)) return mapped;
+  const mgoPosted = (posted || []).find((p) => matchesMonthlyInstallment(rg, p) && isMgoAttributedGift(p));
+  if (!mgoPosted) return mapped;
+  return {
+    ...mapped,
+    segment: mgoPosted.segment || mapped.segment,
+    project: giftProject(mgoPosted) || mapped.project,
+    solicitor: giftSolicitor(mgoPosted) || mapped.solicitor,
+    customFields: mgoPosted.customFields || mapped.customFields,
+  };
+}
+
 /**
  * Merge posted gifts with RecurringGift rows. Monthly commitments replace the
  * matching posted installment so dollars are not counted twice. An AC raise
  * credits only (new monthly − prior monthly); a same-rate continuation is $0.
+ * MGO coding on a matched posted gift is kept on the replacement row.
  */
 export function prepareGifts(posted = [], recurring = []) {
   const monthly = recurring.filter((r) => /^monthly$/i.test(String(r.frequency || "").trim()));
   const asGifts = monthly
-    .map((r) => recurringToGift(r, posted))
+    .map((r) => withPostedMgoCoding(recurringToGift(r, posted), r, posted))
     .filter((g) => parseAmount(g.amount) > 0);
-  const filtered = posted.filter((g) => {
-    const cid = Number(g.contactId);
-    if (!Number.isFinite(cid)) return true;
-    return !monthly.some((rg) => (
-      Number(rg.contactId) === cid
-      && Math.abs(parseAmount(g.amount) - parseAmount(rg.amount)) <= INSTALLMENT_TOLERANCE
-    ));
-  });
+  const filtered = posted.filter((g) => !monthly.some((rg) => matchesMonthlyInstallment(rg, g)));
   return [...filtered, ...asGifts];
 }
 
@@ -249,6 +270,28 @@ export function giftProject(record) {
   if (record.project) return record.project;
   const des = record.giftDesignations || [];
   return (des[0] && (des[0].project || des[0].display)) || record.segment || "";
+}
+
+/** Virtuous segments that already mark the gift as MGO work. Exact match after trim. */
+const MGO_ATTRIBUTED_SEGMENTS = new Set([
+  "Direct Solicitation (MGO)",
+  "Direct Solicitation (MGO)-HIST_DS",
+]);
+
+/**
+ * True when Virtuous already coded the gift as MGO (or other non-MA officer) work.
+ * Segment/project match is exact (not a fuzzy /MGO/ regex) so appeal mail stays in.
+ * A nonempty GFT_Solicitor who is not on the MA roster is also MGO-attributed.
+ */
+export function isMgoAttributedGift(record) {
+  if (!record) return false;
+  const project = String(giftProject(record) || "").trim();
+  const segment = String(record.segment || "").trim();
+  if (MGO_ATTRIBUTED_SEGMENTS.has(project) || MGO_ATTRIBUTED_SEGMENTS.has(segment)) {
+    return true;
+  }
+  const solicitor = giftSolicitor(record);
+  return Boolean(solicitor && !rosterSet.has(solicitor));
 }
 
 /** Calendar-day compare (YYYY-MM-DD). Null if either date is missing. */
@@ -351,21 +394,18 @@ export function ownerHintForGift(giftDate, notesOnContact) {
 }
 
 /**
- * Score a Virtuous Gift as dollars received (0 points; the 100-pt credit
- * comes from the matching donation note so we don't double-count).
- * Owner is the MA who logged an activity note on the contact in the gift
- * window (`ownerHint`). GFT_Solicitor is never used — that is the MA or MGO
- * on the account, not who did the work. Returns null when amount is 0 or less.
+ * Build a donation row for a roster MA. Does not apply the MGO auto-exclude
+ * (callers decide). Returns null when amount is 0, date is missing, or the
+ * gift is before the owner's roster start.
  */
-export function scoreGift(record, ownerHint = null) {
+function donationRow(record, owner) {
   const postedAmount = parseAmount(record.amount);
   if (postedAmount <= 0) return null;
+  if (!owner || !rosterSet.has(owner)) return null;
   const monthly = isMonthlyRecurring(record);
   const factor = SETTINGS.monthlyAnnualizeFactor || 12;
   const amount = monthly ? roundCents(postedAmount * factor) : postedAmount;
   const solicitor = giftSolicitor(record);
-  const owner = ownerHint;
-  if (!owner) return null;
   const date = giftDateOf(record);
   if (!date) return null;
   if (beforeStart(date, owner)) return null;
@@ -398,6 +438,42 @@ function isAssistGiftId(giftId) {
   if (giftId == null || giftId === "") return false;
   const ids = SETTINGS.assistGiftIds || [];
   return ids.map(String).includes(String(giftId));
+}
+
+/**
+ * Roster MA credited by an "assigned" flag on `gift:{id}`, else null.
+ * Only status "assigned" counts. Do not POST "removed" on this key (Tasks
+ * must not offer Count/Remove for MGO assign rows).
+ */
+function assignedOwnerForGift(gift, hint, flags) {
+  const id = gift?.id != null && gift.id !== "" ? `gift:${gift.id}` : null;
+  if (!id || !flags) return null;
+  const flag = flags[id];
+  if (!flag || flag.status !== "assigned") return null;
+  if (flag.owner && rosterSet.has(flag.owner)) return flag.owner;
+  if (!flag.owner && hint && rosterSet.has(hint)) return hint;
+  return null;
+}
+
+/**
+ * Score a Virtuous Gift as dollars received (0 points; the 100-pt credit
+ * comes from the matching donation note so we don't double-count).
+ * Owner is the MA who logged an activity note on the contact in the gift
+ * window (`ownerHint`). GFT_Solicitor is never used for owner: that is the
+ * MA or MGO on the account, not who did the work. Gifts Virtuous coded as
+ * MGO work (Direct Solicitation (MGO) segment/project, or a nonempty
+ * GFT_Solicitor who is not on the MA roster) return null unless
+ * `assignedOwner` is a roster MA (Annie assigned the gift). Returns null
+ * when amount is 0 or less.
+ */
+export function scoreGift(record, ownerHint = null, assignedOwner = null) {
+  const postedAmount = parseAmount(record.amount);
+  if (postedAmount <= 0) return null;
+  const credited = assignedOwner && rosterSet.has(assignedOwner) ? assignedOwner : null;
+  if (isMgoAttributedGift(record) && !credited) return null;
+  const owner = credited || ownerHint;
+  if (!owner) return null;
+  return donationRow(record, owner);
 }
 
 function sortByDayThenId(aDate, aId, bDate, bId) {
@@ -464,8 +540,13 @@ function markAssist(gift) {
  * Posted gifts on a contact with a conversation/meeting in the 45-day window
  * and no matching donation or Gift Assist note become bucket "possible"
  * (0 pts, not Raised).
+ *
+ * `flags` is the shared review-flags map (same object aggregate uses). An
+ * MGO-coded gift with status "assigned" and a roster `flag.owner` scores as
+ * a normal donation. An unassigned MGO gift with an MA note in the window
+ * is emitted with `needsReview: true` (listed, not added to Raised).
  */
-export function scoreAll({ notes = [], gifts = [] }) {
+export function scoreAll({ notes = [], gifts = [], flags = {} }) {
   const rows = [];
   const donationNotes = [];
   const activityByContact = new Map();
@@ -487,6 +568,22 @@ export function scoreAll({ notes = [], gifts = [] }) {
     const hint = (g.contactId != null && gDate)
       ? ownerHintForGift(gDate, activityByContact.get(g.contactId) || [])
       : null;
+    if (isMgoAttributedGift(g)) {
+      const assigned = assignedOwnerForGift(g, hint, flags);
+      if (assigned) {
+        const r = scoreGift(g, hint, assigned);
+        if (r) {
+          const credited = { ...r, mgoAssigned: true };
+          if (!credited.assist) rows.push(credited);
+          scoredGifts.push(credited);
+          matchGifts.push(credited);
+        }
+      } else if (hint && rosterSet.has(hint)) {
+        const r = donationRow(g, hint);
+        if (r) rows.push({ ...r, needsReview: true });
+      }
+      continue;
+    }
     const r = scoreGift(g, hint);
     if (r) {
       if (!r.assist) rows.push(r);
@@ -565,6 +662,7 @@ export function scoreAll({ notes = [], gifts = [] }) {
 
   const raisedById = new Map(scoredGifts.map((g) => [String(g.giftId), g]));
   for (const g of gifts) {
+    if (isMgoAttributedGift(g)) continue;
     const gDate = giftDateOf(g);
     if (!gDate || g.contactId == null) continue;
     const postedAmount = parseAmount(g.amount);

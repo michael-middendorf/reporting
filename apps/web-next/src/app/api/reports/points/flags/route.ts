@@ -6,6 +6,7 @@
  *   DELETE -> ?noteId=...  ; drop the override (count again)
  *
  * Status "removed" excludes that task from totals. DELETE (or no flag) counts it.
+ * Status "assigned" credits an MGO-coded gift (`gift:{id}`) to flag.owner.
  * All verbs require login + access to the `points` report. The reviewer's email
  * (from the signed session) is the authoritative `flaggedBy` / `updatedBy` — the
  * client cannot spoof it. This explicit `flags/` segment takes precedence over

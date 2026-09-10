@@ -349,7 +349,7 @@ export const TRACKING_CHART = {
     {
       label: "Dollars received",
       detail:
-        "Posted gift on the same contact as a conversation, meeting, or donation note, within 45 days. Conversations and meetings must be on or before the gift. A New Donation note can be the same day or up to 45 days after the gift posts. Credit goes to whoever logged that note, not the MA officer on the account. A letter, email, voicemail, or thank-you does not pull the gift.",
+        "Posted gift on the same contact as a conversation, meeting, or donation note, within 45 days. Conversations and meetings must be on or before the gift. A New Donation note can be the same day or up to 45 days after the gift posts. Credit goes to whoever logged that note, not the MA officer on the account. A letter, email, voicemail, or thank-you does not pull the gift. Gifts coded Direct Solicitation (MGO) show under MGO-coded gifts until assigned. A non-MA GFT_Solicitor is listed the same way.",
     },
     {
       label: "Secured gift · 100 pts",
@@ -473,6 +473,8 @@ export const DEFINITIONS = [
       "A posted Virtuous gift counts for an MA only if that MA logged a conversation, meeting, or donation note on that donor’s contact on or before the gift date, within 45 days. " +
       "A letter, email, voicemail, or thank-you does not claim the gift. No qualifying note on the person = the gift is not counted. Gift Assist notes do not count dollars. " +
       "Dollars go to the MA who logged the note, not the MA officer on the contact and not GFT_Solicitor. " +
+      "Gifts coded Direct Solicitation (MGO) or Direct Solicitation (MGO)-HIST_DS show under MGO-coded gifts until assigned to an MA. " +
+      "A nonempty GFT_Solicitor who is not on the MA roster is listed the same way. " +
       "One-time gifts use the posted amount. A new monthly AC (Recurring Gift, frequency Monthly) is counted once as monthly amount × 12. " +
       "If that contact already had an Annunciation Circle monthly gift, only the increase is counted: (new monthly − prior monthly) × 12. " +
       "The matching posted installment is not also added. Same-rate continuations are not counted again. " +

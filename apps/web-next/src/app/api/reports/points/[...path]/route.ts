@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireReportAccess } from "@/lib/s3-proxy";
 import { loadSourceRows, loadSourceRowsOptional } from "@/lib/sources";
-import { prepareGifts } from "@/lib/reports/points/scoring";
+import { giftSolicitor, prepareGifts } from "@/lib/reports/points/scoring";
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
@@ -34,6 +34,7 @@ const GIFT_FIELDS = [
   "frequency",
   "segment",
   "project",
+  "solicitor",
   "recurringGiftId",
   "acIncrease",
   "priorMonthly",
@@ -108,6 +109,8 @@ export async function GET(req: Request, ctx: Ctx) {
       const kept = (prepareGifts(namedPosted, recRows) as Record<string, unknown>[]).map((r) => {
         const lean: Record<string, unknown> = {};
         for (const k of GIFT_FIELDS) lean[k] = r[k];
+        const solicitor = giftSolicitor(r);
+        if (solicitor) lean.solicitor = solicitor;
         return lean;
       });
       return NextResponse.json(kept, {

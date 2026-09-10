@@ -9,6 +9,7 @@ import {
   daysOfWeek,
   downloadText,
   rowId,
+  isTaskListRow,
   scoreAll,
   assignedNotesFromFlags,
   noteTypeForIncoming,
@@ -91,6 +92,8 @@ type GiftRow = {
   annualized?: boolean;
   label?: string;
   giftId?: string | number | null;
+  needsReview?: boolean;
+  mgoAssigned?: boolean;
 };
 
 type IncomingOwner = {
@@ -178,6 +181,8 @@ type Row = {
   conflict?: string | null;
   unmatched?: boolean;
   removed?: boolean;
+  needsReview?: boolean;
+  mgoAssigned?: boolean;
 };
 
 /** Inclusive Monday–Sunday bounds for one week, or All from the eval start. */
@@ -239,7 +244,7 @@ export default function PointsPage() {
   useEffect(() => {
     if (!raw) return;
     const extra = assignedNotesFromFlags(flags) as unknown[];
-    setRows(scoreAll({ notes: [...raw.notes, ...extra], gifts: raw.gifts }) as unknown as Array<Record<string, unknown>>);
+    setRows(scoreAll({ notes: [...raw.notes, ...extra], gifts: raw.gifts, flags }) as unknown as Array<Record<string, unknown>>);
   }, [raw, flags]);
 
   // Shared count/remove overrides (persisted in S3; see /api/reports/points/flags).
@@ -304,6 +309,7 @@ export default function PointsPage() {
       buckets: typeof BUCKETS;
       gifts: GiftRow[];
       possibleGifts: PossibleGiftRow[];
+      reviewGifts: GiftRow[];
       weekGrid: WeekGridRow[];
       bests: Bests;
     };
@@ -321,7 +327,7 @@ export default function PointsPage() {
   const ownerRows = useMemo(() => {
     if (!selectedOwner) return [] as Row[];
     return (model.rows as Row[])
-      .filter((r) => r.owner === selectedOwner.name && r.bucket !== "possible")
+      .filter((r) => r.owner === selectedOwner.name && isTaskListRow(r))
       .sort((a, b) => b.day.localeCompare(a.day) || b.points - a.points);
   }, [model.rows, selectedOwner]);
 
@@ -394,6 +400,15 @@ export default function PointsPage() {
     return map;
   }, [model.possibleGifts]);
 
+  const listedReviewGifts = useMemo(
+    () => [...(model.reviewGifts || [])].sort((a, b) => (b.day || "").localeCompare(a.day || "")),
+    [model.reviewGifts],
+  );
+
+  function giftFlagId(g: GiftRow) {
+    return g.giftId != null && g.giftId !== "" ? `gift:${g.giftId}` : null;
+  }
+
   async function saveFlag(input: FlagInput) {
     setFlagBusy(String(input.noteId));
     setFlagError(null);
@@ -438,6 +453,7 @@ export default function PointsPage() {
   }
 
   function onRemove(r: Row) {
+    if (r.mgoAssigned || r.needsReview) return;
     const id = rowId(r);
     if (!id) return;
     saveFlag({
@@ -454,6 +470,7 @@ export default function PointsPage() {
   }
 
   function onCount(r: Row) {
+    if (r.mgoAssigned || r.needsReview) return;
     const id = rowId(r);
     if (!id) return;
     deleteFlag(id);
@@ -493,6 +510,82 @@ export default function PointsPage() {
       setFlagError(`Could not ${action} gift: ${String(e)}`);
     } finally {
       setAssignBusy(null);
+    }
+  }
+
+  async function assignMgoGift(g: GiftRow) {
+    const id = giftFlagId(g);
+    if (!id || !g.owner) return;
+    const previous = flags[id];
+    const input: FlagInput = {
+      noteId: id,
+      contactId: g.contactId != null ? String(g.contactId) : null,
+      contactName: g.contactName || null,
+      owner: g.owner,
+      day: g.day || null,
+      type: g.giftType || "Gift",
+      label: g.label || "Donation received",
+      points: 0,
+      reason: "mgo-review",
+      status: "assigned",
+    };
+    const optimistic: ReviewFlag = {
+      ...input,
+      reason: "mgo-review",
+      status: "assigned",
+      flaggedBy: "",
+      flaggedAt: new Date().toISOString(),
+    };
+    setFlagBusy(id);
+    setFlagError(null);
+    setFlags((f) => ({ ...f, [id]: optimistic }));
+    try {
+      const res = await apiFetch("/api/reports/points/flags", {
+        method: "POST",
+        body: JSON.stringify(input),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || res.statusText);
+      const flag = data.flag as ReviewFlag;
+      setFlags((f) => ({ ...f, [String(flag.noteId)]: flag }));
+    } catch (e) {
+      setFlags((f) => {
+        const next = { ...f };
+        if (previous) next[id] = previous;
+        else delete next[id];
+        return next;
+      });
+      setFlagError(`Could not save: ${String(e)}`);
+    } finally {
+      setFlagBusy(null);
+    }
+  }
+
+  async function unassignMgoGift(g: GiftRow) {
+    const id = giftFlagId(g);
+    if (!id) return;
+    const previous = flags[id];
+    setFlagBusy(id);
+    setFlagError(null);
+    setFlags((f) => {
+      const next = { ...f };
+      delete next[id];
+      return next;
+    });
+    try {
+      const res = await apiFetch(
+        `/api/reports/points/flags?noteId=${encodeURIComponent(id)}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || res.statusText);
+      }
+    } catch (e) {
+      setFlags((f) => (previous ? { ...f, [id]: previous } : f));
+      setFlagError(`Could not save: ${String(e)}`);
+    } finally {
+      setFlagBusy(null);
     }
   }
 
@@ -905,7 +998,7 @@ export default function PointsPage() {
                             ) : null}
                           </td>
                           <td style={{ whiteSpace: "nowrap" }}>
-                            {!key || (r.unmatched && !removed) ? (
+                            {!key || (r.unmatched && !removed) || r.mgoAssigned || r.needsReview ? (
                               <span style={{ color: "var(--slate-400)" }}>—</span>
                             ) : removed ? (
                               <button className="mini-btn solid" disabled={flagBusy === key} onClick={() => onCount(r)}>
@@ -1076,9 +1169,11 @@ export default function PointsPage() {
                 <>
                   <p className="footnote" style={{ marginTop: 0, marginBottom: 14 }}>
                     Counted when an MA logged a conversation, meeting, or donation note on the donor on or
-                    before the gift, within 45 days. 100 points need a gift note: New Donation or New AC
-                    (one-time or Mission Fund), Annunciation Circle updated, or Update Recurring Gift (AC
-                    increase is the monthly difference × 12). Gift Assist is 100 points and $0.
+                    before the gift, within 45 days. Gifts coded Direct Solicitation (MGO) show under
+                    MGO-coded gifts until you assign them. A non-MA GFT_Solicitor is listed the same way.
+                    100 points need a gift note: New Donation or New AC (one-time or Mission Fund),
+                    Annunciation Circle updated, or Update Recurring Gift (AC increase is the monthly
+                    difference × 12). Gift Assist is 100 points and $0.
                   </p>
                   <table className="grid" style={{ marginBottom: 18 }}>
                     <thead>
@@ -1116,6 +1211,7 @@ export default function PointsPage() {
                     <table className="grid">
                       <thead>
                         <tr>
+                          <th>Assign</th>
                           <th>MA</th>
                           <th>Donor</th>
                           <th>Date</th>
@@ -1128,6 +1224,17 @@ export default function PointsPage() {
                       <tbody>
                         {listedGifts.map((g, i) => (
                           <tr key={g.giftId != null && g.giftId !== "" ? String(g.giftId) : i}>
+                            <td>
+                              {g.mgoAssigned && giftFlagId(g) ? (
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Remove assignment from ${g.owner}`}
+                                  checked
+                                  disabled={flagBusy === giftFlagId(g)}
+                                  onChange={() => unassignMgoGift(g)}
+                                />
+                              ) : null}
+                            </td>
                             <td>{g.owner}</td>
                             <td>{g.contactName || "—"}</td>
                             <td style={{ whiteSpace: "nowrap" }}>{g.day ? formatDay(g.day) : "—"}</td>
@@ -1322,6 +1429,78 @@ export default function PointsPage() {
                   )}
                 </>
               )}
+              {listedReviewGifts.length > 0 ? (
+                <div className="mgo-review">
+                  <h3>
+                    MGO-coded gifts{" "}
+                    <span className="section-hint">not in Raised until assigned</span>
+                  </h3>
+                  <p className="footnote">
+                    These gifts are coded Direct Solicitation (MGO) in Virtuous. An MA had a note on the
+                    donor in the 45 days before the gift. They are not in Raised until you assign them. A
+                    thank-you may still have been why they gave.
+                  </p>
+                  <table className="grid">
+                    <thead>
+                      <tr>
+                        <th>Assign</th>
+                        <th>MA</th>
+                        <th>Donor</th>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Designation</th>
+                        <th>Amount</th>
+                        <th>Gift</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {listedReviewGifts.map((g, i) => {
+                        const id = giftFlagId(g);
+                        return (
+                          <tr key={id || `mgo-${i}`}>
+                            <td>
+                              {id ? (
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Assign gift to ${g.owner}`}
+                                  checked={false}
+                                  disabled={flagBusy === id}
+                                  onChange={(e) => {
+                                    if (e.target.checked) assignMgoGift(g);
+                                    else unassignMgoGift(g);
+                                  }}
+                                />
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                            <td>{g.owner || "—"}</td>
+                            <td>{g.contactName || "—"}</td>
+                            <td style={{ whiteSpace: "nowrap" }}>{g.day ? formatDay(g.day) : "—"}</td>
+                            <td>{g.annualized ? "Monthly ×12" : (g.giftType || "—")}</td>
+                            <td>{g.project || "—"}</td>
+                            <td className="pts tabular">
+                              {money(g.amount)}
+                              {g.annualized && g.postedAmount != null ? (
+                                <span className="section-hint"> ({money(g.postedAmount)}/mo)</span>
+                              ) : null}
+                            </td>
+                            <td>
+                              {virtuousGiftUrl(g.contactId) ? (
+                                <a href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
+                                  Gift ↗
+                                </a>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
             </div>
           </section>
 

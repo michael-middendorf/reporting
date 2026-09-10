@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MA_NAMES, SETTINGS, evalStartDate } from "./config.js";
-import { assignedNotesFromFlags, isMonthlyRecurring, parseDate, prepareGifts, priorAcMonthly, scoreAll, scoreGift } from "./points.js";
-import { aggregate, daysOfWeek, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
+import { assignedNotesFromFlags, isMgoAttributedGift, isMonthlyRecurring, parseDate, prepareGifts, priorAcMonthly, scoreAll, scoreGift } from "./points.js";
+import { aggregate, daysOfWeek, isTaskListRow, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
 import { buildCalculationCSV, statusOf, virtuousGiftUrl } from "./report.js";
 
 const ALANNA = MA_NAMES[0];
+const SEAN = "Sean Kelly";
 const NATALIA = "Natalia Abrams";
 
 type WeekRec = {
@@ -28,7 +29,7 @@ type OwnerRec = {
 type Model = {
   totals: { gifts: number; giftAmount: number; points: number; unmatched: number };
   tableOwners: OwnerRec[];
-  gifts: Array<{ amount?: number; owner?: string; giftId?: unknown; contactId?: unknown }>;
+  gifts: Array<{ amount?: number; owner?: string; giftId?: unknown; contactId?: unknown; mgoAssigned?: boolean; removed?: boolean }>;
   possibleGifts?: Array<{
     owner?: string;
     giftId?: unknown;
@@ -41,7 +42,8 @@ type Model = {
     kindLabel?: string;
     owners?: Array<{ name: string; noteType?: string; daysAfterNote?: number }>;
   }>;
-  rows: Array<{ noteId?: string | number; removed?: boolean; points?: number; day?: string; bucket?: string }>;
+  reviewGifts?: Array<{ amount?: number; owner?: string; giftId?: unknown; needsReview?: boolean; contactName?: string }>;
+  rows: Array<{ noteId?: string | number; giftId?: string | number; bucket?: string; removed?: boolean; points?: number; day?: string; mgoAssigned?: boolean }>;
   bests?: {
     teamWeek?: string | null;
     team: Record<string, { value: number; week: string | null }>;
@@ -61,7 +63,10 @@ type ScoredRow = {
   label?: string;
   type?: string;
   noteId?: string | number;
+  giftId?: string | number;
   removed?: boolean;
+  needsReview?: boolean;
+  mgoAssigned?: boolean;
   conflict?: string | null;
 };
 
@@ -89,9 +94,14 @@ function postedGift(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function run(notes: unknown[], gifts: unknown[] = [], ownerName: string = ALANNA) {
-  const rows = scoreAll({ notes, gifts }) as ScoredRow[];
-  const model = aggregate(rows) as Model;
+function run(
+  notes: unknown[],
+  gifts: unknown[] = [],
+  ownerName: string = ALANNA,
+  flags: Record<string, { status?: string; owner?: string }> = {},
+) {
+  const rows = scoreAll({ notes, gifts, flags }) as ScoredRow[];
+  const model = aggregate(rows, { flags }) as Model;
   const owner = model.tableOwners.find((o) => o.name === ownerName);
   assert.ok(owner, `expected ${ownerName} on the MA roster`);
   return { rows, model, owner };
@@ -1255,6 +1265,378 @@ describe("possible gifts", () => {
     assert.equal(owner.gifts, 1);
     assert.equal(owner.giftAmount, 51.01);
     assert.equal(model.possibleGifts?.length ?? 0, 0);
+  });
+});
+
+describe("MGO-coded gifts do not credit MAs", () => {
+  it("conversation note plus Direct Solicitation (MGO) gift is $0 for that MA", () => {
+    const gift = postedGift({
+      contactId: 84897,
+      giftDate: "9/1/2026",
+      amount: 10000,
+      segment: "Direct Solicitation (MGO)",
+    });
+    assert.equal(isMgoAttributedGift(gift), true);
+    assert.equal(scoreGift(gift, SEAN), null);
+    const { owner, rows } = run(
+      [donationNote({
+        createdByUser: SEAN,
+        type: "Mission Advancement Call | Conversation",
+        noteDate: "8/14/2026",
+        contactId: 84897,
+      })],
+      [gift],
+      SEAN,
+    );
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+    assert.equal(owner.points, 10);
+    assert.equal(rows.filter((r) => r.bucket === "donation" && !r.needsReview).length, 0);
+    assert.equal(rows.filter((r) => r.bucket === "possible").length, 0);
+  });
+
+  it("MGO gift with an MA note is a review row, not Raised, until assigned", () => {
+    const gift = postedGift({
+      id: 9001,
+      contactId: 84897,
+      contactName: "QCD Donor",
+      giftDate: "9/1/2026",
+      amount: 10000,
+      segment: "Direct Solicitation (MGO)",
+    });
+    const notes = [donationNote({
+      createdByUser: SEAN,
+      type: "Mission Advancement Call | Conversation",
+      noteDate: "8/14/2026",
+      contactId: 84897,
+    })];
+    const { owner, rows, model } = run(notes, [gift], SEAN);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+    assert.equal(owner.points, 10);
+    const review = rows.find((r) => r.needsReview);
+    assert.ok(review);
+    assert.equal(review.owner, SEAN);
+    assert.equal(review.amount, 10000);
+    assert.equal(review.giftId, 9001);
+    assert.equal(review.bucket, "donation");
+    assert.equal((model.reviewGifts || []).length, 1);
+    assert.equal(model.reviewGifts?.[0].owner, SEAN);
+    assert.equal(model.reviewGifts?.[0].amount, 10000);
+    assert.equal(model.gifts.length, 0);
+    assert.equal(isTaskListRow(review), false);
+    const csv = buildCalculationCSV(model);
+    assert.match(csv, /MGO-CODED GIFTS — listed for review, not in Raised until assigned/);
+    assert.match(csv, /not in Raised until assigned/);
+    assert.match(csv, /QCD Donor/);
+  });
+
+  it("assigned MGO gift credits the roster MA and leaves the review list", () => {
+    const gift = postedGift({
+      id: 9001,
+      contactId: 84897,
+      giftDate: "9/1/2026",
+      amount: 10000,
+      segment: "Direct Solicitation (MGO)",
+    });
+    const notes = [donationNote({
+      createdByUser: SEAN,
+      type: "Mission Advancement Call | Conversation",
+      noteDate: "8/14/2026",
+      contactId: 84897,
+    })];
+    const { owner, rows, model } = run(
+      notes,
+      [gift],
+      SEAN,
+      { "gift:9001": { status: "assigned", owner: SEAN } },
+    );
+    assert.equal(owner.giftAmount, 10000);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 10);
+    assert.equal(rows.filter((r) => r.needsReview).length, 0);
+    assert.equal((model.reviewGifts || []).length, 0);
+    assert.equal(model.gifts.length, 1);
+    assert.equal(model.gifts[0].owner, SEAN);
+    assert.equal(model.gifts[0].amount, 10000);
+    assert.equal(model.gifts[0].mgoAssigned, true);
+    assert.equal(model.gifts[0].removed, false);
+    const credited = model.rows.find((r) => r.giftId === 9001) as ScoredRow | undefined;
+    assert.ok(credited);
+    assert.equal(credited.mgoAssigned, true);
+    assert.equal(credited.removed, false);
+    assert.equal(isTaskListRow(credited), false);
+    assert.equal(scoreGift(gift, SEAN, SEAN)?.owner, SEAN);
+  });
+
+  it("auto-credited gift dollar rows stay on the Tasks list", () => {
+    const { model } = run(
+      [donationNote()],
+      [postedGift({ amount: 75 })],
+    );
+    const donation = model.rows.find((r) => r.bucket === "donation") as ScoredRow | undefined;
+    assert.ok(donation);
+    assert.equal(donation.mgoAssigned, undefined);
+    assert.equal(isTaskListRow(donation), true);
+  });
+
+  it("assigned owner must be on the MA roster", () => {
+    const gift = postedGift({
+      id: 9002,
+      contactId: 84897,
+      giftDate: "9/1/2026",
+      amount: 10000,
+      segment: "Direct Solicitation (MGO)",
+    });
+    const { owner, model } = run(
+      [donationNote({
+        createdByUser: SEAN,
+        type: "Mission Advancement Call | Conversation",
+        noteDate: "8/14/2026",
+        contactId: 84897,
+      })],
+      [gift],
+      SEAN,
+      { "gift:9002": { status: "assigned", owner: "Colleen Dolnick" } },
+    );
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+    assert.equal(model.totals.giftAmount, 0);
+    assert.equal((model.reviewGifts || []).length, 1);
+    assert.equal(model.reviewGifts?.[0].owner, SEAN);
+  });
+
+  it("MGO gift with no MA note is skipped, not listed for review", () => {
+    const gift = postedGift({
+      id: 9004,
+      amount: 10000,
+      giftDate: "9/1/2026",
+      segment: "Direct Solicitation (MGO)",
+    });
+    const { owner, rows, model } = run([], [gift]);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(rows.filter((r) => r.needsReview).length, 0);
+    assert.equal((model.reviewGifts || []).length, 0);
+  });
+
+  it("assigned flag with missing owner falls back to the MA hint", () => {
+    const gift = postedGift({
+      id: 9005,
+      contactId: 84897,
+      giftDate: "9/1/2026",
+      amount: 10000,
+      segment: "Direct Solicitation (MGO)",
+    });
+    const { owner } = run(
+      [donationNote({
+        createdByUser: SEAN,
+        type: "Mission Advancement Call | Conversation",
+        noteDate: "8/14/2026",
+        contactId: 84897,
+      })],
+      [gift],
+      SEAN,
+      { "gift:9005": { status: "assigned" } },
+    );
+    assert.equal(owner.giftAmount, 10000);
+    assert.equal(owner.gifts, 1);
+  });
+
+  it("assigned MGO gift can pair with a donation note for 100 pts", () => {
+    const gift = postedGift({
+      id: 9003,
+      contactId: 84897,
+      giftDate: "9/1/2026",
+      amount: 10000,
+      segment: "Direct Solicitation (MGO)",
+    });
+    const { owner, model } = run(
+      [donationNote({
+        createdByUser: SEAN,
+        type: "Mission Advancement | New Donation or New AC",
+        noteDate: "8/14/2026",
+        contactId: 84897,
+      })],
+      [gift],
+      SEAN,
+      { "gift:9003": { status: "assigned", owner: SEAN } },
+    );
+    assert.equal(owner.giftAmount, 10000);
+    assert.equal(owner.points, 100);
+    assert.equal((model.reviewGifts || []).length, 0);
+  });
+
+  it("Direct Solicitation (MGO)-HIST_DS is excluded", () => {
+    const gift = postedGift({
+      amount: 100,
+      giftDate: "8/11/2026",
+      segment: "Direct Solicitation (MGO)-HIST_DS",
+    });
+    assert.equal(isMgoAttributedGift(gift), true);
+    assert.equal(scoreGift(gift, ALANNA), null);
+    const { owner } = run(
+      [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026" })],
+      [gift],
+    );
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+  });
+
+  it("White Mail and Annunciation Circle still credit with an MA note", () => {
+    const { owner } = run(
+      [
+        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026", contactId: 101, id: 1 }),
+        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026", contactId: 102, id: 2 }),
+      ],
+      [
+        postedGift({ id: 501, contactId: 101, giftDate: "8/11/2026", amount: 50, segment: "White Mail" }),
+        postedGift({ id: 502, contactId: 102, giftDate: "8/11/2026", amount: 75, segment: "Annunciation Circle" }),
+      ],
+    );
+    assert.equal(owner.giftAmount, 125);
+    assert.equal(owner.gifts, 2);
+    assert.equal(isMgoAttributedGift(postedGift({ segment: "White Mail" })), false);
+  });
+
+  it("Spring Appeal Chapel Direct Mail is not treated as MGO", () => {
+    const gift = postedGift({
+      amount: 40,
+      giftDate: "8/11/2026",
+      segment: "FYE26 Spring Appeal Chapel Direct Mail",
+    });
+    assert.equal(isMgoAttributedGift(gift), false);
+    const { owner } = run(
+      [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026" })],
+      [gift],
+    );
+    assert.equal(owner.giftAmount, 40);
+    assert.equal(owner.gifts, 1);
+  });
+
+  it("non-MA GFT_Solicitor is excluded even on White Mail", () => {
+    const gift = postedGift({
+      amount: 200,
+      giftDate: "8/11/2026",
+      segment: "White Mail",
+      solicitor: "Colleen Dolnick",
+    });
+    const viaField = postedGift({
+      id: 502,
+      amount: 150,
+      contactId: 102,
+      giftDate: "8/11/2026",
+      segment: "White Mail",
+      customFields: [{ name: "GFT_Solicitor", value: "Colleen Dolnick" }],
+    });
+    assert.equal(isMgoAttributedGift(gift), true);
+    assert.equal(isMgoAttributedGift(viaField), true);
+    assert.equal(scoreGift(gift, ALANNA), null);
+    const { owner } = run(
+      [
+        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026", contactId: 101, id: 1 }),
+        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026", contactId: 102, id: 2 }),
+      ],
+      [gift, viaField],
+    );
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+  });
+
+  it("roster solicitor with no note does not attribute (GFT_Solicitor is not the owner)", () => {
+    const gift = postedGift({ amount: 50, solicitor: SEAN });
+    assert.equal(isMgoAttributedGift(gift), false);
+    assert.equal(scoreGift(gift), null);
+    const { owner } = run([], [gift], SEAN);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+  });
+
+  it("monthly AC with MGO segment does not add dollars after prepareGifts", () => {
+    const merged = prepareGifts(
+      [
+        postedGift({
+          id: 451107,
+          contactId: 70510,
+          giftDate: "8/11/2026",
+          amount: 51.01,
+          segment: "Direct Solicitation (MGO)",
+        }),
+      ],
+      [
+        {
+          id: 3834,
+          contactId: 70510,
+          startDate: "2026-08-11",
+          amount: 51.01,
+          frequency: "Monthly",
+          segment: "Direct Solicitation (MGO)",
+          designations: [{ project: "Annunciation Circle" }],
+        },
+      ],
+    );
+    assert.equal(merged.length, 1);
+    assert.equal(isMgoAttributedGift(merged[0]), true);
+    const { owner } = run(
+      [donationNote({ contactId: 70510, type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026" })],
+      merged,
+    );
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+  });
+
+  it("posted MGO installment plus AC RecurringGift stays MGO and does not auto-credit", () => {
+    const merged = prepareGifts(
+      [
+        postedGift({
+          id: 451107,
+          contactId: 70510,
+          contactName: "Dustin and Margaret Hamacher",
+          giftDate: "8/11/2026",
+          amount: 51.01,
+          segment: "Direct Solicitation (MGO)",
+        }),
+      ],
+      [
+        {
+          id: 3834,
+          contactId: 70510,
+          contactName: "Dustin and Margaret Hamacher",
+          startDate: "2026-08-11",
+          amount: 51.01,
+          frequency: "Monthly",
+          segment: "Annunciation Circle",
+          designations: [{ project: "Annunciation Circle" }],
+        },
+      ],
+    );
+    assert.equal(merged.length, 1);
+    assert.equal(isMgoAttributedGift(merged[0]), true);
+    assert.equal(String(merged[0].segment), "Direct Solicitation (MGO)");
+    const notes = [donationNote({
+      contactId: 70510,
+      type: "Mission Advancement Call | Conversation",
+      noteDate: "8/10/2026",
+    })];
+    const { owner, rows, model } = run(notes, merged);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+    assert.notEqual(owner.giftAmount, 612.12);
+    const review = rows.find((r) => r.needsReview);
+    assert.ok(review);
+    assert.equal(review.amount, 612.12);
+    assert.equal((model.reviewGifts || []).length, 1);
+    assert.equal(model.gifts.length, 0);
+
+    const assigned = run(
+      notes,
+      merged,
+      ALANNA,
+      { "gift:rg-3834": { status: "assigned", owner: ALANNA } },
+    );
+    assert.equal(assigned.owner.giftAmount, 612.12);
+    assert.equal(assigned.owner.gifts, 1);
+    assert.equal(assigned.model.gifts[0].mgoAssigned, true);
+    assert.equal(isTaskListRow(assigned.model.rows.find((r) => r.giftId === "rg-3834") as ScoredRow), false);
   });
 });
 

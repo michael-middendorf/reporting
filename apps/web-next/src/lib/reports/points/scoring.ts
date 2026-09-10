@@ -1,11 +1,17 @@
 /* Typed wrappers around untyped points JS scoring modules. */
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const points = require("./points.js") as {
-  scoreAll: (input: { notes: unknown[]; gifts?: unknown[] }) => unknown[];
+  scoreAll: (input: {
+    notes: unknown[];
+    gifts?: unknown[];
+    flags?: Record<string, unknown>;
+  }) => unknown[];
   scoreEventsForDisplay: (events: unknown[]) => unknown[];
   prepareGifts: (posted?: unknown[], recurring?: unknown[]) => unknown[];
   isMonthlyRecurring: (record: unknown) => boolean;
   assignedNotesFromFlags: (flags?: Record<string, unknown>) => unknown[];
+  giftSolicitor: (record: unknown) => string | null;
+  isMgoAttributedGift: (record: unknown) => boolean;
 };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const aggregateMod = require("./aggregate.js") as {
@@ -15,6 +21,7 @@ const aggregateMod = require("./aggregate.js") as {
   ) => unknown;
   dailyTotals: (rows: unknown[]) => unknown[];
   rowId: (r: unknown) => string | null;
+  isTaskListRow: (r: unknown) => boolean;
   weekKey: (d: Date) => string;
   weekLabel: (key: string) => string;
   daysOfWeek: (mondayKey: string) => string[];
@@ -71,6 +78,8 @@ export const assignedNotesFromFlags = points.assignedNotesFromFlags;
 export const scoreEventsForDisplay = points.scoreEventsForDisplay;
 export const prepareGifts = points.prepareGifts;
 export const isMonthlyRecurring = points.isMonthlyRecurring;
+export const giftSolicitor = points.giftSolicitor;
+export const isMgoAttributedGift = points.isMgoAttributedGift;
 export const buildCalculationCSV = reportMod.buildCalculationCSV;
 export const downloadText = reportMod.downloadText;
 export const virtuousContactUrl = reportMod.virtuousContactUrl;
@@ -78,6 +87,7 @@ export const virtuousGiftUrl = reportMod.virtuousGiftUrl;
 export const aggregate = aggregateMod.aggregate;
 export const dailyTotals = aggregateMod.dailyTotals;
 export const rowId = aggregateMod.rowId;
+export const isTaskListRow = aggregateMod.isTaskListRow;
 export const weekKey = aggregateMod.weekKey;
 export const weekLabel = aggregateMod.weekLabel;
 export const daysOfWeek = aggregateMod.daysOfWeek;

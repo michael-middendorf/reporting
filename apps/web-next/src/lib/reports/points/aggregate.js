@@ -14,6 +14,19 @@ export function rowId(r) {
   return null;
 }
 
+/**
+ * Tasks Count/Remove list. Assigned or unassigned MGO gift dollar rows use
+ * the Assign checkbox on Donations Received, not this list (same `gift:{id}`
+ * key as Assign; Remove would overwrite status and un-credit the gift).
+ * Auto-credited (non-MGO) gift dollar rows stay on Tasks.
+ */
+export function isTaskListRow(r) {
+  if (r == null) return false;
+  if (r.mgoAssigned || r.needsReview) return false;
+  if (r.bucket === "possible") return false;
+  return true;
+}
+
 function rowRemoved(r, flags) {
   if (!flags) return false;
   if (r.bucket === "possible" && r.giftId != null && r.giftId !== "") {
@@ -204,6 +217,8 @@ function tallyRow(target, r) {
  * `flags` is the shared count/remove map (row id -> { status }). A status of
  * "removed" keeps the row in `model.rows` for the activity table but drops it
  * from points, activity counts, and gift totals.
+ * Rows with `needsReview` (unassigned MGO-coded gifts) are listed on
+ * `model.reviewGifts` and are not added to Raised or `model.gifts`.
  */
 export function aggregate(rows, { start, end, flags } = {}) {
   const inRange = rows.filter((r) => {
@@ -213,13 +228,16 @@ export function aggregate(rows, { start, end, flags } = {}) {
     return true;
   }).map((r) => ({ ...r, removed: rowRemoved(r, flags) }));
 
+  const reviewGifts = inRange.filter((r) => r.needsReview);
+  const scored = inRange.filter((r) => !r.needsReview);
+
   const byOwner = new Map(MA_ROSTER.map((m) => [m.name, blankOwner(m)]));
   const days = new Set();
   const weekdays = new Set();
   const gifts = [];
   const possibleGifts = [];
 
-  for (const r of inRange) {
+  for (const r of scored) {
     const o = byOwner.get(r.owner);
     if (!o) continue;
     if (r.bucket === "possible") {
@@ -292,9 +310,10 @@ export function aggregate(rows, { start, end, flags } = {}) {
     tableOwners,
     totals,
     buckets: BUCKETS,
-    rows: inRange,
+    rows: scored,
     gifts,
     possibleGifts,
+    reviewGifts,
     weekGrid,
     bests,
   };
