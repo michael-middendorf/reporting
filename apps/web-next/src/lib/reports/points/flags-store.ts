@@ -112,9 +112,15 @@ export async function upsertFlag(
     const flag: ReviewFlag = existing
       ? {
           ...existing,
-          // allow editing the human fields + status on update
           reason: input.reason ?? existing.reason,
           status: input.status ?? existing.status,
+          owner: input.owner ?? existing.owner,
+          type: input.type ?? existing.type,
+          label: input.label ?? existing.label,
+          day: input.day ?? existing.day,
+          contactId: input.contactId ?? existing.contactId,
+          contactName: input.contactName ?? existing.contactName,
+          points: input.points ?? existing.points,
           updatedBy: reviewerEmail,
           updatedAt: nowIso,
         }

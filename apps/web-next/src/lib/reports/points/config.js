@@ -33,6 +33,19 @@ export const MA_ROSTER = [
 
 export const MA_NAMES = MA_ROSTER.map((m) => m.name);
 
+export function maForEmail(email) {
+  const n = String(email || "").trim().toLowerCase();
+  if (!n) return null;
+  return MA_ROSTER.find((m) => (m.email || "").toLowerCase() === n) || null;
+}
+
+/** Virtuous note type used when assigning an Incoming gift. */
+export function noteTypeForIncoming(kind, assist = false) {
+  if (assist) return "Mission Advancement | Gift Assist";
+  if (kind === "ac-increase") return "Mission Advancement | Update Recurring Gift";
+  return "Mission Advancement | New Donation or New AC";
+}
+
 /* ---- Performance tiers (from MAS Points.pdf) ----------------------------
  * Evaluated on AVERAGE POINTS PER WEEKDAY over the evaluation period. */
 export const TIERS = [
@@ -273,6 +286,7 @@ export const TRACKER_LAYOUT = [
       "mission advancement | annunciation circle updated",
       "mission advancement | update recurring gift",
     ],
+    buckets: ["donation"],
   },
   { id: "assist", label: "Assist", types: ["mission advancement | gift assist"] },
 ];
@@ -335,7 +349,7 @@ export const TRACKING_CHART = {
     {
       label: "Dollars received",
       detail:
-        "Posted gift on the same contact as a conversation, meeting, or donation note. Note date on or before the gift, within 45 days. Credit goes to whoever logged that note, not the MA officer on the account. A letter, email, voicemail, or thank-you does not pull the gift.",
+        "Posted gift on the same contact as a conversation, meeting, or donation note, within 45 days. Conversations and meetings must be on or before the gift. A New Donation note can be the same day or up to 45 days after the gift posts. Credit goes to whoever logged that note, not the MA officer on the account. A letter, email, voicemail, or thank-you does not pull the gift.",
     },
     {
       label: "Secured gift · 100 pts",
@@ -395,7 +409,8 @@ export const DEFINITIONS = [
     text:
       "The dashboard only sees what is logged in Virtuous, on the donor’s contact, with the correct note type, authored by the MA. " +
       "A note on the wrong person, a generic type, a note after the gift, or no note at all will not count. " +
-      "Gifts are the same: there must be a conversation, meeting, or donation note on that contact on or before the gift date (within 45 days). " +
+      "Gifts are the same: there must be a conversation or meeting on that contact on or before the gift date (within 45 days). " +
+      "A New Donation note can be logged up to 45 days after the gift posts and still count. " +
       "A letter, email, voicemail, or thank-you does not pull the gift. A thank-you logged after the gift does not pull that gift. " +
       "100 points additionally require a donation note type (‘New Donation or New AC’, ‘Annunciation Circle updated’, or ‘Update recurring gift’) or a Gift Assist note, paired with a posted gift. Gift Assist is 100 points and does not count dollars.",
   },
@@ -406,8 +421,10 @@ export const DEFINITIONS = [
       "(phone conversation, two-way email, in-person, or MAS meeting) on or before the gift date, within 45 days, " +
       "when there is no matching donation note yet. Every MA who spoke with that donor in the window is listed. " +
       "This is a review list, not points and not Raised. A voicemail, letter, or email-sent does not put a gift here. " +
-      "If the gift followed your work, log ‘New Donation or New AC’ (new gift or Mission Fund), ‘Annunciation Circle updated’, or ‘Update recurring gift’ (AC increase) on the contact. " +
-      "After the next refresh it moves to Counted and scores 100 points. If it was not because of you, leave it.",
+      "Anyone can assign an MA. That MA must accept while signed in as themselves. " +
+      "Accept logs the note in Virtuous and scores 100 points. Gift Assist is 100 points and $0. " +
+      "Virtuous still stamps the integration user as author — the API cannot impersonate an MA. " +
+      "If it was not because of you, leave it.",
   },
   {
     term: "Secured gift (100 pts)",

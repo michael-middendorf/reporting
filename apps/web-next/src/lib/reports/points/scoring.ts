@@ -5,6 +5,7 @@ const points = require("./points.js") as {
   scoreEventsForDisplay: (events: unknown[]) => unknown[];
   prepareGifts: (posted?: unknown[], recurring?: unknown[]) => unknown[];
   isMonthlyRecurring: (record: unknown) => boolean;
+  assignedNotesFromFlags: (flags?: Record<string, unknown>) => unknown[];
 };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const aggregateMod = require("./aggregate.js") as {
@@ -60,9 +61,13 @@ const config = require("./config.js") as {
   };
   SETTINGS: { evalStart: string };
   evalStartDate: () => Date;
+  MA_ROSTER: Array<{ name: string; short?: string; email?: string }>;
+  noteTypeForIncoming: (kind?: string, assist?: boolean) => string;
+  maForEmail: (email?: string) => { name: string; short?: string; email?: string } | null;
 };
 
 export const scoreAll = points.scoreAll;
+export const assignedNotesFromFlags = points.assignedNotesFromFlags;
 export const scoreEventsForDisplay = points.scoreEventsForDisplay;
 export const prepareGifts = points.prepareGifts;
 export const isMonthlyRecurring = points.isMonthlyRecurring;
@@ -90,3 +95,6 @@ export const TRACKER_LAYOUT = config.TRACKER_LAYOUT;
 export const TRACKING_CHART = config.TRACKING_CHART;
 export const SETTINGS = config.SETTINGS;
 export const evalStartDate = config.evalStartDate;
+export const MA_ROSTER = config.MA_ROSTER;
+export const noteTypeForIncoming = config.noteTypeForIncoming;
+export const maForEmail = config.maForEmail;

@@ -77,11 +77,27 @@ export async function GET(req: Request, ctx: Ctx) {
       );
       const posted = gifts.rows.filter((r) => contactIds.has(Number(r.contactId)));
       const names = new Map<number, string>();
+      const contacts = await loadSourceRowsOptional<Record<string, unknown>>("virtuous", "contacts");
+      for (const c of contacts?.rows || []) {
+        const cid = Number(c.id ?? c.contactId);
+        const name = String(c.name || c.contactName || "").trim();
+        if (Number.isFinite(cid) && name) names.set(cid, name);
+      }
+      for (const r of notes.rows) {
+        const cid = Number(r.contactId);
+        const name = String(r.contactName || "").trim();
+        if (Number.isFinite(cid) && name) names.set(cid, name);
+      }
       for (const r of posted) {
         const cid = Number(r.contactId);
         const name = String(r.contactName || "").trim();
         if (Number.isFinite(cid) && name) names.set(cid, name);
       }
+      const namedPosted = posted.map((r) => {
+        const cid = Number(r.contactId);
+        const contactName = String(r.contactName || "").trim() || names.get(cid) || "";
+        return { ...r, contactName };
+      });
       const recRows = (recurring?.rows || [])
         .filter((r) => contactIds.has(Number(r.contactId)))
         .map((r) => {
@@ -89,7 +105,7 @@ export async function GET(req: Request, ctx: Ctx) {
           const contactName = String(r.contactName || "").trim() || names.get(cid) || "";
           return { ...r, contactName };
         });
-      const kept = (prepareGifts(posted, recRows) as Record<string, unknown>[]).map((r) => {
+      const kept = (prepareGifts(namedPosted, recRows) as Record<string, unknown>[]).map((r) => {
         const lean: Record<string, unknown> = {};
         for (const k of GIFT_FIELDS) lean[k] = r[k];
         return lean;

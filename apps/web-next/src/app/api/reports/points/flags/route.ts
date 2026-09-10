@@ -45,8 +45,9 @@ export async function POST(req: Request) {
   if (!body || body.noteId == null || String(body.noteId).trim() === "") {
     return NextResponse.json({ error: "noteId is required" }, { status: 400 });
   }
-  if (body.status && body.status !== "open" && body.status !== "resolved" && body.status !== "removed") {
-    return NextResponse.json({ error: "status must be 'removed', 'open', or 'resolved'" }, { status: 400 });
+  const allowed = new Set(["open", "resolved", "removed", "pending", "assigned"]);
+  if (body.status && !allowed.has(body.status)) {
+    return NextResponse.json({ error: "status must be 'removed', 'open', 'resolved', 'pending', or 'assigned'" }, { status: 400 });
   }
   if (body.reason != null && String(body.reason).length > 2000) {
     return NextResponse.json({ error: "reason too long" }, { status: 400 });

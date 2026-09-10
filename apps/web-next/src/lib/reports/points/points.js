@@ -39,6 +39,29 @@ function beforeStart(date, owner) {
   return day < start;
 }
 
+/**
+ * Incoming-gift assignments saved on the dashboard become synthetic donation
+ * notes so the chosen MA scores immediately. Virtuous stamps API-created notes
+ * as the API user, not the MA, so we cannot rely on createdByUser for that.
+ */
+export function assignedNotesFromFlags(flags = {}) {
+  const out = [];
+  for (const f of Object.values(flags || {})) {
+    if (!f || f.status !== "assigned") continue;
+    if (!f.owner || !f.contactId || !f.day) continue;
+    const giftId = String(f.noteId || "").replace(/^gift:/, "");
+    out.push({
+      createdByUser: f.owner,
+      type: f.type || "Mission Advancement | New Donation or New AC",
+      noteDate: f.day,
+      contactId: /^\d+$/.test(String(f.contactId)) ? Number(f.contactId) : f.contactId,
+      contactName: f.contactName || "",
+      id: giftId ? `assign-${giftId}` : f.noteId,
+    });
+  }
+  return out;
+}
+
 /** Is this note authored by a scoped MA? */
 export function ownerOf(record) {
   const name = (record.createdByUser || "").replace(/\s+/g, " ").trim();
@@ -396,6 +419,30 @@ function matchableGift(record) {
   };
 }
 
+/**
+ * Pair a donation note with a posted gift on the same contact.
+ * MAs often log New Donation after the gift posts, so gifts up to 45 days
+ * before the note count as well as gifts up to 45 days after. Prefer the
+ * closest date; a gift on or after the note wins ties.
+ */
+function pickDonationMatch(note, candidates, used, window) {
+  let best = null;
+  let bestScore = Infinity;
+  for (const g of candidates) {
+    if (used.has(g)) continue;
+    const dollars = g.postedAmount || g.amount || 0;
+    if (dollars <= 0) continue;
+    const delta = daysFromNoteToGift(note.date, g.date);
+    if (delta == null || Math.abs(delta) > window) continue;
+    const score = Math.abs(delta) * 2 + (delta < 0 ? 1 : 0);
+    if (score < bestScore) {
+      bestScore = score;
+      best = g;
+    }
+  }
+  return best;
+}
+
 function markAssist(gift) {
   gift.assist = true;
   gift.amount = 0;
@@ -406,8 +453,9 @@ function markAssist(gift) {
  * Score MA activity notes (and optional gifts) into a flat list of scored rows.
  *
  * Donation notes (bucket "gift") award 100 pts only after they pair with a
- * posted gift of amount > 0 on the same contact with giftDate on or after the
- * note date. Points are moved onto that gift's week. Unmatched donation notes
+ * posted gift of amount > 0 on the same contact within 45 days of the note
+ * (before or after — MAs often log the note after the gift posts). Points
+ * are moved onto that gift's week. Unmatched donation notes
  * score 0 and leave the gift bucket. Gift Assist is the same 100 pts but does
  * not count dollars. A new monthly Recurring Gift is one gift (annualized
  * dollars) and one 100-pt credit; later installments of that commitment are
@@ -468,18 +516,17 @@ export function scoreAll({ notes = [], gifts = [] }) {
   for (const note of notesInOrder) {
     const candidates = note.contactId != null ? (giftsByContact.get(note.contactId) || []) : [];
     const window = SETTINGS.giftNoteDaysBefore ?? 45;
-    const match = candidates.find((g) => {
-      if (used.has(g)) return false;
-      const dollars = g.postedAmount || g.amount || 0;
-      if (dollars <= 0) return false;
-      const cmp = dayCmp(g.date, note.date);
-      if (cmp == null || cmp < 0) return false;
-      const delta = daysFromNoteToGift(note.date, g.date);
-      if (delta == null || delta > window) return false;
-      return true;
-    });
+    const match = pickDonationMatch(note, candidates, used, window);
     if (match) {
       used.add(match);
+      if (match.matchOnly && note.owner) {
+        const raw = gifts.find((g) => String(g.id) === String(match.giftId));
+        const full = raw ? scoreGift(raw, note.owner) : null;
+        if (full) {
+          Object.assign(match, full);
+          if (!match.assist) rows.push(match);
+        }
+      }
       const dollars = match.postedAmount || match.amount || 0;
       note.date = match.date;
       note.day = match.day;

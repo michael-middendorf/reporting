@@ -14,7 +14,7 @@
 /** Where the shared flag document lives in the ReportData bucket. */
 export const FLAGS_KEY = "points/review-flags.json";
 
-export type FlagStatus = "open" | "resolved" | "removed";
+export type FlagStatus = "open" | "resolved" | "removed" | "pending" | "assigned";
 
 /** True when this override excludes the task from dashboard totals. */
 export function isRemovedFlag(flag?: { status?: FlagStatus } | null): boolean {

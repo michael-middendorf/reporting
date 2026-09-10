@@ -6,11 +6,12 @@ import {
   aggregate,
   BUCKETS,
   buildCalculationCSV,
-  dailyTotals,
   daysOfWeek,
   downloadText,
   rowId,
   scoreAll,
+  assignedNotesFromFlags,
+  noteTypeForIncoming,
   tierFor,
   TIERS,
   trackerBreakdown,
@@ -203,6 +204,7 @@ async function loadRaw() {
 }
 
 export default function PointsPage() {
+  const [raw, setRaw] = useState<{ notes: unknown[]; gifts: unknown[]; meta: Record<string, unknown> } | null>(null);
   const [rows, setRows] = useState<Array<Record<string, unknown>> | null>(null);
   const [meta, setMeta] = useState<Record<string, unknown>>({});
   const [range, setRange] = useState<RangeKey>("all");
@@ -218,22 +220,40 @@ export default function PointsPage() {
   const [flags, setFlags] = useState<Record<string, ReviewFlag>>({});
   const [flagBusy, setFlagBusy] = useState<string | null>(null);
   const [flagError, setFlagError] = useState<string | null>(null);
+  const [assignBusy, setAssignBusy] = useState<string | null>(null);
+  const [sessionMa, setSessionMa] = useState<string | null>(null);
 
   useEffect(() => {
     loadRaw()
-      .then((raw) => {
-        const scored = scoreAll({ notes: raw.notes, gifts: raw.gifts }) as unknown as Array<Record<string, unknown>>;
-        setRows(scored);
-        setMeta(raw.meta as Record<string, unknown>);
+      .then((loaded) => {
+        setRaw({
+          notes: loaded.notes,
+          gifts: loaded.gifts,
+          meta: loaded.meta as Record<string, unknown>,
+        });
+        setMeta(loaded.meta as Record<string, unknown>);
       })
       .catch((e) => setError(String(e)));
   }, []);
+
+  useEffect(() => {
+    if (!raw) return;
+    const extra = assignedNotesFromFlags(flags) as unknown[];
+    setRows(scoreAll({ notes: [...raw.notes, ...extra], gifts: raw.gifts }) as unknown as Array<Record<string, unknown>>);
+  }, [raw, flags]);
 
   // Shared count/remove overrides (persisted in S3; see /api/reports/points/flags).
   useEffect(() => {
     apiFetch("/api/reports/points/flags")
       .then((r) => (r.ok ? r.json() : { flags: {} }))
       .then((d) => setFlags((d?.flags as Record<string, ReviewFlag>) || {}))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    apiFetch("/api/reports/points/me")
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((d) => setSessionMa(typeof d?.maName === "string" ? d.maName : null))
       .catch(() => {});
   }, []);
 
@@ -289,26 +309,7 @@ export default function PointsPage() {
     };
   }, [rows, range, selectedWeek, flags]);
 
-  const daily = useMemo(
-    () => dailyTotals(model.rows) as Array<{ day?: string; date: string | Date; points: number }>,
-    [model.rows],
-  );
   const selectedOwner = model.owners.find((o) => o.name === selected);
-  const teamMix = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const o of model.owners) {
-      for (const [k, v] of Object.entries(o.bucketPoints || o.buckets || {})) {
-        map[k] = (map[k] || 0) + Number(v || 0);
-      }
-    }
-    return map;
-  }, [model.owners]);
-  const mixPeak = Math.max(
-    1,
-    ...Object.entries(teamMix)
-      .filter(([k]) => k !== "donation")
-      .map(([, v]) => v),
-  );
 
   const boundWindow = bounds(range, selectedWeek || null);
   const selectWeek = range === "all" ? "" : boundWindow.start ? weekKey(boundWindow.start) : "";
@@ -456,6 +457,43 @@ export default function PointsPage() {
     const id = rowId(r);
     if (!id) return;
     deleteFlag(id);
+  }
+
+  async function assignIncoming(g: PossibleGiftRow, owner: string, assist: boolean, action: "propose" | "accept") {
+    if (g.giftId == null || g.giftId === "" || g.contactId == null || !g.day) return;
+    const kindLabel = assist ? "Gift Assist" : (noteTypeForIncoming(g.kind) || "gift note");
+    const prompt = action === "accept"
+      ? `Accept this ${kindLabel} as ${owner}? That logs the note in Virtuous and scores it for you.`
+      : `Assign this ${kindLabel} to ${owner}? They must accept before it is logged in Virtuous.`;
+    if (!window.confirm(prompt)) return;
+    const key = `${g.giftId}:${action}`;
+    setAssignBusy(key);
+    setFlagError(null);
+    try {
+      const res = await apiFetch("/api/reports/points/assign-gift", {
+        method: "POST",
+        body: JSON.stringify({
+          action,
+          giftId: g.giftId,
+          contactId: g.contactId,
+          contactName: g.contactName,
+          owner,
+          day: g.day,
+          amount: g.amount,
+          kind: g.kind,
+          assist,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || res.statusText);
+      if (data.flag?.noteId) {
+        setFlags((f) => ({ ...f, [data.flag.noteId]: data.flag as ReviewFlag }));
+      }
+    } catch (e) {
+      setFlagError(`Could not ${action} gift: ${String(e)}`);
+    } finally {
+      setAssignBusy(null);
+    }
   }
 
   function exportCalculation() {
@@ -752,10 +790,7 @@ export default function PointsPage() {
                   </div>
                 </div>
                 <div>
-              <h3 style={{ marginTop: 0 }}>
-                Day{" "}
-                <span className="section-hint">Total for the week, or a date for that day</span>
-              </h3>
+              <h3 style={{ marginTop: 0 }}>Day</h3>
               <div className="seg day-seg" role="group" aria-label="Day in week">
                 <button
                   type="button"
@@ -963,49 +998,50 @@ export default function PointsPage() {
               <span className="section-hint">highest-points week for each MA and for the team</span>
             </summary>
             <div className="track-chart-body">
-            <div className="bests">
-              {(model.bests?.owners || []).map((o) => {
-                const weekPts = (o.points as BestRec | undefined)?.value ?? 0;
-                return (
-                <div key={String(o.name)} className="bestcard">
-                  <div className="name">{String(o.short || o.name)}</div>
-                  <div className="best-total tabular">{weekPts.toLocaleString()} pts</div>
-                  <div className="best-week">
-                    {o.bestWeek ? `Week of ${weekLabel(String(o.bestWeek))}` : "—"}
-                  </div>
-                  {(model.bests?.metrics || []).filter((m) => m.id !== "points").map((m) => {
-                    const rec = o[m.id] as BestRec | undefined;
-                    const val = m.id === "giftAmount" ? money(rec?.value) : (rec?.value ?? 0).toLocaleString();
+              <table className="grid">
+                <thead>
+                  <tr>
+                    <th>MA</th>
+                    <th>Best week</th>
+                    <th>Pts</th>
+                    <th>Convos</th>
+                    <th>Dials</th>
+                    <th>Gifts</th>
+                    <th>Raised</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(model.bests?.owners || []).map((o) => {
+                    const weekPts = (o.points as BestRec | undefined)?.value ?? 0;
+                    const conv = o.conversations as BestRec | undefined;
+                    const dials = o.dials as BestRec | undefined;
+                    const gifts = o.gifts as BestRec | undefined;
+                    const raised = o.giftAmount as BestRec | undefined;
                     return (
-                      <div key={m.id} className="best-row">
-                        <span>{m.label}</span>
-                        <b className="tabular">{val}</b>
-                      </div>
+                      <tr key={String(o.name)}>
+                        <td>{String(o.short || o.name)}</td>
+                        <td>{o.bestWeek ? weekLabel(String(o.bestWeek)) : "—"}</td>
+                        <td className="pts tabular">{weekPts.toLocaleString()}</td>
+                        <td className="tabular">{(conv?.value ?? 0).toLocaleString()}</td>
+                        <td className="tabular">{(dials?.value ?? 0).toLocaleString()}</td>
+                        <td className="tabular">{(gifts?.value ?? 0).toLocaleString()}</td>
+                        <td className="pts tabular">{money(raised?.value)}</td>
+                      </tr>
                     );
                   })}
-                </div>
-                );
-              })}
-              {model.bests?.team && (
-                <div className="bestcard team">
-                  <div className="name">Team best</div>
-                  <div className="best-total tabular">{(model.bests.team.points?.value ?? 0).toLocaleString()} pts</div>
-                  <div className="best-week">
-                    {model.bests.teamWeek ? `Week of ${weekLabel(model.bests.teamWeek)}` : "—"}
-                  </div>
-                  {(model.bests.metrics || []).filter((m) => m.id !== "points").map((m) => {
-                    const rec = model.bests.team[m.id];
-                    const val = m.id === "giftAmount" ? money(rec?.value) : (rec?.value ?? 0).toLocaleString();
-                    return (
-                      <div key={m.id} className="best-row">
-                        <span>{m.label}</span>
-                        <b className="tabular">{val}</b>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                  {model.bests?.team && (
+                    <tr className="grand">
+                      <td>Team</td>
+                      <td>{model.bests.teamWeek ? weekLabel(model.bests.teamWeek) : "—"}</td>
+                      <td className="pts tabular">{(model.bests.team.points?.value ?? 0).toLocaleString()}</td>
+                      <td className="tabular">{(model.bests.team.conversations?.value ?? 0).toLocaleString()}</td>
+                      <td className="tabular">{(model.bests.team.dials?.value ?? 0).toLocaleString()}</td>
+                      <td className="tabular">{(model.bests.team.gifts?.value ?? 0).toLocaleString()}</td>
+                      <td className="pts tabular">{money(model.bests.team.giftAmount?.value)}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </details>
 
@@ -1121,11 +1157,10 @@ export default function PointsPage() {
               ) : (
                 <>
                   <p className="footnote" style={{ marginTop: 0, marginBottom: 14 }}>
-                    Incoming gifts posted after an MA spoke with the donor (call, meeting, or email conversation)
-                    and nobody has logged a gift note yet. Includes new and increased Annunciation Circle and
-                    Mission Fund gifts. They are not points and not Raised until someone opens Contact ↗ and
-                    logs New Donation or New AC, Annunciation Circle updated, or Update Recurring Gift. Every
-                    MA who spoke with that donor is listed. If it was not because of you, leave it.
+                    Incoming gifts posted after an MA spoke with the donor and nobody has logged a gift note yet.
+                    Anyone can assign an MA. That MA must accept while signed in as themselves; then we log the
+                    note in Virtuous and score 100 points. Virtuous still stamps the integration user as author —
+                    we cannot impersonate them. Gift Assist is 100 points and $0.
                   </p>
                   <div className="seg" role="group" aria-label="Incoming MA filter" style={{ marginBottom: 14 }}>
                     <button
@@ -1155,7 +1190,6 @@ export default function PointsPage() {
                     <table className="grid">
                       <thead>
                         <tr>
-                          <th>Donor</th>
                           <th>Gift date</th>
                           <th>Kind</th>
                           <th>Amount</th>
@@ -1166,8 +1200,12 @@ export default function PointsPage() {
                       <tbody>
                         {listedPossible.map((g, i) => (
                           <tr key={g.giftId != null && g.giftId !== "" ? String(g.giftId) : `incoming-${i}`}>
-                            <td>{g.contactName || "—"}</td>
-                            <td style={{ whiteSpace: "nowrap" }}>{g.day ? formatDay(g.day) : "—"}</td>
+                            <td style={{ whiteSpace: "nowrap" }}>
+                              {g.day ? formatDay(g.day) : "—"}
+                              {g.contactName ? (
+                                <div style={{ color: "var(--slate-400)", fontWeight: 400 }}>{g.contactName}</div>
+                              ) : null}
+                            </td>
                             <td>
                               {g.kindLabel || (g.annualized ? "Monthly ×12" : g.giftType || "—")}
                               {g.project ? (
@@ -1182,32 +1220,99 @@ export default function PointsPage() {
                             </td>
                             <td>
                               {incomingOwners(g).map((o, idx) => (
-                                <div key={`${o.name}-${idx}`}>
+                                <div key={`${o.name}-${idx}`} style={{ marginBottom: 6 }}>
                                   {o.name}
                                   <span style={{ color: "var(--slate-400)" }}>
                                     {" "}
-                                    · {o.noteLabel || o.noteType || "note"}
+                                    · {o.noteType || o.noteLabel || "note"}
                                     {o.noteDay ? ` ${formatDay(o.noteDay)}` : ""}
                                     {o.daysAfterNote != null ? ` · ${o.daysAfterNote}d later` : ""}
                                   </span>
                                 </div>
                               ))}
+                              {(() => {
+                                const pending = g.giftId != null ? flags[`gift:${g.giftId}`] : null;
+                                const waiting = pending?.status === "pending" ? pending.owner : null;
+                                if (waiting) {
+                                  const mine = sessionMa && sessionMa === waiting;
+                                  return (
+                                    <div>
+                                      <span className="pill warn">waiting for {waiting.split(" ")[0]} to accept</span>
+                                      {mine ? (
+                                        <div style={{ marginTop: 6 }}>
+                                          <button
+                                            type="button"
+                                            className="mini-btn solid"
+                                            disabled={assignBusy != null}
+                                            onClick={() => assignIncoming(g, waiting, /assist/i.test(pending?.type || pending?.label || ""), "accept")}
+                                          >
+                                            {assignBusy === `${g.giftId}:accept` ? "Accepting…" : "Accept"}
+                                          </button>
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <div>
+                                    {incomingOwners(g).map((o) => (
+                                      <div key={`assign-${o.name}`} style={{ marginTop: 4 }}>
+                                        <button
+                                          type="button"
+                                          className="mini-btn"
+                                          disabled={assignBusy != null}
+                                          onClick={() => assignIncoming(g, o.name, false, "propose")}
+                                        >
+                                          Assign {o.name.split(" ")[0]}
+                                        </button>
+                                        {" "}
+                                        <button
+                                          type="button"
+                                          className="mini-btn"
+                                          disabled={assignBusy != null}
+                                          onClick={() => assignIncoming(g, o.name, true, "propose")}
+                                        >
+                                          Assist
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              })()}
                             </td>
                             <td>
-                              {g.contactId ? (
-                                <a href={virtuousContactUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
-                                  Contact ↗
+                              {virtuousGiftUrl(g.contactId) ? (
+                                <a href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
+                                  Gift ↗
                                 </a>
                               ) : (
                                 "—"
                               )}
-                              {virtuousGiftUrl(g.contactId) ? (
-                                <>
-                                  {" "}
-                                  <a href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
-                                    Gift ↗
-                                  </a>
-                                </>
+                              {g.giftId != null && g.giftId !== "" ? (
+                                <div style={{ marginTop: 6 }}>
+                                  <button
+                                    type="button"
+                                    className="mini-btn danger"
+                                    disabled={flagBusy === `gift:${g.giftId}` || assignBusy != null}
+                                    onClick={() => {
+                                      if (!window.confirm("Remove this gift from Incoming? It will not score.")) return;
+                                      saveFlag({
+                                        noteId: `gift:${g.giftId}`,
+                                        contactId: g.contactId != null ? String(g.contactId) : null,
+                                        contactName: g.contactName || null,
+                                        owner: g.owner,
+                                        day: g.day,
+                                        type: g.kindLabel || g.giftType || null,
+                                        label: "Incoming gift dismissed",
+                                        points: 0,
+                                        status: "removed",
+                                        reason: "Does not qualify",
+                                      });
+                                    }}
+                                  >
+                                    {flagBusy === `gift:${g.giftId}` ? "Removing…" : "Not this gift"}
+                                  </button>
+                                </div>
                               ) : null}
                             </td>
                           </tr>
@@ -1219,73 +1324,6 @@ export default function PointsPage() {
               )}
             </div>
           </section>
-
-          <details className="track-chart">
-            <summary>Daily points and activity mix</summary>
-            <div className="track-chart-body">
-          <section className="section two-col">
-            <div>
-              <h2>Daily Team Points</h2>
-              <div className="panel">
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-end",
-                    gap: 3,
-                    height: 160,
-                  }}
-                >
-                  {daily.map((d) => {
-                    const max = Math.max(1, ...daily.map((x) => x.points));
-                    const h = (d.points / max) * 130;
-                    const dt = d.date instanceof Date ? d.date : new Date(d.date);
-                    const weekend = dt.getDay() === 0 || dt.getDay() === 6;
-                    return (
-                      <div
-                        key={d.day || String(d.date)}
-                        title={`${d.day || d.date}: ${d.points}`}
-                        style={{
-                          flex: 1,
-                          height: Math.max(2, h),
-                          background: weekend ? "#c5d0df" : "#0c233f",
-                          borderRadius: 3,
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-                <p className="footnote">Weekday bars are solid; weekend bars are muted. Tiers are evaluated on average points per weekday.</p>
-              </div>
-            </div>
-            <div>
-              <h2>Activity Mix</h2>
-              <div className="panel">
-                {BUCKETS.filter((b: { id: string }) => b.id !== "donation").map((b: { id: string; label: string; color: string }) => {
-                  const v = teamMix[b.id] || 0;
-                  if (!v) return null;
-                  return (
-                    <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                      <div style={{ width: 140, fontSize: 13 }}>{b.label}</div>
-                      <div style={{ flex: 1, height: 14, background: "#eef3fa", borderRadius: 4 }}>
-                        <div
-                          style={{
-                            width: `${(v / mixPeak) * 100}%`,
-                            height: "100%",
-                            background: b.color,
-                            borderRadius: 4,
-                          }}
-                        />
-                      </div>
-                      <div style={{ width: 56, textAlign: "right", fontWeight: 700 }}>{v}</div>
-                    </div>
-                  );
-                })}
-                <p className="footnote">Points contributed by each activity type across the team.</p>
-              </div>
-            </div>
-          </section>
-            </div>
-          </details>
 
           <section className="section">
             <h3>Tiers</h3>

@@ -16,6 +16,9 @@ export function rowId(r) {
 
 function rowRemoved(r, flags) {
   if (!flags) return false;
+  if (r.bucket === "possible" && r.giftId != null && r.giftId !== "") {
+    if (flags[`gift:${r.giftId}`]?.status === "removed") return true;
+  }
   const id = rowId(r);
   if (!id) return false;
   return flags[id]?.status === "removed";
@@ -65,13 +68,37 @@ function matchTrackerLeaf(leaf, rows) {
 }
 
 /**
+ * Donation is posted gifts (Raised), not only New Donation notes. Count is
+ * those gifts; points are the 100-pt secured-gift notes (not Gift Assist).
+ */
+function matchDonationLeaf(leaf, all, scored) {
+  const gifts = all.filter((r) => r.bucket === "donation" && (r.amount || 0) > 0 && !r.assist);
+  const types = new Set((leaf.types || []).map((t) => String(t).toLowerCase()));
+  const notes = scored.filter((r) => {
+    if (r.assist) return false;
+    const type = (r.type || "").trim().toLowerCase();
+    return types.has(type) && (r.points || 0) > 0;
+  });
+  return {
+    id: leaf.id,
+    label: leaf.label,
+    section: false,
+    indent: false,
+    count: gifts.length,
+    points: notes.reduce((s, r) => s + (r.points || 0), 0),
+  };
+}
+
+/**
  * Spreadsheet-style category mix for a set of scored rows (one MA, one week
- * or day). Skips removed rows, unmatched notes, and gift-dollar lines.
+ * or day). Skips removed rows, unmatched notes, and Incoming (possible) gifts.
+ * Posted gifts are counted on the Donation line so that category matches Raised.
  */
 export function trackerBreakdown(rows, layout = TRACKER_LAYOUT) {
-  const scored = (rows || []).filter(
-    (r) => !r.removed && !r.unmatched && r.bucket !== "donation" && r.bucket !== "possible",
+  const all = (rows || []).filter(
+    (r) => !r.removed && !r.unmatched && r.bucket !== "possible",
   );
+  const scored = all.filter((r) => r.bucket !== "donation");
   const lines = [];
   let totalPoints = 0;
   let totalCount = 0;
@@ -89,7 +116,9 @@ export function trackerBreakdown(rows, layout = TRACKER_LAYOUT) {
       totalPoints += points;
       totalCount += count;
     } else {
-      const rec = matchTrackerLeaf(group, scored);
+      const rec = group.id === "donation"
+        ? matchDonationLeaf(group, all, scored)
+        : matchTrackerLeaf(group, scored);
       lines.push(rec);
       totalPoints += rec.points;
       totalCount += rec.count;

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MA_NAMES, SETTINGS, evalStartDate } from "./config.js";
-import { isMonthlyRecurring, parseDate, prepareGifts, priorAcMonthly, scoreAll, scoreGift } from "./points.js";
+import { assignedNotesFromFlags, isMonthlyRecurring, parseDate, prepareGifts, priorAcMonthly, scoreAll, scoreGift } from "./points.js";
 import { aggregate, daysOfWeek, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
 import { buildCalculationCSV, statusOf, virtuousGiftUrl } from "./report.js";
 
@@ -263,17 +263,26 @@ describe("MA points require a posted gift with dollars", () => {
     assert.equal(second.points, 0);
   });
 
-  it("gift dated before the note on that contact is not attributed", () => {
+  it("gift dated the day before a donation note still counts (logged after it posted)", () => {
+    const { owner, model } = run(
+      [donationNote({ noteDate: "9/9/2026" })],
+      [postedGift({ giftDate: "9/8/2026", amount: 103.3 })],
+    );
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 103.3);
+    assert.equal(owner.points, 100);
+    assert.equal(model.gifts.length, 1);
+  });
+
+  it("gift more than 45 days before a donation note is not attributed", () => {
     const { model, owner, rows } = run(
-      [donationNote({ noteDate: "8/11/2026" })],
-      [postedGift({ giftDate: "8/4/2026", amount: 90 })],
+      [donationNote({ noteDate: "9/9/2026" })],
+      [postedGift({ giftDate: "7/20/2026", amount: 90 })],
     );
     assert.equal(owner.gifts, 0);
     assert.equal(owner.giftAmount, 0);
     assert.equal(owner.points, 0);
     assert.equal(model.totals.gifts, 0);
-    assert.equal(model.totals.giftAmount, 0);
-    assert.equal(model.gifts.length, 0);
     assert.ok(rows.some((r) => r.unmatched && r.bucket === "unmatched" && r.points === 0));
   });
 
@@ -896,6 +905,18 @@ describe("tracker category layout", () => {
     assert.equal(mix.totalPoints, 50);
   });
 
+  it("Donation counts posted gifts and 100 pts from a matching donation note", () => {
+    const { rows } = run(
+      [donationNote({ type: "Mission Advancement | New Donation or New AC", noteDate: "8/4/2026" })],
+      [postedGift({ giftDate: "8/4/2026", amount: 75 })],
+    );
+    const mix = trackerBreakdown(rows);
+    const donation = mix.lines.find((l) => l.id === "donation");
+    assert.ok(donation);
+    assert.equal(donation.count, 1);
+    assert.equal(donation.points, 100);
+  });
+
   it("filters rows to a tracker category", () => {
     const scored = scoreAll({
       notes: [
@@ -1136,7 +1157,8 @@ describe("possible gifts", () => {
     assert.equal(mix.totalPoints, 10);
     const donationLine = mix.lines.find((l) => l.id === "donation");
     assert.ok(donationLine);
-    assert.equal(donationLine.count, 0);
+    assert.equal(donationLine.count, 1);
+    assert.equal(donationLine.points, 0);
     assert.equal(owner.points, 10);
     assert.equal(model.totals.points, 10);
   });
@@ -1177,6 +1199,62 @@ describe("possible gifts", () => {
     );
     assert.equal(model.possibleGifts?.length, 1);
     assert.equal(model.possibleGifts?.[0].kind, "ac-increase");
+  });
+
+  it("a dismissed incoming gift leaves the Incoming list and does not score", () => {
+    const { model } = run(
+      [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026" })],
+      [postedGift({ giftDate: "8/11/2026", amount: 80 })],
+    );
+    assert.equal(model.possibleGifts?.length, 1);
+    const dismissed = aggregate(model.rows, {
+      start: evalStartDate(),
+      end: null,
+      flags: { "gift:501": { status: "removed" } },
+    }) as Model;
+    assert.equal(dismissed.possibleGifts?.length ?? 0, 0);
+    assert.equal(dismissed.totals.points, 10);
+  });
+
+  it("a pending assignment does not score until accepted", () => {
+    const extra = assignedNotesFromFlags({
+      "gift:501": {
+        status: "pending",
+        owner: ALANNA,
+        contactId: "101",
+        day: "2026-08-11",
+        type: "Mission Advancement | New Donation or New AC",
+        noteId: "gift:501",
+      },
+    });
+    assert.equal(extra.length, 0);
+  });
+
+  it("an assigned incoming gift scores 100 pts for that MA and leaves Incoming", () => {
+    const flags = {
+      "gift:501": {
+        status: "assigned",
+        owner: ALANNA,
+        contactId: "101",
+        contactName: "Jane Donor",
+        day: "2026-08-11",
+        type: "Mission Advancement | New Donation or New AC",
+        noteId: "gift:501",
+      },
+    };
+    const extra = assignedNotesFromFlags(flags);
+    assert.equal(extra.length, 1);
+    const { owner, model } = run(
+      [
+        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026", id: 11 }),
+        extra[0],
+      ],
+      [postedGift({ giftDate: "8/11/2026", amount: 51.01 })],
+    );
+    assert.equal(owner.points, 110);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 51.01);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 });
 
