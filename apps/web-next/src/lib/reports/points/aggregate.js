@@ -70,7 +70,7 @@ function matchTrackerLeaf(leaf, rows) {
  */
 export function trackerBreakdown(rows, layout = TRACKER_LAYOUT) {
   const scored = (rows || []).filter(
-    (r) => !r.removed && !r.unmatched && r.bucket !== "donation",
+    (r) => !r.removed && !r.unmatched && r.bucket !== "donation" && r.bucket !== "possible",
   );
   const lines = [];
   let totalPoints = 0;
@@ -188,10 +188,15 @@ export function aggregate(rows, { start, end, flags } = {}) {
   const days = new Set();
   const weekdays = new Set();
   const gifts = [];
+  const possibleGifts = [];
 
   for (const r of inRange) {
     const o = byOwner.get(r.owner);
     if (!o) continue;
+    if (r.bucket === "possible") {
+      if (!r.removed) possibleGifts.push(r);
+      continue;
+    }
     if (r.removed) continue;
     o.count += 1;
     o.buckets[r.bucket] = (o.buckets[r.bucket] || 0) + 1;
@@ -260,6 +265,7 @@ export function aggregate(rows, { start, end, flags } = {}) {
     buckets: BUCKETS,
     rows: inRange,
     gifts,
+    possibleGifts,
     weekGrid,
     bests,
   };
@@ -364,7 +370,7 @@ export function dailyTotals(rows) {
   const map = new Map();
   for (const r of rows) {
     if (r.removed) continue;
-    if (r.bucket === "donation") continue;
+    if (r.bucket === "donation" || r.bucket === "possible") continue;
     const rec = map.get(r.day) || { day: r.day, date: r.date, points: 0 };
     rec.points += r.points || 0;
     map.set(r.day, rec);

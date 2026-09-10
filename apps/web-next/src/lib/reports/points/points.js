@@ -245,11 +245,42 @@ const GIFT_ATTRIBUTION_BUCKETS = new Set([
   "conversation", "facetoface", "gift",
 ]);
 
+/**
+ * A "contact" that can surface a possible gift: they spoke with the donor
+ * (phone, two-way email, or a meeting). Voicemail, letter, and email-sent
+ * do not count — those are not a conversation.
+ */
+export const POSSIBLE_GIFT_TYPES = new Set([
+  "mission advancement call | conversation",
+  "mission advancement call | email conversation",
+  "in person",
+  "mission advancement | meeting",
+]);
+
 function daysFromNoteToGift(noteDate, giftDate) {
   const a = isoDay(noteDate);
   const b = isoDay(giftDate);
   if (!a || !b) return null;
   return Math.round((new Date(`${b}T00:00:00`) - new Date(`${a}T00:00:00`)) / 86400000);
+}
+
+/** Closest conversation/meeting on or before the gift, within the 45-day window. */
+export function nearestPossibleNote(giftDate, notesOnContact) {
+  const before = SETTINGS.giftNoteDaysBefore ?? 45;
+  let best = null;
+  let bestScore = Infinity;
+  for (const n of notesOnContact || []) {
+    const key = (n.type || "").trim().toLowerCase();
+    if (!POSSIBLE_GIFT_TYPES.has(key)) continue;
+    const delta = daysFromNoteToGift(n.date, giftDate);
+    if (delta == null) continue;
+    if (delta < 0 || delta > before) continue;
+    if (delta < bestScore) {
+      bestScore = delta;
+      best = n;
+    }
+  }
+  return best ? { note: best, days: bestScore } : null;
 }
 
 /** Dollars follow a conversation, meeting, or donation note — not a letter or thank-you. */
@@ -356,6 +387,10 @@ function markAssist(gift) {
  * not count dollars. A new monthly Recurring Gift is one gift (annualized
  * dollars) and one 100-pt credit; later installments of that commitment are
  * dropped in prepareGifts. An AC raise credits only (new − prior monthly) × 12.
+ *
+ * Posted gifts on a contact with a conversation/meeting in the 45-day window
+ * and no matching donation or Gift Assist note become bucket "possible"
+ * (0 pts, not Raised).
  */
 export function scoreAll({ notes = [], gifts = [] }) {
   const rows = [];
@@ -452,6 +487,53 @@ export function scoreAll({ notes = [], gifts = [] }) {
       giftId: g.giftId, giftAmount: g.postedAmount || 0,
       source: "assist-backfill",
       assist: true,
+    });
+    securedIds.add(String(g.giftId));
+  }
+
+  const raisedById = new Map(scoredGifts.map((g) => [String(g.giftId), g]));
+  for (const g of gifts) {
+    const gDate = giftDateOf(g);
+    if (!gDate || g.contactId == null) continue;
+    const postedAmount = parseAmount(g.amount);
+    if (postedAmount <= 0) continue;
+    const gid = g.id == null ? "" : String(g.id);
+    if (gid && (securedIds.has(gid) || isAssistGiftId(g.id))) continue;
+    const raised = gid ? raisedById.get(gid) : null;
+    if (raised?.assist) continue;
+    const hit = nearestPossibleNote(gDate, activityByContact.get(g.contactId) || []);
+    if (!hit) continue;
+    if (beforeStart(gDate, hit.note.owner)) continue;
+    const monthly = isMonthlyRecurring(g);
+    const factor = SETTINGS.monthlyAnnualizeFactor || 12;
+    const amount = raised
+      ? raised.amount
+      : (monthly ? roundCents(postedAmount * factor) : postedAmount);
+    rows.push({
+      owner: hit.note.owner,
+      type: "Possible gift",
+      points: 0,
+      amount,
+      postedAmount: raised?.postedAmount ?? postedAmount,
+      annualized: raised ? !!raised.annualized : monthly,
+      bucket: "possible",
+      label: "Possible gift",
+      day: isoDay(gDate),
+      date: gDate,
+      weekday: isWeekday(gDate),
+      contactId: g.contactId,
+      contactName: g.contactName || hit.note.contactName || "",
+      giftId: g.id,
+      giftType: g.giftType || "",
+      project: giftProject(g),
+      noteId: hit.note.noteId,
+      noteType: hit.note.type,
+      noteLabel: hit.note.label,
+      noteDay: hit.note.day,
+      daysAfterNote: hit.days,
+      inRaised: !!raised && (raised.amount || 0) > 0,
+      source: "possible",
+      possible: true,
     });
   }
 

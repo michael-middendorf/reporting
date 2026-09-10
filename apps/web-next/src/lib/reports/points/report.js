@@ -112,9 +112,9 @@ export function buildCalculationCSV(model, { meta = {}, rangeLabel = "All", gene
   ];
   L.push(line(cols));
 
-  const rows = [...model.rows].sort(
-    (a, b) => a.owner.localeCompare(b.owner) || a.day.localeCompare(b.day),
-  );
+  const rows = [...model.rows]
+    .filter((r) => r.bucket !== "possible")
+    .sort((a, b) => a.owner.localeCompare(b.owner) || a.day.localeCompare(b.day));
 
   let curOwner = null;
   let subtotal = 0;
@@ -176,6 +176,32 @@ export function buildCalculationCSV(model, { meta = {}, rangeLabel = "All", gene
       g.project || "",
       g.amount || 0,
       g.giftId || "",
+      virtuousGiftUrl(g.contactId),
+    ]));
+  }
+  L.push("");
+
+  L.push(line(["POSSIBLE GIFTS — posted after a conversation or meeting, no donation note yet"]));
+  L.push(line([
+    "MA", "Gift date", "Donor", "Contact ID", "Amount", "Your note", "Note date",
+    "Days after note", "Already in Raised", "Gift ID", "Open contact in Virtuous", "Open gift in Virtuous",
+  ]));
+  const possibleRows = [...(model.possibleGifts || [])].sort(
+    (a, b) => (a.owner || "").localeCompare(b.owner || "") || (a.day || "").localeCompare(b.day || ""),
+  );
+  for (const g of possibleRows) {
+    L.push(line([
+      g.owner,
+      formatExportDay(g.day),
+      g.contactName || "",
+      g.contactId || "",
+      g.amount || 0,
+      g.noteType || g.noteLabel || "",
+      formatExportDay(g.noteDay),
+      g.daysAfterNote ?? "",
+      g.inRaised ? "Y" : "N",
+      g.giftId || "",
+      virtuousContactUrl(g.contactId),
       virtuousGiftUrl(g.contactId),
     ]));
   }

@@ -93,6 +93,14 @@ type GiftRow = {
   giftId?: string | number | null;
 };
 
+type PossibleGiftRow = GiftRow & {
+  noteType?: string;
+  noteLabel?: string;
+  noteDay?: string;
+  daysAfterNote?: number;
+  inRaised?: boolean;
+};
+
 type WeekRec = {
   conversations?: number;
   dials?: number;
@@ -214,6 +222,7 @@ export default function PointsPage() {
   const [pickedDay, setPickedDay] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [giftOwner, setGiftOwner] = useState<string | null>(null);
+  const [possibleOwner, setPossibleOwner] = useState<string>("all");
   const [error, setError] = useState<string | null>(null);
   const [flags, setFlags] = useState<Record<string, ReviewFlag>>({});
   const [flagBusy, setFlagBusy] = useState<string | null>(null);
@@ -285,6 +294,7 @@ export default function PointsPage() {
       rows: unknown[];
       buckets: typeof BUCKETS;
       gifts: GiftRow[];
+      possibleGifts: PossibleGiftRow[];
       weekGrid: WeekGridRow[];
       bests: Bests;
     };
@@ -321,7 +331,7 @@ export default function PointsPage() {
   const ownerRows = useMemo(() => {
     if (!selectedOwner) return [] as Row[];
     return (model.rows as Row[])
-      .filter((r) => r.owner === selectedOwner.name)
+      .filter((r) => r.owner === selectedOwner.name && r.bucket !== "possible")
       .sort((a, b) => b.day.localeCompare(a.day) || b.points - a.points);
   }, [model.rows, selectedOwner]);
 
@@ -372,6 +382,21 @@ export default function PointsPage() {
       .filter((g) => giftOwner === "all" || g.owner === giftOwner)
       .sort((a, b) => (b.day || "").localeCompare(a.day || ""));
   }, [model.gifts, giftOwner]);
+  const listedPossible = useMemo(() => {
+    return [...(model.possibleGifts || [])]
+      .filter((g) => possibleOwner === "all" || g.owner === possibleOwner)
+      .sort((a, b) => (b.day || "").localeCompare(a.day || ""));
+  }, [model.possibleGifts, possibleOwner]);
+  const possibleCounts = useMemo(() => {
+    const map = new Map<string, { count: number; amount: number }>();
+    for (const g of model.possibleGifts || []) {
+      const rec = map.get(g.owner) || { count: 0, amount: 0 };
+      rec.count += 1;
+      rec.amount += g.amount || 0;
+      map.set(g.owner, rec);
+    }
+    return map;
+  }, [model.possibleGifts]);
 
   async function saveFlag(input: FlagInput) {
     setFlagBusy(String(input.noteId));
@@ -995,7 +1020,8 @@ export default function PointsPage() {
                 A gift is counted only when the MA logged a note on that donor in Virtuous on or before the
                 gift date. No note on the contact = the gift is not on this list. 100 points require a
                 donation note (‘New Donation or New AC’, ‘Annunciation Circle updated’, or ‘Update recurring
-                gift’) and a posted gift. Incorrect logging will not be tracked.
+                gift’) and a posted gift. Incorrect logging will not be tracked. Gifts after a conversation
+                with no donation note yet are under Possible gifts.
               </p>
               <table className="grid" style={{ marginBottom: 18 }}>
                 <thead>
@@ -1075,6 +1101,127 @@ export default function PointsPage() {
                 )
               ) : (
                 <p className="footnote">Click a name or Grand total to see the gifts.</p>
+              )}
+            </div>
+          </section>
+
+          <section className="section">
+            <h2>
+              Possible gifts{" "}
+              <span className="section-hint">
+                {(model.possibleGifts || []).length} to review · not in 100-pt gifts until you add a donation note
+              </span>
+            </h2>
+            <div className="panel">
+              <p className="footnote" style={{ marginTop: 0, marginBottom: 14 }}>
+                These gifts posted after you spoke with the donor (phone conversation, email conversation, or
+                meeting) and you have not logged a donation note yet. They do not count toward points or Raised
+                until you add ‘New Donation or New AC’ on the contact. Open Contact ↗, add the note as yourself,
+                and the next refresh (about 15 minutes) will pick it up. If it was not because of you, leave it.
+              </p>
+              <table className="grid" style={{ marginBottom: 18 }}>
+                <thead>
+                  <tr>
+                    <th>MA</th>
+                    <th>To review</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(model.tableOwners || []).map((o) => {
+                    const rec = possibleCounts.get(o.name);
+                    return (
+                      <tr
+                        key={o.name}
+                        className={`clickable${possibleOwner === o.name ? " selected" : ""}`}
+                        onClick={() => setPossibleOwner((cur) => (cur === o.name ? "all" : o.name))}
+                      >
+                        <td>{o.name}</td>
+                        <td className="tabular">{rec?.count ?? 0}</td>
+                        <td className="pts tabular">{money(rec?.amount)}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr
+                    className={`grand clickable${possibleOwner === "all" ? " selected" : ""}`}
+                    onClick={() => setPossibleOwner("all")}
+                  >
+                    <td>All</td>
+                    <td className="tabular">{(model.possibleGifts || []).length}</td>
+                    <td className="pts tabular">
+                      {money((model.possibleGifts || []).reduce((s, g) => s + (g.amount || 0), 0))}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              {listedPossible.length === 0 ? (
+                <p className="footnote">
+                  No possible gifts in this range. A conversation, meeting, or email conversation on the donor
+                  before the gift is what puts a gift here.
+                </p>
+              ) : (
+                <table className="grid">
+                  <thead>
+                    <tr>
+                      <th>MA</th>
+                      <th>Donor</th>
+                      <th>Gift date</th>
+                      <th>Amount</th>
+                      <th>Your note</th>
+                      <th>Status</th>
+                      <th>Virtuous</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {listedPossible.map((g, i) => (
+                      <tr key={g.giftId != null && g.giftId !== "" ? String(g.giftId) : `possible-${i}`}>
+                        <td>{g.owner}</td>
+                        <td>{g.contactName || "—"}</td>
+                        <td style={{ whiteSpace: "nowrap" }}>{g.day ? formatDay(g.day) : "—"}</td>
+                        <td className="pts tabular">
+                          {money(g.amount)}
+                          {g.annualized && g.postedAmount != null ? (
+                            <span className="section-hint"> ({money(g.postedAmount)}/mo)</span>
+                          ) : null}
+                        </td>
+                        <td>
+                          {g.noteLabel || g.noteType || "—"}
+                          {g.noteDay ? (
+                            <span style={{ color: "var(--slate-400)" }}>
+                              {" "}
+                              · {formatDay(g.noteDay)}
+                              {g.daysAfterNote != null ? ` · ${g.daysAfterNote}d later` : ""}
+                            </span>
+                          ) : null}
+                        </td>
+                        <td>
+                          {g.inRaised ? (
+                            <span className="pill">in Raised · add gift note for 100 pts</span>
+                          ) : (
+                            <span className="pill warn">not counted · add gift note if yours</span>
+                          )}
+                        </td>
+                        <td>
+                          {g.contactId ? (
+                            <a href={virtuousContactUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
+                              Contact ↗
+                            </a>
+                          ) : (
+                            "—"
+                          )}
+                          {virtuousGiftUrl(g.contactId) ? (
+                            <>
+                              {" "}
+                              <a href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
+                                Gift ↗
+                              </a>
+                            </>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </div>
           </section>

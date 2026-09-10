@@ -351,6 +351,11 @@ export const TRACKING_CHART = {
       label: "Monthly AC",
       detail: "New monthly commitment is amount × 12. An increase is only the difference × 12.",
     },
+    {
+      label: "Possible gifts",
+      detail:
+        "Posted gift on a donor you spoke with (phone conversation, email conversation, or meeting) in the 45 days before the gift, with no donation note yet. These do not count as 100-pt gifts until you log New Donation or New AC on the contact.",
+    },
   ],
   rows: [
     { tracker: "LVM", type: "Mission Advancement Call | Voicemail", pts: 1 },
@@ -393,6 +398,17 @@ export const DEFINITIONS = [
       "Gifts are the same: there must be a conversation, meeting, or donation note on that contact on or before the gift date (within 45 days). " +
       "A letter, email, voicemail, or thank-you does not pull the gift. A thank-you logged after the gift does not pull that gift. " +
       "100 points additionally require a donation note type (‘New Donation or New AC’, ‘Annunciation Circle updated’, or ‘Update recurring gift’) or a Gift Assist note, paired with a posted gift. Gift Assist is 100 points and does not count dollars.",
+  },
+  {
+    term: "Possible gifts",
+    text:
+      "Possible gifts are posted Virtuous gifts on a donor the MA actually spoke with " +
+      "(phone conversation, two-way email, in-person, or MAS meeting) on or before the gift date, within 45 days, " +
+      "when there is no matching donation note yet. They are a review list, not points and not Raised. " +
+      "A voicemail, letter, or email-sent does not put a gift on this list. " +
+      "If the gift was because of that conversation, log ‘New Donation or New AC’ (or ‘Annunciation Circle updated’ / ‘Update recurring gift’) on the contact. " +
+      "After the next refresh the gift moves to Donations Received and scores 100 points. " +
+      "If it was not because of the MA, leave it — it stays off the totals.",
   },
   {
     term: "Secured gift (100 pts)",

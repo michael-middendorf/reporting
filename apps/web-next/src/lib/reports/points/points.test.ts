@@ -29,7 +29,16 @@ type Model = {
   totals: { gifts: number; giftAmount: number; points: number; unmatched: number };
   tableOwners: OwnerRec[];
   gifts: Array<{ amount?: number; owner?: string; giftId?: unknown; contactId?: unknown }>;
-  rows: Array<{ noteId?: string | number; removed?: boolean; points?: number; day?: string }>;
+  possibleGifts?: Array<{
+    owner?: string;
+    giftId?: unknown;
+    amount?: number;
+    inRaised?: boolean;
+    noteType?: string;
+    daysAfterNote?: number;
+    contactName?: string;
+  }>;
+  rows: Array<{ noteId?: string | number; removed?: boolean; points?: number; day?: string; bucket?: string }>;
   bests?: {
     teamWeek?: string | null;
     team: Record<string, { value: number; week: string | null }>;
@@ -709,6 +718,7 @@ describe("gift dollars follow MA activity notes", () => {
     assert.equal(owner.giftAmount, 0);
     assert.equal(owner.gifts, 0);
     assert.equal(model.gifts.length, 0);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
   it("Gift Assist with no posted gift is not counted", () => {
@@ -1023,6 +1033,109 @@ describe("team bests", () => {
     assert.equal(pts.week, weekB);
     assert.equal(conv.value, 0);
     assert.equal(conv.week, weekB);
+  });
+});
+
+describe("possible gifts", () => {
+  it("conversation plus a posted gift with no donation note is a possible gift", () => {
+    const { owner, model, rows } = run(
+      [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026", id: 11 })],
+      [postedGift({ giftDate: "8/11/2026", amount: 51.01 })],
+    );
+    assert.equal(owner.giftAmount, 51.01);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 10);
+    assert.equal(rows.filter((r) => r.bucket === "possible").length, 1);
+    assert.equal(model.possibleGifts?.length, 1);
+    const possible = model.possibleGifts?.[0];
+    assert.ok(possible);
+    assert.equal(String(possible.giftId), "501");
+    assert.equal(possible.amount, 51.01);
+    assert.equal(possible.inRaised, true);
+    assert.equal(possible.noteType, "Mission Advancement Call | Conversation");
+    assert.equal(possible.daysAfterNote, 1);
+    assert.equal(possible.owner, ALANNA);
+    const csv = buildCalculationCSV(model);
+    assert.match(csv, /POSSIBLE GIFTS/);
+    assert.match(csv, /Jane Donor/);
+    assert.doesNotMatch(csv, /DETAIL[\s\S]*Possible gift/);
+  });
+
+  it("a matching Gift Assist note removes the gift from possible", () => {
+    const { model, owner } = run(
+      [
+        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/20/2026", id: 1 }),
+        donationNote({ type: "Mission Advancement | Gift Assist", noteDate: "8/20/2026", id: 2 }),
+      ],
+      [postedGift({ giftDate: "8/20/2026", amount: 150 })],
+    );
+    assert.equal(owner.points, 110);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
+  });
+
+  it("a matching donation note removes the gift from possible", () => {
+    const { model, owner } = run(
+      [
+        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/4/2026", id: 1 }),
+        donationNote({ type: "Mission Advancement | New Donation or New AC", noteDate: "8/4/2026", id: 2 }),
+      ],
+      [postedGift({ giftDate: "8/4/2026", amount: 75 })],
+    );
+    assert.equal(owner.points, 110);
+    assert.equal(owner.gifts, 1);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
+  });
+
+  it("voicemail or letter does not put a gift on possible", () => {
+    const { model } = run(
+      [
+        donationNote({ type: "Mission Advancement Call | Voicemail", noteDate: "8/10/2026", id: 1 }),
+        donationNote({ type: "Letter", noteDate: "8/10/2026", id: 2 }),
+      ],
+      [postedGift({ giftDate: "8/11/2026", amount: 200 })],
+    );
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
+  });
+
+  it("gift 46 days after a conversation is not possible", () => {
+    const { model } = run(
+      [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "6/10/2026" })],
+      [postedGift({ giftDate: "8/1/2026", amount: 200 })],
+    );
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
+  });
+
+  it("in-person meeting before a gift is possible when there is no donation note", () => {
+    const { model } = run(
+      [donationNote({
+        createdByUser: "Sean Kelly",
+        type: "In Person",
+        noteDate: "8/14/2026",
+        contactId: 84897,
+        contactName: "Ursula Pfahl",
+      })],
+      [postedGift({ contactId: 84897, contactName: "Ursula Pfahl", giftDate: "9/1/2026", amount: 10000 })],
+      "Sean Kelly",
+    );
+    assert.equal(model.possibleGifts?.length, 1);
+    assert.equal(model.possibleGifts?.[0].owner, "Sean Kelly");
+    assert.equal(model.possibleGifts?.[0].contactName, "Ursula Pfahl");
+    assert.equal(model.possibleGifts?.[0].amount, 10000);
+  });
+
+  it("possible gifts are not points and stay out of the tracker mix", () => {
+    const { owner, model } = run(
+      [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026" })],
+      [postedGift({ giftDate: "8/11/2026", amount: 80 })],
+    );
+    const mix = trackerBreakdown(model.rows);
+    assert.equal(mix.totalPoints, 10);
+    const donationLine = mix.lines.find((l) => l.id === "donation");
+    assert.ok(donationLine);
+    assert.equal(donationLine.count, 0);
+    assert.equal(owner.points, 10);
+    assert.equal(model.totals.points, 10);
   });
 });
 
