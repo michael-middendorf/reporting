@@ -209,7 +209,7 @@ export function aggregate(rows, { start, end, flags } = {}) {
     tallyRow(wkRec, r);
     o.weeks.set(wk, wkRec);
 
-    if (r.bucket === "donation") gifts.push(r);
+    if (r.bucket === "donation" && (r.amount || 0) > 0) gifts.push(r);
 
     days.add(r.day);
     if (r.weekday) weekdays.add(r.day);

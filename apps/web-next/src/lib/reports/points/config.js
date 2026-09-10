@@ -156,6 +156,8 @@ export const POINTS_MAP = {
     { points: 100, bucket: "gift", label: "Annunciation Circle updated", source: "assumed" },
   "mission advancement | update recurring gift":
     { points: 100, bucket: "gift", label: "Increased recurring gift", source: "assumed" },
+  "mission advancement | gift assist":
+    { points: 100, bucket: "gift", label: "Gift assist", source: "spreadsheet", assist: true },
 
   "letter":     { points: 5, bucket: "note", label: "Handwritten note / letter", source: "pdf+spreadsheet" },
   "text message": { points: 2, bucket: "email", label: "Text message", source: "spreadsheet", conflict: "email_sent" },
@@ -263,7 +265,16 @@ export const TRACKER_LAYOUT = [
     label: "Events",
     types: ["mission advancement | event", "mission advancement | marketing event"],
   },
-  { id: "donation", label: "Donation", buckets: ["gift"] },
+  {
+    id: "donation",
+    label: "Donation",
+    types: [
+      "mission advancement | new donation or new ac",
+      "mission advancement | annunciation circle updated",
+      "mission advancement | update recurring gift",
+    ],
+  },
+  { id: "assist", label: "Assist", types: ["mission advancement | gift assist"] },
 ];
 
 /* ---- Event scoring (300 / 75) -------------------------------------------
@@ -295,6 +306,12 @@ export const SETTINGS = {
   /** Credit a gift only if an MA activity note on that contact is on or before the gift, within this many days. */
   giftNoteDaysBefore: 45,
   /**
+   * Posted gifts counted as assists (100 pts, $0) even before a Gift Assist
+   * note is logged. Sean Kelly / Ursula Pfahl $10k QCD 9/1/2026, solicitor
+   * Colleen Dolnick MGO.
+   */
+  assistGiftIds: ["451486"],
+  /**
    * Monday of the first All / leaderboard week. Second week of August 2026
    * (Mon Aug 10 – Sun Aug 16). Weeks before this are not listed.
    */
@@ -318,12 +335,17 @@ export const TRACKING_CHART = {
     {
       label: "Dollars received",
       detail:
-        "Posted gift on the same contact as an MA note. Note date on or before the gift, within 45 days. Linked by contact, not a field on the gift. A thank-you after the gift does not count.",
+        "Posted gift on the same contact as a conversation, meeting, or donation note. Note date on or before the gift, within 45 days. Credit goes to whoever logged that note, not the MA officer on the account. A letter, email, voicemail, or thank-you does not pull the gift.",
     },
     {
       label: "Secured gift · 100 pts",
       detail:
         "Note type New Donation or New AC, Annunciation Circle Updated, or Update Recurring Gift, plus a posted gift on that contact within 45 days after the note.",
+    },
+    {
+      label: "Gift assist · 100 pts",
+      detail:
+        "Note type Mission Advancement | Gift Assist, plus a posted gift on that contact within 45 days. 100 points, no dollars. Use this when you assisted on a gift credited to someone else.",
     },
     {
       label: "Monthly AC",
@@ -345,6 +367,7 @@ export const TRACKING_CHART = {
     { tracker: "Event", type: "Mission Advancement | Event", pts: 300 },
     { tracker: "Marketing Event", type: "Mission Advancement | Marketing Event", pts: 75 },
     { tracker: "Secured gift", type: "New Donation or New AC · AC Updated · Update Recurring Gift", pts: 100 },
+    { tracker: "Gift Assist", type: "Mission Advancement | Gift Assist", pts: 100 },
   ],
 };
 
@@ -367,9 +390,9 @@ export const DEFINITIONS = [
     text:
       "The dashboard only sees what is logged in Virtuous, on the donor’s contact, with the correct note type, authored by the MA. " +
       "A note on the wrong person, a generic type, a note after the gift, or no note at all will not count. " +
-      "Gifts are the same: there must be an MA note on that contact on or before the gift date (within 45 days). " +
-      "A posted gift with no MA note on the contact is not attributed. A thank-you logged after the gift does not pull that gift. " +
-      "100 points additionally require a donation note type (‘New Donation or New AC’, ‘Annunciation Circle updated’, or ‘Update recurring gift’) paired with a posted gift.",
+      "Gifts are the same: there must be a conversation, meeting, or donation note on that contact on or before the gift date (within 45 days). " +
+      "A letter, email, voicemail, or thank-you does not pull the gift. A thank-you logged after the gift does not pull that gift. " +
+      "100 points additionally require a donation note type (‘New Donation or New AC’, ‘Annunciation Circle updated’, or ‘Update recurring gift’) or a Gift Assist note, paired with a posted gift. Gift Assist is 100 points and does not count dollars.",
   },
   {
     term: "Secured gift (100 pts)",
@@ -382,6 +405,13 @@ export const DEFINITIONS = [
       "An AC increase counts only the difference (new monthly − prior monthly) × 12, not the new full amount. " +
       "Points are attributed to whoever authored the note (Virtuous `createdByUser`). " +
       "Only notes and gifts on or after the author's roster start date count.",
+  },
+  {
+    term: "Gift assist (100 pts, no dollars)",
+    text:
+      "Log ‘Mission Advancement | Gift Assist’ on the donor’s contact when you assisted on a gift credited to someone else (usually an MGO). " +
+      "It scores 100 points when a posted gift on that contact is on or after the note, within 45 days. Dollars are not counted for that gift. " +
+      "A tour or call on the same contact does not pull the dollars either once the gift is an assist.",
   },
   {
     term: "Invalid Address (1 pt)",
@@ -408,8 +438,9 @@ export const DEFINITIONS = [
   {
     term: "Dollars received",
     text:
-      "A posted Virtuous gift counts for an MA only if that MA logged a note on that donor’s contact on or before the gift date (call, letter, in person, email, or donation note), within 45 days. " +
-      "No note on the person = the gift is not counted. A thank-you after the gift does not claim it. GFT_Solicitor is not used (it is usually an MGO, not the MA). " +
+      "A posted Virtuous gift counts for an MA only if that MA logged a conversation, meeting, or donation note on that donor’s contact on or before the gift date, within 45 days. " +
+      "A letter, email, voicemail, or thank-you does not claim the gift. No qualifying note on the person = the gift is not counted. Gift Assist notes do not count dollars. " +
+      "Dollars go to the MA who logged the note, not the MA officer on the contact and not GFT_Solicitor. " +
       "One-time gifts use the posted amount. A new monthly AC (Recurring Gift, frequency Monthly) is counted once as monthly amount × 12. " +
       "If that contact already had an Annunciation Circle monthly gift, only the increase is counted: (new monthly − prior monthly) × 12. " +
       "The matching posted installment is not also added. Same-rate continuations are not counted again. " +

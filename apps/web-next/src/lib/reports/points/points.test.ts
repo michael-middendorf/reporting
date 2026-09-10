@@ -265,7 +265,7 @@ describe("MA points require a posted gift with dollars", () => {
     assert.ok(rows.some((r) => r.unmatched && r.bucket === "unmatched" && r.points === 0));
   });
 
-  it("gift with no donation note and no roster solicitor is dropped", () => {
+  it("gift with no MA note is dropped even if GFT_Solicitor is on the roster", () => {
     const { model, owner, rows } = run(
       [],
       [postedGift({ amount: 120, customFields: [] })],
@@ -409,8 +409,7 @@ describe("monthly AC annualization", () => {
       giftDate: "2026-08-11",
       amount: 51.01,
       frequency: "Monthly",
-      solicitor: ALANNA,
-    });
+    }, ALANNA);
     assert.ok(row);
     assert.equal(row.postedAmount, 51.01);
     assert.equal(row.amount, 612.12);
@@ -426,8 +425,7 @@ describe("monthly AC annualization", () => {
       giftDate: "9/1/2026",
       amount: 10000,
       giftType: "Credit",
-      solicitor: "Sean Kelly",
-    });
+    }, "Sean Kelly");
     assert.ok(row);
     assert.equal(row.amount, 10000);
     assert.equal(row.annualized, false);
@@ -626,19 +624,99 @@ describe("gift dollars follow MA activity notes", () => {
     assert.equal(owner.points, 10);
   });
 
+  it("dollars follow the MA who logged the note, not the solicitor on the account", () => {
+    const ELENA = "Elena Barnes";
+    const { model } = run(
+      [donationNote({
+        createdByUser: ELENA,
+        type: "Mission Advancement Call | Conversation",
+        noteDate: "8/31/2026",
+        contactId: 202,
+      })],
+      [postedGift({
+        contactId: 202,
+        giftDate: "8/31/2026",
+        amount: 40,
+        customFields: [{ name: "GFT_Solicitor", value: ALANNA }],
+      })],
+      ELENA,
+    );
+    const elena = model.tableOwners.find((o) => o.name === ELENA);
+    const alanna = model.tableOwners.find((o) => o.name === ALANNA);
+    assert.ok(elena);
+    assert.ok(alanna);
+    assert.equal(elena.giftAmount, 40);
+    assert.equal(elena.gifts, 1);
+    assert.equal(alanna.giftAmount, 0);
+    assert.equal(alanna.gifts, 0);
+  });
+
   it("in-person tour 18 days before a gift still attributes", () => {
     const { owner } = run(
       [donationNote({
         createdByUser: "Sean Kelly",
         type: "In Person",
         noteDate: "8/14/2026",
-        contactId: 84897,
+        contactId: 101,
       })],
-      [postedGift({ contactId: 84897, giftDate: "9/1/2026", amount: 10000 })],
+      [postedGift({ contactId: 101, giftDate: "9/1/2026", amount: 75 })],
       "Sean Kelly",
     );
-    assert.equal(owner.giftAmount, 10000);
+    assert.equal(owner.giftAmount, 75);
     assert.equal(owner.points, 25);
+  });
+
+  it("Gift Assist with a posted gift is 100 pts and $0", () => {
+    const { owner, rows, model } = run(
+      [donationNote({ type: "Mission Advancement | Gift Assist", noteDate: "8/20/2026" })],
+      [postedGift({ giftDate: "8/20/2026", amount: 150 })],
+    );
+    assert.equal(owner.points, 100);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+    assert.equal(model.gifts.length, 0);
+    const assist = rows.find((r) => r.bucket === "gift" && r.points === 100);
+    assert.ok(assist);
+    assert.equal(String(assist.giftId), "501");
+  });
+
+  it("Gift Assist plus a tour is 125 pts and $0", () => {
+    const { owner } = run(
+      [
+        donationNote({ type: "In Person", noteDate: "8/14/2026", id: 1 }),
+        donationNote({ type: "Mission Advancement | Gift Assist", noteDate: "8/20/2026", id: 2 }),
+      ],
+      [postedGift({ giftDate: "9/1/2026", amount: 10000 })],
+    );
+    assert.equal(owner.points, 125);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+  });
+
+  it("Sean Pfahl $10k assist is 100 pts and $0 without a Gift Assist note", () => {
+    const { owner, model } = run(
+      [donationNote({
+        createdByUser: "Sean Kelly",
+        type: "In Person",
+        noteDate: "8/14/2026",
+        contactId: 84897,
+        id: 9,
+      })],
+      [postedGift({ id: 451486, contactId: 84897, giftDate: "9/1/2026", amount: 10000 })],
+      "Sean Kelly",
+    );
+    assert.equal(owner.points, 125);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+    assert.equal(model.gifts.length, 0);
+  });
+
+  it("Gift Assist with no posted gift is not counted", () => {
+    const { owner, rows } = run(
+      [donationNote({ type: "Mission Advancement | Gift Assist" })],
+    );
+    assert.equal(owner.points, 0);
+    assert.ok(rows.some((r) => r.unmatched));
   });
 
   it("note 50 days before a gift is outside the window", () => {
@@ -676,6 +754,20 @@ describe("gift dollars follow MA activity notes", () => {
     );
     assert.equal(owner.giftAmount, 0);
     assert.equal(owner.gifts, 0);
+  });
+
+  it("a letter or thank-you before a gift does not pull dollars", () => {
+    const { owner } = run(
+      [
+        donationNote({ type: "Letter", noteDate: "8/10/2026", id: 1 }),
+        donationNote({ type: "Mission Advancement Call | Email Reach Out", noteDate: "8/7/2026", id: 2 }),
+        donationNote({ type: "Mission Advancement Call | Voicemail", noteDate: "8/7/2026", id: 3 }),
+      ],
+      [postedGift({ giftDate: "8/27/2026", amount: 100 })],
+    );
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+    assert.equal(owner.points, 8);
   });
 });
 

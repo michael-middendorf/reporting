@@ -82,6 +82,7 @@ export function scoreNote(record) {
     day: isoDay(date), date, weekday: isWeekday(date),
     contactId: record.contactId, contactName: record.contactName || "",
     noteId: record.id, source: rule.source, conflict: rule.conflict || null,
+    assist: !!rule.assist,
   };
 }
 
@@ -239,8 +240,9 @@ function giftDateOf(record) {
   return parseDate(record.giftDate || record.giftDateFormatted || record.createDateTimeUtc);
 }
 
+/** Letters, emails, voicemails, and thank-yous do not pull gift dollars. */
 const GIFT_ATTRIBUTION_BUCKETS = new Set([
-  "conversation", "dial", "email", "note", "facetoface", "gift", "event",
+  "conversation", "facetoface", "gift",
 ]);
 
 function daysFromNoteToGift(noteDate, giftDate) {
@@ -250,12 +252,13 @@ function daysFromNoteToGift(noteDate, giftDate) {
   return Math.round((new Date(`${b}T00:00:00`) - new Date(`${a}T00:00:00`)) / 86400000);
 }
 
-/** Tracker credits the MA who worked the donor, not only a donation-note type. */
+/** Dollars follow a conversation, meeting, or donation note — not a letter or thank-you. */
 export function ownerHintForGift(giftDate, notesOnContact) {
   const before = SETTINGS.giftNoteDaysBefore ?? 45;
   let best = null;
   let bestScore = Infinity;
   for (const n of notesOnContact || []) {
+    if (n.assist) continue;
     if (!GIFT_ATTRIBUTION_BUCKETS.has(n.bucket)) continue;
     const delta = daysFromNoteToGift(n.date, giftDate);
     if (delta == null) continue;
@@ -271,9 +274,9 @@ export function ownerHintForGift(giftDate, notesOnContact) {
 /**
  * Score a Virtuous Gift as dollars received (0 points; the 100-pt credit
  * comes from the matching donation note so we don't double-count).
- * Owner is the MA with an activity note on the contact in the gift window
- * (`ownerHint`). GFT_Solicitor is used only if that person is on the MA roster
- * (it is usually an MGO and is ignored). Returns null when amount is 0 or less.
+ * Owner is the MA who logged an activity note on the contact in the gift
+ * window (`ownerHint`). GFT_Solicitor is never used — that is the MA or MGO
+ * on the account, not who did the work. Returns null when amount is 0 or less.
  */
 export function scoreGift(record, ownerHint = null) {
   const postedAmount = parseAmount(record.amount);
@@ -282,7 +285,7 @@ export function scoreGift(record, ownerHint = null) {
   const factor = SETTINGS.monthlyAnnualizeFactor || 12;
   const amount = monthly ? roundCents(postedAmount * factor) : postedAmount;
   const solicitor = giftSolicitor(record);
-  const owner = (solicitor && rosterSet.has(solicitor) ? solicitor : null) || ownerHint;
+  const owner = ownerHint;
   if (!owner) return null;
   const date = giftDateOf(record);
   if (!date) return null;
@@ -290,13 +293,16 @@ export function scoreGift(record, ownerHint = null) {
   const increase = !!record.acIncrease;
   const priorMonthly = parseAmount(record.priorMonthly);
   const newMonthly = parseAmount(record.newMonthly) || postedAmount;
-  const label = increase
-    ? `AC increase ($${priorMonthly} → $${newMonthly}/mo, annualized ×12)`
-    : monthly
-      ? "Monthly gift (annualized ×12)"
-      : "Donation received";
+  const assist = isAssistGiftId(record.id);
+  const label = assist
+    ? "Assist (dollars not counted)"
+    : increase
+      ? `AC increase ($${priorMonthly} → $${newMonthly}/mo, annualized ×12)`
+      : monthly
+        ? "Monthly gift (annualized ×12)"
+        : "Donation received";
   return {
-    owner, type: "Gift", points: 0, amount, postedAmount, annualized: monthly,
+    owner, type: "Gift", points: 0, amount: assist ? 0 : amount, postedAmount, annualized: monthly,
     acIncrease: increase, priorMonthly: priorMonthly || null, newMonthly: increase ? newMonthly : null,
     bucket: "donation",
     label,
@@ -305,8 +311,14 @@ export function scoreGift(record, ownerHint = null) {
     giftId: record.id, giftType: record.giftType || "",
     frequency: record.frequency || (monthly ? "Monthly" : ""),
     project: giftProject(record), solicitor: solicitor || "",
-    source: "gift",
+    source: "gift", assist,
   };
+}
+
+function isAssistGiftId(giftId) {
+  if (giftId == null || giftId === "") return false;
+  const ids = SETTINGS.assistGiftIds || [];
+  return ids.map(String).includes(String(giftId));
 }
 
 function sortByDayThenId(aDate, aId, bDate, bId) {
@@ -315,16 +327,35 @@ function sortByDayThenId(aDate, aId, bDate, bId) {
   return String(aId ?? "").localeCompare(String(bId ?? ""));
 }
 
+function matchableGift(record) {
+  const postedAmount = parseAmount(record.amount);
+  const date = giftDateOf(record);
+  if (postedAmount <= 0 || !date) return null;
+  return {
+    contactId: record.contactId,
+    contactName: record.contactName || "",
+    date, day: isoDay(date), weekday: isWeekday(date),
+    amount: postedAmount, postedAmount, giftId: record.id,
+    matchOnly: true,
+  };
+}
+
+function markAssist(gift) {
+  gift.assist = true;
+  gift.amount = 0;
+  if (!gift.matchOnly) gift.label = "Assist (dollars not counted)";
+}
+
 /**
  * Score MA activity notes (and optional gifts) into a flat list of scored rows.
  *
  * Donation notes (bucket "gift") award 100 pts only after they pair with a
  * posted gift of amount > 0 on the same contact with giftDate on or after the
  * note date. Points are moved onto that gift's week. Unmatched donation notes
- * score 0 and leave the gift bucket. A new monthly Recurring Gift is one
- * gift (annualized dollars) and one 100-pt credit; later installments of
- * that commitment are dropped in prepareGifts. An AC raise credits only
- * (new − prior monthly) × 12.
+ * score 0 and leave the gift bucket. Gift Assist is the same 100 pts but does
+ * not count dollars. A new monthly Recurring Gift is one gift (annualized
+ * dollars) and one 100-pt credit; later installments of that commitment are
+ * dropped in prepareGifts. An AC raise credits only (new − prior monthly) × 12.
  */
 export function scoreAll({ notes = [], gifts = [] }) {
   const rows = [];
@@ -342,6 +373,7 @@ export function scoreAll({ notes = [], gifts = [] }) {
   }
 
   const scoredGifts = [];
+  const matchGifts = [];
   for (const g of gifts) {
     const gDate = giftDateOf(g);
     const hint = (g.contactId != null && gDate)
@@ -349,13 +381,17 @@ export function scoreAll({ notes = [], gifts = [] }) {
       : null;
     const r = scoreGift(g, hint);
     if (r) {
-      rows.push(r);
+      if (!r.assist) rows.push(r);
       scoredGifts.push(r);
+      matchGifts.push(r);
+    } else {
+      const skeleton = matchableGift(g);
+      if (skeleton) matchGifts.push(skeleton);
     }
   }
 
   const giftsByContact = new Map();
-  for (const g of scoredGifts) {
+  for (const g of matchGifts) {
     if (g.contactId == null) continue;
     const list = giftsByContact.get(g.contactId) || [];
     list.push(g);
@@ -374,7 +410,8 @@ export function scoreAll({ notes = [], gifts = [] }) {
     const window = SETTINGS.giftNoteDaysBefore ?? 45;
     const match = candidates.find((g) => {
       if (used.has(g)) return false;
-      if ((g.amount || 0) <= 0) return false;
+      const dollars = g.postedAmount || g.amount || 0;
+      if (dollars <= 0) return false;
       const cmp = dayCmp(g.date, note.date);
       if (cmp == null || cmp < 0) return false;
       const delta = daysFromNoteToGift(note.date, g.date);
@@ -383,12 +420,14 @@ export function scoreAll({ notes = [], gifts = [] }) {
     });
     if (match) {
       used.add(match);
+      const dollars = match.postedAmount || match.amount || 0;
       note.date = match.date;
       note.day = match.day;
       note.weekday = match.weekday;
       note.giftId = match.giftId;
-      note.giftAmount = match.amount;
+      note.giftAmount = dollars;
       match.securedNoteId = note.noteId;
+      if (note.assist || match.assist) markAssist(match);
     } else {
       note.points = 0;
       note.bucket = "unmatched";
@@ -396,7 +435,27 @@ export function scoreAll({ notes = [], gifts = [] }) {
     }
   }
 
-  return rows;
+  const securedIds = new Set(
+    donationNotes.filter((n) => !n.unmatched && n.giftId != null).map((n) => String(n.giftId)),
+  );
+  for (const g of scoredGifts) {
+    if (!g.assist) continue;
+    if (securedIds.has(String(g.giftId))) continue;
+    rows.push({
+      owner: g.owner,
+      type: "Mission Advancement | Gift Assist",
+      points: 100,
+      bucket: "gift",
+      label: "Gift assist",
+      day: g.day, date: g.date, weekday: g.weekday,
+      contactId: g.contactId, contactName: g.contactName || "",
+      giftId: g.giftId, giftAmount: g.postedAmount || 0,
+      source: "assist-backfill",
+      assist: true,
+    });
+  }
+
+  return rows.filter((r) => !(r.bucket === "donation" && (r.amount || 0) <= 0));
 }
 
 /** Score matched events for the display-only reference table. */
