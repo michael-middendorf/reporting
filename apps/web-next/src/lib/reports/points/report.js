@@ -181,20 +181,22 @@ export function buildCalculationCSV(model, { meta = {}, rangeLabel = "All", gene
   }
   L.push("");
 
-  L.push(line(["POSSIBLE GIFTS — posted after a conversation or meeting, no donation note yet"]));
+  L.push(line(["INCOMING GIFTS — posted after a conversation or meeting, no donation note yet"]));
   L.push(line([
-    "MA", "Gift date", "Donor", "Contact ID", "Amount", "Your note", "Note date",
+    "Possible MAs", "Gift date", "Donor", "Contact ID", "Kind", "Amount", "Nearest note", "Note date",
     "Days after note", "Already in Raised", "Gift ID", "Open contact in Virtuous", "Open gift in Virtuous",
   ]));
   const possibleRows = [...(model.possibleGifts || [])].sort(
-    (a, b) => (a.owner || "").localeCompare(b.owner || "") || (a.day || "").localeCompare(b.day || ""),
+    (a, b) => (a.day || "").localeCompare(b.day || "") || (a.contactName || "").localeCompare(b.contactName || ""),
   );
   for (const g of possibleRows) {
+    const mas = (g.owners || []).map((o) => o.name).filter(Boolean);
     L.push(line([
-      g.owner,
+      mas.length ? mas.join("; ") : (g.owner || ""),
       formatExportDay(g.day),
       g.contactName || "",
       g.contactId || "",
+      g.kindLabel || g.giftType || "",
       g.amount || 0,
       g.noteType || g.noteLabel || "",
       formatExportDay(g.noteDay),

@@ -11,7 +11,6 @@ import {
   downloadText,
   rowId,
   scoreAll,
-  scoreEventsForDisplay,
   tierFor,
   TIERS,
   trackerBreakdown,
@@ -93,12 +92,24 @@ type GiftRow = {
   giftId?: string | number | null;
 };
 
+type IncomingOwner = {
+  name: string;
+  noteType?: string;
+  noteLabel?: string;
+  noteDay?: string;
+  daysAfterNote?: number;
+  noteId?: string | number | null;
+};
+
 type PossibleGiftRow = GiftRow & {
   noteType?: string;
   noteLabel?: string;
   noteDay?: string;
   daysAfterNote?: number;
   inRaised?: boolean;
+  kind?: string;
+  kindLabel?: string;
+  owners?: IncomingOwner[];
 };
 
 type WeekRec = {
@@ -181,39 +192,18 @@ async function loadRaw() {
     if (!res.ok) throw new Error(`${name}: ${res.status}`);
     return res.json();
   };
-  const [notes, events, gifts, meta] = await Promise.all([
+  const [notes, gifts, meta] = await Promise.all([
     get("notes.json"),
-    get("events.json"),
     get("gifts.json").catch(() => []),
     get("meta.json"),
   ]);
   const arr = (x: unknown) =>
     Array.isArray(x) ? x : ((x as { records?: unknown[] })?.records || []);
-  return { notes: arr(notes), events: arr(events), gifts: arr(gifts), meta: meta || {} };
-}
-
-function MixBar({ buckets }: { buckets?: Record<string, number> }) {
-  const total = Object.values(buckets || {}).reduce((s, n) => s + n, 0) || 1;
-  return (
-    <div style={{ display: "flex", height: 10, borderRadius: 999, overflow: "hidden", marginTop: 8 }}>
-      {BUCKETS.map((b: { id: string; color: string; label: string }) => {
-        const n = buckets?.[b.id] || 0;
-        if (!n) return null;
-        return (
-          <div
-            key={b.id}
-            title={`${b.label}: ${n}`}
-            style={{ width: `${(n / total) * 100}%`, background: b.color }}
-          />
-        );
-      })}
-    </div>
-  );
+  return { notes: arr(notes), gifts: arr(gifts), meta: meta || {} };
 }
 
 export default function PointsPage() {
   const [rows, setRows] = useState<Array<Record<string, unknown>> | null>(null);
-  const [events, setEvents] = useState<Array<Record<string, unknown>> | null>(null);
   const [meta, setMeta] = useState<Record<string, unknown>>({});
   const [range, setRange] = useState<RangeKey>("all");
   const [selectedWeek, setSelectedWeek] = useState("");
@@ -221,8 +211,9 @@ export default function PointsPage() {
   const [pickedWeek, setPickedWeek] = useState<string | null>(null);
   const [pickedDay, setPickedDay] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
-  const [giftOwner, setGiftOwner] = useState<string | null>(null);
+  const [giftOwner, setGiftOwner] = useState<string>("all");
   const [possibleOwner, setPossibleOwner] = useState<string>("all");
+  const [giftTab, setGiftTab] = useState<"counted" | "incoming">("incoming");
   const [error, setError] = useState<string | null>(null);
   const [flags, setFlags] = useState<Record<string, ReviewFlag>>({});
   const [flagBusy, setFlagBusy] = useState<string | null>(null);
@@ -232,9 +223,7 @@ export default function PointsPage() {
     loadRaw()
       .then((raw) => {
         const scored = scoreAll({ notes: raw.notes, gifts: raw.gifts }) as unknown as Array<Record<string, unknown>>;
-        const ev = scoreEventsForDisplay(raw.events) as unknown as Array<Record<string, unknown>>;
         setRows(scored);
-        setEvents(ev);
         setMeta(raw.meta as Record<string, unknown>);
       })
       .catch((e) => setError(String(e)));
@@ -377,23 +366,29 @@ export default function PointsPage() {
         ? formatDay(activeDay)
         : "Categories";
   const listedGifts = useMemo(() => {
-    if (!giftOwner) return [] as GiftRow[];
     return [...(model.gifts || [])]
       .filter((g) => giftOwner === "all" || g.owner === giftOwner)
       .sort((a, b) => (b.day || "").localeCompare(a.day || ""));
   }, [model.gifts, giftOwner]);
+  function incomingOwners(g: PossibleGiftRow): IncomingOwner[] {
+    if (g.owners?.length) return g.owners;
+    return g.owner ? [{ name: g.owner, noteType: g.noteType, noteLabel: g.noteLabel, noteDay: g.noteDay, daysAfterNote: g.daysAfterNote }] : [];
+  }
   const listedPossible = useMemo(() => {
     return [...(model.possibleGifts || [])]
-      .filter((g) => possibleOwner === "all" || g.owner === possibleOwner)
+      .filter((g) => possibleOwner === "all" || incomingOwners(g).some((o) => o.name === possibleOwner))
       .sort((a, b) => (b.day || "").localeCompare(a.day || ""));
   }, [model.possibleGifts, possibleOwner]);
   const possibleCounts = useMemo(() => {
     const map = new Map<string, { count: number; amount: number }>();
     for (const g of model.possibleGifts || []) {
-      const rec = map.get(g.owner) || { count: 0, amount: 0 };
-      rec.count += 1;
-      rec.amount += g.amount || 0;
-      map.set(g.owner, rec);
+      const names = new Set(incomingOwners(g).map((o) => o.name).filter(Boolean));
+      for (const name of names) {
+        const rec = map.get(name) || { count: 0, amount: 0 };
+        rec.count += 1;
+        rec.amount += g.amount || 0;
+        map.set(name, rec);
+      }
     }
     return map;
   }, [model.possibleGifts]);
@@ -589,89 +584,88 @@ export default function PointsPage() {
             </div>
           </details>
 
-          <section className="kpis">
-            {[
-              ["Total Points", (model.totals?.points ?? 0).toLocaleString(), `${model.totals?.count ?? 0} scored activities`],
-              [
-                "Conversations",
-                String(model.totals?.conversations ?? 0),
-                `${pct(model.totals?.convRate)} of dials`,
-              ],
-              [
-                "Gifts Raised",
-                money(model.totals?.giftAmount),
-                `${model.totals?.gifts ?? 0} posted gifts · ${model.totals?.weekdays ?? 0} weekdays`,
-              ],
-              [
-                "Team Avg / Weekday",
-                model.totals?.weekdays
-                  ? Math.round((model.totals.points || 0) / model.totals.weekdays).toLocaleString()
-                  : "—",
-                "points per weekday",
-              ],
-            ].map(([l, v, sub]) => (
-              <div key={String(l)} className="kpi">
-                <div className="label">{l as string}</div>
-                <div className="value tabular">{v}</div>
-                <div className="foot">{sub as string}</div>
-              </div>
-            ))}
-          </section>
-
           {flagError && (
             <p style={{ color: "var(--warn)", fontSize: ".85rem", margin: "0 0 16px" }}>{flagError}</p>
           )}
 
           <section className="section">
             <h2>
-              Leaderboard{" "}
+              All Mission Advancement{" "}
               <span className="section-hint">
                 {range === "all"
-                  ? `from week of ${weekLabel(SETTINGS.evalStart)} · click an MA to see their weekly breakdown`
-                  : "click an MA to see their weekly breakdown"}
+                  ? `from week of ${weekLabel(SETTINGS.evalStart)} · click a name for their weeks and tasks`
+                  : "click a name for their weeks and tasks"}
               </span>
             </h2>
-            <div className="cards">
-              {model.owners.map((o, idx) => {
-                const tier = o.tier || tierFor(o.avgPerWeekday || 0);
-                return (
-                  <button
-                    key={o.name}
-                    type="button"
-                    className={`macard${selected === o.name ? " selected" : ""}`}
-                    onClick={() => {
-                      setSelected(o.name === selected ? null : o.name);
-                      setPickedWeek(null);
-                      setPickedDay(null);
-                      setCategoryFilter(null);
-                    }}
-                  >
-                    <div className="rank">{idx + 1}</div>
-                    <div className="name">{o.name}</div>
-                    <div className="pts tabular">
-                      {o.points.toLocaleString()} <small>pts</small>
-                    </div>
-                    <span className="tier" style={{ background: tier.color }}>
-                      {tier.label}
-                    </span>
-                    <div className="statrow">
-                      <div className="s">
-                        Avg/weekday
-                        <b className="tabular">{Math.round(o.avgPerWeekday || 0).toLocaleString()}</b>
-                      </div>
-                      <div className="s">
-                        Conversations
-                        <b className="tabular">{o.conversations ?? 0}</b>
-                      </div>
-                      <div className="s">
-                        Raised
-                        <b className="tabular">{money(o.giftAmount)}</b>
-                      </div>
-                    </div>
-                    <MixBar buckets={o.bucketPoints || o.buckets} />
-                  </button>
-                );
-              })}
+            <div className="panel">
+              <table className="grid">
+                <thead>
+                  <tr>
+                    <th>Mission Advancement</th>
+                    <th>Points</th>
+                    <th>Avg/wkdy</th>
+                    <th>Tier</th>
+                    <th>Convos</th>
+                    <th>Dials</th>
+                    <th>Rate</th>
+                    <th>Gifts</th>
+                    <th>Raised</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {model.owners.map((o) => {
+                    const tier = o.tier || tierFor(o.avgPerWeekday || 0);
+                    return (
+                      <tr
+                        key={o.name}
+                        className={`clickable${selected === o.name ? " selected" : ""}`}
+                        onClick={() => {
+                          setSelected(o.name === selected ? null : o.name);
+                          setPickedWeek(null);
+                          setPickedDay(null);
+                          setCategoryFilter(null);
+                        }}
+                      >
+                        <td>{o.name}</td>
+                        <td className="pts tabular">{o.points.toLocaleString()}</td>
+                        <td className="tabular">{Math.round(o.avgPerWeekday || 0)}</td>
+                        <td>
+                          <span className="tier" style={{ background: tier.color }}>
+                            {tier.label.split(" ")[0]}
+                          </span>
+                        </td>
+                        <td className="tabular">{o.conversations ?? 0}</td>
+                        <td className="tabular">{o.dials ?? 0}</td>
+                        <td className="tabular">{pct(o.convRate)}</td>
+                        <td className="tabular">{o.gifts ?? 0}</td>
+                        <td className="pts tabular">{money(o.giftAmount)}</td>
+                      </tr>
+                    );
+                  })}
+                  {(() => {
+                    const t = model.totals || {};
+                    const teamAvg = t.weekdays ? (t.points || 0) / t.weekdays : 0;
+                    const teamTier = tierFor(teamAvg);
+                    return (
+                      <tr className="grand">
+                        <td>Total</td>
+                        <td className="pts tabular">{(t.points ?? 0).toLocaleString()}</td>
+                        <td className="tabular">{t.weekdays ? Math.round(teamAvg) : "—"}</td>
+                        <td>
+                          <span className="tier" style={{ background: teamTier.color }}>
+                            {teamTier.label.split(" ")[0]}
+                          </span>
+                        </td>
+                        <td className="tabular">{t.conversations ?? 0}</td>
+                        <td className="tabular">{t.dials ?? 0}</td>
+                        <td className="tabular">{pct(t.convRate)}</td>
+                        <td className="tabular">{t.gifts ?? 0}</td>
+                        <td className="pts tabular">{money(t.giftAmount)}</td>
+                      </tr>
+                    );
+                  })()}
+                </tbody>
+              </table>
             </div>
           </section>
 
@@ -963,20 +957,23 @@ export default function PointsPage() {
             </div>
           </details>
 
-          <section className="section">
-            <h2>
+          <details className="track-chart">
+            <summary>
               Personal Bests{" "}
               <span className="section-hint">highest-points week for each MA and for the team</span>
-            </h2>
+            </summary>
+            <div className="track-chart-body">
             <div className="bests">
-              {(model.bests?.owners || []).map((o) => (
+              {(model.bests?.owners || []).map((o) => {
+                const weekPts = (o.points as BestRec | undefined)?.value ?? 0;
+                return (
                 <div key={String(o.name)} className="bestcard">
                   <div className="name">{String(o.short || o.name)}</div>
-                  <div className="best-total tabular">{(Number(o.totalPoints) || 0).toLocaleString()} total pts</div>
+                  <div className="best-total tabular">{weekPts.toLocaleString()} pts</div>
                   <div className="best-week">
                     {o.bestWeek ? `Week of ${weekLabel(String(o.bestWeek))}` : "—"}
                   </div>
-                  {(model.bests?.metrics || []).map((m) => {
+                  {(model.bests?.metrics || []).filter((m) => m.id !== "points").map((m) => {
                     const rec = o[m.id] as BestRec | undefined;
                     const val = m.id === "giftAmount" ? money(rec?.value) : (rec?.value ?? 0).toLocaleString();
                     return (
@@ -987,15 +984,16 @@ export default function PointsPage() {
                     );
                   })}
                 </div>
-              ))}
+                );
+              })}
               {model.bests?.team && (
                 <div className="bestcard team">
                   <div className="name">Team best</div>
-                  <div className="best-total tabular">{(model.bests.teamTotalPoints || 0).toLocaleString()} total pts</div>
+                  <div className="best-total tabular">{(model.bests.team.points?.value ?? 0).toLocaleString()} pts</div>
                   <div className="best-week">
                     {model.bests.teamWeek ? `Week of ${weekLabel(model.bests.teamWeek)}` : "—"}
                   </div>
-                  {(model.bests.metrics || []).map((m) => {
+                  {(model.bests.metrics || []).filter((m) => m.id !== "points").map((m) => {
                     const rec = model.bests.team[m.id];
                     const val = m.id === "giftAmount" ? money(rec?.value) : (rec?.value ?? 0).toLocaleString();
                     return (
@@ -1008,224 +1006,223 @@ export default function PointsPage() {
                 </div>
               )}
             </div>
-          </section>
-
-          <section className="section">
-            <h2>
-              Donations Received{" "}
-              <span className="section-hint">click a name or Grand total for the gift list · monthly AC is ×12 · an increase is the difference ×12</span>
-            </h2>
-            <div className="panel">
-              <p className="footnote" style={{ marginTop: 0, marginBottom: 14 }}>
-                A gift is counted only when the MA logged a note on that donor in Virtuous on or before the
-                gift date. No note on the contact = the gift is not on this list. 100 points require a
-                donation note (‘New Donation or New AC’, ‘Annunciation Circle updated’, or ‘Update recurring
-                gift’) and a posted gift. Incorrect logging will not be tracked. Gifts after a conversation
-                with no donation note yet are under Possible gifts.
-              </p>
-              <table className="grid" style={{ marginBottom: 18 }}>
-                <thead>
-                  <tr>
-                    <th>MA</th>
-                    <th>Gifts</th>
-                    <th>Raised</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(model.tableOwners || []).map((o) => (
-                    <tr
-                      key={o.name}
-                      className={`clickable${giftOwner === o.name ? " selected" : ""}`}
-                      onClick={() => setGiftOwner((cur) => (cur === o.name ? null : o.name))}
-                    >
-                      <td>{o.name}</td>
-                      <td className="tabular">{o.gifts ?? 0}</td>
-                      <td className="pts tabular">{money(o.giftAmount)}</td>
-                    </tr>
-                  ))}
-                  <tr
-                    className={`grand clickable${giftOwner === "all" ? " selected" : ""}`}
-                    onClick={() => setGiftOwner((cur) => (cur === "all" ? null : "all"))}
-                  >
-                    <td>Grand total</td>
-                    <td className="tabular">{model.totals?.gifts ?? 0}</td>
-                    <td className="pts tabular">{money(model.totals?.giftAmount)}</td>
-                  </tr>
-                </tbody>
-              </table>
-              {giftOwner ? (
-                listedGifts.length === 0 ? (
-                  <p className="footnote">
-                    No posted Virtuous gifts with an MA note on that donor in this range.
-                  </p>
-                ) : (
-                  <table className="grid">
-                    <thead>
-                      <tr>
-                        <th>MA</th>
-                        <th>Donor</th>
-                        <th>Date</th>
-                        <th>Type</th>
-                        <th>Designation</th>
-                        <th>Amount</th>
-                        <th>Gift</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {listedGifts.map((g, i) => (
-                        <tr key={g.giftId != null && g.giftId !== "" ? String(g.giftId) : i}>
-                          <td>{g.owner}</td>
-                          <td>{g.contactName || "—"}</td>
-                          <td style={{ whiteSpace: "nowrap" }}>{g.day ? formatDay(g.day) : "—"}</td>
-                          <td>{g.annualized ? "Monthly ×12" : (g.giftType || "—")}</td>
-                          <td>{g.project || "—"}</td>
-                          <td className="pts tabular">
-                            {money(g.amount)}
-                            {g.annualized && g.postedAmount != null ? (
-                              <span className="section-hint"> ({money(g.postedAmount)}/mo)</span>
-                            ) : null}
-                          </td>
-                          <td>
-                            {virtuousGiftUrl(g.contactId) ? (
-                              <a href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
-                                Gift ↗
-                              </a>
-                            ) : (
-                              "—"
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )
-              ) : (
-                <p className="footnote">Click a name or Grand total to see the gifts.</p>
-              )}
             </div>
-          </section>
+          </details>
 
           <section className="section">
             <h2>
-              Possible gifts{" "}
+              Gifts{" "}
               <span className="section-hint">
-                {(model.possibleGifts || []).length} to review · not in 100-pt gifts until you add a donation note
+                Counted is Raised · Incoming is unclaimed gifts after an MA conversation or meeting
               </span>
             </h2>
             <div className="panel">
-              <p className="footnote" style={{ marginTop: 0, marginBottom: 14 }}>
-                These gifts posted after you spoke with the donor (phone conversation, email conversation, or
-                meeting) and you have not logged a donation note yet. They do not count toward points or Raised
-                until you add ‘New Donation or New AC’ on the contact. Open Contact ↗, add the note as yourself,
-                and the next refresh (about 15 minutes) will pick it up. If it was not because of you, leave it.
-              </p>
-              <table className="grid" style={{ marginBottom: 18 }}>
-                <thead>
-                  <tr>
-                    <th>MA</th>
-                    <th>To review</th>
-                    <th>Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(model.tableOwners || []).map((o) => {
-                    const rec = possibleCounts.get(o.name);
-                    return (
+              <div className="seg" role="group" aria-label="Gift list" style={{ marginBottom: 14 }}>
+                <button
+                  type="button"
+                  className={giftTab === "counted" ? "active" : undefined}
+                  aria-pressed={giftTab === "counted"}
+                  onClick={() => setGiftTab("counted")}
+                >
+                  Counted · {model.totals?.gifts ?? 0} · {money(model.totals?.giftAmount)}
+                </button>
+                <button
+                  type="button"
+                  className={giftTab === "incoming" ? "active" : undefined}
+                  aria-pressed={giftTab === "incoming"}
+                  onClick={() => setGiftTab("incoming")}
+                >
+                  Incoming · {(model.possibleGifts || []).length}
+                </button>
+              </div>
+
+              {giftTab === "counted" ? (
+                <>
+                  <p className="footnote" style={{ marginTop: 0, marginBottom: 14 }}>
+                    Counted when an MA logged a conversation, meeting, or donation note on the donor on or
+                    before the gift, within 45 days. 100 points need a gift note: New Donation or New AC
+                    (one-time or Mission Fund), Annunciation Circle updated, or Update Recurring Gift (AC
+                    increase is the monthly difference × 12). Gift Assist is 100 points and $0.
+                  </p>
+                  <table className="grid" style={{ marginBottom: 18 }}>
+                    <thead>
+                      <tr>
+                        <th>MA</th>
+                        <th>Gifts</th>
+                        <th>Raised</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(model.tableOwners || []).map((o) => (
+                        <tr
+                          key={o.name}
+                          className={`clickable${giftOwner === o.name ? " selected" : ""}`}
+                          onClick={() => setGiftOwner((cur) => (cur === o.name ? "all" : o.name))}
+                        >
+                          <td>{o.name}</td>
+                          <td className="tabular">{o.gifts ?? 0}</td>
+                          <td className="pts tabular">{money(o.giftAmount)}</td>
+                        </tr>
+                      ))}
                       <tr
-                        key={o.name}
-                        className={`clickable${possibleOwner === o.name ? " selected" : ""}`}
-                        onClick={() => setPossibleOwner((cur) => (cur === o.name ? "all" : o.name))}
+                        className={`grand clickable${giftOwner === "all" ? " selected" : ""}`}
+                        onClick={() => setGiftOwner("all")}
                       >
-                        <td>{o.name}</td>
-                        <td className="tabular">{rec?.count ?? 0}</td>
-                        <td className="pts tabular">{money(rec?.amount)}</td>
+                        <td>All</td>
+                        <td className="tabular">{model.totals?.gifts ?? 0}</td>
+                        <td className="pts tabular">{money(model.totals?.giftAmount)}</td>
                       </tr>
-                    );
-                  })}
-                  <tr
-                    className={`grand clickable${possibleOwner === "all" ? " selected" : ""}`}
-                    onClick={() => setPossibleOwner("all")}
-                  >
-                    <td>All</td>
-                    <td className="tabular">{(model.possibleGifts || []).length}</td>
-                    <td className="pts tabular">
-                      {money((model.possibleGifts || []).reduce((s, g) => s + (g.amount || 0), 0))}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              {listedPossible.length === 0 ? (
-                <p className="footnote">
-                  No possible gifts in this range. A conversation, meeting, or email conversation on the donor
-                  before the gift is what puts a gift here.
-                </p>
+                    </tbody>
+                  </table>
+                  {listedGifts.length === 0 ? (
+                    <p className="footnote">No counted gifts in this range.</p>
+                  ) : (
+                    <table className="grid">
+                      <thead>
+                        <tr>
+                          <th>MA</th>
+                          <th>Donor</th>
+                          <th>Date</th>
+                          <th>Type</th>
+                          <th>Designation</th>
+                          <th>Amount</th>
+                          <th>Gift</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {listedGifts.map((g, i) => (
+                          <tr key={g.giftId != null && g.giftId !== "" ? String(g.giftId) : i}>
+                            <td>{g.owner}</td>
+                            <td>{g.contactName || "—"}</td>
+                            <td style={{ whiteSpace: "nowrap" }}>{g.day ? formatDay(g.day) : "—"}</td>
+                            <td>{g.annualized ? "Monthly ×12" : (g.giftType || "—")}</td>
+                            <td>{g.project || "—"}</td>
+                            <td className="pts tabular">
+                              {money(g.amount)}
+                              {g.annualized && g.postedAmount != null ? (
+                                <span className="section-hint"> ({money(g.postedAmount)}/mo)</span>
+                              ) : null}
+                            </td>
+                            <td>
+                              {virtuousGiftUrl(g.contactId) ? (
+                                <a href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
+                                  Gift ↗
+                                </a>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </>
               ) : (
-                <table className="grid">
-                  <thead>
-                    <tr>
-                      <th>MA</th>
-                      <th>Donor</th>
-                      <th>Gift date</th>
-                      <th>Amount</th>
-                      <th>Your note</th>
-                      <th>Status</th>
-                      <th>Virtuous</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {listedPossible.map((g, i) => (
-                      <tr key={g.giftId != null && g.giftId !== "" ? String(g.giftId) : `possible-${i}`}>
-                        <td>{g.owner}</td>
-                        <td>{g.contactName || "—"}</td>
-                        <td style={{ whiteSpace: "nowrap" }}>{g.day ? formatDay(g.day) : "—"}</td>
-                        <td className="pts tabular">
-                          {money(g.amount)}
-                          {g.annualized && g.postedAmount != null ? (
-                            <span className="section-hint"> ({money(g.postedAmount)}/mo)</span>
-                          ) : null}
-                        </td>
-                        <td>
-                          {g.noteLabel || g.noteType || "—"}
-                          {g.noteDay ? (
-                            <span style={{ color: "var(--slate-400)" }}>
-                              {" "}
-                              · {formatDay(g.noteDay)}
-                              {g.daysAfterNote != null ? ` · ${g.daysAfterNote}d later` : ""}
-                            </span>
-                          ) : null}
-                        </td>
-                        <td>
-                          {g.inRaised ? (
-                            <span className="pill">in Raised · add gift note for 100 pts</span>
-                          ) : (
-                            <span className="pill warn">not counted · add gift note if yours</span>
-                          )}
-                        </td>
-                        <td>
-                          {g.contactId ? (
-                            <a href={virtuousContactUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
-                              Contact ↗
-                            </a>
-                          ) : (
-                            "—"
-                          )}
-                          {virtuousGiftUrl(g.contactId) ? (
-                            <>
-                              {" "}
-                              <a href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
-                                Gift ↗
-                              </a>
-                            </>
-                          ) : null}
-                        </td>
-                      </tr>
+                <>
+                  <p className="footnote" style={{ marginTop: 0, marginBottom: 14 }}>
+                    Incoming gifts posted after an MA spoke with the donor (call, meeting, or email conversation)
+                    and nobody has logged a gift note yet. Includes new and increased Annunciation Circle and
+                    Mission Fund gifts. They are not points and not Raised until someone opens Contact ↗ and
+                    logs New Donation or New AC, Annunciation Circle updated, or Update Recurring Gift. Every
+                    MA who spoke with that donor is listed. If it was not because of you, leave it.
+                  </p>
+                  <div className="seg" role="group" aria-label="Incoming MA filter" style={{ marginBottom: 14 }}>
+                    <button
+                      type="button"
+                      className={possibleOwner === "all" ? "active" : undefined}
+                      onClick={() => setPossibleOwner("all")}
+                    >
+                      All · {(model.possibleGifts || []).length}
+                    </button>
+                    {(model.tableOwners || []).map((o) => (
+                      <button
+                        key={o.name}
+                        type="button"
+                        className={possibleOwner === o.name ? "active" : undefined}
+                        onClick={() => setPossibleOwner(o.name)}
+                      >
+                        {o.short || o.name} · {possibleCounts.get(o.name)?.count ?? 0}
+                      </button>
                     ))}
-                  </tbody>
-                </table>
+                  </div>
+                  {listedPossible.length === 0 ? (
+                    <p className="footnote">
+                      No incoming gifts in this range. A conversation or meeting on the donor before the gift
+                      puts it here.
+                    </p>
+                  ) : (
+                    <table className="grid">
+                      <thead>
+                        <tr>
+                          <th>Donor</th>
+                          <th>Gift date</th>
+                          <th>Kind</th>
+                          <th>Amount</th>
+                          <th>Possible MAs</th>
+                          <th>Add note</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {listedPossible.map((g, i) => (
+                          <tr key={g.giftId != null && g.giftId !== "" ? String(g.giftId) : `incoming-${i}`}>
+                            <td>{g.contactName || "—"}</td>
+                            <td style={{ whiteSpace: "nowrap" }}>{g.day ? formatDay(g.day) : "—"}</td>
+                            <td>
+                              {g.kindLabel || (g.annualized ? "Monthly ×12" : g.giftType || "—")}
+                              {g.project ? (
+                                <span style={{ color: "var(--slate-400)" }}> · {g.project}</span>
+                              ) : null}
+                            </td>
+                            <td className="pts tabular">
+                              {money(g.amount)}
+                              {g.annualized && g.postedAmount != null ? (
+                                <span className="section-hint"> ({money(g.postedAmount)}/mo)</span>
+                              ) : null}
+                            </td>
+                            <td>
+                              {incomingOwners(g).map((o, idx) => (
+                                <div key={`${o.name}-${idx}`}>
+                                  {o.name}
+                                  <span style={{ color: "var(--slate-400)" }}>
+                                    {" "}
+                                    · {o.noteLabel || o.noteType || "note"}
+                                    {o.noteDay ? ` ${formatDay(o.noteDay)}` : ""}
+                                    {o.daysAfterNote != null ? ` · ${o.daysAfterNote}d later` : ""}
+                                  </span>
+                                </div>
+                              ))}
+                            </td>
+                            <td>
+                              {g.contactId ? (
+                                <a href={virtuousContactUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
+                                  Contact ↗
+                                </a>
+                              ) : (
+                                "—"
+                              )}
+                              {virtuousGiftUrl(g.contactId) ? (
+                                <>
+                                  {" "}
+                                  <a href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
+                                    Gift ↗
+                                  </a>
+                                </>
+                              ) : null}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </>
               )}
             </div>
           </section>
 
+          <details className="track-chart">
+            <summary>Daily points and activity mix</summary>
+            <div className="track-chart-body">
           <section className="section two-col">
             <div>
               <h2>Daily Team Points</h2>
@@ -1287,80 +1284,8 @@ export default function PointsPage() {
               </div>
             </div>
           </section>
-
-          <section className="section">
-            <h2>All Mission Advancement — Detail</h2>
-            <div className="panel">
-              <table className="grid">
-              <thead>
-                <tr>
-                  <th>Mission Advancement</th>
-                  <th>Points</th>
-                  <th>Avg/wkdy</th>
-                  <th>Tier</th>
-                  <th>Convos</th>
-                  <th>Dials</th>
-                  <th>Rate</th>
-                  <th>Gifts</th>
-                  <th>Raised</th>
-                </tr>
-              </thead>
-              <tbody>
-                {model.owners.map((o) => {
-                  const tier = o.tier || tierFor(o.avgPerWeekday || 0);
-                  return (
-                    <tr key={o.name}>
-                      <td>{o.name}</td>
-                      <td className="pts tabular">{o.points.toLocaleString()}</td>
-                      <td className="tabular">{Math.round(o.avgPerWeekday || 0)}</td>
-                      <td><span className="tier" style={{ background: tier.color }}>{tier.label.split(" ")[0]}</span></td>
-                      <td className="tabular">{o.conversations ?? 0}</td>
-                      <td className="tabular">{o.dials ?? 0}</td>
-                      <td className="tabular">{pct(o.convRate)}</td>
-                      <td className="tabular">{o.gifts ?? 0}</td>
-                      <td className="pts tabular">{money(o.giftAmount)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
             </div>
-          </section>
-
-          <section className="section">
-            <h2>
-              Events <span className="section-hint">reference only — not attributed to an MA</span>
-            </h2>
-            <div className="panel">
-            <table className="grid">
-              <thead>
-                <tr>
-                  <th align="left">Event</th>
-                  <th align="left">Date</th>
-                  <th align="left">Rule</th>
-                  <th align="right">Pts</th>
-                </tr>
-              </thead>
-              <tbody>
-                {((events || []) as { date?: Date | string; name?: string; points?: number; rule?: string; label?: string }[])
-                  .slice(0, 50)
-                  .map((e, i) => (
-                    <tr key={i}>
-                      <td>{e.name || "Event"}</td>
-                      <td>{String(e.date || "").slice(0, 10)}</td>
-                      <td>{e.rule || e.label || "—"}</td>
-                      <td align="right">{e.points ?? 0}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-            <p className="footnote">
-              Virtuous events carry no MA owner, so “Ave Near You” (300) and Marketing (75) events are shown here for
-              reference and are not included in any MA’s point total. An MA takes the credit by logging
-              <code> Mission Advancement | Event</code> or <code> Mission Advancement | Marketing Event</code>.
-            </p>
-            </div>
-          </section>
+          </details>
 
           <section className="section">
             <h3>Tiers</h3>

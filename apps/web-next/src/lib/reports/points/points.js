@@ -264,23 +264,48 @@ function daysFromNoteToGift(noteDate, giftDate) {
   return Math.round((new Date(`${b}T00:00:00`) - new Date(`${a}T00:00:00`)) / 86400000);
 }
 
-/** Closest conversation/meeting on or before the gift, within the 45-day window. */
-export function nearestPossibleNote(giftDate, notesOnContact) {
+/**
+ * Every MA who spoke with the donor on or before the gift, within 45 days.
+ * One closest note per MA. Sorted nearest-first so the first entry is the
+ * primary association.
+ */
+export function possibleNotesForGift(giftDate, notesOnContact) {
   const before = SETTINGS.giftNoteDaysBefore ?? 45;
-  let best = null;
-  let bestScore = Infinity;
+  const bestByOwner = new Map();
   for (const n of notesOnContact || []) {
     const key = (n.type || "").trim().toLowerCase();
     if (!POSSIBLE_GIFT_TYPES.has(key)) continue;
+    if (n.assist) continue;
     const delta = daysFromNoteToGift(n.date, giftDate);
-    if (delta == null) continue;
-    if (delta < 0 || delta > before) continue;
-    if (delta < bestScore) {
-      bestScore = delta;
-      best = n;
-    }
+    if (delta == null || delta < 0 || delta > before) continue;
+    if (beforeStart(giftDate, n.owner)) continue;
+    const cur = bestByOwner.get(n.owner);
+    if (!cur || delta < cur.days) bestByOwner.set(n.owner, { note: n, days: delta });
   }
-  return best ? { note: best, days: bestScore } : null;
+  return [...bestByOwner.values()].sort(
+    (a, b) => a.days - b.days || String(a.note.owner).localeCompare(String(b.note.owner)),
+  );
+}
+
+/** Closest conversation/meeting on or before the gift, within the 45-day window. */
+export function nearestPossibleNote(giftDate, notesOnContact) {
+  return possibleNotesForGift(giftDate, notesOnContact)[0] || null;
+}
+
+/** AC, Mission Fund, or other — used by Incoming Gifts. */
+export function giftKindOf(record) {
+  const blob = `${record.segment || ""} ${record.project || ""} ${giftProject(record)}`;
+  if (record.acIncrease) return "ac-increase";
+  if (/annunciation/i.test(blob) || isMonthlyRecurring(record)) return "ac";
+  if (/mission fund/i.test(blob)) return "mission-fund";
+  return "one-time";
+}
+
+export function giftKindLabel(kind, annualized) {
+  if (kind === "ac-increase") return "AC increase";
+  if (kind === "ac") return annualized ? "AC (monthly ×12)" : "Annunciation Circle";
+  if (kind === "mission-fund") return "Mission Fund";
+  return annualized ? "Monthly ×12" : "One-time";
 }
 
 /** Dollars follow a conversation, meeting, or donation note — not a letter or thank-you. */
@@ -501,23 +526,35 @@ export function scoreAll({ notes = [], gifts = [] }) {
     if (gid && (securedIds.has(gid) || isAssistGiftId(g.id))) continue;
     const raised = gid ? raisedById.get(gid) : null;
     if (raised?.assist) continue;
-    const hit = nearestPossibleNote(gDate, activityByContact.get(g.contactId) || []);
-    if (!hit) continue;
-    if (beforeStart(gDate, hit.note.owner)) continue;
+    const hits = possibleNotesForGift(gDate, activityByContact.get(g.contactId) || []);
+    if (!hits.length) continue;
+    const hit = hits[0];
     const monthly = isMonthlyRecurring(g);
     const factor = SETTINGS.monthlyAnnualizeFactor || 12;
     const amount = raised
       ? raised.amount
       : (monthly ? roundCents(postedAmount * factor) : postedAmount);
+    const annualized = raised ? !!raised.annualized : monthly;
+    const kind = giftKindOf({ ...g, acIncrease: raised?.acIncrease || g.acIncrease });
     rows.push({
       owner: hit.note.owner,
-      type: "Possible gift",
+      owners: hits.map((h) => ({
+        name: h.note.owner,
+        noteId: h.note.noteId,
+        noteType: h.note.type,
+        noteLabel: h.note.label,
+        noteDay: h.note.day,
+        daysAfterNote: h.days,
+      })),
+      type: "Incoming gift",
       points: 0,
       amount,
       postedAmount: raised?.postedAmount ?? postedAmount,
-      annualized: raised ? !!raised.annualized : monthly,
+      annualized,
+      kind,
+      kindLabel: giftKindLabel(kind, annualized),
       bucket: "possible",
-      label: "Possible gift",
+      label: "Incoming gift",
       day: isoDay(gDate),
       date: gDate,
       weekday: isWeekday(gDate),

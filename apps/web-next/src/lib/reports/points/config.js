@@ -352,9 +352,9 @@ export const TRACKING_CHART = {
       detail: "New monthly commitment is amount × 12. An increase is only the difference × 12.",
     },
     {
-      label: "Possible gifts",
+      label: "Incoming gifts",
       detail:
-        "Posted gift on a donor you spoke with (phone conversation, email conversation, or meeting) in the 45 days before the gift, with no donation note yet. These do not count as 100-pt gifts until you log New Donation or New AC on the contact.",
+        "Posted gift (one-time, Mission Fund, new AC, or AC increase) after an MA conversation or meeting in the 45 days before the gift, with no donation note yet. Review list only. Log New Donation or New AC, Annunciation Circle updated, or Update Recurring Gift to claim 100 pts.",
     },
   ],
   rows: [
@@ -400,15 +400,14 @@ export const DEFINITIONS = [
       "100 points additionally require a donation note type (‘New Donation or New AC’, ‘Annunciation Circle updated’, or ‘Update recurring gift’) or a Gift Assist note, paired with a posted gift. Gift Assist is 100 points and does not count dollars.",
   },
   {
-    term: "Possible gifts",
+    term: "Incoming gifts",
     text:
-      "Possible gifts are posted Virtuous gifts on a donor the MA actually spoke with " +
+      "Incoming gifts are posted Virtuous gifts (one-time, Mission Fund, new Annunciation Circle, or an AC increase) on a donor an MA actually spoke with " +
       "(phone conversation, two-way email, in-person, or MAS meeting) on or before the gift date, within 45 days, " +
-      "when there is no matching donation note yet. They are a review list, not points and not Raised. " +
-      "A voicemail, letter, or email-sent does not put a gift on this list. " +
-      "If the gift was because of that conversation, log ‘New Donation or New AC’ (or ‘Annunciation Circle updated’ / ‘Update recurring gift’) on the contact. " +
-      "After the next refresh the gift moves to Donations Received and scores 100 points. " +
-      "If it was not because of the MA, leave it — it stays off the totals.",
+      "when there is no matching donation note yet. Every MA who spoke with that donor in the window is listed. " +
+      "This is a review list, not points and not Raised. A voicemail, letter, or email-sent does not put a gift here. " +
+      "If the gift followed your work, log ‘New Donation or New AC’ (new gift or Mission Fund), ‘Annunciation Circle updated’, or ‘Update recurring gift’ (AC increase) on the contact. " +
+      "After the next refresh it moves to Counted and scores 100 points. If it was not because of you, leave it.",
   },
   {
     term: "Secured gift (100 pts)",

@@ -37,6 +37,9 @@ type Model = {
     noteType?: string;
     daysAfterNote?: number;
     contactName?: string;
+    kind?: string;
+    kindLabel?: string;
+    owners?: Array<{ name: string; noteType?: string; daysAfterNote?: number }>;
   }>;
   rows: Array<{ noteId?: string | number; removed?: boolean; points?: number; day?: string; bucket?: string }>;
   bests?: {
@@ -1056,9 +1059,9 @@ describe("possible gifts", () => {
     assert.equal(possible.daysAfterNote, 1);
     assert.equal(possible.owner, ALANNA);
     const csv = buildCalculationCSV(model);
-    assert.match(csv, /POSSIBLE GIFTS/);
+    assert.match(csv, /INCOMING GIFTS/);
     assert.match(csv, /Jane Donor/);
-    assert.doesNotMatch(csv, /DETAIL[\s\S]*Possible gift/);
+    assert.doesNotMatch(csv, /DETAIL[\s\S]*Incoming gift/);
   });
 
   it("a matching Gift Assist note removes the gift from possible", () => {
@@ -1136,6 +1139,44 @@ describe("possible gifts", () => {
     assert.equal(donationLine.count, 0);
     assert.equal(owner.points, 10);
     assert.equal(model.totals.points, 10);
+  });
+
+  it("lists every MA who spoke with the donor, one row per gift", () => {
+    const { model } = run(
+      [
+        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026", id: 1 }),
+        donationNote({
+          createdByUser: "Sean Kelly",
+          type: "In Person",
+          noteDate: "8/12/2026",
+          id: 2,
+        }),
+      ],
+      [postedGift({ giftDate: "8/20/2026", amount: 250, project: "Mission Fund" })],
+    );
+    assert.equal(model.possibleGifts?.length, 1);
+    const g = model.possibleGifts?.[0];
+    assert.ok(g);
+    assert.equal(g.kind, "mission-fund");
+    const names = (g.owners || []).map((o) => o.name).sort();
+    assert.deepEqual(names, [ALANNA, "Sean Kelly"]);
+  });
+
+  it("labels an AC increase as incoming when there is no donation note", () => {
+    const { model } = run(
+      [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026" })],
+      [postedGift({
+        giftDate: "8/20/2026",
+        amount: 240,
+        acIncrease: true,
+        priorMonthly: 20,
+        newMonthly: 40,
+        segment: "Annunciation Circle",
+        frequency: "Monthly",
+      })],
+    );
+    assert.equal(model.possibleGifts?.length, 1);
+    assert.equal(model.possibleGifts?.[0].kind, "ac-increase");
   });
 });
 
