@@ -1375,7 +1375,7 @@ export default function PointsPage() {
                                       });
                                     }}
                                   >
-                                    {flagBusy === `gift:${g.giftId}` ? "Removing…" : "Not this gift"}
+                                    {flagBusy === `gift:${g.giftId}` ? "Removing…" : "Remove"}
                                   </button>
                                 </div>
                               ) : null}
