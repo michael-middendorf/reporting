@@ -218,7 +218,7 @@ export default function PointsPage() {
   const [pickedWeek, setPickedWeek] = useState<string | null>(null);
   const [pickedDay, setPickedDay] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
-  const [giftOwner, setGiftOwner] = useState<string>("all");
+  const [giftOwner, setGiftOwner] = useState<string | null>(null);
   const [possibleOwner, setPossibleOwner] = useState<string>("all");
   const [giftTab, setGiftTab] = useState<"counted" | "incoming">("incoming");
   const [error, setError] = useState<string | null>(null);
@@ -365,6 +365,7 @@ export default function PointsPage() {
         ? formatDay(activeDay)
         : "Categories";
   const listedGifts = useMemo(() => {
+    if (!giftOwner) return [] as GiftRow[];
     return [...(model.gifts || [])]
       .filter((g) => giftOwner === "all" || g.owner === giftOwner)
       .sort((a, b) => (b.day || "").localeCompare(a.day || ""));
@@ -1192,7 +1193,9 @@ export default function PointsPage() {
                       </tr>
                     </tbody>
                   </table>
-                  {listedGifts.length === 0 ? (
+                  {!giftOwner ? (
+                    <p className="footnote">Click a name or All to see the gifts.</p>
+                  ) : listedGifts.length === 0 ? (
                     <p className="footnote">No counted gifts in this range.</p>
                   ) : (
                     <table className="grid">
