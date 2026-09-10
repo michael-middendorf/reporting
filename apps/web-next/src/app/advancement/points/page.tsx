@@ -1198,41 +1198,35 @@ export default function PointsPage() {
                     <table className="grid">
                       <thead>
                         <tr>
-                          <th>Assign</th>
-                          <th>MA</th>
-                          <th>Donor</th>
-                          <th>Date</th>
-                          <th>Type</th>
-                          <th>Designation</th>
+                          <th>Gift date</th>
+                          <th>Kind</th>
                           <th>Amount</th>
-                          <th>Gift</th>
+                          <th>MA</th>
+                          <th></th>
                         </tr>
                       </thead>
                       <tbody>
                         {listedGifts.map((g, i) => (
                           <tr key={g.giftId != null && g.giftId !== "" ? String(g.giftId) : i}>
-                            <td>
-                              {g.mgoAssigned && giftFlagId(g) ? (
-                                <input
-                                  type="checkbox"
-                                  aria-label={`Remove assignment from ${g.owner}`}
-                                  checked
-                                  disabled={flagBusy === giftFlagId(g)}
-                                  onChange={() => unassignMgoGift(g)}
-                                />
+                            <td style={{ whiteSpace: "nowrap" }}>
+                              {g.day ? formatDay(g.day) : "—"}
+                              {g.contactName ? (
+                                <div style={{ color: "var(--slate-400)", fontWeight: 400 }}>{g.contactName}</div>
                               ) : null}
                             </td>
-                            <td>{g.owner}</td>
-                            <td>{g.contactName || "—"}</td>
-                            <td style={{ whiteSpace: "nowrap" }}>{g.day ? formatDay(g.day) : "—"}</td>
-                            <td>{g.annualized ? "Monthly ×12" : (g.giftType || "—")}</td>
-                            <td>{g.project || "—"}</td>
+                            <td>
+                              {g.annualized ? "Monthly ×12" : (g.giftType || "—")}
+                              {g.project ? (
+                                <span style={{ color: "var(--slate-400)" }}> · {g.project}</span>
+                              ) : null}
+                            </td>
                             <td className="pts tabular">
                               {money(g.amount)}
                               {g.annualized && g.postedAmount != null ? (
                                 <span className="section-hint"> ({money(g.postedAmount)}/mo)</span>
                               ) : null}
                             </td>
+                            <td>{g.owner}</td>
                             <td>
                               {virtuousGiftUrl(g.contactId) ? (
                                 <a href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
@@ -1241,6 +1235,18 @@ export default function PointsPage() {
                               ) : (
                                 "—"
                               )}
+                              {g.mgoAssigned && giftFlagId(g) ? (
+                                <div style={{ marginTop: 6 }}>
+                                  <button
+                                    type="button"
+                                    className="mini-btn danger"
+                                    disabled={flagBusy === giftFlagId(g)}
+                                    onClick={() => unassignMgoGift(g)}
+                                  >
+                                    {flagBusy === giftFlagId(g) ? "Removing…" : "Remove"}
+                                  </button>
+                                </div>
+                              ) : null}
                             </td>
                           </tr>
                         ))}
@@ -1388,27 +1394,23 @@ export default function PointsPage() {
                 </>
               )}
               {listedReviewGifts.length > 0 ? (
-                <div className="mgo-review">
-                  <h3>
+                <>
+                  <h3 style={{ marginTop: 22 }}>
                     MGO-coded gifts{" "}
                     <span className="section-hint">not in Raised until assigned</span>
                   </h3>
                   <p className="footnote">
-                    These gifts are coded Direct Solicitation (MGO) in Virtuous. An MA had a note on the
-                    donor in the 45 days before the gift. They are not in Raised until you assign them. A
-                    thank-you may still have been why they gave.
+                    Direct Solicitation (MGO) in Virtuous. An MA had a note on the donor in the 45 days
+                    before the gift. Assign scores dollars here. This does not add a note in Virtuous.
                   </p>
                   <table className="grid">
                     <thead>
                       <tr>
-                        <th>Assign</th>
-                        <th>MA</th>
-                        <th>Donor</th>
-                        <th>Date</th>
-                        <th>Type</th>
-                        <th>Designation</th>
+                        <th>Gift date</th>
+                        <th>Kind</th>
                         <th>Amount</th>
-                        <th>Gift</th>
+                        <th>Possible MAs</th>
+                        <th></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1416,31 +1418,37 @@ export default function PointsPage() {
                         const id = giftFlagId(g);
                         return (
                           <tr key={id || `mgo-${i}`}>
-                            <td>
-                              {id ? (
-                                <input
-                                  type="checkbox"
-                                  aria-label={`Assign gift to ${g.owner}`}
-                                  checked={false}
-                                  disabled={flagBusy === id}
-                                  onChange={(e) => {
-                                    if (e.target.checked) assignMgoGift(g);
-                                    else unassignMgoGift(g);
-                                  }}
-                                />
-                              ) : (
-                                "—"
-                              )}
+                            <td style={{ whiteSpace: "nowrap" }}>
+                              {g.day ? formatDay(g.day) : "—"}
+                              {g.contactName ? (
+                                <div style={{ color: "var(--slate-400)", fontWeight: 400 }}>{g.contactName}</div>
+                              ) : null}
                             </td>
-                            <td>{g.owner || "—"}</td>
-                            <td>{g.contactName || "—"}</td>
-                            <td style={{ whiteSpace: "nowrap" }}>{g.day ? formatDay(g.day) : "—"}</td>
-                            <td>{g.annualized ? "Monthly ×12" : (g.giftType || "—")}</td>
-                            <td>{g.project || "—"}</td>
+                            <td>
+                              {g.annualized ? "Monthly ×12" : (g.giftType || "—")}
+                              {g.project ? (
+                                <span style={{ color: "var(--slate-400)" }}> · {g.project}</span>
+                              ) : null}
+                            </td>
                             <td className="pts tabular">
                               {money(g.amount)}
                               {g.annualized && g.postedAmount != null ? (
                                 <span className="section-hint"> ({money(g.postedAmount)}/mo)</span>
+                              ) : null}
+                            </td>
+                            <td>
+                              {g.owner || "—"}
+                              {g.owner ? (
+                                <div style={{ marginTop: 4 }}>
+                                  <button
+                                    type="button"
+                                    className="mini-btn"
+                                    disabled={!id || flagBusy === id}
+                                    onClick={() => assignMgoGift(g)}
+                                  >
+                                    {flagBusy === id ? "Assigning…" : `Assign ${g.owner.split(" ")[0]}`}
+                                  </button>
+                                </div>
                               ) : null}
                             </td>
                             <td>
@@ -1451,13 +1459,39 @@ export default function PointsPage() {
                               ) : (
                                 "—"
                               )}
+                              {id ? (
+                                <div style={{ marginTop: 6 }}>
+                                  <button
+                                    type="button"
+                                    className="mini-btn danger"
+                                    disabled={flagBusy === id}
+                                    onClick={() => {
+                                      if (!window.confirm("Remove this gift from the MGO list? It will not score.")) return;
+                                      saveFlag({
+                                        noteId: id,
+                                        contactId: g.contactId != null ? String(g.contactId) : null,
+                                        contactName: g.contactName || null,
+                                        owner: g.owner,
+                                        day: g.day,
+                                        type: g.giftType || null,
+                                        label: "MGO gift dismissed",
+                                        points: 0,
+                                        status: "removed",
+                                        reason: "Does not qualify",
+                                      });
+                                    }}
+                                  >
+                                    {flagBusy === id ? "Removing…" : "Remove"}
+                                  </button>
+                                </div>
+                              ) : null}
                             </td>
                           </tr>
                         );
                       })}
                     </tbody>
                   </table>
-                </div>
+                </>
               ) : null}
             </div>
           </section>

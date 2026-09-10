@@ -228,7 +228,7 @@ export function aggregate(rows, { start, end, flags } = {}) {
     return true;
   }).map((r) => ({ ...r, removed: rowRemoved(r, flags) }));
 
-  const reviewGifts = inRange.filter((r) => r.needsReview);
+  const reviewGifts = inRange.filter((r) => r.needsReview && !r.removed);
   const scored = inRange.filter((r) => !r.needsReview);
 
   const byOwner = new Map(MA_ROSTER.map((m) => [m.name, blankOwner(m)]));
