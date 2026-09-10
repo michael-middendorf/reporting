@@ -1226,20 +1226,6 @@ describe("possible gifts", () => {
     assert.equal(dismissed.totals.points, 10);
   });
 
-  it("a pending assignment does not score until accepted", () => {
-    const extra = assignedNotesFromFlags({
-      "gift:501": {
-        status: "pending",
-        owner: ALANNA,
-        contactId: "101",
-        day: "2026-08-11",
-        type: "Mission Advancement | New Donation or New AC",
-        noteId: "gift:501",
-      },
-    });
-    assert.equal(extra.length, 0);
-  });
-
   it("an assigned incoming gift scores 100 pts for that MA and leaves Incoming", () => {
     const flags = {
       "gift:501": {

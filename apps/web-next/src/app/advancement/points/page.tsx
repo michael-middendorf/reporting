@@ -226,7 +226,6 @@ export default function PointsPage() {
   const [flagBusy, setFlagBusy] = useState<string | null>(null);
   const [flagError, setFlagError] = useState<string | null>(null);
   const [assignBusy, setAssignBusy] = useState<string | null>(null);
-  const [sessionMa, setSessionMa] = useState<string | null>(null);
 
   useEffect(() => {
     loadRaw()
@@ -252,15 +251,6 @@ export default function PointsPage() {
     apiFetch("/api/reports/points/flags")
       .then((r) => (r.ok ? r.json() : { flags: {} }))
       .then((d) => setFlags((d?.flags as Record<string, ReviewFlag>) || {}))
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    apiFetch("/api/reports/points/me")
-      .then((r) => (r.ok ? r.json() : { maName: null }))
-      .then((d: { maName?: string | null }) =>
-        setSessionMa(typeof d?.maName === "string" ? d.maName : null),
-      )
       .catch(() => {});
   }, []);
 
@@ -478,21 +468,16 @@ export default function PointsPage() {
     deleteFlag(id);
   }
 
-  async function assignIncoming(g: PossibleGiftRow, owner: string, assist: boolean, action: "propose" | "accept") {
+  async function assignIncoming(g: PossibleGiftRow, owner: string, assist: boolean) {
     if (g.giftId == null || g.giftId === "" || g.contactId == null || !g.day) return;
     const kindLabel = assist ? "Gift Assist" : (noteTypeForIncoming(g.kind) || "gift note");
-    const prompt = action === "accept"
-      ? `Accept this ${kindLabel} as ${owner}? That scores it for you on the dashboard. It does not add a note in Virtuous.`
-      : `Assign this ${kindLabel} to ${owner}? They must accept before it scores.`;
-    if (!window.confirm(prompt)) return;
-    const key = `${g.giftId}:${action}`;
-    setAssignBusy(key);
+    if (!window.confirm(`Assign this ${kindLabel} to ${owner}? It scores on the dashboard. It does not add a note in Virtuous.`)) return;
+    setAssignBusy(`${g.giftId}:${owner}`);
     setFlagError(null);
     try {
       const res = await apiFetch("/api/reports/points/assign-gift", {
         method: "POST",
         body: JSON.stringify({
-          action,
           giftId: g.giftId,
           contactId: g.contactId,
           contactName: g.contactName,
@@ -509,7 +494,7 @@ export default function PointsPage() {
         setFlags((f) => ({ ...f, [data.flag.noteId]: data.flag as ReviewFlag }));
       }
     } catch (e) {
-      setFlagError(`Could not ${action} gift: ${String(e)}`);
+      setFlagError(`Could not assign gift: ${String(e)}`);
     } finally {
       setAssignBusy(null);
     }
@@ -1267,8 +1252,8 @@ export default function PointsPage() {
                 <>
                   <p className="footnote" style={{ marginTop: 0, marginBottom: 14 }}>
                     Incoming gifts posted after an MA spoke with the donor and nobody has logged a gift note yet.
-                    Anyone can assign an MA. That MA must accept while signed in as themselves; then it scores
-                    100 points here. This does not add a note in Virtuous. Gift Assist is 100 points and $0.
+                    Assign an MA to score 100 points here. This does not add a note in Virtuous. Gift Assist is
+                    100 points and $0.
                   </p>
                   <div className="seg" role="group" aria-label="Incoming MA filter" style={{ marginBottom: 14 }}>
                     <button
@@ -1338,55 +1323,27 @@ export default function PointsPage() {
                                   </span>
                                 </div>
                               ))}
-                              {(() => {
-                                const pending = g.giftId != null ? flags[`gift:${g.giftId}`] : null;
-                                const waiting = pending?.status === "pending" ? pending.owner : null;
-                                if (waiting) {
-                                  const mine = sessionMa && sessionMa === waiting;
-                                  return (
-                                    <div>
-                                      <span className="pill warn">waiting for {waiting.split(" ")[0]} to accept</span>
-                                      {mine ? (
-                                        <div style={{ marginTop: 6 }}>
-                                          <button
-                                            type="button"
-                                            className="mini-btn solid"
-                                            disabled={assignBusy != null}
-                                            onClick={() => assignIncoming(g, waiting, /assist/i.test(pending?.type || pending?.label || ""), "accept")}
-                                          >
-                                            {assignBusy === `${g.giftId}:accept` ? "Accepting…" : "Accept"}
-                                          </button>
-                                        </div>
-                                      ) : null}
-                                    </div>
-                                  );
-                                }
-                                return (
-                                  <div>
-                                    {incomingOwners(g).map((o) => (
-                                      <div key={`assign-${o.name}`} style={{ marginTop: 4 }}>
-                                        <button
-                                          type="button"
-                                          className="mini-btn"
-                                          disabled={assignBusy != null}
-                                          onClick={() => assignIncoming(g, o.name, false, "propose")}
-                                        >
-                                          Assign {o.name.split(" ")[0]}
-                                        </button>
-                                        {" "}
-                                        <button
-                                          type="button"
-                                          className="mini-btn"
-                                          disabled={assignBusy != null}
-                                          onClick={() => assignIncoming(g, o.name, true, "propose")}
-                                        >
-                                          Assist
-                                        </button>
-                                      </div>
-                                    ))}
-                                  </div>
-                                );
-                              })()}
+                              {incomingOwners(g).map((o) => (
+                                <div key={`assign-${o.name}`} style={{ marginTop: 4 }}>
+                                  <button
+                                    type="button"
+                                    className="mini-btn"
+                                    disabled={assignBusy != null}
+                                    onClick={() => assignIncoming(g, o.name, false)}
+                                  >
+                                    Assign {o.name.split(" ")[0]}
+                                  </button>
+                                  {" "}
+                                  <button
+                                    type="button"
+                                    className="mini-btn"
+                                    disabled={assignBusy != null}
+                                    onClick={() => assignIncoming(g, o.name, true)}
+                                  >
+                                    Assist
+                                  </button>
+                                </div>
+                              ))}
                             </td>
                             <td>
                               {virtuousGiftUrl(g.contactId) ? (
