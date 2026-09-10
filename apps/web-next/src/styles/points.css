@@ -325,9 +325,20 @@ table.grid td.pts { font-weight: 500; color: var(--navy); }
   grid-template-columns: minmax(240px, .9fr) 1.4fr;
   gap: 20px;
   align-items: start;
-  padding: 0 0 16px;
+  padding: 14px 0 16px;
   border-top: 1px solid var(--line);
-  padding-top: 14px;
+}
+.track-chart-body.wide {
+  display: block;
+}
+table.grid.spread {
+  table-layout: fixed;
+  width: 100%;
+}
+table.grid.spread th,
+table.grid.spread td {
+  white-space: nowrap;
+  padding: 12px 18px;
 }
 .track-lead { margin: 0 0 12px; font-size: .9rem; max-width: 52ch; }
 .track-gifts ul { margin: 0; padding: 0; list-style: none; }

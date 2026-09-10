@@ -1,32 +1,15 @@
 /**
  * POST /api/reports/points/assign-gift
  *
- * action "propose": anyone with Points access assigns an MA. No Virtuous write.
- * action "accept": only that MA (session email matches roster) confirms.
- *   Then we write the gift note to Virtuous and score them on the dashboard.
- *
- * Virtuous always stamps createdByUser as the API user. We cannot impersonate
- * the MA. The note body records who accepted; scoring uses the assignment flag.
+ * action "propose": anyone with Points access assigns an MA.
+ * action "accept": only that MA (session email matches roster) confirms,
+ * then the dashboard scores them. Does not write a note to Virtuous.
  */
 import { NextResponse } from "next/server";
 import { requireReportAccess } from "@/lib/s3-proxy";
 import { currentUserEmail } from "@/lib/auth";
 import { upsertFlag } from "@/lib/reports/points/flags-store";
 import { MA_ROSTER, maForEmail, noteTypeForIncoming } from "@/lib/reports/points/config.js";
-
-const VIRTUOUS_BASE = process.env.VIRTUOUS_BASE_URL || "https://api.virtuoussoftware.com";
-
-function money(n: unknown) {
-  const x = Number(n);
-  if (!Number.isFinite(x)) return "";
-  return x.toLocaleString("en-US", { style: "currency", currency: "USD" });
-}
-
-function virtuousDay(iso: string) {
-  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return iso;
-  return `${Number(m[2])}/${Number(m[3])}/${m[1]}`;
-}
 
 export async function POST(req: Request) {
   const denied = requireReportAccess(req, "points");
@@ -41,7 +24,6 @@ export async function POST(req: Request) {
     contactName?: string | null;
     owner?: string;
     day?: string;
-    amount?: number;
     kind?: string;
     assist?: boolean;
     type?: string;
@@ -110,51 +92,6 @@ export async function POST(req: Request) {
     );
   }
 
-  const key = process.env.VIRTUOUS_API_KEY || "";
-  if (!key || key === "PLACEHOLDER") {
-    return NextResponse.json({ error: "Virtuous API key is not configured" }, { status: 503 });
-  }
-
-  const noteHtml =
-    `<p>Logged from MA Points after <strong>${ma.name}</strong> accepted this gift` +
-    (giftId ? ` (${giftId}` : "") +
-    (body.amount != null ? `${giftId ? ", " : " ("}${money(body.amount)}` : "") +
-    (giftId || body.amount != null ? ")" : "") +
-    `.</p><p>Accepted by ${email}.</p>`;
-
-  let virtuousId: number | string | null = null;
-  try {
-    const res = await fetch(`${VIRTUOUS_BASE}/api/ContactNote`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contactId,
-        type,
-        noteDate: virtuousDay(day),
-        note: noteHtml,
-      }),
-    });
-    const text = await res.text();
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: `Virtuous refused the note (${res.status}): ${text.slice(0, 400)}` },
-        { status: 502 },
-      );
-    }
-    try {
-      const parsed = JSON.parse(text) as { id?: number };
-      virtuousId = parsed.id ?? null;
-    } catch {
-      virtuousId = null;
-    }
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: `Could not reach Virtuous: ${msg}` }, { status: 502 });
-  }
-
   const flag = await upsertFlag(
     {
       noteId: `gift:${giftId}`,
@@ -165,11 +102,11 @@ export async function POST(req: Request) {
       type,
       label: assist ? "Gift assist" : "Assigned gift",
       points: 100,
-      reason: `Accepted by ${email}; Virtuous note ${virtuousId ?? "created"}`,
+      reason: `Accepted by ${email}`,
       status: "assigned",
     },
     email,
     nowIso,
   );
-  return NextResponse.json({ flag, virtuousId });
+  return NextResponse.json({ flag });
 }

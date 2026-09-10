@@ -422,9 +422,8 @@ export const DEFINITIONS = [
       "when there is no matching donation note yet. Every MA who spoke with that donor in the window is listed. " +
       "This is a review list, not points and not Raised. A voicemail, letter, or email-sent does not put a gift here. " +
       "Anyone can assign an MA. That MA must accept while signed in as themselves. " +
-      "Accept logs the note in Virtuous and scores 100 points. Gift Assist is 100 points and $0. " +
-      "Virtuous still stamps the integration user as author — the API cannot impersonate an MA. " +
-      "If it was not because of you, leave it.",
+      "Accept scores 100 points on the dashboard. It does not write a note to Virtuous. " +
+      "Gift Assist is 100 points and $0. If it was not because of you, leave it.",
   },
   {
     term: "Secured gift (100 pts)",

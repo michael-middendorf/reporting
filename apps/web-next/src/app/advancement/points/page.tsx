@@ -482,8 +482,8 @@ export default function PointsPage() {
     if (g.giftId == null || g.giftId === "" || g.contactId == null || !g.day) return;
     const kindLabel = assist ? "Gift Assist" : (noteTypeForIncoming(g.kind) || "gift note");
     const prompt = action === "accept"
-      ? `Accept this ${kindLabel} as ${owner}? That logs the note in Virtuous and scores it for you.`
-      : `Assign this ${kindLabel} to ${owner}? They must accept before it is logged in Virtuous.`;
+      ? `Accept this ${kindLabel} as ${owner}? That scores it for you on the dashboard. It does not add a note in Virtuous.`
+      : `Assign this ${kindLabel} to ${owner}? They must accept before it scores.`;
     if (!window.confirm(prompt)) return;
     const key = `${g.giftId}:${action}`;
     setAssignBusy(key);
@@ -1092,8 +1092,8 @@ export default function PointsPage() {
               Personal Bests{" "}
               <span className="section-hint">highest-points week for each MA and for the team</span>
             </summary>
-            <div className="track-chart-body">
-              <table className="grid">
+            <div className="track-chart-body wide">
+              <table className="grid spread">
                 <thead>
                   <tr>
                     <th>MA</th>
@@ -1267,9 +1267,8 @@ export default function PointsPage() {
                 <>
                   <p className="footnote" style={{ marginTop: 0, marginBottom: 14 }}>
                     Incoming gifts posted after an MA spoke with the donor and nobody has logged a gift note yet.
-                    Anyone can assign an MA. That MA must accept while signed in as themselves; then we log the
-                    note in Virtuous and score 100 points. Virtuous still stamps the integration user as author —
-                    we cannot impersonate them. Gift Assist is 100 points and $0.
+                    Anyone can assign an MA. That MA must accept while signed in as themselves; then it scores
+                    100 points here. This does not add a note in Virtuous. Gift Assist is 100 points and $0.
                   </p>
                   <div className="seg" role="group" aria-label="Incoming MA filter" style={{ marginBottom: 14 }}>
                     <button

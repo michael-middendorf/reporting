@@ -41,8 +41,7 @@ function beforeStart(date, owner) {
 
 /**
  * Incoming-gift assignments saved on the dashboard become synthetic donation
- * notes so the chosen MA scores immediately. Virtuous stamps API-created notes
- * as the API user, not the MA, so we cannot rely on createdByUser for that.
+ * notes so the chosen MA scores immediately. We do not write a note to Virtuous.
  */
 export function assignedNotesFromFlags(flags = {}) {
   const out = [];
