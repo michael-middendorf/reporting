@@ -6,6 +6,7 @@ import { SimpleXlsx, triggerXlsxDownload } from "@/lib/aspiredu-xlsx";
 import { SPORTS } from "@/lib/reports/athletics-coaching/sports";
 import {
   DATE_PRESETS,
+  datePresetLabel,
   filterGifts,
   formatGiftDate,
   fundsFromGifts,
@@ -101,8 +102,35 @@ export function GivingClient() {
 
   const fundOptions = useMemo(() => fundsFromGifts(fundSource).filter((item) => !item.isFee), [fundSource]);
   const totals = useMemo(() => totalsFromGifts(visible), [visible]);
+  const fyTotals = useMemo(
+    () =>
+      totalsFromGifts(
+        filterGifts(data?.gifts || [], {
+          start: data?.fyStart?.slice(0, 10) || null,
+          end: asOf || null,
+          sportKey,
+          fund,
+          search: "",
+        }),
+      ),
+    [data, asOf, sportKey, fund],
+  );
+  const allTimeTotals = useMemo(
+    () =>
+      totalsFromGifts(
+        filterGifts(data?.gifts || [], {
+          start: null,
+          end: null,
+          sportKey,
+          fund,
+          search: "",
+        }),
+      ),
+    [data, sportKey, fund],
+  );
   const maxFund = Math.max(1, ...fundOptions.map((item) => item.amount));
-
+  const sportLabel = sportKey === "all" ? "All sports" : sportForGiftLabel(sportKey);
+  const periodLabel = datePresetLabel(preset, data?.fiscalYearLabel);
   const rangeLabel =
     range.start && range.end
       ? `${formatGiftDate(range.start)} to ${formatGiftDate(range.end)}`
@@ -110,7 +138,11 @@ export function GivingClient() {
         ? `from ${formatGiftDate(range.start)}`
         : range.end
           ? `through ${formatGiftDate(range.end)}`
-          : "all dates";
+          : "all time";
+  const fyRangeLabel =
+    data?.fyStart && asOf
+      ? `${formatGiftDate(data.fyStart)} to ${formatGiftDate(asOf)}`
+      : data?.fiscalYearLabel || "this fiscal year";
 
   function exportExcel() {
     const book = new SimpleXlsx();
@@ -126,8 +158,8 @@ export function GivingClient() {
           <h1>Athletics Giving</h1>
           <p>
             Gifts posted to Athletics Fundraising, Athletics - Specific Sport, and the
-            historical athletics segment in Virtuous
-            {data?.fiscalYearLabel ? ` · ${data.fiscalYearLabel}` : ""}
+            historical athletics segment in Virtuous. Defaults to this fiscal year
+            {data?.fiscalYearLabel ? ` (${data.fiscalYearLabel})` : ""}
             {data?.generated_at ? ` · updated ${data.generated_at.slice(0, 10)}` : ""}.
           </p>
         </div>
@@ -170,16 +202,23 @@ export function GivingClient() {
                 ) : null}
               </select>
             </label>
-            <label>
-              Gift date
-              <select value={preset} onChange={(event) => setPreset(event.target.value as DatePreset)}>
+            <div className="ath-giving-date-filter">
+              <span>Gift date</span>
+              <div className="ath-giving-date-presets" role="group" aria-label="Gift date">
                 {DATE_PRESETS.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={preset === item.id ? "is-active" : ""}
+                    onClick={() => setPreset(item.id)}
+                  >
+                    {item.id === "fytd" && data.fiscalYearLabel
+                      ? `This fiscal year (${data.fiscalYearLabel})`
+                      : item.label}
+                  </button>
                 ))}
-              </select>
-            </label>
+              </div>
+            </div>
             {preset === "custom" ? (
               <>
                 <label>
@@ -199,21 +238,38 @@ export function GivingClient() {
               <span>Total gifts received</span>
               <strong>{usd(totals.programAmount)}</strong>
               <small>
-                {totals.giftCount} gift{totals.giftCount === 1 ? "" : "s"}
+                {periodLabel} · {sportLabel} · {rangeLabel}
+                {totals.giftCount || totals.feeAmount
+                  ? ` · ${totals.giftCount} gift${totals.giftCount === 1 ? "" : "s"}`
+                  : ""}
                 {totals.designationCount !== totals.giftCount ? ` · ${totals.designationCount} fund splits` : ""}
                 {totals.feeAmount ? ` · ${usdExact(totals.feeAmount)} fees` : ""}
               </small>
             </div>
             <div className="ath-kpi">
-              <span>Filters</span>
-              <strong>{sportKey === "all" ? "All sports" : sportForGiftLabel(sportKey)}</strong>
-              <small>{rangeLabel}</small>
+              <span>This fiscal year</span>
+              <strong>{usd(fyTotals.programAmount)}</strong>
+              <small>
+                {data.fiscalYearLabel || "FY"} · {fyRangeLabel} · {fyTotals.giftCount} gift
+                {fyTotals.giftCount === 1 ? "" : "s"}
+              </small>
+            </div>
+            <div className="ath-kpi">
+              <span>All time</span>
+              <strong>{usd(allTimeTotals.programAmount)}</strong>
+              <small>
+                Every year on record · {allTimeTotals.giftCount} gift
+                {allTimeTotals.giftCount === 1 ? "" : "s"}
+              </small>
             </div>
           </div>
 
           <section className="ath-giving-funds">
             <h2>By fund</h2>
-            <p>Program designations for the selected sport and dates. Click a fund to filter the total and table.</p>
+            <p>
+              {periodLabel} amounts{sportKey === "all" ? "" : ` for ${sportLabel}`}. Click a fund to filter the
+              total and table.
+            </p>
             <div className="ath-giving-fund-list">
               {fundOptions.map((item) => (
                 <button
@@ -239,7 +295,7 @@ export function GivingClient() {
 
           <section className="ath-card ath-giving-table">
             <div className="ath-card-title">
-              <h2>Athletics gifts</h2>
+              <h2>Athletics gifts · {periodLabel}</h2>
             </div>
             <div className="ath-table-tools">
               <input

@@ -377,7 +377,39 @@ a.ath-hub-card:hover { box-shadow: 0 8px 26px rgba(10, 34, 64, .12); transform: 
   text-transform: none;
   letter-spacing: 0;
 }
-.ath-giving-kpis { grid-template-columns: minmax(220px, 1.4fr) minmax(180px, 1fr); }
+.ath-giving-date-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 420px;
+  color: var(--ath-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.ath-giving-date-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ath-giving-date-presets button {
+  border: 1px solid var(--ath-line);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: #fff;
+  color: var(--ath-navy);
+  font: 700 12px/1 system-ui, sans-serif;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+.ath-giving-date-presets button.is-active {
+  background: var(--ath-green);
+  border-color: var(--ath-green);
+  color: #fff;
+}
+.ath-giving-kpis { grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(160px, 1fr)); }
 .ath-secondary {
   border: 1px solid var(--ath-line);
   border-radius: 8px;

@@ -101,12 +101,19 @@ export function giftsInRange(
 export type DatePreset = "this-week" | "this-month" | "fytd" | "all" | "custom";
 
 export const DATE_PRESETS: { id: DatePreset; label: string }[] = [
+  { id: "fytd", label: "This fiscal year" },
   { id: "this-week", label: "This week" },
   { id: "this-month", label: "This month" },
-  { id: "fytd", label: "Fiscal year to date" },
-  { id: "all", label: "All dates" },
+  { id: "all", label: "All time" },
   { id: "custom", label: "Custom dates" },
 ];
+
+export function datePresetLabel(preset: DatePreset, fiscalYearLabel?: string | null): string {
+  if (preset === "fytd") {
+    return fiscalYearLabel ? `This fiscal year (${fiscalYearLabel})` : "This fiscal year";
+  }
+  return DATE_PRESETS.find((item) => item.id === preset)?.label || preset;
+}
 
 export function addDaysIso(iso: string, days: number): string {
   const date = new Date(`${iso.slice(0, 10)}T00:00:00Z`);

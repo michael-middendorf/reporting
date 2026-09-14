@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  datePresetLabel,
   filterGifts,
   formatGiftDate,
   giftExportRows,
@@ -98,6 +99,14 @@ describe("athletics giving shape", () => {
       start: "2026-09-01",
       end: "2026-09-14",
     });
+    assert.deepEqual(rangeForPreset("fytd", "2026-09-14", "2026-07-01", "", ""), {
+      start: "2026-07-01",
+      end: "2026-09-14",
+    });
+    assert.deepEqual(rangeForPreset("all", "2026-09-14", "2026-07-01", "", ""), {
+      start: null,
+      end: null,
+    });
     const week = filterGifts(SAMPLE.gifts, {
       start: "2026-09-07",
       end: "2026-09-14",
@@ -115,6 +124,40 @@ describe("athletics giving shape", () => {
     });
     assert.equal(totalsFromGifts(football).programAmount, 1000);
     assert.equal(totalsFromGifts(football).giftCount, 1);
+  });
+
+  it("labels this fiscal year separately from all time", () => {
+    assert.equal(datePresetLabel("fytd", "FY 2026-27"), "This fiscal year (FY 2026-27)");
+    assert.equal(datePresetLabel("fytd"), "This fiscal year");
+    assert.equal(datePresetLabel("all"), "All time");
+  });
+
+  it("this fiscal year excludes prior-year gifts that remain in all time", () => {
+    const gifts = [
+      ...SAMPLE.gifts,
+      {
+        ...SAMPLE.gifts[1]!,
+        giftId: 99,
+        giftDate: "2025-03-01",
+        amountDesignated: 5000,
+      },
+    ];
+    const fy = filterGifts(gifts, {
+      start: "2026-07-01",
+      end: "2026-09-14",
+      sportKey: "all",
+      fund: "all",
+      search: "",
+    });
+    const all = filterGifts(gifts, {
+      start: null,
+      end: null,
+      sportKey: "all",
+      fund: "all",
+      search: "",
+    });
+    assert.equal(totalsFromGifts(fy).programAmount, 1200);
+    assert.equal(totalsFromGifts(all).programAmount, 6200);
   });
 
   it("excel rows include sport and amount for the filtered gifts", () => {
