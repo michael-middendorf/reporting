@@ -97,6 +97,17 @@ describe("athletics-only grant", () => {
     assert.deepEqual(reportsForEmail(ERIC), ["athletics", "athletics-coaching"]);
   });
 
+  it("lets Feger and Weisbrod open every Athletics department report", () => {
+    for (const email of ["Elizabeth.Feger@avemaria.edu", "John.Weisbrod@avemaria.edu"]) {
+      assert.equal(canLogin(email), true, email);
+      assert.equal(canAccessReport(email, "athletics"), true, email);
+      assert.equal(canAccessReport(email, "athletics-coaching"), true, email);
+      assert.equal(canAccessAthleticsGiving(email), true, email);
+      assert.equal(canAccessReport(email, "enrollment"), false, email);
+      assert.deepEqual(reportsForEmail(email), ["athletics", "athletics-coaching"], email);
+    }
+  });
+
   it("lets a mapped head coach sign in to Athletics only", () => {
     assert.equal(canLogin(COACH), true);
     assert.equal(canAccessReport(COACH, "athletics"), true);
@@ -114,6 +125,8 @@ describe("athletics giving access", () => {
 
   it("is for coaching leadership and Advancement, not head coaches", () => {
     assert.equal(canAccessAthleticsGiving(ERIC), true);
+    assert.equal(canAccessAthleticsGiving("elizabeth.feger@avemaria.edu"), true);
+    assert.equal(canAccessAthleticsGiving("john.weisbrod@avemaria.edu"), true);
     assert.equal(canAccessAthleticsGiving(JIM), true);
     assert.equal(canAccessAthleticsGiving(COACH), false);
   });

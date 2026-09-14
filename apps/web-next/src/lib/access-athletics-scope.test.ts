@@ -82,6 +82,15 @@ describe("sportsScopeForAthleticsEmail", () => {
     assert.equal(athleticsSportsForEmail(VANHEUSEN), null);
   });
 
+  it("gives Feger and Weisbrod all Athletics Master sports without making them hub admins", () => {
+    for (const email of ["elizabeth.feger@avemaria.edu", "john.weisbrod@avemaria.edu"]) {
+      assert.equal(isAdmin(email), false, email);
+      assert.equal(canAccessReport(email, "athletics"), true, email);
+      assert.equal(sportsScopeForAthleticsEmail(email), "all", email);
+      assert.equal(athleticsSportsForEmail(email), null, email);
+    }
+  });
+
   it("maps Copeland to men's Basketball only", () => {
     assert.deepEqual(sportsScopeForAthleticsEmail(COPELAND), {
       sports: ["Basketball"],
