@@ -54,6 +54,12 @@ const REPORTS: {
     desc: "Named rose, sanctuary, and nave windows with every donor, from Virtuous.",
     report: "chapel",
   },
+  {
+    href: "/athletics/giving",
+    title: "Athletics Giving",
+    desc: "Athletics gifts by fund and donor from Virtuous, replacing the Qlik Athletics Giving dashboard.",
+    report: "advancement",
+  },
 ];
 
 export default function AdvancementHubPage() {

@@ -12,6 +12,7 @@ Remote: https://github.com/colecantu904/reporting
 | `/enrollment` | Admissions enrollment dashboard |
 | `/census` | Fall census (headcount, FTE, UG profile, retention, eRez residency; Excel draft download) |
 | `/athletics` | Athletics Master recruiting, sector, application, and prospect dashboards |
+| `/athletics/giving` | Athletics Giving (Virtuous gifts by athletics segment: weekly, FYTD, all gifts, funds) |
 | `/housing` | Housing occupancy, floor maps, move-ins, verification |
 | `/institute` | The Institute admissions pipeline |
 | `/advancement` | Advancement folder (Overview, MGO Top Prospects, Annunciation Circle, Fall Appeal, MA Points, Chapel Naming, Stained Glass) |

@@ -342,6 +342,64 @@ a.ath-hub-card:hover { box-shadow: 0 8px 26px rgba(10, 34, 64, .12); transform: 
 .ath-roster-summary div { min-width: 115px; display: flex; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 1px solid var(--ath-line); border-radius: 6px; font-size: 12px; }
 .ath-roster-summary strong { color: var(--ath-green-dark); }
 
+.ath-giving .ath-kpi-grid { margin-bottom: 22px; }
+.ath-giving-funds { margin: 0 0 22px; }
+.ath-giving-funds h2 { margin: 0 0 6px; color: var(--ath-navy); font-size: 16px; }
+.ath-giving-funds p { margin: 0 0 12px; color: var(--ath-muted); font-size: 13px; }
+.ath-giving-fund-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 8px;
+}
+.ath-giving-fund-list button {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  overflow: hidden;
+  padding: 10px 12px;
+  border: 1px solid var(--ath-line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ath-ink);
+  text-align: left;
+  cursor: pointer;
+}
+.ath-giving-fund-list button.is-active { border-color: var(--ath-green); box-shadow: inset 0 0 0 1px var(--ath-green); }
+.ath-giving-fund-list span { position: relative; z-index: 1; font-size: 13px; font-weight: 650; }
+.ath-giving-fund-list b { position: relative; z-index: 1; color: var(--ath-green-dark); font-size: 13px; }
+.ath-giving-fund-list i {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--ath-green);
+}
+.ath-giving-table { margin-top: 8px; border: 1px solid var(--ath-line); border-radius: 8px; background: #fff; }
+.ath-giving-table .ath-card-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--ath-line);
+}
+.ath-giving-table .ath-card-title h2 { margin: 0; font-size: 15px; color: var(--ath-navy); }
+.ath-giving-tabs { display: flex; gap: 6px; }
+.ath-giving-tabs button {
+  border: 1px solid var(--ath-line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: #fff;
+  color: var(--ath-muted);
+  font: 700 11px/1 system-ui, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  cursor: pointer;
+}
+.ath-giving-tabs button.is-active { background: var(--ath-green); border-color: var(--ath-green); color: #fff; }
+.ath-giving .ath-empty { margin: 0; padding: 18px 14px; color: var(--ath-muted); }
+
 .ath-alert, .ath-loading, .ath-state { margin: 24px; padding: 20px; border-radius: 8px; background: #fff; }
 .ath-page > .ath-alert, .ath-page > .ath-loading { margin: 0; }
 .ath-alert { display: flex; flex-direction: column; gap: 5px; }

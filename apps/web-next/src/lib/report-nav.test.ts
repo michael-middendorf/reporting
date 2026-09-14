@@ -28,6 +28,7 @@ describe("reportNavActive", () => {
     const points = item(ADVANCEMENT_NAV, "/advancement/points");
     const method = item(ADVANCEMENT_NAV, "/advancement/points/methodology");
     const glass = item(ADVANCEMENT_NAV, "/advancement/stained-glass-windows");
+    const athGiving = item(ADVANCEMENT_NAV, "/athletics/giving");
     assert.equal(reportNavActive(overview, ADVANCEMENT_NAV, "/advancement/overview"), true);
     assert.equal(reportNavActive(mgo, ADVANCEMENT_NAV, "/advancement/mgo-top-prospects"), true);
     assert.equal(reportNavActive(ac, ADVANCEMENT_NAV, "/annunciation"), true);
@@ -40,6 +41,8 @@ describe("reportNavActive", () => {
     assert.equal(fall.report, "advancement");
     assert.equal(points.report, "points");
     assert.equal(glass.report, "chapel");
+    assert.equal(athGiving.report, "advancement");
+    assert.equal(athGiving.label, "Athletics Giving");
     assert.equal(reportNavActive(overview, ADVANCEMENT_NAV, "/advancement"), false);
     assert.equal(reportNavActive(overview, ADVANCEMENT_NAV, "/annunciation"), false);
   });
@@ -172,6 +175,11 @@ describe("reportCrumbs", () => {
       { href: "/athletics", label: "Athletics" },
       { href: "/athletics/master", label: "Master" },
       { href: "/athletics/master/rosters", label: "Rosters" },
+    ]);
+    assert.deepEqual(reportCrumbs("/athletics/giving"), [
+      { href: "/", label: "Reports" },
+      { href: "/athletics", label: "Athletics" },
+      { href: "/athletics/giving", label: "Giving" },
     ]);
     assert.deepEqual(reportCrumbs("/athletics/coaching"), [
       { href: "/", label: "Reports" },
