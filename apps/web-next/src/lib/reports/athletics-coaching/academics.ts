@@ -395,7 +395,9 @@ function mapCourse(value: unknown): AcademicsCourse | null {
   const grade = asFiniteNumber(record.courseGrade ?? record.grade);
   const missing = asFiniteNumber(record.missingAssignments ?? record.missing);
   const lastAccess = asString(record.courseLastAccess) || asString(record.lastAccess) || null;
-  const timesAbsent = asFiniteNumber(record.timesAbsent);
+  const latestAbsenceDate = asString(record.latestAbsenceDate);
+  let timesAbsent = asFiniteNumber(record.timesAbsent);
+  if (timesAbsent === null && latestAbsenceDate) timesAbsent = 1;
   const timesPresent = asFiniteNumber(record.timesPresent);
   const percentageAttendance = asFiniteNumber(record.percentageAttendance);
   if (
@@ -403,6 +405,7 @@ function mapCourse(value: unknown): AcademicsCourse | null {
     grade === null &&
     missing === null &&
     !lastAccess &&
+    !latestAbsenceDate &&
     timesAbsent === null &&
     timesPresent === null &&
     percentageAttendance === null

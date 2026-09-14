@@ -116,8 +116,18 @@ export function AcademicsPage({ sportKey }: { sportKey: string }) {
             </div>
             <div className="ath-kpi">
               <span>Class sections with absences</span>
-              <strong>{formatCount(data.classesWithAbsences)}</strong>
-              <small>Courses with at least one absence</small>
+              <strong>
+                {formatCount(
+                  data.peopleMissingClass > 0 && data.classesWithAbsences === 0
+                    ? null
+                    : data.classesWithAbsences,
+                )}
+              </strong>
+              <small>
+                {data.peopleMissingClass > 0 && data.classesWithAbsences === 0
+                  ? "Absences are counted from class sessions; AspireDU did not tag a course"
+                  : "Courses with at least one absence"}
+              </small>
             </div>
             <div className="ath-kpi">
               <span>Courses without an A or B</span>
@@ -176,7 +186,9 @@ export function AcademicsPage({ sportKey }: { sportKey: string }) {
                           ? row.coursesWithAbsences
                               .map((course) => `${course.course} (${course.timesAbsent})`)
                               .join(", ")
-                          : "None"}
+                          : row.sessionAbsences > 0
+                            ? "Not tagged to a course"
+                            : "None"}
                       </td>
                     </tr>
                   ))}
@@ -243,7 +255,7 @@ export function AcademicsPage({ sportKey }: { sportKey: string }) {
                                         <td>{course.course}</td>
                                         <td>{formatGrade(course.grade)}</td>
                                         <td>{course.missing ?? "—"}</td>
-                                        <td>{course.timesAbsent ?? "—"}</td>
+                                        <td>{course.timesAbsent ?? "n/a"}</td>
                                         <td>{formatWhen(course.lastAccess)}</td>
                                       </tr>
                                     ))}

@@ -480,6 +480,57 @@ describe("live coaching snapshot KPIs", () => {
     assert.equal(summary.missingClass[0].coursesWithAbsences[0].timesAbsent, 3);
     assert.equal(summary.officeHours.length, 0);
   });
+
+  it("keeps pulse absences in missing class when courses have no timesAbsent", () => {
+    const summary = buildAcademicsSummary({
+      sport: "football",
+      rosterRows,
+      now: NOW,
+      lambdaResult: {
+        students: [
+          {
+            email: "athlete.one@avemaria.edu",
+            studentSisId: "P000000001",
+            pulse: { present: 8, absent: 2, late: 0, sessionCount: 10, latestClassDate: daysAgo(2) },
+            courses: [{ course: "BIO 101", courseGrade: 93 }],
+          },
+        ],
+      },
+    });
+    assert.equal(summary.peopleMissingClass, 1);
+    assert.equal(summary.classesWithAbsences, 0);
+    assert.equal(summary.missingClass[0].sessionAbsences, 2);
+    assert.equal(summary.missingClass[0].coursesWithAbsences.length, 0);
+    assert.equal(summary.athletes[0].courses[0].timesAbsent, null);
+  });
+
+  it("treats latestAbsenceDate without timesAbsent as one course absence", () => {
+    const summary = buildAcademicsSummary({
+      sport: "football",
+      rosterRows,
+      now: NOW,
+      lambdaResult: {
+        students: [
+          {
+            email: "athlete.one@avemaria.edu",
+            studentSisId: "P000000001",
+            pulse: { present: 8, absent: 1, late: 0, sessionCount: 9, latestClassDate: daysAgo(2) },
+            courses: [
+              { course: "BIO 101", courseGrade: 93, latestAbsenceDate: daysAgo(2) },
+              { course: "ENG 201", courseGrade: 88, timesAbsent: 0, latestAbsenceDate: daysAgo(5) },
+            ],
+          },
+        ],
+      },
+    });
+    assert.equal(summary.athletes[0].courses[0].timesAbsent, 1);
+    assert.equal(summary.athletes[0].courses[1].timesAbsent, 0);
+    assert.equal(summary.peopleMissingClass, 1);
+    assert.equal(summary.classesWithAbsences, 1);
+    assert.equal(summary.missingClass[0].coursesWithAbsences.length, 1);
+    assert.equal(summary.missingClass[0].coursesWithAbsences[0].course, "BIO 101");
+    assert.equal(summary.missingClass[0].coursesWithAbsences[0].timesAbsent, 1);
+  });
 });
 
 describe("coaching Lambda unavailable", () => {
