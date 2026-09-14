@@ -92,8 +92,31 @@ a.ath-hub-card:hover { box-shadow: 0 8px 26px rgba(10, 34, 64, .12); transform: 
 
 .ath-page { width: min(1760px, 100%); margin: 0 auto; padding: 28px clamp(16px, 3vw, 42px) 64px; }
 .ath-page-heading { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 16px; }
-.ath-brand-lockup { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.ath-brand-shield { width: auto; height: 52px; flex: 0 0 auto; }
+.ath-giving-banner {
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: #eef1f3;
+  border-top: 2px solid var(--ath-navy);
+  border-bottom: 2px solid var(--ath-green);
+}
+.ath-brand-lockup { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.ath-brand-shield { width: auto; height: 64px; flex: 0 0 auto; }
+.ath-kicker {
+  margin: 0 0 2px;
+  color: var(--ath-green);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.ath-giving-banner h1 {
+  font-size: 26px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -.03em;
+}
+.ath-giving-banner p { max-width: 46ch; font-size: 13px; }
 .ath-page-heading:not(:has(p)) { align-items: center; }
 .ath-page-heading h1 { margin: 0; color: var(--ath-navy); font-size: clamp(24px, 2.6vw, 30px); font-weight: 750; letter-spacing: -.03em; }
 .ath-page-heading p { margin: 7px 0 0; color: var(--ath-muted); font-size: 14px; line-height: 1.45; }

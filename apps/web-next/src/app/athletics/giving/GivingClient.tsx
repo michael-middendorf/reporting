@@ -180,21 +180,21 @@ export function GivingClient() {
 
   return (
     <main className="ath-page ath-giving">
-      <div className="ath-page-heading">
+      <div className="ath-page-heading ath-giving-banner">
         <div className="ath-brand-lockup">
           <img
             className="ath-brand-shield"
             src={gyreneShield.src}
             alt="Ave Maria University Gyrenes"
-            width={52}
-            height={55}
+            width={64}
+            height={68}
           />
           <div>
-            <h1>Athletics Giving</h1>
+            <p className="ath-kicker">Athletics</p>
+            <h1>Giving</h1>
             <p>
-              Gifts posted to Athletics Fundraising, Athletics - Specific Sport, and the
-              historical athletics segment in Virtuous. Only {lastFyLabel} and this fiscal year
-              {data?.fiscalYearLabel ? ` (${data.fiscalYearLabel})` : ""} are included
+              Virtuous gifts for {lastFyLabel} and this fiscal year
+              {data?.fiscalYearLabel ? ` (${data.fiscalYearLabel})` : ""}
               {data?.generated_at ? ` · updated ${data.generated_at.slice(0, 10)}` : ""}.
             </p>
           </div>
