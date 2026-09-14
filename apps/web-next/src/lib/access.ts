@@ -70,8 +70,23 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
   ].join(","),
   "athletics-coaching":
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu,eric.vanheusen@avemaria.edu,john.weisbrod@avemaria.edu,elizabeth.feger@avemaria.edu,joshua.lewis@avemaria.edu",
-  housing:
-    "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,susan.gallagher@avemaria.edu,mark.middendorf@avemaria.edu,dan.donaldson@avemaria.edu",
+  housing: [
+    "cole.j.cantu@avemaria.edu",
+    "regina.m.pirolli@avemaria.edu",
+    "susan.gallagher@avemaria.edu",
+    "mark.middendorf@avemaria.edu",
+    "dan.donaldson@avemaria.edu",
+    // DST-1385 Level 1: requester, Housing Manager, Dean of Students, DRL
+    "lauren.lahr@avemaria.edu",
+    "jeffrey.stankovsky@avemaria.edu",
+    "danielw.lendman@avemaria.edu",
+    "brady.fehringer@avemaria.edu",
+    // DST-1385 Level 2: Residence Area Managers
+    "patrick.m.baalman@avemaria.edu",
+    "colleen.carney@avemaria.edu",
+    "nate.byers@avemaria.edu",
+    "claudia.gerbic@avemaria.edu",
+  ].join(","),
   institute:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,liam.j.orourke@avemaria.edu,garrett.j.hallinan@avemaria.edu,gabriel.f.mellino@avemaria.edu",
   advancement:

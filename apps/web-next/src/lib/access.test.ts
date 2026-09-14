@@ -204,6 +204,43 @@ describe("housing grant for existing enrollment viewer", () => {
   });
 });
 
+describe("DST-1385 ResLife professional staff housing access", () => {
+  const staff = [
+    "Lauren.Lahr@avemaria.edu",
+    "Jeffrey.Stankovsky@avemaria.edu",
+    "DanielW.Lendman@avemaria.edu",
+    "Brady.Fehringer@avemaria.edu",
+    "Patrick.M.Baalman@avemaria.edu",
+    "Colleen.Carney@avemaria.edu",
+    "Nate.Byers@avemaria.edu",
+    "Claudia.Gerbic@avemaria.edu",
+  ];
+
+  it("lets Level 1 and RAM staff sign in to Housing only", () => {
+    for (const email of staff) {
+      assert.equal(canLogin(email), true, email);
+      assert.equal(canAccessReport(email, "housing"), true, email);
+      assert.equal(isAdmin(email), false, email);
+      assert.equal(canAccessReport(email, "enrollment"), false, email);
+      assert.equal(canAccessReport(email, "census"), false, email);
+      assert.equal(canAccessReport(email, "athletics"), false, email);
+      assert.equal(canAccessReport(email, "athletics-coaching"), false, email);
+      assert.equal(canAccessReport(email, "institute"), false, email);
+      assert.equal(canAccessReport(email, "advancement"), false, email);
+      assert.equal(canAccessReport(email, "chapel"), false, email);
+      assert.equal(canAccessReport(email, "points"), false, email);
+      assert.equal(canAccessReport(email, "annunciation"), false, email);
+      assert.equal(canAccessReport(email, "aspiredu"), false, email);
+      assert.deepEqual(reportsForEmail(email), ["housing"], email);
+    }
+  });
+
+  it("does not grant housing to RAs or students", () => {
+    assert.equal(canLogin("resident.assistant@avemaria.edu"), false);
+    assert.equal(canAccessReport("student@my.avemaria.edu", "housing"), false);
+  });
+});
+
 describe("census grant for Gallagher, Nutt, and Davy", () => {
   const people = [
     "susan.gallagher@avemaria.edu",
