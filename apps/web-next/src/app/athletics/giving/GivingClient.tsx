@@ -159,6 +159,18 @@ export function GivingClient() {
       ? `${formatGiftDate(lastFy.start)} to ${formatGiftDate(lastFy.end)}`
       : lastFyLabel;
 
+  const filtersActive =
+    sportKey !== "all" || fund !== "all" || search.trim() !== "" || preset !== "fytd" || Boolean(customStart || customEnd);
+
+  function clearFilters() {
+    setPreset("fytd");
+    setCustomStart("");
+    setCustomEnd("");
+    setSportKey("all");
+    setFund("all");
+    setSearch("");
+  }
+
   function exportExcel() {
     const book = new SimpleXlsx();
     book.addSheet("Gifts", giftExportRows(visible));
@@ -267,6 +279,14 @@ export function GivingClient() {
                 }}
               />
             </label>
+            <button
+              type="button"
+              className="ath-secondary ath-giving-clear"
+              onClick={clearFilters}
+              disabled={!filtersActive}
+            >
+              Clear filters
+            </button>
           </div>
 
           <div className="ath-kpi-grid ath-giving-kpis">

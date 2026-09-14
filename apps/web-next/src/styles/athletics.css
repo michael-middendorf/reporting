@@ -423,6 +423,7 @@ a.ath-hub-card:hover { box-shadow: 0 8px 26px rgba(10, 34, 64, .12); transform: 
   cursor: pointer;
 }
 .ath-secondary:disabled { opacity: .5; cursor: default; }
+.ath-giving-clear { align-self: flex-end; height: 38px; padding: 0 14px; }
 .ath-giving-funds { margin: 0 0 22px; }
 .ath-giving-funds h2 { margin: 0 0 6px; color: var(--ath-navy); font-size: 16px; }
 .ath-giving-funds p { margin: 0 0 12px; color: var(--ath-muted); font-size: 13px; }
