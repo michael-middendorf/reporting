@@ -143,11 +143,13 @@ export function CoachingScoreboard({ sportKey }: { sportKey: string }) {
               </strong>
               <small>Athletes with recorded absences</small>
             </div>
-            <div className="ath-kpi">
-              <span>Office hours</span>
-              <strong>{formatCount(academics.data.officeHours.length)}</strong>
-              <small>Courses without an A or B</small>
-            </div>
+            {sportKey === "ultimate-frisbee" ? (
+              <div className="ath-kpi">
+                <span>Office hours</span>
+                <strong>{formatCount(academics.data.officeHours.length)}</strong>
+                <small>Courses without an A or B</small>
+              </div>
+            ) : null}
           </div>
         ) : null}
         <strong className="ath-coach-open">Open academics →</strong>

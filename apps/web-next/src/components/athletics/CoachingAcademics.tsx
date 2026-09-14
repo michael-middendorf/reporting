@@ -7,8 +7,58 @@ import {
   letterFromPercent,
   type AcademicsSummary,
   type AttendancePulse,
+  type OfficeHoursRow,
 } from "@/lib/reports/athletics-coaching/academics";
 import { formatCount, formatWhen } from "./CoachingHub";
+
+const OFFICE_HOURS_SPORT = "ultimate-frisbee";
+
+type OfficeHoursAthlete = {
+  key: string;
+  name: string;
+  courses: { course: string; letter: string }[];
+};
+
+function groupOfficeHoursByAthlete(rows: OfficeHoursRow[]): OfficeHoursAthlete[] {
+  const order: string[] = [];
+  const byKey = new Map<string, OfficeHoursAthlete>();
+  for (const row of rows) {
+    const key = row.email || row.pcid || row.name;
+    let group = byKey.get(key);
+    if (!group) {
+      group = { key, name: row.name, courses: [] };
+      byKey.set(key, group);
+      order.push(key);
+    }
+    group.courses.push({ course: row.course, letter: row.letter });
+  }
+  return order.map((key) => byKey.get(key)!);
+}
+
+function officeHoursMessage(courseNames: string[]): string {
+  return `You have to go and see your professor for their office hours for the following classes: ${courseNames.join(", ")}`;
+}
+
+function CopyOfficeHoursButton({ courseNames }: { courseNames: string[] }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    const text = officeHoursMessage(courseNames);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      return;
+    }
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <button type="button" className="ath-text-btn" onClick={() => void copy()}>
+      {copied ? "Copied" : "Copy text"}
+    </button>
+  );
+}
 
 function pulseLabel(band: "attending" | "watch" | "inactive"): string {
   if (band === "attending") return "Attending";
@@ -114,56 +164,53 @@ export function AcademicsPage({ sportKey }: { sportKey: string }) {
               </strong>
               <small>{data.totalAbsenceSessions} session absences</small>
             </div>
-            <div className="ath-kpi">
-              <span>Class sections with absences</span>
-              <strong>
-                {formatCount(
-                  data.peopleMissingClass > 0 && data.classesWithAbsences === 0
-                    ? null
-                    : data.classesWithAbsences,
-                )}
-              </strong>
-              <small>
-                {data.peopleMissingClass > 0 && data.classesWithAbsences === 0
-                  ? "Absences are counted from class sessions; AspireDU did not tag a course"
-                  : "Courses with at least one absence"}
-              </small>
-            </div>
-            <div className="ath-kpi">
-              <span>Courses without an A or B</span>
-              <strong>{formatCount(data.officeHours.length)}</strong>
-              <small>Send these athletes to office hours</small>
-            </div>
+            {sportKey === OFFICE_HOURS_SPORT ? (
+              <div className="ath-kpi">
+                <span>Courses without an A or B</span>
+                <strong>{formatCount(data.officeHours.length)}</strong>
+                <small>Send these athletes to office hours</small>
+              </div>
+            ) : null}
           </div>
 
-          <h3>Needs office hours</h3>
-          <p>Athletes with a course that is not an A or B.</p>
-          {data.officeHours.length ? (
-            <div className="ath-table-scroll ath-coach-academics">
-              <table className="ath-table">
-                <thead>
-                  <tr>
-                    <th>Athlete</th>
-                    <th>Course</th>
-                    <th>Grade</th>
-                    <th>Missing assignments</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.officeHours.map((row, index) => (
-                    <tr key={`${row.email}-${row.course}-${index}`}>
-                      <td>{row.name}</td>
-                      <td>{row.course}</td>
-                      <td>{formatGrade(row.grade, row.letter)}</td>
-                      <td>{row.missing ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p>Every graded course is an A or B.</p>
-          )}
+          {sportKey === OFFICE_HOURS_SPORT ? (
+            <>
+              <h3>Needs office hours</h3>
+              <p>Athletes with a course that is not an A or B.</p>
+              {data.officeHours.length ? (
+                <div className="ath-table-scroll ath-coach-academics">
+                  <table className="ath-table">
+                    <thead>
+                      <tr>
+                        <th>Athlete</th>
+                        <th>Classes</th>
+                        <th>Copy</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {groupOfficeHoursByAthlete(data.officeHours).map((row) => (
+                        <tr key={row.key}>
+                          <td>{row.name}</td>
+                          <td>
+                            {row.courses
+                              .map((course) =>
+                                course.letter ? `${course.course} (${course.letter})` : course.course,
+                              )
+                              .join(", ")}
+                          </td>
+                          <td>
+                            <CopyOfficeHoursButton courseNames={row.courses.map((course) => course.course)} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p>Every graded course is an A or B.</p>
+              )}
+            </>
+          ) : null}
 
           <h3>Missing class</h3>
           {data.missingClass.length ? (
@@ -173,7 +220,6 @@ export function AcademicsPage({ sportKey }: { sportKey: string }) {
                   <tr>
                     <th>Athlete</th>
                     <th>Session absences</th>
-                    <th>Courses with absences</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -181,15 +227,6 @@ export function AcademicsPage({ sportKey }: { sportKey: string }) {
                     <tr key={row.email || row.pcid || row.name}>
                       <td>{row.name}</td>
                       <td>{row.sessionAbsences}</td>
-                      <td>
-                        {row.coursesWithAbsences.length
-                          ? row.coursesWithAbsences
-                              .map((course) => `${course.course} (${course.timesAbsent})`)
-                              .join(", ")
-                          : row.sessionAbsences > 0
-                            ? "Not tagged to a course"
-                            : "None"}
-                      </td>
                     </tr>
                   ))}
                 </tbody>
