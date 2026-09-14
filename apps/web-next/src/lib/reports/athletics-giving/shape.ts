@@ -85,6 +85,15 @@ export function formatGiftDate(iso: string | null | undefined): string {
   return `${month}/${day}/${year}`;
 }
 
+export function giftsFromLastTwoFiscalYears(
+  gifts: AthleticsGivingGift[],
+  fyStart: string,
+): AthleticsGivingGift[] {
+  const cutoff = previousFiscalYearWindow(fyStart).start;
+  if (!cutoff) return gifts;
+  return gifts.filter((gift) => (gift.giftDate || "") >= cutoff);
+}
+
 export function giftsInRange(
   gifts: AthleticsGivingGift[],
   start: string | null,
@@ -98,20 +107,38 @@ export function giftsInRange(
   });
 }
 
-export type DatePreset = "this-week" | "last-week" | "this-month" | "fytd" | "all" | "custom";
+export type DatePreset = "this-week" | "last-week" | "this-month" | "fytd" | "last-fy" | "all" | "custom";
 
 export const DATE_PRESETS: { id: DatePreset; label: string }[] = [
   { id: "fytd", label: "This fiscal year" },
+  { id: "last-fy", label: "Last fiscal year" },
   { id: "this-week", label: "This week" },
   { id: "last-week", label: "Last week" },
   { id: "this-month", label: "This month" },
-  { id: "all", label: "All time" },
+  { id: "all", label: "This year + last year" },
   { id: "custom", label: "Date range" },
 ];
+
+export function previousFiscalYearWindow(fyStart: string): { start: string; end: string } {
+  const start = fyStart.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return { start: "", end: "" };
+  const year = Number(start.slice(0, 4));
+  return { start: `${year - 1}${start.slice(4)}`, end: addDaysIso(start, -1) };
+}
+
+export function previousFiscalYearLabel(fiscalYearLabel: string | null | undefined): string {
+  const match = (fiscalYearLabel || "").match(/^FY\s+(\d{4})-(\d{2})$/);
+  if (!match) return "Last fiscal year";
+  return `FY ${Number(match[1]) - 1}-${String(Number(match[2]) - 1).padStart(2, "0")}`;
+}
 
 export function datePresetLabel(preset: DatePreset, fiscalYearLabel?: string | null): string {
   if (preset === "fytd") {
     return fiscalYearLabel ? `This fiscal year (${fiscalYearLabel})` : "This fiscal year";
+  }
+  if (preset === "last-fy") {
+    const previous = previousFiscalYearLabel(fiscalYearLabel);
+    return previous === "Last fiscal year" ? previous : `Last fiscal year (${previous})`;
   }
   return DATE_PRESETS.find((item) => item.id === preset)?.label || preset;
 }
@@ -138,8 +165,20 @@ export function rangeForPreset(
   if (preset === "last-week") return { start: addDaysIso(day, -14), end: addDaysIso(day, -8) };
   if (preset === "this-month") return { start: monthStartIso(day), end: day };
   if (preset === "fytd") return { start: fyStart.slice(0, 10) || null, end: day };
-  if (preset === "custom") return { start: customStart || null, end: customEnd || null };
-  return { start: null, end: null };
+  if (preset === "last-fy") {
+    const previous = previousFiscalYearWindow(fyStart);
+    return { start: previous.start || null, end: previous.end || null };
+  }
+  if (preset === "custom") {
+    const cutoff = previousFiscalYearWindow(fyStart).start;
+    const start = customStart && cutoff && customStart < cutoff ? cutoff : customStart || null;
+    return { start, end: customEnd || null };
+  }
+  if (preset === "all") {
+    const previous = previousFiscalYearWindow(fyStart);
+    return { start: previous.start || null, end: day };
+  }
+  return { start: previousFiscalYearWindow(fyStart).start || null, end: day };
 }
 
 export function totalsFromGifts(gifts: AthleticsGivingGift[]): AthleticsGivingTotals {
@@ -216,6 +255,74 @@ export function filterGifts(gifts: AthleticsGivingGift[], filters: GivingFilters
       .toLowerCase()
       .includes(needle);
   });
+}
+
+export type FundYearCompare = {
+  project: string | null;
+  projectCode: string | null;
+  thisYear: number;
+  lastYear: number;
+  thisYearGifts: number;
+  lastYearGifts: number;
+};
+
+export function fundsThisYearVsLastYear(
+  gifts: AthleticsGivingGift[],
+  thisStart: string,
+  thisEnd: string,
+  lastStart: string,
+  lastEnd: string,
+): FundYearCompare[] {
+  const buckets = new Map<
+    string,
+    FundYearCompare & { thisIds: Set<string>; lastIds: Set<string>; thisAnon: number; lastAnon: number }
+  >();
+  for (const gift of gifts) {
+    if (gift.isFee) continue;
+    const day = gift.giftDate || "";
+    const inThis = Boolean(thisStart && thisEnd && day >= thisStart && day <= thisEnd);
+    const inLast = Boolean(lastStart && lastEnd && day >= lastStart && day <= lastEnd);
+    if (!inThis && !inLast) continue;
+    const key = `${gift.projectCode || ""}|${gift.project || ""}`;
+    const bucket = buckets.get(key) || {
+      project: gift.project,
+      projectCode: gift.projectCode,
+      thisYear: 0,
+      lastYear: 0,
+      thisYearGifts: 0,
+      lastYearGifts: 0,
+      thisIds: new Set<string>(),
+      lastIds: new Set<string>(),
+      thisAnon: 0,
+      lastAnon: 0,
+    };
+    const value = Number(gift.amountDesignated) || 0;
+    const id = gift.giftId == null || gift.giftId === "" ? "" : String(gift.giftId);
+    if (inThis) {
+      bucket.thisYear += value;
+      if (id) bucket.thisIds.add(id);
+      else bucket.thisAnon += 1;
+    }
+    if (inLast) {
+      bucket.lastYear += value;
+      if (id) bucket.lastIds.add(id);
+      else bucket.lastAnon += 1;
+    }
+    buckets.set(key, bucket);
+  }
+  return [...buckets.values()]
+    .map((bucket) => ({
+      project: bucket.project,
+      projectCode: bucket.projectCode,
+      thisYear: roundMoney(bucket.thisYear),
+      lastYear: roundMoney(bucket.lastYear),
+      thisYearGifts: bucket.thisIds.size + bucket.thisAnon,
+      lastYearGifts: bucket.lastIds.size + bucket.lastAnon,
+    }))
+    .sort(
+      (a, b) =>
+        b.thisYear - a.thisYear || b.lastYear - a.lastYear || (a.project || "").localeCompare(b.project || ""),
+    );
 }
 
 export function fundsFromGifts(gifts: AthleticsGivingGift[]): AthleticsGivingFund[] {

@@ -53,6 +53,8 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
     "regina.m.pirolli@avemaria.edu",
     "michael.t.middendorf@avemaria.edu",
     "eric.vanheusen@avemaria.edu",
+    "john.weisbrod@avemaria.edu",
+    "elizabeth.feger@avemaria.edu",
     "robert.cooper@avemaria.edu",
     "jamon.copeland@avemaria.edu",
     "jelani.akil@avemaria.edu",
@@ -192,8 +194,8 @@ export function isReportId(value: string): value is ReportId {
 
 /**
  * Athletics row scope. `"all"` is hub admins plus an explicit unrestricted
- * set (Director of Athletic Recruitment). Coaches get sports, and optional
- * Gender tokens. Unknown non-admins fail closed (`sports: []`).
+ * set (athletics leadership). Coaches get sports, and optional Gender tokens.
+ * Unknown non-admins fail closed (`sports: []`).
  *
  * Slate PersonSport is ungendered (Basketball, not "Men's Basketball").
  * Gender on the 2026-09-04 extracts is `M` / `F`.
@@ -203,7 +205,11 @@ export type AthleticsSportScope =
   | { sports: readonly string[]; genders?: readonly string[] };
 
 /** All sports, including empty-sport rows. Not hub admins. */
-const UNRESTRICTED_ATHLETICS_EMAILS = ["eric.vanheusen@avemaria.edu"] as const;
+const UNRESTRICTED_ATHLETICS_EMAILS = [
+  "eric.vanheusen@avemaria.edu",
+  "john.weisbrod@avemaria.edu",
+  "elizabeth.feger@avemaria.edu",
+] as const;
 
 const UNRESTRICTED_ATHLETICS_SET = new Set(
   UNRESTRICTED_ATHLETICS_EMAILS.map(normalizeEmail),

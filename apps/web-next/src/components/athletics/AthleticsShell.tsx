@@ -321,9 +321,9 @@ export function AthleticsChrome({ children }: { children: ReactNode }) {
             className="ath-rc-mark"
             src={gyreneG.src}
             srcSet={`${gyreneG.src} 1x, ${gyreneG2x.src} 2x, ${gyreneG3x.src} 3x`}
-            alt="Gyrenes"
-            width={40}
-            height={36}
+            alt="Ave Maria University Gyrenes"
+            width={48}
+            height={48}
           />
         }
         actions={

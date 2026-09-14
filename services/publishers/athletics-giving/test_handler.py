@@ -15,6 +15,7 @@ from handler import (
     normalize_row,
     parse_gift_date,
     parse_money,
+    previous_fiscal_year_start,
     window_totals,
 )
 
@@ -52,6 +53,7 @@ class FiscalYearTests(unittest.TestCase):
         self.assertEqual(start, dt.date(2026, 7, 1))
         self.assertEqual(end, dt.date(2027, 6, 30))
         self.assertEqual(fiscal_year_label(fy), "FY 2026-27")
+        self.assertEqual(previous_fiscal_year_start(start), dt.date(2025, 7, 1))
 
 
 class ParseTests(unittest.TestCase):
@@ -68,6 +70,13 @@ class QueryTests(unittest.TestCase):
         values = [group["conditions"][0]["value"] for group in body["groups"]]
         self.assertEqual(values, list(SEGMENTS))
         self.assertEqual(body["groups"][0]["conditions"][0]["parameter"], "Segment Name")
+
+    def test_query_starts_at_fy_2025_26(self):
+        body = designation_query(dt.date(2025, 7, 1))
+        self.assertEqual(
+            body["groups"][0]["conditions"][1],
+            {"parameter": "Gift Date", "operator": "OnOrAfter", "value": "2025-07-01"},
+        )
 
 
 class NormalizeTests(unittest.TestCase):
@@ -141,6 +150,7 @@ class SnapshotTests(unittest.TestCase):
             _des(amount=6.28, gift_date="9/12/2026", project="Donor Paid Costs", code="CREDITCARDCOSTS", gift_id=10),
             _des(amount=1000, gift_date="8/1/2026", project="Football Program", code="6552FB", gift_id=11),
             _des(amount=500, gift_date="5/13/2026", project="Athletic Scholarship", code="6521", gift_id=12),
+            _des(amount=9999, gift_date="8/1/2024", project="Old Endowment", code="OLD", gift_id=99),
         ]
         snap = build_snapshot(
             raw,
@@ -149,14 +159,17 @@ class SnapshotTests(unittest.TestCase):
         )
         self.assertEqual(snap["source"], "virtuous")
         self.assertEqual(snap["fiscalYearLabel"], "FY 2026-27")
+        self.assertEqual(snap["since"], "2025-07-01")
         self.assertEqual(snap["weekly"]["giftCount"], 1)
         self.assertEqual(snap["weekly"]["amount"], 206.28)
         self.assertEqual(snap["fytd"]["giftCount"], 2)
         self.assertEqual(snap["fytd"]["programAmount"], 1200.0)
+        self.assertEqual(snap["lastFy"]["programAmount"], 500.0)
         self.assertEqual(snap["allTime"]["giftCount"], 3)
         self.assertEqual(snap["allTime"]["amount"], 1706.28)
         self.assertEqual(snap["gifts"][0]["giftDate"], "2026-09-12")
         self.assertEqual(len(snap["funds"]), 4)
+        self.assertFalse(any(row["project"] == "Old Endowment" for row in snap["gifts"]))
 
 
 if __name__ == "__main__":

@@ -32,7 +32,7 @@ There is no daily sign-in email and no unsolicited magic-link blast. People book
 
 ## Athletics sport scoping
 
-Athletics Master is sport-scoped for head coaches. Hub admins (`ADMIN_EMAILS`) and Director of Athletic Recruitment `eric.vanheusen@avemaria.edu` see every sport, including rows with an empty sport. VanHeusen stays on `REPORT_ALLOWED.athletics` and an unrestricted-athletics set; he is not a hub admin.
+Athletics Master is sport-scoped for head coaches. Hub admins (`ADMIN_EMAILS`) and athletics leadership (`eric.vanheusen@avemaria.edu`, `john.weisbrod@avemaria.edu`, `elizabeth.feger@avemaria.edu`) see every sport, including rows with an empty sport. They stay on `REPORT_ALLOWED.athletics` and the unrestricted-athletics set; they are not hub admins.
 
 Head coaches are listed in `REPORT_ALLOWED.athletics` and the assignment map in `apps/web-next/src/lib/access.ts`. They may request a magic link and receive only matching `GET /api/athletics-data` rows: Slate PersonSport (ungendered names such as Basketball), plus Gender `M` / `F` when the assignment is men's or women's. Empty-sport rows are hidden from coaches. An athletics-allowlisted address with no map entry gets zero rows, not all sports.
 

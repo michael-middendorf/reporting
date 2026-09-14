@@ -1,9 +1,9 @@
 .ath-root {
-  --ath-navy: #0a2240;
-  --ath-blue: #0f3a63;
-  --ath-green: #00833e;
-  --ath-green-dark: #006532;
-  --ath-green-soft: #e7f5ed;
+  --ath-navy: #102038;
+  --ath-blue: #163056;
+  --ath-green: #3f9048;
+  --ath-green-dark: #2f6d36;
+  --ath-green-soft: #e7f4e8;
   --ath-gold: var(--ath-green);
   --ath-ink: #12263a;
   --ath-muted: #5d7284;
@@ -30,8 +30,8 @@
 }
 .ath-root .ath-rc-mark {
   display: block;
-  width: auto;
-  height: 36px;
+  width: 48px;
+  height: 48px;
 }
 .ath-root .rc-sep { color: rgba(255, 255, 255, .28); }
 .ath-root .rc a.rc-crumb { color: #9ad4b3; }
@@ -59,8 +59,10 @@
 
 .ath-hub { padding: 36px 28px 60px; }
 .ath-hub-header { max-width: 1100px; margin: 0 auto 28px; }
+.ath-hub-wordmark { display: block; height: 64px; width: auto; }
 .ath-hub-header span { display: block; margin-bottom: 8px; color: var(--ath-green); font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-.ath-hub-header h1 { margin: 0; color: var(--ath-navy); font-size: 32px; letter-spacing: -.02em; }
+.ath-hub-header h1 { margin: 10px 0 0; color: var(--ath-navy); font-size: 32px; letter-spacing: -.02em; }
+.ath-hub-header h1:has(img) { margin: 0; font-size: 0; line-height: 0; }
 .ath-hub-header p { margin: 8px 0 0; color: var(--ath-muted); font-size: 14px; }
 .ath-hub-grid { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
 .ath-hub-card {
@@ -90,6 +92,82 @@ a.ath-hub-card:hover { box-shadow: 0 8px 26px rgba(10, 34, 64, .12); transform: 
 
 .ath-page { width: min(1760px, 100%); margin: 0 auto; padding: 28px clamp(16px, 3vw, 42px) 64px; }
 .ath-page-heading { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 16px; }
+.ath-giving {
+  min-height: 100%;
+  background: #fff;
+}
+.ath-giving-hero {
+  background: #eef1f3;
+  border-bottom: 3px solid var(--ath-green);
+}
+.ath-giving-hero-inner {
+  width: min(1760px, 100%);
+  margin: 0 auto;
+  padding: 32px clamp(16px, 3vw, 42px) 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+.ath-giving-hero-brand {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-width: 0;
+}
+.ath-giving-hero-mark {
+  width: 118px;
+  height: auto;
+  flex: 0 0 auto;
+}
+.ath-giving-hero .ath-kicker {
+  margin: 0 0 6px;
+  color: var(--ath-green);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.ath-giving-hero h1 {
+  margin: 0;
+  color: var(--ath-navy);
+  font-size: clamp(28px, 3vw, 40px);
+  font-weight: 800;
+  letter-spacing: -.03em;
+  text-transform: uppercase;
+}
+.ath-giving-hero p {
+  margin: 8px 0 0;
+  max-width: 54ch;
+  color: var(--ath-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.ath-giving-details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px 14px;
+  margin: 8px 0 18px;
+}
+.ath-giving-details span {
+  color: var(--ath-navy);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.ath-giving-details h2 {
+  margin: 0;
+  color: var(--ath-green);
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-size: clamp(28px, 3.2vw, 44px);
+  font-weight: 700;
+  letter-spacing: -.03em;
+  text-transform: uppercase;
+}
+.ath-giving-body { padding-top: 22px; }
 .ath-page-heading:not(:has(p)) { align-items: center; }
 .ath-page-heading h1 { margin: 0; color: var(--ath-navy); font-size: clamp(24px, 2.6vw, 30px); font-weight: 750; letter-spacing: -.03em; }
 .ath-page-heading p { margin: 7px 0 0; color: var(--ath-muted); font-size: 14px; line-height: 1.45; }
@@ -420,21 +498,22 @@ a.ath-hub-card:hover { box-shadow: 0 8px 26px rgba(10, 34, 64, .12); transform: 
   cursor: pointer;
 }
 .ath-secondary:disabled { opacity: .5; cursor: default; }
+.ath-giving-clear { align-self: flex-end; height: 38px; padding: 0 14px; }
 .ath-giving-funds { margin: 0 0 22px; }
 .ath-giving-funds h2 { margin: 0 0 6px; color: var(--ath-navy); font-size: 16px; }
 .ath-giving-funds p { margin: 0 0 12px; color: var(--ath-muted); font-size: 13px; }
 .ath-giving-fund-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 8px;
 }
 .ath-giving-fund-list button {
   position: relative;
   display: flex;
-  justify-content: space-between;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
   overflow: hidden;
-  padding: 10px 12px;
+  padding: 10px 12px 12px;
   border: 1px solid var(--ath-line);
   border-radius: 8px;
   background: #fff;
@@ -443,8 +522,27 @@ a.ath-hub-card:hover { box-shadow: 0 8px 26px rgba(10, 34, 64, .12); transform: 
   cursor: pointer;
 }
 .ath-giving-fund-list button.is-active { border-color: var(--ath-green); box-shadow: inset 0 0 0 1px var(--ath-green); }
-.ath-giving-fund-list span { position: relative; z-index: 1; font-size: 13px; font-weight: 650; }
-.ath-giving-fund-list b { position: relative; z-index: 1; color: var(--ath-green-dark); font-size: 13px; }
+.ath-giving-fund-name { position: relative; z-index: 1; font-size: 13px; font-weight: 650; }
+.ath-giving-fund-years {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.ath-giving-fund-years > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ath-giving-fund-years small {
+  color: var(--ath-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.ath-giving-fund-list b { color: var(--ath-green-dark); font-size: 15px; font-weight: 750; }
 .ath-giving-fund-list i {
   position: absolute;
   left: 0;
@@ -494,6 +592,9 @@ a.ath-hub-card:hover { box-shadow: 0 8px 26px rgba(10, 34, 64, .12); transform: 
 
 @media (max-width: 600px) {
   .ath-page-heading { flex-direction: column; }
+  .ath-giving-hero-inner { flex-direction: column; align-items: flex-start; }
+  .ath-giving-hero-mark { width: 88px; }
+  .ath-giving-actions { width: 100%; }
   .ath-primary { width: 100%; }
   .ath-kpi-grid { grid-template-columns: 1fr 1fr; }
   .ath-kpi { min-height: 112px; padding: 14px; }
