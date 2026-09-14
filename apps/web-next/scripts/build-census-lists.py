@@ -53,7 +53,7 @@ FA25_ROSTER = CENSUS_DIR / "FA25 Athlete Roster For Slate.xlsx"
 FA25_HOUSING = CENSUS_DIR / "Copy of 9.4.2025 CENSUS Fall 25.xlsx"
 FA26_ENTRY = DOWNLOADS / "Roster -_ Housing Report 20260821-155657.xlsx"
 # This-fall FA26 roster only. FA25 gold stays FA25_ROSTER.
-FA26_ROSTER = DOWNLOADS / "Census athletes 20260910-125055.xlsx"
+FA26_ROSTER = DOWNLOADS / "Census athletes 20260914-163404.xlsx"
 # All curriculums including second majors. Degree Minor is excluded from the majors table.
 CURRICULUM_EXTRACT = DOWNLOADS / "AMU Students by Curriculum-12.xlsx"
 BACHELOR_DEGREES = {"bachelor of arts", "bachelor of science", "barts", "bscien"}
