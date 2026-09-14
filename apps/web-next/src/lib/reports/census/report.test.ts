@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   DEFAULT_FILTERS,
   buildReport,
+  buildReportExtras,
   describeFilters,
   filterCensusRaw,
   filtersActive,
@@ -507,4 +508,27 @@ test("B.A. vs B.S. degree type", () => {
   ]);
   assert.equal(filterStudents(rows, { ...DEFAULT_FILTERS, degree: "BA" }).length, 1);
   assert.equal(filterStudents(rows, { ...DEFAULT_FILTERS, degree: "BS" }).length, 1);
+});
+
+test("census extras include the Excel retention tables", () => {
+  const prior = [
+    raw({ pcid: "P1", gender: "Female", sport: "Soccer-Women", athleticType: "Varsity", honors: "Honors", institute: "Scholar" }),
+    raw({ pcid: "P2", gender: "Male", sport: "", athlete: "Non-Athlete" }),
+  ];
+  const extras = buildReportExtras(
+    prior,
+    ["P1"],
+    [],
+    new Map(),
+    { priorUg: 2, graduates: 0, pool: 2, enrolledThisFall: 1, notRetained: 1, retentionRate: 0.5 },
+  );
+  assert.equal(extras.hasPrior, true);
+  assert.ok(extras.genderRetention.length);
+  assert.ok(extras.catholicAthlete.length);
+  assert.ok(extras.athleteGender.length);
+  assert.ok(extras.residenceGender.length);
+  assert.ok(extras.appDecisionRetention.length);
+  const rpt = buildReport(set(prior));
+  assert.ok(rpt.instituteByClass.length);
+  assert.equal(rpt.instituteN, 1);
 });

@@ -3,16 +3,17 @@
 import { useMemo } from "react";
 import { SportRetentionTable } from "@/components/census/CensusLists";
 import { SheetTable, fmtN, fmtPct } from "@/components/census/Sheet";
-import type { SportRetentionRow } from "@/lib/reports/census/retention";
 import {
   DEFAULT_FILTERS,
   buildReport,
   filterStudents,
+  type ReportExtras,
   type ReportFilters,
   type ReportStudent,
   type ReportTables,
 } from "@/lib/reports/census/report";
 import { CENSUS_SPORT_TABLE_NOTE } from "@/lib/reports/census/lists-core";
+import type { CrosstabRow } from "@/lib/reports/census/retention";
 import type { CensusSnapshot, LabeledCount } from "@/lib/reports/census/types";
 
 function countRows(rows: LabeledCount[], pctDigits = 1): (string | number)[][] {
@@ -23,16 +24,40 @@ function countRows(rows: LabeledCount[], pctDigits = 1): (string | number)[][] {
   ];
 }
 
+function needs(cols: number): (string | number)[][] {
+  return [Array.from({ length: cols }, (_, i) => (i === 0 ? "Needs data" : ""))];
+}
+
+function crosstabRows(
+  rows: CrosstabRow[],
+  twoLabels = false,
+  includeInTotal?: (r: CrosstabRow) => boolean,
+): (string | number)[][] {
+  if (!rows.length) return needs(twoLabels ? 5 : 4);
+  const body: (string | number)[][] = twoLabels
+    ? rows.map((r) => [r.label, r.label2 || "", fmtN(r.students), fmtN(r.notRetained), r.retentionPct == null ? "—" : fmtPct(r.retentionPct)])
+    : rows.map((r) => [r.label, fmtN(r.students), fmtN(r.notRetained), r.retentionPct == null ? "—" : fmtPct(r.retentionPct)]);
+  const summed = includeInTotal ? rows.filter(includeInTotal) : rows;
+  const students = summed.reduce((s, r) => s + r.students, 0);
+  const notRetained = summed.reduce((s, r) => s + r.notRetained, 0);
+  const graduated = summed.reduce((s, r) => s + r.graduated, 0);
+  const pool = students - graduated;
+  const rate = pool > 0 ? (pool - notRetained) / pool : null;
+  if (twoLabels) body.push(["Total", "", fmtN(students), fmtN(notRetained), rate == null ? "—" : fmtPct(rate)]);
+  else body.push(["Total", fmtN(students), fmtN(notRetained), rate == null ? "—" : fmtPct(rate)]);
+  return body;
+}
+
 export function CensusReport({
   data,
   students,
   filters,
-  sportRows = [],
+  extras,
 }: {
   data: CensusSnapshot;
   students: ReportStudent[];
   filters: ReportFilters;
-  sportRows?: SportRetentionRow[];
+  extras: ReportExtras;
 }) {
   const filtered = useMemo(() => filterStudents(students, filters), [students, filters]);
   const live = useMemo(() => (students.length ? buildReport(filtered) : null), [students, filtered]);
@@ -63,6 +88,8 @@ export function CensusReport({
   const residency = tables?.residency ?? u.residency;
   const honorsByClass = tables?.honorsByClass ?? u.honorsByClass;
   const honorsN = tables?.honorsN ?? u.honorsN;
+  const instituteByClass = tables?.instituteByClass ?? [];
+  const instituteN = tables?.instituteN ?? 0;
   const athleticReligion = tables?.athleticReligion ?? u.athleticReligion;
   const floridaAthlete = tables?.floridaAthlete ?? u.floridaAthlete;
   const floridaCatholic = tables?.floridaCatholic ?? u.floridaCatholic;
@@ -81,6 +108,8 @@ export function CensusReport({
     other: genderLoad.reduce((s, g) => s + g.other, 0),
     total: genderLoad.reduce((s, g) => s + g.total, 0),
   };
+  const ug = extras.ugSplit;
+  const sportRows = extras.sportRetention;
 
   return (
     <div className="sheet">
@@ -117,9 +146,21 @@ export function CensusReport({
             <SportRetentionTable rows={sportRows} />
           ) : (
             <SheetTable
-              title="Athletic Retention (Fall 2025 sport)"
-              headers={["Team", "FA25 Athletes", "FA25 Associated", "# Non-Retained", "# Retained", "# Graduated", "Retention %", "Graduated %"]}
-              rows={[["Needs data", "", "", "", "", "", ""]]}
+              title="Athletic Retention"
+              headers={[
+                "Team",
+                "FA25 Athletes",
+                "FA25 Associated",
+                "# Non-Retained",
+                "# Retained",
+                "# Graduated",
+                "Retention %",
+                "Graduated %",
+                "Retained Avg. GPA",
+                "Non-Retained Avg. GPA",
+                "Non-Retained 3.0+ GPA",
+              ]}
+              rows={needs(11)}
             />
           )}
         </div>
@@ -145,7 +186,7 @@ export function CensusReport({
           <SheetTable
             title="Application Decisions"
             headers={["Type", "Students", "Percentage"]}
-            rows={appDecisions.length ? countRows(appDecisions) : [["Needs data", "", ""]]}
+            rows={appDecisions.length ? countRows(appDecisions) : needs(3)}
           />
           <SheetTable
             title="Athletic Religious Association"
@@ -162,6 +203,12 @@ export function CensusReport({
             headers={["Honors College", "Students", "Percentage"]}
             rows={countRows(honorsByClass)}
             note={`${fmtN(honorsN)} honors students`}
+          />
+          <SheetTable
+            title="Institute"
+            headers={["Institute", "Students", "Percentage"]}
+            rows={instituteByClass.length ? countRows(instituteByClass) : needs(3)}
+            note={`${fmtN(instituteN)} institute students`}
           />
         </div>
         <div className="sheet-col">
@@ -195,6 +242,46 @@ export function CensusReport({
               note="Percent of this report group. Band and managers are Associated, not team Athletes."
             />
           ) : null}
+          <SheetTable
+            title="Application Decisions Retention"
+            headers={["Type", "Students", "# Non-Retained", "Retention %"]}
+            rows={crosstabRows(extras.appDecisionRetention)}
+          />
+          <SheetTable
+            title="Committee admits and admin overrides"
+            headers={["Admit type", "Type", "Students", "# Non-Retained", "Retention %"]}
+            rows={crosstabRows(extras.admitOverride, true, (r) => r.label2 === "Overall")}
+            labelCols={2}
+          />
+          <SheetTable
+            title="M/F Retention"
+            headers={["Gender", "Students", "# Non-Retained", "Retention %"]}
+            rows={crosstabRows(extras.genderRetention)}
+          />
+          <SheetTable
+            title="Catholic/Non-Catholic"
+            headers={["Catholic/Non-Catholic", "Athlete/Non-Athlete", "Students", "# Non-Retained", "Retention %"]}
+            rows={crosstabRows(extras.catholicAthlete, true)}
+            labelCols={2}
+          />
+          <SheetTable
+            title="Athlete/Non-Athlete"
+            headers={["Athlete/Non-Athlete", "Gender", "Students", "# Non-Retained", "Retention %"]}
+            rows={crosstabRows(extras.athleteGender, true)}
+            labelCols={2}
+          />
+          <SheetTable
+            title="Athlete/Non-Athlete"
+            headers={["Athlete/Non-Athlete", "Ethnicity", "Students", "# Non-Retained", "Retention %"]}
+            rows={crosstabRows(extras.athleteEthnicity, true)}
+            labelCols={2}
+          />
+          <SheetTable
+            title="Residence Type"
+            headers={["Residence Type", "Gender", "Students", "# Non-Retained", "Retention %"]}
+            rows={crosstabRows(extras.residenceGender, true)}
+            labelCols={2}
+          />
         </div>
         <div className="sheet-col">
           <SheetTable
@@ -233,13 +320,28 @@ export function CensusReport({
           <SheetTable
             title="Graduation"
             headers={["Graduation", "All", "Athletes", "Non-Athletes"]}
-            rows={[["Graduated Fall, Spring, Summer", fmtN(ret.graduates), "—", "—"]]}
+            rows={
+              extras.hasPrior
+                ? [
+                    ["Graduated Fall, Spring, Summer", fmtN(ug.all.graduated), fmtN(ug.athletes.graduated), fmtN(ug.nonAthletes.graduated)],
+                    [
+                      "Percentage",
+                      "",
+                      ug.all.graduated ? fmtPct(ug.athletes.graduated / ug.all.graduated) : "—",
+                      ug.all.graduated ? fmtPct(ug.nonAthletes.graduated / ug.all.graduated) : "—",
+                    ],
+                  ]
+                : [
+                    ["Graduated Fall, Spring, Summer", fmtN(ret.graduates), "Needs data", "Needs data"],
+                    ["Percentage", "", "Needs data", "Needs data"],
+                  ]
+            }
           />
           <SheetTable
             title="Fall 2025 FTCA Retention Rate"
             headers={["Fall 2025 FTCA Retention Rate", ""]}
             rows={[
-              ["Fall 2025 FTCA Cohort", fmtN(a.cohort)],
+              ["Fall 2025 FTCA Cohort (Incoming + FTCA)", fmtN(a.cohort)],
               ["Fall 2025 Cohort Enrolled for Fall 2026", fmtN(a.enrolledThisFall)],
               ["Retention Rate F25-F26", fmtPct(a.retentionRate)],
             ]}
@@ -251,13 +353,37 @@ export function CensusReport({
           />
           <SheetTable
             title="Fall 2025 All UG Retention Rate"
-            headers={["Fall 2025 All UG Retention Rate", "All"]}
-            rows={[
-              ["Fall 2025 All UG Retention Rate", fmtN(ret.priorUg)],
-              ["Fall 2025 All UG Enrolled for Fall 2026", fmtN(ret.enrolledThisFall)],
-              ["Minus Fall, Spring, Summer Graduates", fmtN(ret.graduates)],
-              ["All Student Retention Rate F25-F26", fmtPct(ret.retentionRate)],
-            ]}
+            headers={["Fall 2025 All UG Retention Rate", "All", "Athletes", "Non-Athletes"]}
+            rows={
+              extras.hasPrior
+                ? [
+                    ["Fall 2025 All UG Retention Rate", fmtN(ug.all.students), fmtN(ug.athletes.students), fmtN(ug.nonAthletes.students)],
+                    [
+                      "Fall 2025 All UG Enrolled for Fall 2026",
+                      fmtN(ug.all.enrolled),
+                      fmtN(ug.athletes.enrolled),
+                      fmtN(ug.nonAthletes.enrolled),
+                    ],
+                    [
+                      "Minus Fall, Spring, Summer Graduates",
+                      fmtN(ug.all.graduated),
+                      fmtN(ug.athletes.graduated),
+                      fmtN(ug.nonAthletes.graduated),
+                    ],
+                    [
+                      "All Student Retention Rate F25-F26",
+                      ug.all.retentionPct == null ? "—" : fmtPct(ug.all.retentionPct),
+                      ug.athletes.retentionPct == null ? "—" : fmtPct(ug.athletes.retentionPct),
+                      ug.nonAthletes.retentionPct == null ? "—" : fmtPct(ug.nonAthletes.retentionPct),
+                    ],
+                  ]
+                : [
+                    ["Fall 2025 All UG Retention Rate", fmtN(ret.priorUg), "Needs data", "Needs data"],
+                    ["Fall 2025 All UG Enrolled for Fall 2026", fmtN(ret.enrolledThisFall), "Needs data", "Needs data"],
+                    ["Minus Fall, Spring, Summer Graduates", fmtN(ret.graduates), "Needs data", "Needs data"],
+                    ["All Student Retention Rate F25-F26", fmtPct(ret.retentionRate), "Needs data", "Needs data"],
+                  ]
+            }
           />
           <SheetTable
             title="Historical All UG Retention Rate"
@@ -288,6 +414,23 @@ export function CensusReport({
               ],
             ]}
             note="*All declared majors except minors. Double majors counted twice."
+          />
+          <SheetTable
+            title="F25-F26 Additional Association Retention"
+            headers={["Association", "Gender", "Students", "Graduated", "# Non-Retained", "Retention %"]}
+            rows={
+              extras.association.length
+                ? extras.association.map((r) => [
+                    r.label,
+                    r.label2 || "",
+                    fmtN(r.students),
+                    fmtN(r.graduated),
+                    fmtN(r.notRetained),
+                    r.retentionPct == null ? "—" : fmtPct(r.retentionPct),
+                  ])
+                : needs(6)
+            }
+            labelCols={2}
           />
         </div>
       </div>

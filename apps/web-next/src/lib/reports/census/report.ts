@@ -13,7 +13,20 @@ import {
 } from "./lists-core";
 import { CENSUS_RESIDENCY_ORDER, displayCensusResidency } from "./residency";
 import { CLASS_ORDER, COUNTRY_NAMES } from "./present";
-import { isCatholic } from "./retention";
+import {
+  athleteOf,
+  buildAdmitOverrideRetention,
+  buildAllUgSplit,
+  buildAssociationRetention,
+  buildCrosstab,
+  buildCrosstab2On,
+  buildSportRetention,
+  catholicOf,
+  isCatholic,
+  whiteOf,
+  type CrosstabRow,
+  type SportRetentionRow,
+} from "./retention";
 import type { CensusSnapshot, LabeledCount } from "./types";
 
 export type ReportStudent = {
@@ -595,6 +608,81 @@ export function tablesFromSnapshot(data: CensusSnapshot): ReportTables {
     nonFloridaCatholicAthlete: data.ug.nonFloridaCatholicAthlete,
     genderLoad: data.ug.genderLoad,
     majors: data.ug.majors,
+  };
+}
+
+export type ReportExtras = {
+  hasPrior: boolean;
+  sportRetention: SportRetentionRow[];
+  appDecisionRetention: CrosstabRow[];
+  genderRetention: CrosstabRow[];
+  catholicAthlete: CrosstabRow[];
+  athleteGender: CrosstabRow[];
+  athleteEthnicity: CrosstabRow[];
+  residenceGender: CrosstabRow[];
+  association: CrosstabRow[];
+  admitOverride: CrosstabRow[];
+  ugSplit: ReturnType<typeof buildAllUgSplit>;
+};
+
+function genderRetentionOrder(rows: CrosstabRow[]): CrosstabRow[] {
+  const rank = (label: string) => (label === "Female" ? 0 : label === "Male" ? 1 : 2);
+  return [...rows].sort((a, b) => rank(a.label) - rank(b.label) || a.label.localeCompare(b.label));
+}
+
+/** Retention crosstabs and athletic retention used by the Excel census sheet and the live report. */
+export function buildReportExtras(
+  prior: CensusRawStudent[],
+  currentIds: string[],
+  graduates: { pcid: string; year?: string | number; term?: string; program?: string; degree?: string; date?: string }[],
+  gpa: Map<string, number>,
+  fallback: CensusSnapshot["allUgRetention"],
+  excludedSports: string[] = [],
+): ReportExtras {
+  if (!prior.length) {
+    return {
+      hasPrior: false,
+      sportRetention: [],
+      appDecisionRetention: [],
+      genderRetention: [],
+      catholicAthlete: [],
+      athleteGender: [],
+      athleteEthnicity: [],
+      residenceGender: [],
+      association: [],
+      admitOverride: [],
+      ugSplit: {
+        all: {
+          students: fallback.priorUg,
+          enrolled: fallback.enrolledThisFall,
+          graduated: fallback.graduates,
+          notRetained: fallback.notRetained,
+          retentionPct: fallback.retentionRate,
+        },
+        athletes: { students: 0, enrolled: 0, graduated: 0, notRetained: 0, retentionPct: null },
+        nonAthletes: { students: 0, enrolled: 0, graduated: 0, notRetained: 0, retentionPct: null },
+      },
+    };
+  }
+  const ugds = prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend, s.degree));
+  return {
+    hasPrior: true,
+    sportRetention: buildSportRetention(prior, currentIds, graduates, excludedSports, gpa),
+    appDecisionRetention: buildCrosstab(prior, currentIds, graduates, (s) => censusAppDecision(s.appDecision)),
+    genderRetention: genderRetentionOrder(buildCrosstab(prior, currentIds, graduates, (s) => s.gender || "Not listed")),
+    catholicAthlete: buildCrosstab2On(ugds, currentIds, graduates, catholicOf, athleteOf),
+    athleteGender: buildCrosstab2On(ugds, currentIds, graduates, athleteOf, (s) => s.gender || "—"),
+    athleteEthnicity: buildCrosstab2On(ugds, currentIds, graduates, athleteOf, whiteOf),
+    residenceGender: buildCrosstab2On(
+      ugds,
+      currentIds,
+      graduates,
+      (s) => displayCensusResidency(s.residency) || "Not listed",
+      (s) => s.gender || "—",
+    ),
+    association: buildAssociationRetention(prior, currentIds, graduates),
+    admitOverride: buildAdmitOverrideRetention(prior, currentIds, graduates),
+    ugSplit: buildAllUgSplit(prior, currentIds, graduates),
   };
 }
 

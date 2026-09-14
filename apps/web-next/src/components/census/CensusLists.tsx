@@ -1,42 +1,39 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { SheetTable, fmtN } from "@/components/census/Sheet";
+import { SheetTable, fmtDec, fmtN, fmtPct } from "@/components/census/Sheet";
 import type { CensusRawStudent, LoaWithStatus, UnretainedStudent } from "@/lib/reports/census/lists-core";
+import {
+  CENSUS_RAW_HEADERS,
+  FTCA_RAW_HEADERS,
+  LOA_HEADERS,
+  LOA_LIVE_EXTRA_HEADERS,
+  UNRETAINED_HEADERS,
+  censusRawRow,
+  displayListRow,
+  ftcaRawRow,
+  loaLiveRow,
+  unretainedRow,
+} from "@/lib/reports/census/list-columns";
 import type { FtcaRawRow, SportRetentionRow } from "@/lib/reports/census/retention";
-import type { VerifyRow } from "@/lib/reports/census/verify";
 
 function haystack(row: Record<string, unknown>): string {
   return Object.values(row).join(" ").toLowerCase();
 }
 
-export function RawDataSheet({ students }: { students: CensusRawStudent[] }) {
+export function RawDataSheet({
+  students,
+  alumniIds = new Set(),
+}: {
+  students: CensusRawStudent[];
+  alumniIds?: Set<string>;
+}) {
   const [q, setQ] = useState("");
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const list = needle ? students.filter((s) => haystack(s as unknown as Record<string, unknown>).includes(needle)) : students;
-    return list.map((s) => [
-      s.pcid,
-      s.first,
-      s.last,
-      s.incomingReturning,
-      s.state,
-      s.religion || "—",
-      s.cathGroup || "—",
-      s.program,
-      s.degree || "—",
-      s.session || "—",
-      s.collegeAttend,
-      s.classLevel,
-      s.fullPart,
-      s.credits === "" || s.credits == null ? "—" : s.credits,
-      s.sport || "—",
-      s.institute || "—",
-      s.honors || "—",
-      s.residency,
-      s.gender,
-    ]);
-  }, [students, q]);
+    return list.map((s) => displayListRow(censusRawRow(s, alumniIds)));
+  }, [students, q, alumniIds]);
   return (
     <div className="sheet">
       <div className="sheet-head">
@@ -48,51 +45,19 @@ export function RawDataSheet({ students }: { students: CensusRawStudent[] }) {
       ) : (
         <>
           <input className="sheet-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, PCID, sport…" />
-          <SheetTable
-            title=""
-            scroll
-            headers={["PCID", "First", "Last", "In/Ret", "State", "Religion", "Cath/Chris/Other", "Program", "Degree", "Session", "College", "Class", "Load", "Credits", "Sport", "Institute", "Honors", "Residency", "Gender"]}
-            rows={rows}
-          />
+          <SheetTable title="" scroll headers={[...CENSUS_RAW_HEADERS]} rows={rows} />
         </>
       )}
     </div>
   );
 }
 
-function isSeniorClass(classLevel: string | undefined): boolean {
-  return /senior|^sr$/i.test(classLevel || "");
-}
-
 export function UnretainedSheet({ students }: { students: UnretainedStudent[] }) {
   const [q, setQ] = useState("");
-  const seniors = useMemo(
-    () =>
-      students
-        .filter((s) => isSeniorClass(s.classLevel) && (s.program || "UNDERG") === "UNDERG")
-        .slice()
-        .sort((a, b) => Number(b.earnedCredits || 0) - Number(a.earnedCredits || 0) || a.last.localeCompare(b.last)),
-    [students],
-  );
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const list = needle ? students.filter((s) => haystack(s as unknown as Record<string, unknown>).includes(needle)) : students;
-    return list.map((s) => [
-      s.pcid,
-      s.first,
-      s.last,
-      s.retention,
-      s.gpa,
-      s.earnedCredits ?? "—",
-      s.credits ?? "—",
-      s.sport || "—",
-      s.program || "",
-      s.collegeAttend,
-      s.classLevel,
-      s.gender,
-      s.religion || "—",
-      s.state,
-    ]);
+    return list.map((s) => displayListRow(unretainedRow(s)));
   }, [students, q]);
   return (
     <div className="sheet">
@@ -100,53 +65,14 @@ export function UnretainedSheet({ students }: { students: UnretainedStudent[] })
         <h2>All Not Retained</h2>
         <p className="sheet-n">
           {fmtN(students.length)} Fall 2025 census students not registered Fall 2026 and not 2025–26 graduates
-          {students.filter((s) => /senior|^sr$/i.test(s.classLevel || "")).length
-            ? ` · ${fmtN(students.filter((s) => /senior|^sr$/i.test(s.classLevel || "")).length)} seniors`
-            : ""}
         </p>
       </div>
       {!students.length ? (
         <p className="note">Unretained list is not published yet.</p>
       ) : (
         <>
-          {seniors.length > 0 && (
-            <SheetTable
-              title="Unretained seniors — confirm they did not graduate"
-              headers={["PCID", "First", "Last", "GPA", "Earned credits", "FA25 credits", "Sport", "College"]}
-              rows={seniors.map((s) => [
-                s.pcid,
-                s.first,
-                s.last,
-                s.gpa,
-                s.earnedCredits ?? "—",
-                s.credits ?? "—",
-                s.sport || "—",
-                s.collegeAttend,
-              ])}
-            />
-          )}
           <input className="sheet-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, PCID, sport…" />
-          <SheetTable
-            title=""
-            scroll
-            headers={[
-              "PCID",
-              "First",
-              "Last",
-              "Retention",
-              "GPA",
-              "Earned credits",
-              "FA25 credits",
-              "FA25 Sport",
-              "Program",
-              "College",
-              "Class",
-              "Gender",
-              "Religion",
-              "State",
-            ]}
-            rows={rows}
-          />
+          <SheetTable title="" scroll headers={[...UNRETAINED_HEADERS]} rows={rows} />
         </>
       )}
     </div>
@@ -158,19 +84,7 @@ export function FtcaRawSheet({ rows }: { rows: FtcaRawRow[] }) {
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const list = needle ? rows.filter((s) => haystack(s as unknown as Record<string, unknown>).includes(needle)) : rows;
-    return list.map((s) => [
-      s.first,
-      s.last,
-      s.retained,
-      s.pcid,
-      s.religion || "—",
-      s.cathGroup || "—",
-      s.fa25Sport || "—",
-      s.fa25Curriculum,
-      s.fa26Sport || "—",
-      s.fa26Class,
-      s.fa26Curriculum,
-    ]);
+    return list.map((s) => displayListRow(ftcaRawRow(s)));
   }, [rows, q]);
   return (
     <div className="sheet">
@@ -183,12 +97,7 @@ export function FtcaRawSheet({ rows }: { rows: FtcaRawRow[] }) {
       ) : (
         <>
           <input className="sheet-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, PCID, sport…" />
-          <SheetTable
-            title=""
-            scroll
-            headers={["First", "Last", "Retained F25?", "PCID", "Religion", "Cath/Chris/Other", "FA25 Sport", "FA25 Curriculum", "FA26 Sport", "FA26 Class", "FA26 Curriculum"]}
-            rows={shown}
-          />
+          <SheetTable title="" scroll headers={[...FTCA_RAW_HEADERS]} rows={shown} />
         </>
       )}
     </div>
@@ -199,39 +108,18 @@ export function LoaSheet({
   rows,
   title,
   note,
-  classHeader,
-  sportHeader,
 }: {
   rows: LoaWithStatus[];
   title: string;
   note: string;
-  classHeader: string;
-  sportHeader: string;
+  classHeader?: string;
+  sportHeader?: string;
 }) {
   const [q, setQ] = useState("");
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const list = needle ? rows.filter((s) => haystack(s as unknown as Record<string, unknown>).includes(needle)) : rows;
-    return list.map((s) => [
-      s.pcid,
-      s.first,
-      s.last,
-      s.term || "—",
-      s.status,
-      s.classLevel,
-      s.incomingReturning,
-      s.curriculum,
-      s.sport || "—",
-      s.finalGpa || s.gpa || "—",
-      s.household || "—",
-      s.fsp || "—",
-      s.gender,
-      s.state || "—",
-      s.fa26Class || "—",
-      s.fa26Sport || "—",
-      s.fa26Curriculum || "—",
-      s.fa26Residency || "—",
-    ]);
+    return list.map((s) => displayListRow(loaLiveRow(s)));
   }, [rows, q]);
   const returned = rows.filter((s) => s.status === "Returned").length;
   const gone = rows.filter((s) => s.status === "Did not return").length;
@@ -254,72 +142,7 @@ export function LoaSheet({
           <SheetTable
             title=""
             scroll
-            headers={[
-              "PCID",
-              "First",
-              "Last",
-              "Term",
-              "FA26 status",
-              classHeader,
-              "In/Ret",
-              "Curriculum",
-              sportHeader,
-              "GPA",
-              "Household",
-              "FSP",
-              "Gender",
-              "State",
-              "FA26 class",
-              "FA26 sport",
-              "FA26 curriculum",
-              "FA26 residency",
-            ]}
-            rows={shown}
-          />
-        </>
-      )}
-    </div>
-  );
-}
-
-export function VerifySheet({ rows }: { rows: VerifyRow[] }) {
-  const [q, setQ] = useState("");
-  const shown = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    const list = needle
-      ? rows.filter((s) => haystack(s as unknown as Record<string, unknown>).includes(needle))
-      : rows;
-    return list.map((s) => [s.issue, s.pcid, s.first, s.last, s.why, s.detail]);
-  }, [rows, q]);
-  const byIssue = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const r of rows) m.set(r.issue, (m.get(r.issue) || 0) + 1);
-    return [...m.entries()];
-  }, [rows]);
-  return (
-    <div className="sheet">
-      <div className="sheet-head">
-        <h2>Verify (temporary)</h2>
-        <p className="sheet-n">
-          {fmtN(rows.length)} mismatches to check — Ireland session vs housing, unretained seniors, housed but not registered
-        </p>
-      </div>
-      <p className="note">
-        Temporary review list. These people may be coded wrong; they are not removed from census counts until you
-        confirm.
-      </p>
-      {byIssue.length > 0 && (
-        <p className="note">{byIssue.map(([issue, n]) => `${issue}: ${n}`).join(" · ")}</p>
-      )}
-      {!rows.length ? (
-        <p className="note">No mismatch rows with the current lists.</p>
-      ) : (
-        <>
-          <input className="sheet-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search issue, name, PCID…" />
-          <SheetTable
-            title=""
-            scroll
-            headers={["Issue", "PCID", "First", "Last", "Why", "Detail"]}
+            headers={[...LOA_HEADERS, ...LOA_LIVE_EXTRA_HEADERS]}
             rows={shown}
           />
         </>
@@ -336,11 +159,24 @@ export function SportRetentionTable({ rows }: { rows: SportRetentionRow[] }) {
     notRetained: rows.reduce((s, r) => s + r.notRetained, 0),
     retained: rows.reduce((s, r) => s + r.retained, 0),
     graduated: rows.reduce((s, r) => s + r.graduated, 0),
+    notRetained3plus: rows.reduce((s, r) => s + r.notRetained3plus, 0),
   };
   return (
     <SheetTable
-      title="Athletic Retention (Fall 2025 sport)"
-      headers={["Team", "FA25 Athletes", "FA25 Associated", "# Non-Retained", "# Retained", "# Graduated", "Retention %", "Graduated %"]}
+      title="Athletic Retention"
+      headers={[
+        "Team",
+        "FA25 Athletes",
+        "FA25 Associated",
+        "# Non-Retained",
+        "# Retained",
+        "# Graduated",
+        "Retention %",
+        "Graduated %",
+        "Retained Avg. GPA",
+        "Non-Retained Avg. GPA",
+        "Non-Retained 3.0+ GPA",
+      ]}
       rows={[
         ...rows.map((r) => [
           r.sport,
@@ -349,10 +185,25 @@ export function SportRetentionTable({ rows }: { rows: SportRetentionRow[] }) {
           fmtN(r.notRetained),
           fmtN(r.retained),
           fmtN(r.graduated),
-          r.retentionPct == null ? "—" : `${(r.retentionPct * 100).toFixed(1)}%`,
-          r.graduatedPct == null ? "—" : `${(r.graduatedPct * 100).toFixed(1)}%`,
+          r.retentionPct == null ? "—" : fmtPct(r.retentionPct),
+          r.graduatedPct == null ? "—" : fmtPct(r.graduatedPct),
+          fmtDec(r.retainedAvgGpa),
+          fmtDec(r.notRetainedAvgGpa),
+          fmtN(r.notRetained3plus),
         ]),
-        ["Total", fmtN(tot.athletes), fmtN(tot.associated), fmtN(tot.notRetained), fmtN(tot.retained), fmtN(tot.graduated), "", ""],
+        [
+          "Total",
+          fmtN(tot.athletes),
+          fmtN(tot.associated),
+          fmtN(tot.notRetained),
+          fmtN(tot.retained),
+          fmtN(tot.graduated),
+          "",
+          "",
+          "",
+          "",
+          fmtN(tot.notRetained3plus),
+        ],
       ]}
       note={'*Athletes = team players (Varsity / Non-Varsity / Non-NAIA). **Associated = band, managers, and other affiliates. Athlete/Non-Athlete tables use Associated. Leavers count against the Fall 2025 sport.'}
     />

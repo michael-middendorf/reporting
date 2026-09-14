@@ -16,18 +16,25 @@ export function fmtPct(n: number | null | undefined, digits = 1): string {
   return `${(n * 100).toFixed(digits)}%`;
 }
 
+export function fmtDec(n: number | null | undefined, digits = 2): string {
+  if (n == null) return "—";
+  return n.toFixed(digits);
+}
+
 export function SheetTable({
   title,
   headers,
   rows,
   note,
   scroll,
+  labelCols = 1,
 }: {
   title: string;
   headers: string[];
   rows: (string | number)[][];
   note?: string;
   scroll?: boolean;
+  labelCols?: number;
 }) {
   return (
     <div className={scroll ? "sheet-table sheet-list" : "sheet-table"}>
@@ -36,7 +43,7 @@ export function SheetTable({
         <thead>
           <tr>
             {headers.map((h, i) => (
-              <th key={`${h}-${i}`} className={i === 0 ? "" : "num"}>
+              <th key={`${h}-${i}`} className={i < labelCols ? "" : "num"}>
                 {h}
               </th>
             ))}
@@ -46,7 +53,7 @@ export function SheetTable({
           {rows.map((row, i) => (
             <tr key={i} className={row[0] === "Total" || row[0] === "Totals" ? "total" : ""}>
               {row.map((cell, j) => (
-                <td key={j} className={j === 0 ? "" : "num"}>
+                <td key={j} className={j < labelCols ? "" : "num"}>
                   {cell}
                 </td>
               ))}

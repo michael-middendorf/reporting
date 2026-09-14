@@ -1,0 +1,162 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import {
+  CENSUS_RAW_HEADERS,
+  CENSUS_RAW_WIDTHS,
+  FTCA_RAW_HEADERS,
+  FTCA_RAW_WIDTHS,
+  LOA_HEADERS,
+  LOA_LIVE_EXTRA_HEADERS,
+  UNRETAINED_HEADERS,
+  UNRETAINED_WIDTHS,
+  censusRawRow,
+  ftcaRawRow,
+  loaLiveRow,
+  loaRow,
+  unretainedRow,
+} from "./list-columns";
+import type { CensusRawStudent, LoaWithStatus, UnretainedStudent } from "./lists-core";
+import type { FtcaRawRow } from "./retention";
+
+test("live list builders emit one cell per Excel header", () => {
+  assert.equal(CENSUS_RAW_HEADERS.length, CENSUS_RAW_WIDTHS.length);
+  assert.equal(UNRETAINED_HEADERS.length, UNRETAINED_WIDTHS.length);
+  assert.equal(FTCA_RAW_HEADERS.length, FTCA_RAW_WIDTHS.length);
+
+  const raw = {
+    pcid: "P1",
+    first: "Ada",
+    last: "Lovelace",
+    incomingReturning: "Incoming",
+    state: "FL",
+    religion: "Catholic",
+    cathGroup: "Catholic",
+    ethnicity: "WHITE",
+    gender: "Female",
+    program: "GRAD",
+    collegeAttend: "GRAD",
+    curriculum: "MBA",
+    curriculumName: "MBA",
+    classLevel: "GRAD",
+    fullPart: "FULL",
+    city: "Naples",
+    credits: 12,
+    gpa: 3.5,
+    earnedCredits: 12,
+    residency: "Commuter",
+    sport: "",
+    athlete: "Non-Athlete",
+    athleticType: "",
+    rosterStatus: "",
+    honors: "",
+    fsp: "",
+    household: "",
+    institute: "Scholar",
+    marines: "",
+    appDecision: "ACCT",
+    session: "01",
+    degree: "MBA",
+    email: "ada@avemaria.edu",
+    citizenship: "US",
+    visa: "",
+    dob: "2000-01-01",
+    hsGpa: 3.9,
+    act: 28,
+    sat: 1300,
+    clt: 80,
+  } as CensusRawStudent;
+  assert.equal(censusRawRow(raw, new Set(["P1"])).length, CENSUS_RAW_HEADERS.length);
+  assert.equal(censusRawRow(raw, new Set(["P1"]))[CENSUS_RAW_HEADERS.indexOf("AMU Alumni")], "Yes");
+
+  const left = {
+    pcid: "P2",
+    first: "Bo",
+    last: "Lee",
+    retention: "Not Retained",
+    gpa: 2.1,
+    fsp: "",
+    household: "",
+    marines: "",
+    honors: "",
+    sport: "Soccer-Men",
+    religion: "Catholic",
+    cathGroup: "Catholic",
+    state: "FL",
+    gender: "Male",
+    classLevel: "Sophomore",
+    collegeAttend: "FTCA",
+    incomingReturning: "Incoming",
+    program: "UNDERG",
+  } as UnretainedStudent;
+  assert.equal(unretainedRow(left).length, UNRETAINED_HEADERS.length);
+  assert.equal(unretainedRow(left)[UNRETAINED_HEADERS.indexOf("Catholic/Non-Catholic")], "Catholic");
+
+  const loa = {
+    pcid: "P3",
+    first: "Cy",
+    last: "Ng",
+    sport: "",
+    classLevel: "Junior",
+    incomingReturning: "Returning",
+    collegeAttend: "FTCA",
+    credits: 12,
+    gpa: 3,
+    earnedCredits: 60,
+    curriculum: "THEO",
+    residency: "On Campus",
+    state: "OH",
+    ethnicity: "",
+    gender: "Female",
+    honors: "",
+    institute: "",
+    household: "",
+    fsp: "",
+    finalGpa: 3.1,
+    religion: "Catholic",
+    term: "Fall 2026",
+    status: "Returned",
+    fa26Program: "UNDERG",
+    fa26Class: "Senior",
+    fa26Sport: "",
+    fa26Curriculum: "THEO",
+    fa26Session: "01",
+    fa26Residency: "On Campus",
+    fa26FullPart: "FULL",
+    fa26Credits: 15,
+  } as LoaWithStatus;
+  assert.equal(loaRow(loa).length, LOA_HEADERS.length);
+  assert.equal(loaLiveRow(loa).length, LOA_HEADERS.length + LOA_LIVE_EXTRA_HEADERS.length);
+
+  const ftca = {
+    pcid: "P4",
+    first: "Di",
+    last: "Wu",
+    retained: "Retained",
+    ftca: "FTCA",
+    religion: "Catholic",
+    cathGroup: "Catholic",
+    catholicNonCatholic: "Catholic",
+    fa25Sport: "Soccer-Women",
+    fa25Curriculum: "BIOLOG",
+    fa25FullPart: "FULL",
+    fa25Credits: 15,
+    fa25Residency: "On Campus",
+    fa25Gpa: 3.2,
+    fa26Sport: "Soccer-Women",
+    fa26Curriculum: "BIOLOG",
+    fa26Class: "Sophomore",
+    fa26FullPart: "FULL",
+    fa26Credits: 16,
+    fa26Gpa: 3.3,
+    fa26Residency: "On Campus",
+    appDecision: "ACCT",
+    dob: "",
+    gender: "Female",
+    ethnicity: "WHITE",
+    hsGpa: 3.8,
+    city: "Naples",
+    state: "FL",
+    institute: "",
+  } as FtcaRawRow;
+  assert.equal(ftcaRawRow(ftca).length, FTCA_RAW_HEADERS.length);
+});

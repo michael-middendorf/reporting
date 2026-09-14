@@ -503,7 +503,7 @@
 
 .census-root .sheet-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 36px 48px;
   align-items: start;
 }
@@ -560,6 +560,8 @@
 }
 .census-root .sheet-list table { width: max-content; min-width: 100%; }
 .census-root .sheet-list thead th { position: sticky; top: 0; z-index: 1; }
+.census-root .sheet-list th,
+.census-root .sheet-list td { white-space: nowrap; }
 .census-root .sheet-search {
   font-family: inherit;
   font-size: 13px;
@@ -678,6 +680,9 @@
 .census-root .census-chat-warn { color: #8a5a00; }
 .census-root .census-chat-err { color: #9b2c2c; }
 
+@media (max-width: 1600px) {
+  .census-root .sheet-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 1100px) {
   .census-root .sheet-grid { grid-template-columns: 1fr; }
 }

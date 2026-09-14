@@ -3,13 +3,14 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { CensusReport } from "@/components/census/CensusReport";
-import { FtcaRawSheet, LoaSheet, RawDataSheet, UnretainedSheet, VerifySheet } from "@/components/census/CensusLists";
-import { FilterBar, fmtN, fmtPct } from "@/components/census/Sheet";
+import { FtcaRawSheet, LoaSheet, RawDataSheet, UnretainedSheet } from "@/components/census/CensusLists";
+import { FilterBar, SheetTable, fmtN, fmtPct } from "@/components/census/Sheet";
 import type { CensusRawStudent, LoaWithStatus, UnretainedStudent } from "@/lib/reports/census/lists-core";
 import { isUgDegreeSeekingRow } from "@/lib/reports/census/lists-core";
 import {
   DEFAULT_FILTERS,
   buildReport,
+  buildReportExtras,
   describeFilters,
   filterCensusRaw,
   filtersForCensusRaw,
@@ -26,12 +27,24 @@ import {
   applyLiveRetentionHistory,
   buildAllUgSplit,
   buildFtcaAttritionFromPrior,
-  buildSportRetention,
+  buildFtcaExtras,
+  collectGpa,
   isCatholic,
+  type CrosstabRow,
+  type FtcaExtras,
   type FtcaRawRow,
 } from "@/lib/reports/census/retention";
-import { KPI_DEFS, SUMMARY_DEFS, meanPositive, summaryFromStudents, uniqueStudentCount } from "@/lib/reports/census/from-lists";
-import { buildVerifyList } from "@/lib/reports/census/verify";
+import {
+  KPI_DEFS,
+  SUMMARY_DEFS,
+  amuUndergraduateAlumniIds,
+  buildGraduateEnrollment,
+  meanPositive,
+  summaryFromStudents,
+  uniqueStudentCount,
+  type GraduateProgramStats,
+} from "@/lib/reports/census/from-lists";
+import type { AttritionRow } from "@/lib/reports/census/types";
 import type { HousingAssignmentRow } from "@/lib/reports/census/residency";
 import {
   degreeSeekingHcLabel,
@@ -47,7 +60,7 @@ function fmtFte(n: number | null | undefined): string {
   return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
 
-type Tab = "summary" | "historical" | "ug" | "attrition" | "ftca" | "raw" | "unretained" | "loa" | "verify";
+type Tab = "summary" | "historical" | "ug" | "grad" | "attrition" | "ftca" | "raw" | "unretained" | "loa";
 
 type CensusPageData = CensusSnapshot & {
   reportStudents?: ReportStudent[];
@@ -162,25 +175,51 @@ export function CensusDashboard() {
     const keep = new Set(filteredPrior.map((s) => s.pcid.toUpperCase()));
     return (data?.ftcaRaw || []).filter((r) => keep.has((r.pcid || "").toUpperCase()));
   }, [data?.ftcaRaw, filteredPrior]);
-  const sportRows = useMemo(
+  const gpaById = useMemo(
     () =>
-      buildSportRetention(
+      collectGpa({
+        students: rawStudents,
+        unretained: data?.unretainedStudents || [],
+        prior: data?.priorStudents || [],
+        graduates: data?.graduates || [],
+        loa: [],
+        loaFall: data?.loaFallStudents || [],
+      }),
+    [rawStudents, data?.unretainedStudents, data?.priorStudents, data?.graduates, data?.loaFallStudents],
+  );
+  const extras = useMemo(
+    () =>
+      buildReportExtras(
         filteredPrior,
         filteredRaw.map((s) => s.pcid),
         data?.graduates || [],
+        gpaById,
+        data?.allUgRetention || {
+          priorUg: 0,
+          graduates: 0,
+          pool: 0,
+          enrolledThisFall: 0,
+          notRetained: 0,
+          retentionRate: 0,
+        },
         filters.excludedSports,
       ),
-    [filteredPrior, filteredRaw, data?.graduates, filters.excludedSports],
+    [filteredPrior, filteredRaw, data?.graduates, gpaById, data?.allUgRetention, filters.excludedSports],
   );
-  const verifyRows = useMemo(
+  const ftcaExtras = useMemo(
     () =>
-      buildVerifyList(
-        filteredRaw,
-        filteredUnretained,
-        data?.graduates || [],
-        data?.housingRows || [],
-      ),
-    [filteredRaw, filteredUnretained, data?.graduates, data?.housingRows],
+      filteredPrior.length
+        ? buildFtcaExtras(filteredPrior, filteredRaw.map((s) => s.pcid), data?.graduates || [])
+        : null,
+    [filteredPrior, filteredRaw, data?.graduates],
+  );
+  const alumniIds = useMemo(
+    () => amuUndergraduateAlumniIds(data?.priorStudents || [], data?.graduates || []),
+    [data?.priorStudents, data?.graduates],
+  );
+  const gradBlocks = useMemo(
+    () => buildGraduateEnrollment(filteredAll, data?.priorStudents || [], data?.graduates || []),
+    [filteredAll, data?.priorStudents, data?.graduates],
   );
   const liveSummary = useMemo(
     () => (rawStudents.length ? summaryFromStudents(filteredAll) : data?.summary),
@@ -308,9 +347,6 @@ export function CensusDashboard() {
                 <button type="button" disabled={downloading} onClick={() => downloadExport("ftca")}>
                   FTCA Raw
                 </button>
-                <button type="button" disabled={downloading} onClick={() => downloadExport("verify")}>
-                  Verify
-                </button>
               </div>
             </details>
             <span className="draft-pill">{data.status}</span>
@@ -372,12 +408,12 @@ export function CensusDashboard() {
               ["summary", "Summary"],
               ["historical", "Historical"],
               ["ug", "Census Report"],
+              ["grad", "Graduate"],
               ["attrition", "Retention"],
               ["ftca", "FTCA Raw"],
               ["raw", "Census Raw"],
               ["unretained", "All Not Retained"],
               ["loa", "FA26 LOA"],
-              ["verify", "Verify"],
             ] as [Tab, string][]
           ).map(([id, label]) => (
             <button
@@ -396,14 +432,16 @@ export function CensusDashboard() {
         {tab === "ug" && (
           <CensusReport
             data={summaryData}
+            extras={extras}
             students={filteredReport}
             filters={filters}
-            sportRows={sportRows}
           />
         )}
+        {tab === "grad" && <GraduateTab year={data.historical.years[0] ?? 2026} blocks={gradBlocks} />}
         {tab === "attrition" && (
           <AttritionTab
             data={summaryData}
+            extras={ftcaExtras}
             unretained={{
               n: filteredUnretained.length,
               ug: filteredUnretained.filter((s) => isUgDegreeSeekingRow(s.program || "", s.collegeAttend)).length,
@@ -411,7 +449,7 @@ export function CensusDashboard() {
           />
         )}
         {tab === "ftca" && <FtcaRawSheet rows={filteredFtca} />}
-        {tab === "raw" && <RawDataSheet students={filteredAll} />}
+        {tab === "raw" && <RawDataSheet students={filteredAll} alumniIds={alumniIds} />}
         {tab === "unretained" && <UnretainedSheet students={filteredUnretained} />}
         {tab === "loa" && (
           <LoaSheet
@@ -422,7 +460,6 @@ export function CensusDashboard() {
             sportHeader="FA25 sport"
           />
         )}
-        {tab === "verify" && <VerifySheet rows={verifyRows} />}
       </div>
     </div>
   );
@@ -629,41 +666,156 @@ function HistoricalTab({ data }: { data: CensusSnapshot }) {
   );
 }
 
+function attritionNeeds(cols: number): (string | number)[][] {
+  return [Array.from({ length: cols }, (_, i) => (i === 0 ? "Needs data" : ""))];
+}
+
+function attritionBody(
+  rows: AttritionRow[],
+  rate: number,
+  cols: "full" | "short" | "gpa" | "sport",
+): (string | number)[][] {
+  if (!rows.length) {
+    return attritionNeeds(cols === "full" || cols === "sport" ? 5 : 4);
+  }
+  const students = rows.reduce((s, r) => s + r.students, 0);
+  const notRetained = rows.reduce((s, r) => s + r.notRetained, 0);
+  if (cols === "full") {
+    return [
+      ...rows.map((r) => [r.label, fmtN(r.students), fmtN(r.notRetained), fmtPct(r.retainedPct), fmtPct(r.shareOfNotRetained)]),
+      ["Total", fmtN(students), fmtN(notRetained), fmtPct(rate), students ? "100.0%" : ""],
+    ];
+  }
+  if (cols === "sport") {
+    return [
+      ...rows.map((r) => [r.label, fmtN(r.students), fmtN(r.notRetained), fmtPct(r.shareOfNotRetained), fmtPct(r.retainedPct)]),
+      ["Total", fmtN(students), fmtN(notRetained), "", fmtPct(rate)],
+    ];
+  }
+  return [
+    ...rows.map((r) => [r.label, fmtN(r.students), fmtN(r.notRetained), fmtPct(r.retainedPct)]),
+    ["Total", fmtN(students), fmtN(notRetained), fmtPct(rate)],
+  ];
+}
+
+function subsetRate(rows: AttritionRow[]): number {
+  const students = rows.reduce((s, r) => s + r.students, 0);
+  const notRetained = rows.reduce((s, r) => s + r.notRetained, 0);
+  const graduated = rows.reduce((s, r) => s + (r.graduated ?? 0), 0);
+  const pool = students - graduated;
+  return pool > 0 ? (pool - notRetained) / pool : 0;
+}
+
+function crosstabBody(
+  rows: CrosstabRow[],
+  twoLabels = false,
+  includeInTotal?: (r: CrosstabRow) => boolean,
+): (string | number)[][] {
+  if (!rows.length) return attritionNeeds(twoLabels ? 5 : 4);
+  const body: (string | number)[][] = twoLabels
+    ? rows.map((r) => [r.label, r.label2 || "", fmtN(r.students), fmtN(r.notRetained), r.retentionPct == null ? "—" : fmtPct(r.retentionPct)])
+    : rows.map((r) => [r.label, fmtN(r.students), fmtN(r.notRetained), r.retentionPct == null ? "—" : fmtPct(r.retentionPct)]);
+  const summed = includeInTotal ? rows.filter(includeInTotal) : rows;
+  const students = summed.reduce((s, r) => s + r.students, 0);
+  const notRetained = summed.reduce((s, r) => s + r.notRetained, 0);
+  const graduated = summed.reduce((s, r) => s + r.graduated, 0);
+  const pool = students - graduated;
+  const rate = pool > 0 ? (pool - notRetained) / pool : null;
+  if (twoLabels) body.push(["Total", "", fmtN(students), fmtN(notRetained), rate == null ? "—" : fmtPct(rate)]);
+  else body.push(["Total", fmtN(students), fmtN(notRetained), rate == null ? "—" : fmtPct(rate)]);
+  return body;
+}
+
+function GraduateTab({ year, blocks }: { year: number; blocks: GraduateProgramStats[] }) {
+  const fa = `FA${String(year).slice(2)}`;
+  const overall = blocks.find((b) => b.program === "Overall");
+  const programs = blocks.filter((b) => b.program !== "Overall");
+  const rows = [
+    ...programs.map((b) => [
+      b.program,
+      fmtN(b.n),
+      fmtN(b.incoming),
+      fmtN(b.returning),
+      fmtN(b.alumniAdmits),
+      fmtN(b.externalAdmits),
+      fmtN(b.amuAlumni),
+      fmtN(b.athlete),
+      fmtN(b.nonAthlete),
+      fmtN(b.catholic),
+      fmtN(b.nonCatholic),
+    ]),
+    ...(overall
+      ? [[
+          "Total",
+          fmtN(overall.n),
+          fmtN(overall.incoming),
+          fmtN(overall.returning),
+          fmtN(overall.alumniAdmits),
+          fmtN(overall.externalAdmits),
+          fmtN(overall.amuAlumni),
+          fmtN(overall.athlete),
+          fmtN(overall.nonAthlete),
+          fmtN(overall.catholic),
+          fmtN(overall.nonCatholic),
+        ]]
+      : []),
+  ];
+  return (
+    <div className="sheet">
+      <div className="sheet-head">
+        <h2>{fa} Graduate Enrollment Statistics</h2>
+        <p className="sheet-n">{fmtN(overall?.n ?? 0)} graduate students</p>
+      </div>
+      <p className="note">
+        Alumni admits / External admits are incoming only. AMU Alumni includes returning students with an AMU bachelor's.
+        Athlete includes Post Grad roster and Associated.
+      </p>
+      <SheetTable
+        title=""
+        headers={[
+          "Program",
+          "Students",
+          "Incoming",
+          "Returning",
+          "Alumni admits",
+          "External admits",
+          "AMU Alumni",
+          "Athlete",
+          "Non-Athlete",
+          "Catholic",
+          "Non-Catholic",
+        ]}
+        rows={rows.length ? rows : attritionNeeds(11)}
+      />
+    </div>
+  );
+}
+
 function AttritionTab({
   data,
+  extras,
   unretained,
 }: {
   data: CensusSnapshot;
+  extras: FtcaExtras | null;
   unretained?: { n: number; ug: number };
 }) {
   const a = data.ftcaAttrition;
   const u = data.allUgRetention;
+  const x = extras;
   return (
     <div className="sheet">
       <div className="sheet-head">
-        <h2>Retention</h2>
-        <p className="sheet-n">Fall 2025 Incoming + FTCA only. Athletic retention is on the Census Report sheet. Filters at the top apply here too.</p>
+        <h2>Fall 2025 Incoming FTCA Cohort Attrition</h2>
+        <p className="sheet-n">
+          Fall 2025 Incoming + FTCA only. Athletic retention is on the Census Report sheet. Filters at the top apply here too.
+        </p>
       </div>
       {unretained && unretained.n > 0 && (
-        <div className="card section">
-          <h3>All not retained</h3>
-          <table>
-            <tbody>
-              <tr>
-                <td>Fall 2025 census students not registered Fall 2026 and not 2025–26 graduates</td>
-                <td className="num">{fmtN(unretained.n)}</td>
-              </tr>
-              <tr className="total">
-                <td>Of those, undergraduate degree-seeking</td>
-                <td className="num">{fmtN(unretained.ug)}</td>
-              </tr>
-            </tbody>
-          </table>
-          <p className="note">
-            Registration Status is the all-student count for this term. Names are on the
-            All Not Retained sheet of the Excel draft.
-          </p>
-        </div>
+        <p className="note">
+          All not retained: {fmtN(unretained.n)} Fall 2025 census students not registered Fall 2026 and not 2025–26
+          graduates ({fmtN(unretained.ug)} undergraduate degree-seeking). Names are on All Not Retained.
+        </p>
       )}
       <div className="grid-2 section">
         <div className="card">
@@ -721,80 +873,183 @@ function AttritionTab({
           </p>
         </div>
       </div>
-      <div className="grid-2 section">
-        <div className="card">
-          <h3>Historical FTCA retention</h3>
-          <table>
-            <tbody>
-              {data.historicalFtcaRetention.map((r) => (
-                <tr key={r.label}>
-                  <td>{r.label}</td>
-                  <td className="num">{fmtPct(r.rate)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="sheet-grid">
+        <div className="sheet-col">
+          <SheetTable
+            title="States"
+            headers={["States", "Students", "# Non-Retained", "% Retained", "% of All Non-Retained"]}
+            rows={attritionBody(a.byState, a.retentionRate, "full")}
+          />
+          <SheetTable
+            title="Male - Florida"
+            headers={["Catholic/Non-Catholic", "Athlete/Non-Athlete", "Students", "# Non-Retained", "% Retained"]}
+            rows={crosstabBody(x?.byMaleFlorida || [], true)}
+            labelCols={2}
+          />
         </div>
-        <div className="card">
-          <h3>Historical all-UG retention</h3>
-          <table>
-            <tbody>
-              {data.historicalAllUgRetention.map((r) => (
-                <tr key={r.label}>
-                  <td>{r.label}</td>
-                  <td className="num">{fmtPct(r.rate)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="sheet-col">
+          <SheetTable
+            title="Athlete"
+            headers={["Athlete", "Students", "# Non-Retained", "% Retained"]}
+            rows={attritionBody(a.byAthlete, a.retentionRate, "short")}
+          />
+          <SheetTable
+            title="Sport Primary"
+            headers={["Sport Primary", "Students", "Non-Retained", "% of All Non-Retained", "% Retained"]}
+            rows={attritionBody(a.bySport, a.retentionRate, "sport")}
+          />
+          <SheetTable
+            title="Catholic/Non-Catholic"
+            headers={["Catholic/Non-Catholic", "Athlete/Non-Athlete", "Students", "# Non-Retained", "% Retained"]}
+            rows={
+              a.byCatholicAthlete.length
+                ? crosstabBody(
+                    a.byCatholicAthlete.map((r) => {
+                      const [cath, ath] = r.label.split(" / ");
+                      return {
+                        label: cath || r.label,
+                        label2: ath || "",
+                        students: r.students,
+                        notRetained: r.notRetained,
+                        graduated: 0,
+                        retentionPct: r.retainedPct ?? null,
+                      };
+                    }),
+                    true,
+                  )
+                : attritionNeeds(5)
+            }
+            labelCols={2}
+          />
+          <SheetTable
+            title="Athlete"
+            headers={["Athlete", "Gender", "Students", "# Non-Retained", "% Retained"]}
+            rows={crosstabBody(x?.byAthleteGender || [], true)}
+            labelCols={2}
+          />
+          <SheetTable
+            title="Ethnicity"
+            headers={["Ethnicity", "Athlete/Non-Athlete", "Students", "# Non-Retained", "% Retained"]}
+            rows={crosstabBody(x?.byEthnicityAthlete || [], true)}
+            labelCols={2}
+          />
+        </div>
+        <div className="sheet-col">
+          <SheetTable
+            title="Ethnicity"
+            headers={["Ethnicity", "Students", "# Non-Retained", "% Retained"]}
+            rows={attritionBody(a.byEthnicity, a.retentionRate, "short")}
+          />
+          <SheetTable
+            title="Resident / Commuter"
+            headers={["Resident / Commuter", "Gender", "Students", "# Non-Retained", "% Retained"]}
+            rows={crosstabBody(x?.byResidencyGender || [], true)}
+            labelCols={2}
+          />
+          <SheetTable
+            title="HS GPA Ranges"
+            headers={["HS GPA Ranges", "Students", "# Non-Retained", "% Retained"]}
+            rows={
+              x && x.byHsGpa.some((r) => r.label !== "No HS GPA")
+                ? attritionBody(
+                    x.byHsGpa.filter((r) => r.label !== "No HS GPA" || r.students > 0),
+                    a.retentionRate,
+                    "gpa",
+                  )
+                : attritionNeeds(4)
+            }
+          />
+          <SheetTable
+            title="Application Decision"
+            headers={["Application Decision", "Students", "# Non-Retained", "% Retained"]}
+            rows={x?.byAppDecision.length ? crosstabBody(x.byAppDecision) : attritionNeeds(4)}
+          />
+          <SheetTable
+            title="Committee admits and admin overrides"
+            headers={["Admit type", "Type", "Students", "# Non-Retained", "Retention %"]}
+            rows={x?.admitOverride.length ? crosstabBody(x.admitOverride, true, (r) => r.label2 === "Overall") : attritionNeeds(5)}
+            labelCols={2}
+          />
+          <SheetTable
+            title="Test Score"
+            headers={["Test Score", "Students", "# Non-Retained", "% Retained"]}
+            rows={x?.byTestScore.length ? attritionBody(x.byTestScore, a.retentionRate, "gpa") : attritionNeeds(4)}
+          />
+          <SheetTable
+            title="Has Test Score"
+            headers={["Athlete / Non-Athlete", "Students", "# Non-Retained", "% Retained"]}
+            rows={
+              x?.byHasTestScoreAthlete.length
+                ? attritionBody(x.byHasTestScoreAthlete, subsetRate(x.byHasTestScoreAthlete), "gpa")
+                : attritionNeeds(4)
+            }
+          />
+          <SheetTable
+            title="No Test Score"
+            headers={["Athlete / Non-Athlete", "Students", "# Non-Retained", "% Retained"]}
+            rows={
+              x?.byNoTestScoreAthlete.length
+                ? attritionBody(x.byNoTestScoreAthlete, subsetRate(x.byNoTestScoreAthlete), "gpa")
+                : attritionNeeds(4)
+            }
+          />
+          <SheetTable
+            title="ACT Converted"
+            headers={["ACT Converted", "Students", "# Non-Retained", "% Retained"]}
+            rows={x?.byActConverted.length ? attritionBody(x.byActConverted, a.retentionRate, "gpa") : attritionNeeds(4)}
+            note="*Has / No test score = SAT or ACT (converted). CLT-only is No."
+          />
+        </div>
+        <div className="sheet-col">
+          <SheetTable
+            title="AMU GPA Ranges"
+            headers={["AMU GPA Ranges", "Students", "# Non-Retained", "% Retained"]}
+            rows={attritionBody(a.byGpa, a.retentionRate, "gpa")}
+          />
+          <SheetTable
+            title="HS GPA Ranges (Athletes)"
+            headers={["HS GPA Ranges", "Students", "# Non-Retained", "% Retained"]}
+            rows={
+              x && x.byHsGpaAthletes.some((r) => r.label !== "No HS GPA")
+                ? attritionBody(
+                    x.byHsGpaAthletes.filter((r) => r.label !== "No HS GPA" || r.students > 0),
+                    subsetRate(x.byHsGpaAthletes),
+                    "gpa",
+                  )
+                : attritionNeeds(4)
+            }
+          />
+          <SheetTable
+            title="HS GPA 2.9-3.49"
+            headers={["HS GPA Ranges", "Students", "# Non-Retained", "% Retained"]}
+            rows={x?.byHsGpaFine.length ? attritionBody(x.byHsGpaFine, subsetRate(x.byHsGpaFine), "gpa") : attritionNeeds(4)}
+          />
+          <SheetTable
+            title="HS GPA 2.9-3.49 Athletes"
+            headers={["HS GPA Ranges", "Students", "# Non-Retained", "% Retained"]}
+            rows={
+              x?.byHsGpaFineAthletes.length
+                ? attritionBody(x.byHsGpaFineAthletes, subsetRate(x.byHsGpaFineAthletes), "gpa")
+                : attritionNeeds(4)
+            }
+          />
+          <SheetTable
+            title="Honors College"
+            headers={["Honors College", "Students", "# Non-Retained", "% Retained"]}
+            rows={x?.byHonors.length ? attritionBody(x.byHonors, a.retentionRate, "gpa") : attritionNeeds(4)}
+          />
+          <SheetTable
+            title="FSP"
+            headers={["FSP", "Students", "# Non-Retained", "% Retained"]}
+            rows={x?.byFsp.length ? attritionBody(x.byFsp, a.retentionRate, "gpa") : attritionNeeds(4)}
+          />
+          <SheetTable
+            title="Institute"
+            headers={["Institute", "Students", "# Non-Retained", "% Retained"]}
+            rows={x?.byInstitute.length ? attritionBody(x.byInstitute, a.retentionRate, "gpa") : attritionNeeds(4)}
+          />
         </div>
       </div>
-      <div className="grid-2 section">
-        <AttritionTable title="FTCA by state" rows={a.byState} />
-        <AttritionTable title="FTCA by sport" rows={a.bySport} />
-      </div>
-      <div className="grid-2 section">
-        <AttritionTable title="FTCA athlete / non-athlete" rows={a.byAthlete} />
-        <AttritionTable title="FTCA by AMU GPA" rows={a.byGpa} />
-      </div>
-      <div className="grid-2 section">
-        <AttritionTable title="FTCA by ethnicity" rows={a.byEthnicity} />
-        <AttritionTable title="FTCA Catholic / athlete" rows={a.byCatholicAthlete} />
-      </div>
-    </div>
-  );
-}
-
-function AttritionTable({
-  title,
-  rows,
-}: {
-  title: string;
-  rows: CensusSnapshot["ftcaAttrition"]["byState"];
-}) {
-  return (
-    <div className="card">
-      <h3>{title}</h3>
-      <table>
-        <thead>
-          <tr>
-            <th></th>
-            <th className="num">Students</th>
-            <th className="num">Not retained</th>
-            <th className="num">% retained</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.label}>
-              <td>{r.label}</td>
-              <td className="num">{fmtN(r.students)}</td>
-              <td className="num">{fmtN(r.notRetained)}</td>
-              <td className="num">{fmtPct(r.retainedPct)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }

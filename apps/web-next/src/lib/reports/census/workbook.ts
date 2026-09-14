@@ -1,46 +1,49 @@
-import type { CensusLists, CensusRawStudent, UnretainedStudent } from "./lists";
+import type { CensusLists, CensusRawStudent } from "./lists";
 import {
   attachLoaStatus,
-  censusAppDecision,
-  censusRawAthleteFlag,
   CENSUS_SPORT_TABLE_NOTE,
   footballRosterPcids,
-  isUgDegreeSeekingRow,
-  normPcid,
   withoutFootballPlayers,
   withoutFootballRoster,
   type LoaStudent,
   type LoaWithStatus,
 } from "./lists-core";
+import {
+  CENSUS_RAW_HEADERS,
+  CENSUS_RAW_WIDTHS,
+  FTCA_RAW_HEADERS,
+  FTCA_RAW_WIDTHS,
+  LOA_HEADERS,
+  LOA_WIDTHS,
+  UNRETAINED_HEADERS,
+  UNRETAINED_WIDTHS,
+  censusRawRow,
+  ftcaRawRow,
+  loaRow,
+  unretainedRow,
+} from "./list-columns";
 import { deceasedStudentsFromNotes, loaStudentsFromNotes } from "./retention-overrides";
 import {
   applyLiveRetentionHistory,
-  athleteOf,
   NO_FOOTBALL_ALL_UG_HISTORY,
   NO_FOOTBALL_FTCA_HISTORY,
   NO_FOOTBALL_HISTORY_NOTE,
   buildAllUgSplit,
-  buildAssociationRetention,
-  buildCrosstab,
-  buildCrosstab2On,
   buildFtcaAttritionFromPrior,
   buildFtcaExtras,
-  buildAdmitOverrideRetention,
   buildSportRetention,
-  catholicOf,
   collectGpa,
   deriveFtcaRaw,
   retentionPct,
-  whiteOf,
   type CrosstabRow,
   type FtcaRawRow,
-  type SportRetentionRow,
 } from "./retention";
-import { displayCensusResidency, type HousingAssignmentRow } from "./residency";
+import { type HousingAssignmentRow } from "./residency";
 import { buildVerifyList } from "./verify";
 import {
   DEFAULT_FILTERS,
   buildReport,
+  buildReportExtras,
   describeFilters,
   filterCensusRaw,
   filterLoa,
@@ -50,6 +53,7 @@ import {
   projectReportStudents,
   tablesFromSnapshot,
   type ListExportKind,
+  type ReportExtras,
   type ReportFilters,
   type ReportTables,
 } from "./report";
@@ -394,25 +398,6 @@ function writeGenderLoad(
 
 function realAppDecisions(rows: LabeledCount[]): LabeledCount[] {
   return rows.filter((r) => r.label);
-}
-
-type ReportExtras = {
-  hasPrior: boolean;
-  sportRetention: SportRetentionRow[];
-  appDecisionRetention: CrosstabRow[];
-  genderRetention: CrosstabRow[];
-  catholicAthlete: CrosstabRow[];
-  athleteGender: CrosstabRow[];
-  athleteEthnicity: CrosstabRow[];
-  residenceGender: CrosstabRow[];
-  association: CrosstabRow[];
-  admitOverride: CrosstabRow[];
-  ugSplit: ReturnType<typeof buildAllUgSplit>;
-};
-
-function genderRetentionOrder(rows: CrosstabRow[]): CrosstabRow[] {
-  const rank = (label: string) => (label === "Female" ? 0 : label === "Male" ? 1 : 2);
-  return [...rows].sort((a, b) => rank(a.label) - rank(b.label) || a.label.localeCompare(b.label));
 }
 
 function gradProgramRow(block: GraduateProgramStats): CellValue[] {
@@ -1306,7 +1291,7 @@ function writeAttrition(
 }
 
 function writeFtcaRaw(wb: XlsxWorkbook, rows: FtcaRawRow[]) {
-  writeListSheet(wb, "F25-F26 FTCA Retention Raw", FTCA_RAW_HEADERS, FTCA_RAW_WIDTHS, rows.map(ftcaRawCells));
+  writeListSheet(wb, "F25-F26 FTCA Retention Raw", [...FTCA_RAW_HEADERS], [...FTCA_RAW_WIDTHS], rows.map(ftcaRawRow));
 }
 
 function writeHousing(wb: XlsxWorkbook, rows: HousingAssignmentRow[]) {
@@ -1389,192 +1374,6 @@ function writeListSheet(
   ws.freezeRows = 1;
 }
 
-const CENSUS_RAW_HEADERS = [
-  "PCID",
-  "First_Name",
-  "Last_Name",
-  "Incoming/Returning",
-  "State",
-  "Religion",
-  "Cath/Chris/Other",
-  "Ethnicity",
-  "Gender",
-  "Program",
-  "Session",
-  "College_Attend",
-  "Curriculum",
-  "Curriculum Name",
-  "Class_Level",
-  "Full_Part",
-  "City",
-  "Credits",
-  "Cumulative GPA",
-  "Resident / Commuter",
-  "Athletic Assoc. (Athlet.)",
-  "Athlete/Non-Athlete",
-  "Athletic Type",
-  "Roster Status",
-  "Honors",
-  "FSP",
-  "Household",
-  "Institute",
-  "Mary's Marines",
-  "Application Decision",
-  "Degree",
-  "AMU Alumni",
-  "Email",
-  "Citizenship",
-  "Visa",
-  "DOB",
-  "HS GPA",
-  "ACT",
-  "SAT",
-  "CLT",
-];
-
-const CENSUS_RAW_WIDTHS = [
-  14, 16, 18, 16, 8, 16, 14, 12, 10, 12, 14, 14, 12, 22, 12, 10, 16, 10, 12, 16, 16, 22, 16, 16, 22, 10, 16, 12, 12, 14,
-  16, 12, 10, 32, 12, 12, 10, 8, 8, 8,
-];
-
-function amuAlumniCell(s: CensusRawStudent, alumniIds: Set<string>): string {
-  if ((s.program || "").trim().toUpperCase() !== "GRAD") return "";
-  return alumniIds.has(normPcid(s.pcid)) ? "Yes" : "No";
-}
-
-function rawRow(s: CensusRawStudent, alumniIds: Set<string> = new Set()): CellValue[] {
-  return [
-    s.pcid,
-    s.first,
-    s.last,
-    s.incomingReturning,
-    s.state,
-    s.religion,
-    s.cathGroup,
-    s.ethnicity,
-    s.gender,
-    s.program,
-    s.session || "",
-    s.collegeAttend,
-    s.curriculum,
-    s.curriculumName,
-    s.classLevel,
-    s.fullPart,
-    s.city,
-    s.credits,
-    s.gpa,
-    displayCensusResidency(s.residency),
-    s.sport,
-    censusRawAthleteFlag(s),
-    s.athleticType || "",
-    s.rosterStatus || "",
-    s.honors,
-    s.fsp,
-    s.household,
-    s.institute,
-    s.marines,
-    s.appDecision,
-    s.degree,
-    amuAlumniCell(s, alumniIds),
-    s.email,
-    s.citizenship,
-    s.visa,
-    s.dob || "",
-    s.hsGpa ?? "",
-    s.act ?? "",
-    s.sat ?? "",
-    s.clt ?? "",
-  ];
-}
-
-const UNRETAINED_HEADERS = [
-  "PCID",
-  "First",
-  "Last",
-  "Retention",
-  "Final GPA",
-  "FSP",
-  "Household",
-  "Mary's Marines",
-  "Honors",
-  "Institute",
-  "Sport",
-  "Religion",
-  "Catholic/Non-Catholic",
-  "State",
-  "Gender",
-  "Class",
-  "College_Attend",
-  "Incoming/Returning",
-  "Program",
-  "FA25 Credits",
-  "Cumulative Earned Credits",
-  "HS GPA",
-  "ACT",
-  "SAT",
-  "CLT",
-  "Declared application major",
-  "Interview Faith",
-  "Interview Courage",
-  "Interview Desire",
-  "Interview HS Involvement",
-  "Interview College/Career",
-  "Interview Plans at AMU",
-  "Interview Total",
-  "AC Comments",
-  "Miles from campus",
-  "Sector",
-  "Athletic Aid",
-  "Unfunded aid",
-  "School type (Ave Type)",
-  "High School Name",
-  "Reason for leaving",
-  "Withdrawal improvement",
-  "Withdrawal comments",
-];
-
-const LOA_HEADERS = [
-  "PCID",
-  "First",
-  "Last",
-  "Term",
-  "FA26 status",
-  "Sport",
-  "Class",
-  "Incoming/Returning",
-  "College Attend",
-  "Curriculum",
-  "GPA",
-  "Final GPA",
-  "Household",
-  "FSP",
-  "State",
-  "Gender",
-];
-
-const LOA_WIDTHS = [14, 14, 18, 14, 16, 16, 14, 16, 12, 18, 10, 10, 16, 8, 8, 10];
-
-function loaRow(s: LoaWithStatus): CellValue[] {
-  return [
-    s.pcid,
-    s.first,
-    s.last,
-    s.term,
-    s.status,
-    s.sport,
-    s.classLevel,
-    s.incomingReturning,
-    s.collegeAttend,
-    s.curriculum,
-    s.gpa,
-    s.finalGpa,
-    s.household,
-    s.fsp,
-    s.state,
-    s.gender,
-  ];
-}
-
 function loaWithStatus(seed: LoaStudent[], lists: CensusLists, filters?: ReportFilters): LoaWithStatus[] {
   const withStatus = attachLoaStatus(
     seed,
@@ -1587,55 +1386,6 @@ function loaWithStatus(seed: LoaStudent[], lists: CensusLists, filters?: ReportF
 function loaFallForExport(lists: CensusLists, filters?: ReportFilters): LoaWithStatus[] {
   const seed = lists.loaFall.length ? lists.loaFall : loaStudentsFromNotes(lists.prior);
   return loaWithStatus(seed, lists, filters);
-}
-
-function unretainedRow(s: UnretainedStudent): CellValue[] {
-  const incoming = (s.incomingReturning || "").trim().toLowerCase().startsWith("incoming");
-  return [
-    s.pcid,
-    s.first,
-    s.last,
-    s.retention,
-    s.gpa,
-    s.fsp,
-    s.household,
-    s.marines,
-    s.honors,
-    s.institute || "",
-    s.sport,
-    s.religion || "",
-    incoming ? catholicOf({ cathGroup: s.cathGroup, religion: s.religion }) : "",
-    s.state,
-    s.gender,
-    s.classLevel,
-    s.collegeAttend,
-    s.incomingReturning,
-    s.program || "",
-    s.credits ?? "",
-    s.earnedCredits ?? "",
-    s.hsGpa ?? "",
-    s.act ?? "",
-    s.sat ?? "",
-    s.clt ?? "",
-    s.applicationMajor || s.curriculumName || "",
-    s.interviewFaith ?? "",
-    s.interviewCourage ?? "",
-    s.interviewDesire ?? "",
-    s.interviewHsInvolvement ?? "",
-    s.interviewCollegeCareer ?? "",
-    s.interviewPlans ?? "",
-    s.interviewTotal ?? "",
-    s.acComments || "",
-    s.milesFromCampus ?? "",
-    s.sector || "",
-    s.athleticAid ?? "",
-    s.unfundedAid ?? "",
-    s.schoolType || "",
-    s.highSchoolName || "",
-    s.reasonForLeaving || "",
-    s.withdrawalImprovement || "",
-    s.withdrawalComments || "",
-  ];
 }
 
 function writeSources(
@@ -1728,92 +1478,6 @@ export function listsFileName(kind: ListExportKind, data: CensusSnapshot, export
   return `${fa}_Census_${labels[kind]}_${stamp}.xlsx`;
 }
 
-function ftcaRawCells(r: FtcaRawRow): CellValue[] {
-  return [
-    r.first,
-    r.last,
-    r.retained,
-    r.pcid,
-    r.ftca,
-    r.religion,
-    r.cathGroup,
-    r.catholicNonCatholic,
-    r.appDecision,
-    r.fa25Sport,
-    r.fa25Curriculum,
-    r.fa25FullPart,
-    r.fa25Credits,
-    r.fa25Gpa,
-    r.fa25Residency,
-    r.fa26Sport,
-    r.fa26Curriculum,
-    r.fa26Class,
-    r.fa26FullPart,
-    r.fa26Credits,
-    r.fa26Gpa,
-    r.fa26Residency,
-    r.dob,
-    r.gender,
-    r.ethnicity,
-    r.hsGpa,
-    r.city,
-    r.state,
-    r.institute,
-    r.interviewFaith ?? "",
-    r.interviewCourage ?? "",
-    r.interviewDesire ?? "",
-    r.interviewHsInvolvement ?? "",
-    r.interviewCollegeCareer ?? "",
-    r.interviewPlans ?? "",
-    r.interviewTotal ?? "",
-    r.pcid,
-  ];
-}
-
-const FTCA_RAW_HEADERS = [
-  "First",
-  "Last",
-  "Retained F25?",
-  "PCID",
-  "FTCA",
-  "Religious Affiliation",
-  "Catholic, Christian, Other",
-  "Catholic Non-Catholic",
-  "Application Decision",
-  "Fall 25 Athletic Association",
-  "Fall 25 Curriculum",
-  "Fall 25 FULL PART TIME",
-  "Fall 25 Credits",
-  "Fall 25 GPA",
-  "Fall 25 Res Comm",
-  "Fall 26 Athletic Association",
-  "Fall 26 Curriculum",
-  "Fall 26 Class",
-  "Fall 26 FULL PART TIME",
-  "Fall 26 Credits",
-  "Fall 26 GPA",
-  "Fall 26 Res Comm",
-  "DOB",
-  "Gender",
-  "Ethnicity",
-  "HS GPA",
-  "City",
-  "State",
-  "Institute",
-  "Interview Faith",
-  "Interview Courage",
-  "Interview Desire",
-  "Interview HS Involvement",
-  "Interview College/Career",
-  "Interview Plans at AMU",
-  "Interview Total",
-  "PCID",
-];
-
-const FTCA_RAW_WIDTHS = [14, 16, 14, 14, 10, 18, 18, 16, 16, 22, 16, 14, 12, 12, 14, 22, 16, 12, 14, 12, 12, 14, 14, 10, 12, 10, 14, 8, 14, 14, 8, 8, 8, 10, 10, 10, 8];
-
-const UNRETAINED_WIDTHS = [14, 16, 18, 14, 12, 10, 12, 16, 10, 16, 18, 16, 20, 8, 10, 12, 14, 16, 12, 12, 16, 10, 8, 8, 8, 22, 10, 10, 10, 12, 12, 12, 10, 16, 12, 16, 14, 16, 16, 22, 18, 22, 28];
-
 /** Student-level sheets for the Export menu: current filters, unretained, sports, etc. */
 export async function buildListsWorkbook(
   data: CensusSnapshot,
@@ -1830,7 +1494,7 @@ export async function buildListsWorkbook(
   const keepPrior = new Set(prior.map((s) => (s.pcid || "").toUpperCase()));
   const ftca = ftcaRaw.filter((r) => keepPrior.has((r.pcid || "").toUpperCase()));
   const sports = prior.length
-    ? buildSportRetention(prior, enrolledIds, lists.graduates, filters.excludedSports)
+    ? buildSportRetention(prior, enrolledIds, lists.graduates, filters.excludedSports, collectGpa(lists))
     : [];
   const verify = buildVerifyList(enrolled, unretained, lists.graduates, housingRows);
   const loaFall = loaFallForExport(lists, filters);
@@ -1861,17 +1525,17 @@ export async function buildListsWorkbook(
     writeListSheet(
       wb,
       "Census Raw",
-      CENSUS_RAW_HEADERS,
-      CENSUS_RAW_WIDTHS,
-      enrolled.map((s) => rawRow(s, alumniIds)),
+      [...CENSUS_RAW_HEADERS],
+      [...CENSUS_RAW_WIDTHS],
+      enrolled.map((s) => censusRawRow(s, alumniIds)),
     );
   }
   if (want("unretained")) {
     writeListSheet(
       wb,
       "All Not Retained",
-      UNRETAINED_HEADERS,
-      UNRETAINED_WIDTHS,
+      [...UNRETAINED_HEADERS],
+      [...UNRETAINED_WIDTHS],
       unretained.map(unretainedRow),
     );
   }
@@ -1909,7 +1573,7 @@ export async function buildListsWorkbook(
     );
   }
   if (want("ftca")) {
-    writeListSheet(wb, "FTCA Raw", FTCA_RAW_HEADERS, FTCA_RAW_WIDTHS, ftca.map(ftcaRawCells));
+    writeListSheet(wb, "FTCA Raw", [...FTCA_RAW_HEADERS], [...FTCA_RAW_WIDTHS], ftca.map(ftcaRawRow));
   }
   if (want("verify")) {
     writeListSheet(
@@ -1921,7 +1585,7 @@ export async function buildListsWorkbook(
     );
   }
   if (want("loa")) {
-    writeListSheet(wb, "FA26 LOA", LOA_HEADERS, LOA_WIDTHS, loaFall.map(loaRow));
+    writeListSheet(wb, "FA26 LOA", [...LOA_HEADERS], [...LOA_WIDTHS], loaFall.map(loaRow));
   }
   return wb.writeBuffer();
 }
@@ -1948,63 +1612,6 @@ const EMPTY_FTCA_EXTRAS: ReturnType<typeof buildFtcaExtras> = {
 
 const NO_FOOTBALL_FILTERS = { ...DEFAULT_FILTERS, excludedSports: ["Football"] };
 
-function reportExtras(
-  prior: CensusRawStudent[],
-  currentIds: string[],
-  graduates: CensusLists["graduates"],
-  gpa: ReturnType<typeof collectGpa>,
-  fallback: CensusSnapshot["allUgRetention"],
-  excludedSports: string[] = [],
-): ReportExtras {
-  if (!prior.length) {
-    return {
-      hasPrior: false,
-      sportRetention: [],
-      appDecisionRetention: [],
-      genderRetention: [],
-      catholicAthlete: [],
-      athleteGender: [],
-      athleteEthnicity: [],
-      residenceGender: [],
-      association: [],
-      admitOverride: [],
-      ugSplit: {
-        all: {
-          students: fallback.priorUg,
-          enrolled: fallback.enrolledThisFall,
-          graduated: fallback.graduates,
-          notRetained: fallback.notRetained,
-          retentionPct: fallback.retentionRate,
-        },
-        athletes: { students: 0, enrolled: 0, graduated: 0, notRetained: 0, retentionPct: null },
-        nonAthletes: { students: 0, enrolled: 0, graduated: 0, notRetained: 0, retentionPct: null },
-      },
-    };
-  }
-  const ugds = prior.filter((s) => isUgDegreeSeekingRow(s.program, s.collegeAttend, s.degree));
-  return {
-    hasPrior: true,
-    sportRetention: buildSportRetention(prior, currentIds, graduates, excludedSports, gpa),
-    appDecisionRetention: buildCrosstab(prior, currentIds, graduates, (s) => censusAppDecision(s.appDecision)),
-    genderRetention: genderRetentionOrder(
-      buildCrosstab(prior, currentIds, graduates, (s) => s.gender || "Not listed"),
-    ),
-    catholicAthlete: buildCrosstab2On(ugds, currentIds, graduates, catholicOf, athleteOf),
-    athleteGender: buildCrosstab2On(ugds, currentIds, graduates, athleteOf, (s) => s.gender || "—"),
-    athleteEthnicity: buildCrosstab2On(ugds, currentIds, graduates, athleteOf, whiteOf),
-    residenceGender: buildCrosstab2On(
-      ugds,
-      currentIds,
-      graduates,
-      (s) => displayCensusResidency(s.residency) || "Not listed",
-      (s) => s.gender || "—",
-    ),
-    association: buildAssociationRetention(prior, currentIds, graduates),
-    admitOverride: buildAdmitOverrideRetention(prior, currentIds, graduates),
-    ugSplit: buildAllUgSplit(prior, currentIds, graduates),
-  };
-}
-
 export async function buildCensusWorkbook(
   data: CensusSnapshot,
   housingRows: HousingAssignmentRow[] = [],
@@ -2030,7 +1637,7 @@ export async function buildCensusWorkbook(
     };
     applyLiveRetentionHistory(data, data.ftcaAttrition.retentionRate, data.allUgRetention.retentionRate);
   }
-  const extra = reportExtras(lists.prior, currentIds, lists.graduates, gpa, data.allUgRetention);
+  const extra = buildReportExtras(lists.prior, currentIds, lists.graduates, gpa, data.allUgRetention);
   const ftcaExtras = lists.prior.length
     ? buildFtcaExtras(lists.prior, currentIds, lists.graduates)
     : EMPTY_FTCA_EXTRAS;
@@ -2058,7 +1665,7 @@ export async function buildCensusWorkbook(
     };
     applyLiveRetentionHistory(noFbData, noFbData.ftcaAttrition.retentionRate, noFbData.allUgRetention.retentionRate);
   }
-  const noFbExtra = reportExtras(noFbPrior, noFbCurrentIds, lists.graduates, gpa, noFbData.allUgRetention, ["Football"]);
+  const noFbExtra = buildReportExtras(noFbPrior, noFbCurrentIds, lists.graduates, gpa, noFbData.allUgRetention, ["Football"]);
   const noFbFtcaExtras = noFbPrior.length
     ? buildFtcaExtras(noFbPrior, noFbCurrentIds, lists.graduates)
     : EMPTY_FTCA_EXTRAS;
@@ -2088,18 +1695,18 @@ export async function buildCensusWorkbook(
   writeListSheet(
     wb,
     "FA26 Census Raw",
-    CENSUS_RAW_HEADERS,
-    CENSUS_RAW_WIDTHS,
-    lists.students.map((s) => rawRow(s, alumniIds)),
+    [...CENSUS_RAW_HEADERS],
+    [...CENSUS_RAW_WIDTHS],
+    lists.students.map((s) => censusRawRow(s, alumniIds)),
   );
   writeListSheet(
     wb,
     "Not Retained",
-    UNRETAINED_HEADERS,
-    UNRETAINED_WIDTHS,
+    [...UNRETAINED_HEADERS],
+    [...UNRETAINED_WIDTHS],
     lists.unretained.map(unretainedRow),
   );
-  writeListSheet(wb, "FA26 LOA", LOA_HEADERS, LOA_WIDTHS, loaFallForExport(lists).map(loaRow));
+  writeListSheet(wb, "FA26 LOA", [...LOA_HEADERS], [...LOA_WIDTHS], loaFallForExport(lists).map(loaRow));
   writeListSheet(
     wb,
     "Deceased",
