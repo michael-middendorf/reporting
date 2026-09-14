@@ -425,16 +425,16 @@ a.ath-hub-card:hover { box-shadow: 0 8px 26px rgba(10, 34, 64, .12); transform: 
 .ath-giving-funds p { margin: 0 0 12px; color: var(--ath-muted); font-size: 13px; }
 .ath-giving-fund-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 8px;
 }
 .ath-giving-fund-list button {
   position: relative;
   display: flex;
-  justify-content: space-between;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
   overflow: hidden;
-  padding: 10px 12px;
+  padding: 10px 12px 12px;
   border: 1px solid var(--ath-line);
   border-radius: 8px;
   background: #fff;
@@ -443,8 +443,27 @@ a.ath-hub-card:hover { box-shadow: 0 8px 26px rgba(10, 34, 64, .12); transform: 
   cursor: pointer;
 }
 .ath-giving-fund-list button.is-active { border-color: var(--ath-green); box-shadow: inset 0 0 0 1px var(--ath-green); }
-.ath-giving-fund-list span { position: relative; z-index: 1; font-size: 13px; font-weight: 650; }
-.ath-giving-fund-list b { position: relative; z-index: 1; color: var(--ath-green-dark); font-size: 13px; }
+.ath-giving-fund-name { position: relative; z-index: 1; font-size: 13px; font-weight: 650; }
+.ath-giving-fund-years {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.ath-giving-fund-years > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ath-giving-fund-years small {
+  color: var(--ath-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.ath-giving-fund-list b { color: var(--ath-green-dark); font-size: 15px; font-weight: 750; }
 .ath-giving-fund-list i {
   position: absolute;
   left: 0;

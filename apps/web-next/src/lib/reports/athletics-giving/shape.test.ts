@@ -4,9 +4,12 @@ import {
   datePresetLabel,
   filterGifts,
   formatGiftDate,
+  fundsThisYearVsLastYear,
   giftExportRows,
   giftsInRange,
   isGivingReady,
+  previousFiscalYearLabel,
+  previousFiscalYearWindow,
   rangeForPreset,
   sportForGift,
   totalsFromGifts,
@@ -111,6 +114,10 @@ describe("athletics giving shape", () => {
       start: "2026-07-01",
       end: "2026-09-14",
     });
+    assert.deepEqual(rangeForPreset("last-fy", "2026-09-14", "2026-07-01", "", ""), {
+      start: "2025-07-01",
+      end: "2026-06-30",
+    });
     assert.deepEqual(rangeForPreset("all", "2026-09-14", "2026-07-01", "", ""), {
       start: null,
       end: null,
@@ -134,13 +141,57 @@ describe("athletics giving shape", () => {
     assert.equal(totalsFromGifts(football).giftCount, 1);
   });
 
-  it("labels this fiscal year separately from all time", () => {
+  it("labels this fiscal year separately from last year and all time", () => {
     assert.equal(datePresetLabel("fytd", "FY 2026-27"), "This fiscal year (FY 2026-27)");
     assert.equal(datePresetLabel("fytd"), "This fiscal year");
+    assert.equal(datePresetLabel("last-fy", "FY 2026-27"), "Last fiscal year (FY 2025-26)");
     assert.equal(datePresetLabel("this-week"), "This week");
     assert.equal(datePresetLabel("last-week"), "Last week");
     assert.equal(datePresetLabel("custom"), "Date range");
     assert.equal(datePresetLabel("all"), "All time");
+    assert.deepEqual(previousFiscalYearWindow("2026-07-01"), { start: "2025-07-01", end: "2026-06-30" });
+    assert.equal(previousFiscalYearLabel("FY 2026-27"), "FY 2025-26");
+  });
+
+  it("fund cards split this year and last year and drop older gifts", () => {
+    const gifts = [
+      ...SAMPLE.gifts,
+      {
+        ...SAMPLE.gifts[1]!,
+        giftId: 20,
+        giftDate: "2025-08-15",
+        amountDesignated: 400,
+      },
+      {
+        ...SAMPLE.gifts[0]!,
+        giftId: 21,
+        giftDate: "2025-09-01",
+        amountDesignated: 50,
+        project: "Men's Soccer",
+        projectCode: "6560SocM",
+      },
+      {
+        ...SAMPLE.gifts[1]!,
+        giftId: 22,
+        giftDate: "2024-08-01",
+        amountDesignated: 9999,
+      },
+    ];
+    const rows = fundsThisYearVsLastYear(gifts, "2026-07-01", "2026-09-14", "2025-07-01", "2026-06-30");
+    assert.equal(rows.length, 3);
+    assert.equal(rows[0]?.project, "Football Program");
+    assert.equal(rows[0]?.thisYear, 1000);
+    assert.equal(rows[0]?.lastYear, 400);
+    assert.equal(rows[1]?.project, "Men's Ultimate Frisbee");
+    assert.equal(rows[1]?.thisYear, 200);
+    assert.equal(rows[1]?.lastYear, 0);
+    assert.equal(rows[2]?.project, "Men's Soccer");
+    assert.equal(rows[2]?.thisYear, 0);
+    assert.equal(rows[2]?.lastYear, 50);
+    assert.equal(
+      rows.some((row) => row.thisYear === 9999 || row.lastYear === 9999),
+      false,
+    );
   });
 
   it("this fiscal year excludes prior-year gifts that remain in all time", () => {
