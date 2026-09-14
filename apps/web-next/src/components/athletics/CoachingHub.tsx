@@ -7,7 +7,6 @@ import type { AcademicsSummary } from "@/lib/reports/athletics-coaching/academic
 import type { EnrollmentSummary } from "@/lib/reports/athletics-coaching/enrollment";
 import type { SportFundraising } from "@/lib/reports/athletics-coaching/fundraising";
 import type { SportDef } from "@/lib/reports/athletics-coaching/sports";
-import gyreneWordmark from "@/assets/athletics/gyrene-wordmark.png";
 
 export function CoachingDenied({ message }: { message?: string }) {
   return (
@@ -24,7 +23,6 @@ export function TeamPicker({ sports, title, description }: { sports: SportDef[];
     <main className="ath-hub">
       <header className="ath-hub-header">
         <span>Athletics</span>
-        <img className="ath-hub-wordmark" src={gyreneWordmark.src} alt="" width={220} height={55} />
         <h1>{title}</h1>
         <p>{description}</p>
       </header>

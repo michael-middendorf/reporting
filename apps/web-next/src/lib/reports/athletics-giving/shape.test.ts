@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   datePresetLabel,
+  shortFiscalYearLabel,
+  shortPreviousFiscalYearLabel,
   filterGifts,
   formatGiftDate,
   fundsThisYearVsLastYear,
@@ -147,15 +149,16 @@ describe("athletics giving shape", () => {
   });
 
   it("labels this fiscal year separately from last year and all time", () => {
-    assert.equal(datePresetLabel("fytd", "FY 2026-27"), "This fiscal year (FY 2026-27)");
-    assert.equal(datePresetLabel("fytd"), "This fiscal year");
-    assert.equal(datePresetLabel("last-fy", "FY 2026-27"), "Last fiscal year (FY 2025-26)");
+    assert.equal(datePresetLabel("fytd", "FY 2026-27"), "FY27");
+    assert.equal(datePresetLabel("last-fy", "FY 2026-27"), "FY26");
+    assert.equal(datePresetLabel("all", "FY 2026-27"), "FY26 + FY27");
     assert.equal(datePresetLabel("this-week"), "This week");
     assert.equal(datePresetLabel("last-week"), "Last week");
     assert.equal(datePresetLabel("custom"), "Date range");
-    assert.equal(datePresetLabel("all"), "This year + last year");
     assert.deepEqual(previousFiscalYearWindow("2026-07-01"), { start: "2025-07-01", end: "2026-06-30" });
     assert.equal(previousFiscalYearLabel("FY 2026-27"), "FY 2025-26");
+    assert.equal(shortFiscalYearLabel("FY 2026-27"), "FY27");
+    assert.equal(shortPreviousFiscalYearLabel("FY 2026-27"), "FY26");
   });
 
   it("fund cards split this year and last year and drop older gifts", () => {

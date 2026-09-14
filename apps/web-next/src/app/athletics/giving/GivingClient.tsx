@@ -14,8 +14,9 @@ import {
   giftExportRows,
   giftsFromLastTwoFiscalYears,
   isGivingReady,
-  previousFiscalYearLabel,
   previousFiscalYearWindow,
+  shortFiscalYearLabel,
+  shortPreviousFiscalYearLabel,
   rangeForPreset,
   sportForGift,
   totalsFromGifts,
@@ -56,7 +57,8 @@ export function GivingClient() {
   const asOf = data?.asOf?.slice(0, 10) || "";
   const thisFyStart = data?.fyStart?.slice(0, 10) || "";
   const lastFy = useMemo(() => previousFiscalYearWindow(thisFyStart), [thisFyStart]);
-  const lastFyLabel = previousFiscalYearLabel(data?.fiscalYearLabel);
+  const thisFyShort = shortFiscalYearLabel(data?.fiscalYearLabel);
+  const lastFyShort = shortPreviousFiscalYearLabel(data?.fiscalYearLabel);
   const gifts = useMemo(
     () => (data ? giftsFromLastTwoFiscalYears(data.gifts, data.fyStart) : []),
     [data],
@@ -157,7 +159,7 @@ export function GivingClient() {
   const lastFyRangeLabel =
     lastFy.start && lastFy.end
       ? `${formatGiftDate(lastFy.start)} to ${formatGiftDate(lastFy.end)}`
-      : lastFyLabel;
+      : lastFyShort;
 
   const filtersActive =
     sportKey !== "all" || fund !== "all" || search.trim() !== "" || preset !== "fytd" || Boolean(customStart || customEnd);
@@ -179,38 +181,30 @@ export function GivingClient() {
   }
 
   return (
-    <main className="ath-giving">
-      <header className="ath-giving-hero">
-        <div className="ath-giving-hero-inner">
-          <div className="ath-giving-hero-brand">
-            <img
-              className="ath-giving-hero-mark"
-              src={gyreneShield.src}
-              alt="Ave Maria University Gyrenes"
-              width={118}
-              height={126}
-            />
-            <div>
-              <p className="ath-kicker">Athletics</p>
-              <h1>Giving</h1>
-              <p>
-                Gifts posted to Athletics Fundraising, Athletics - Specific Sport, and the
-                historical athletics segment in Virtuous. Only {lastFyLabel} and this fiscal year
-                {data?.fiscalYearLabel ? ` (${data.fiscalYearLabel})` : ""} are included
-                {data?.generated_at ? ` · updated ${data.generated_at.slice(0, 10)}` : ""}.
-              </p>
-            </div>
-          </div>
-          <div className="ath-giving-actions">
-            <button type="button" className="ath-secondary" onClick={exportExcel} disabled={!visible.length}>
-              Export Excel
-            </button>
-            <button type="button" className="ath-primary" onClick={load} disabled={loading}>
-              {loading ? "Loading…" : "Refresh"}
-            </button>
+    <main className="ath-page ath-giving">
+      <div className="ath-page-heading ath-giving-banner">
+        <div className="ath-brand-lockup">
+          <img
+            className="ath-brand-shield"
+            src={gyreneShield.src}
+            alt="Ave Maria University Gyrenes"
+            width={64}
+            height={68}
+          />
+          <div>
+            <p className="ath-kicker">Athletics</p>
+            <h1>Giving</h1>
           </div>
         </div>
-      </header>
+        <div className="ath-giving-actions">
+          <button type="button" className="ath-secondary" onClick={exportExcel} disabled={!visible.length}>
+            Export Excel
+          </button>
+          <button type="button" className="ath-primary" onClick={load} disabled={loading}>
+            {loading ? "Loading…" : "Refresh"}
+          </button>
+        </div>
+      </div>
 
       {error ? (
         <div className="ath-state">
@@ -219,11 +213,7 @@ export function GivingClient() {
       ) : null}
 
       {!error && data ? (
-        <div className="ath-page ath-giving-body">
-          <div className="ath-giving-details">
-            <span>Let&apos;s dive into</span>
-            <h2>The details</h2>
-          </div>
+        <>
           <div className="ath-giving-filters">
             <label>
               Sport
@@ -316,19 +306,17 @@ export function GivingClient() {
               </small>
             </div>
             <div className="ath-kpi">
-              <span>This fiscal year</span>
+              <span>{thisFyShort}</span>
               <strong>{usd(fyTotals.programAmount)}</strong>
               <small>
-                {data.fiscalYearLabel || "FY"} · {fyRangeLabel} · {fyTotals.giftCount} gift
-                {fyTotals.giftCount === 1 ? "" : "s"}
+                {fyRangeLabel} · {fyTotals.giftCount} gift{fyTotals.giftCount === 1 ? "" : "s"}
               </small>
             </div>
             <div className="ath-kpi">
-              <span>Last fiscal year</span>
+              <span>{lastFyShort}</span>
               <strong>{usd(lastFyTotals.programAmount)}</strong>
               <small>
-                {lastFyLabel} · {lastFyRangeLabel} · {lastFyTotals.giftCount} gift
-                {lastFyTotals.giftCount === 1 ? "" : "s"}
+                {lastFyRangeLabel} · {lastFyTotals.giftCount} gift{lastFyTotals.giftCount === 1 ? "" : "s"}
               </small>
             </div>
           </div>
@@ -336,9 +324,8 @@ export function GivingClient() {
           <section className="ath-giving-funds">
             <h2>By fund</h2>
             <p>
-              This year ({data.fiscalYearLabel || "FY"}) vs last year ({lastFyLabel})
-              {sportKey === "all" ? "" : ` · ${sportLabel}`}. Gifts before {lastFyLabel} are not shown. Click a
-              fund to filter the total and table.
+              {thisFyShort} vs {lastFyShort}
+              {sportKey === "all" ? "" : ` · ${sportLabel}`}. Click a fund to filter the total and table.
             </p>
             <div className="ath-giving-fund-list">
               {fundRows.map((item) => (
@@ -357,18 +344,20 @@ export function GivingClient() {
                   <span className="ath-giving-fund-name">{item.project || item.projectCode || "Unnamed fund"}</span>
                   <span className="ath-giving-fund-years">
                     <span>
-                      <small>This year</small>
+                      <small>{thisFyShort}</small>
                       <b>{usd(item.thisYear)}</b>
                     </span>
                     <span>
-                      <small>Last year</small>
+                      <small>{lastFyShort}</small>
                       <b>{usd(item.lastYear)}</b>
                     </span>
                   </span>
                   <i style={{ width: `${Math.round((item.thisYear / maxFund) * 100)}%` }} />
                 </button>
               ))}
-              {!fundRows.length ? <p className="ath-empty">No funds in this year or last year.</p> : null}
+              {!fundRows.length ? (
+                <p className="ath-empty">No funds in {lastFyShort} or {thisFyShort}.</p>
+              ) : null}
             </div>
           </section>
 
@@ -389,7 +378,7 @@ export function GivingClient() {
             </div>
             <GiftTable rows={visible} />
           </section>
-        </div>
+        </>
       ) : null}
     </main>
   );

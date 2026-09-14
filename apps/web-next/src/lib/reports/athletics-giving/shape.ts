@@ -110,12 +110,12 @@ export function giftsInRange(
 export type DatePreset = "this-week" | "last-week" | "this-month" | "fytd" | "last-fy" | "all" | "custom";
 
 export const DATE_PRESETS: { id: DatePreset; label: string }[] = [
-  { id: "fytd", label: "This fiscal year" },
-  { id: "last-fy", label: "Last fiscal year" },
+  { id: "fytd", label: "FY27" },
+  { id: "last-fy", label: "FY26" },
   { id: "this-week", label: "This week" },
   { id: "last-week", label: "Last week" },
   { id: "this-month", label: "This month" },
-  { id: "all", label: "This year + last year" },
+  { id: "all", label: "FY26 + FY27" },
   { id: "custom", label: "Date range" },
 ];
 
@@ -132,14 +132,23 @@ export function previousFiscalYearLabel(fiscalYearLabel: string | null | undefin
   return `FY ${Number(match[1]) - 1}-${String(Number(match[2]) - 1).padStart(2, "0")}`;
 }
 
+export function shortFiscalYearLabel(fiscalYearLabel: string | null | undefined): string {
+  const match = (fiscalYearLabel || "").match(/^FY\s+\d{4}-(\d{2})$/);
+  return match ? `FY${match[1]}` : "FY";
+}
+
+export function shortPreviousFiscalYearLabel(fiscalYearLabel: string | null | undefined): string {
+  const match = (fiscalYearLabel || "").match(/^FY\s+\d{4}-(\d{2})$/);
+  if (!match) return "FY";
+  return `FY${String(Number(match[1]) - 1).padStart(2, "0")}`;
+}
+
 export function datePresetLabel(preset: DatePreset, fiscalYearLabel?: string | null): string {
-  if (preset === "fytd") {
-    return fiscalYearLabel ? `This fiscal year (${fiscalYearLabel})` : "This fiscal year";
-  }
-  if (preset === "last-fy") {
-    const previous = previousFiscalYearLabel(fiscalYearLabel);
-    return previous === "Last fiscal year" ? previous : `Last fiscal year (${previous})`;
-  }
+  const thisFy = shortFiscalYearLabel(fiscalYearLabel);
+  const lastFy = shortPreviousFiscalYearLabel(fiscalYearLabel);
+  if (preset === "fytd") return thisFy === "FY" ? "This fiscal year" : thisFy;
+  if (preset === "last-fy") return lastFy === "FY" ? "Last fiscal year" : lastFy;
+  if (preset === "all") return thisFy === "FY" ? "FY26 + FY27" : `${lastFy} + ${thisFy}`;
   return DATE_PRESETS.find((item) => item.id === preset)?.label || preset;
 }
 
