@@ -1,9 +1,9 @@
 .ath-root {
-  --ath-navy: #0a2240;
-  --ath-blue: #0f3a63;
-  --ath-green: #00833e;
-  --ath-green-dark: #006532;
-  --ath-green-soft: #e7f5ed;
+  --ath-navy: #102038;
+  --ath-blue: #163056;
+  --ath-green: #3f9048;
+  --ath-green-dark: #2f6d36;
+  --ath-green-soft: #e7f4e8;
   --ath-gold: var(--ath-green);
   --ath-ink: #12263a;
   --ath-muted: #5d7284;
@@ -30,8 +30,8 @@
 }
 .ath-root .ath-rc-mark {
   display: block;
-  width: auto;
-  height: 36px;
+  width: 40px;
+  height: 40px;
 }
 .ath-root .rc-sep { color: rgba(255, 255, 255, .28); }
 .ath-root .rc a.rc-crumb { color: #9ad4b3; }
@@ -59,8 +59,9 @@
 
 .ath-hub { padding: 36px 28px 60px; }
 .ath-hub-header { max-width: 1100px; margin: 0 auto 28px; }
+.ath-hub-wordmark { display: block; height: 56px; width: auto; }
 .ath-hub-header span { display: block; margin-bottom: 8px; color: var(--ath-green); font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-.ath-hub-header h1 { margin: 0; color: var(--ath-navy); font-size: 32px; letter-spacing: -.02em; }
+.ath-hub-header h1 { margin: 0; line-height: 0; }
 .ath-hub-header p { margin: 8px 0 0; color: var(--ath-muted); font-size: 14px; }
 .ath-hub-grid { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
 .ath-hub-card {
@@ -90,6 +91,8 @@ a.ath-hub-card:hover { box-shadow: 0 8px 26px rgba(10, 34, 64, .12); transform: 
 
 .ath-page { width: min(1760px, 100%); margin: 0 auto; padding: 28px clamp(16px, 3vw, 42px) 64px; }
 .ath-page-heading { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 16px; }
+.ath-brand-lockup { display: flex; align-items: flex-start; gap: 14px; min-width: 0; }
+.ath-brand-shield { width: 72px; height: auto; flex: 0 0 auto; }
 .ath-page-heading:not(:has(p)) { align-items: center; }
 .ath-page-heading h1 { margin: 0; color: var(--ath-navy); font-size: clamp(24px, 2.6vw, 30px); font-weight: 750; letter-spacing: -.03em; }
 .ath-page-heading p { margin: 7px 0 0; color: var(--ath-muted); font-size: 14px; line-height: 1.45; }

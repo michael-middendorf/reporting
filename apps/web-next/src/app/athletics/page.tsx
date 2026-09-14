@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { ReportId } from "@/lib/access";
 import { fetchMe } from "@/lib/api";
+import gyreneWordmark from "@/assets/athletics/gyrene-wordmark.png";
 
 const CARDS: {
   href: string;
@@ -42,7 +43,9 @@ export default function AthleticsHubPage() {
     <main className="ath-hub">
       <header className="ath-hub-header">
         <span>Athletics</span>
-        <h1>Gyrenes</h1>
+        <h1>
+          <img className="ath-hub-wordmark" src={gyreneWordmark.src} alt="Gyrenes" width={280} height={70} />
+        </h1>
         <p>Department reports for recruiting and coaching.</p>
       </header>
       <div className="ath-hub-grid">

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { SimpleXlsx, triggerXlsxDownload } from "@/lib/aspiredu-xlsx";
 import { SPORTS } from "@/lib/reports/athletics-coaching/sports";
+import gyreneShield from "@/assets/athletics/gyrene-shield.png";
 import {
   DATE_PRESETS,
   datePresetLabel,
@@ -168,14 +169,17 @@ export function GivingClient() {
   return (
     <main className="ath-page ath-giving">
       <div className="ath-page-heading">
-        <div>
-          <h1>Athletics Giving</h1>
-          <p>
-            Gifts posted to Athletics Fundraising, Athletics - Specific Sport, and the
-            historical athletics segment in Virtuous. Only {lastFyLabel} and this fiscal year
-            {data?.fiscalYearLabel ? ` (${data.fiscalYearLabel})` : ""} are included
-            {data?.generated_at ? ` · updated ${data.generated_at.slice(0, 10)}` : ""}.
-          </p>
+        <div className="ath-brand-lockup">
+          <img className="ath-brand-shield" src={gyreneShield.src} alt="" width={72} height={77} />
+          <div>
+            <h1>Athletics Giving</h1>
+            <p>
+              Gifts posted to Athletics Fundraising, Athletics - Specific Sport, and the
+              historical athletics segment in Virtuous. Only {lastFyLabel} and this fiscal year
+              {data?.fiscalYearLabel ? ` (${data.fiscalYearLabel})` : ""} are included
+              {data?.generated_at ? ` · updated ${data.generated_at.slice(0, 10)}` : ""}.
+            </p>
+          </div>
         </div>
         <div className="ath-giving-actions">
           <button type="button" className="ath-secondary" onClick={exportExcel} disabled={!visible.length}>
