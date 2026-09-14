@@ -14,8 +14,9 @@ import {
   giftExportRows,
   giftsFromLastTwoFiscalYears,
   isGivingReady,
-  previousFiscalYearLabel,
   previousFiscalYearWindow,
+  shortFiscalYearLabel,
+  shortPreviousFiscalYearLabel,
   rangeForPreset,
   sportForGift,
   totalsFromGifts,
@@ -56,7 +57,8 @@ export function GivingClient() {
   const asOf = data?.asOf?.slice(0, 10) || "";
   const thisFyStart = data?.fyStart?.slice(0, 10) || "";
   const lastFy = useMemo(() => previousFiscalYearWindow(thisFyStart), [thisFyStart]);
-  const lastFyLabel = previousFiscalYearLabel(data?.fiscalYearLabel);
+  const thisFyShort = shortFiscalYearLabel(data?.fiscalYearLabel);
+  const lastFyShort = shortPreviousFiscalYearLabel(data?.fiscalYearLabel);
   const gifts = useMemo(
     () => (data ? giftsFromLastTwoFiscalYears(data.gifts, data.fyStart) : []),
     [data],
@@ -157,7 +159,7 @@ export function GivingClient() {
   const lastFyRangeLabel =
     lastFy.start && lastFy.end
       ? `${formatGiftDate(lastFy.start)} to ${formatGiftDate(lastFy.end)}`
-      : lastFyLabel;
+      : lastFyShort;
 
   const filtersActive =
     sportKey !== "all" || fund !== "all" || search.trim() !== "" || preset !== "fytd" || Boolean(customStart || customEnd);
@@ -304,19 +306,17 @@ export function GivingClient() {
               </small>
             </div>
             <div className="ath-kpi">
-              <span>This fiscal year</span>
+              <span>{thisFyShort}</span>
               <strong>{usd(fyTotals.programAmount)}</strong>
               <small>
-                {data.fiscalYearLabel || "FY"} · {fyRangeLabel} · {fyTotals.giftCount} gift
-                {fyTotals.giftCount === 1 ? "" : "s"}
+                {fyRangeLabel} · {fyTotals.giftCount} gift{fyTotals.giftCount === 1 ? "" : "s"}
               </small>
             </div>
             <div className="ath-kpi">
-              <span>Last fiscal year</span>
+              <span>{lastFyShort}</span>
               <strong>{usd(lastFyTotals.programAmount)}</strong>
               <small>
-                {lastFyLabel} · {lastFyRangeLabel} · {lastFyTotals.giftCount} gift
-                {lastFyTotals.giftCount === 1 ? "" : "s"}
+                {lastFyRangeLabel} · {lastFyTotals.giftCount} gift{lastFyTotals.giftCount === 1 ? "" : "s"}
               </small>
             </div>
           </div>
@@ -324,9 +324,8 @@ export function GivingClient() {
           <section className="ath-giving-funds">
             <h2>By fund</h2>
             <p>
-              This year ({data.fiscalYearLabel || "FY"}) vs last year ({lastFyLabel})
-              {sportKey === "all" ? "" : ` · ${sportLabel}`}. Gifts before {lastFyLabel} are not shown. Click a
-              fund to filter the total and table.
+              {thisFyShort} vs {lastFyShort}
+              {sportKey === "all" ? "" : ` · ${sportLabel}`}. Click a fund to filter the total and table.
             </p>
             <div className="ath-giving-fund-list">
               {fundRows.map((item) => (
@@ -345,18 +344,20 @@ export function GivingClient() {
                   <span className="ath-giving-fund-name">{item.project || item.projectCode || "Unnamed fund"}</span>
                   <span className="ath-giving-fund-years">
                     <span>
-                      <small>This year</small>
+                      <small>{thisFyShort}</small>
                       <b>{usd(item.thisYear)}</b>
                     </span>
                     <span>
-                      <small>Last year</small>
+                      <small>{lastFyShort}</small>
                       <b>{usd(item.lastYear)}</b>
                     </span>
                   </span>
                   <i style={{ width: `${Math.round((item.thisYear / maxFund) * 100)}%` }} />
                 </button>
               ))}
-              {!fundRows.length ? <p className="ath-empty">No funds in this year or last year.</p> : null}
+              {!fundRows.length ? (
+                <p className="ath-empty">No funds in {lastFyShort} or {thisFyShort}.</p>
+              ) : null}
             </div>
           </section>
 
