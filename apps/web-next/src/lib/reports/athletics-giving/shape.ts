@@ -98,14 +98,15 @@ export function giftsInRange(
   });
 }
 
-export type DatePreset = "this-week" | "this-month" | "fytd" | "all" | "custom";
+export type DatePreset = "this-week" | "last-week" | "this-month" | "fytd" | "all" | "custom";
 
 export const DATE_PRESETS: { id: DatePreset; label: string }[] = [
   { id: "fytd", label: "This fiscal year" },
   { id: "this-week", label: "This week" },
+  { id: "last-week", label: "Last week" },
   { id: "this-month", label: "This month" },
   { id: "all", label: "All time" },
-  { id: "custom", label: "Custom dates" },
+  { id: "custom", label: "Date range" },
 ];
 
 export function datePresetLabel(preset: DatePreset, fiscalYearLabel?: string | null): string {
@@ -134,6 +135,7 @@ export function rangeForPreset(
 ): { start: string | null; end: string | null } {
   const day = asOf.slice(0, 10);
   if (preset === "this-week") return { start: addDaysIso(day, -7), end: day };
+  if (preset === "last-week") return { start: addDaysIso(day, -14), end: addDaysIso(day, -8) };
   if (preset === "this-month") return { start: monthStartIso(day), end: day };
   if (preset === "fytd") return { start: fyStart.slice(0, 10) || null, end: day };
   if (preset === "custom") return { start: customStart || null, end: customEnd || null };

@@ -95,9 +95,17 @@ describe("athletics giving shape", () => {
       start: "2026-09-07",
       end: "2026-09-14",
     });
+    assert.deepEqual(rangeForPreset("last-week", "2026-09-14", "2026-07-01", "", ""), {
+      start: "2026-08-31",
+      end: "2026-09-06",
+    });
     assert.deepEqual(rangeForPreset("this-month", "2026-09-14", "2026-07-01", "", ""), {
       start: "2026-09-01",
       end: "2026-09-14",
+    });
+    assert.deepEqual(rangeForPreset("custom", "2026-09-14", "2026-07-01", "2026-08-01", "2026-08-15"), {
+      start: "2026-08-01",
+      end: "2026-08-15",
     });
     assert.deepEqual(rangeForPreset("fytd", "2026-09-14", "2026-07-01", "", ""), {
       start: "2026-07-01",
@@ -129,6 +137,9 @@ describe("athletics giving shape", () => {
   it("labels this fiscal year separately from all time", () => {
     assert.equal(datePresetLabel("fytd", "FY 2026-27"), "This fiscal year (FY 2026-27)");
     assert.equal(datePresetLabel("fytd"), "This fiscal year");
+    assert.equal(datePresetLabel("this-week"), "This week");
+    assert.equal(datePresetLabel("last-week"), "Last week");
+    assert.equal(datePresetLabel("custom"), "Date range");
     assert.equal(datePresetLabel("all"), "All time");
   });
 

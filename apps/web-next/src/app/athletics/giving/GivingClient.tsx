@@ -210,7 +210,13 @@ export function GivingClient() {
                     key={item.id}
                     type="button"
                     className={preset === item.id ? "is-active" : ""}
-                    onClick={() => setPreset(item.id)}
+                    onClick={() => {
+                      setPreset(item.id);
+                      if (item.id === "custom" && !customStart && !customEnd) {
+                        setCustomStart(range.start || "");
+                        setCustomEnd(range.end || asOf);
+                      }
+                    }}
                   >
                     {item.id === "fytd" && data.fiscalYearLabel
                       ? `This fiscal year (${data.fiscalYearLabel})`
@@ -219,18 +225,30 @@ export function GivingClient() {
                 ))}
               </div>
             </div>
-            {preset === "custom" ? (
-              <>
-                <label>
-                  From
-                  <input type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} />
-                </label>
-                <label>
-                  To
-                  <input type="date" value={customEnd} onChange={(event) => setCustomEnd(event.target.value)} />
-                </label>
-              </>
-            ) : null}
+            <label>
+              From
+              <input
+                type="date"
+                value={preset === "custom" ? customStart : range.start || ""}
+                onChange={(event) => {
+                  setPreset("custom");
+                  setCustomStart(event.target.value);
+                  setCustomEnd(preset === "custom" ? customEnd : range.end || asOf);
+                }}
+              />
+            </label>
+            <label>
+              To
+              <input
+                type="date"
+                value={preset === "custom" ? customEnd : range.end || ""}
+                onChange={(event) => {
+                  setPreset("custom");
+                  setCustomStart(preset === "custom" ? customStart : range.start || "");
+                  setCustomEnd(event.target.value);
+                }}
+              />
+            </label>
           </div>
 
           <div className="ath-kpi-grid ath-giving-kpis">
