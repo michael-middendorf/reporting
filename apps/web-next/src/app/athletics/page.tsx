@@ -44,9 +44,9 @@ export default function AthleticsHubPage() {
       <header className="ath-hub-header">
         <span>Athletics</span>
         <h1>
-          <img className="ath-hub-wordmark" src={gyreneWordmark.src} alt="Gyrenes" width={280} height={70} />
+          <img className="ath-hub-wordmark" src={gyreneWordmark.src} alt="Gyrenes" width={320} height={80} />
         </h1>
-        <p>Department reports for recruiting and coaching.</p>
+        <p>Department reports for recruiting, coaching, and giving.</p>
       </header>
       <div className="ath-hub-grid">
         {visible.map((card) => (

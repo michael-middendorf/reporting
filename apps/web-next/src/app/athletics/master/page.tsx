@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import gyreneWordmark from "@/assets/athletics/gyrene-wordmark.png";
 
 export default function AthleticsMasterHubPage() {
   return (
     <main className="ath-hub">
       <header className="ath-hub-header">
         <span>Athletics</span>
+        <img className="ath-hub-wordmark" src={gyreneWordmark.src} alt="" width={220} height={55} />
         <h1>Master</h1>
         <p>Department-wide recruiting, sector boards, applications, and prospects.</p>
       </header>

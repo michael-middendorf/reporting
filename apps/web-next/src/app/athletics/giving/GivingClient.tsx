@@ -179,29 +179,38 @@ export function GivingClient() {
   }
 
   return (
-    <main className="ath-page ath-giving">
-      <div className="ath-page-heading">
-        <div className="ath-brand-lockup">
-          <img className="ath-brand-shield" src={gyreneShield.src} alt="" width={72} height={77} />
-          <div>
-            <h1>Athletics Giving</h1>
-            <p>
-              Gifts posted to Athletics Fundraising, Athletics - Specific Sport, and the
-              historical athletics segment in Virtuous. Only {lastFyLabel} and this fiscal year
-              {data?.fiscalYearLabel ? ` (${data.fiscalYearLabel})` : ""} are included
-              {data?.generated_at ? ` · updated ${data.generated_at.slice(0, 10)}` : ""}.
-            </p>
+    <main className="ath-giving">
+      <header className="ath-giving-hero">
+        <div className="ath-giving-hero-inner">
+          <div className="ath-giving-hero-brand">
+            <img
+              className="ath-giving-hero-mark"
+              src={gyreneShield.src}
+              alt="Ave Maria University Gyrenes"
+              width={118}
+              height={126}
+            />
+            <div>
+              <p className="ath-kicker">Athletics</p>
+              <h1>Giving</h1>
+              <p>
+                Gifts posted to Athletics Fundraising, Athletics - Specific Sport, and the
+                historical athletics segment in Virtuous. Only {lastFyLabel} and this fiscal year
+                {data?.fiscalYearLabel ? ` (${data.fiscalYearLabel})` : ""} are included
+                {data?.generated_at ? ` · updated ${data.generated_at.slice(0, 10)}` : ""}.
+              </p>
+            </div>
+          </div>
+          <div className="ath-giving-actions">
+            <button type="button" className="ath-secondary" onClick={exportExcel} disabled={!visible.length}>
+              Export Excel
+            </button>
+            <button type="button" className="ath-primary" onClick={load} disabled={loading}>
+              {loading ? "Loading…" : "Refresh"}
+            </button>
           </div>
         </div>
-        <div className="ath-giving-actions">
-          <button type="button" className="ath-secondary" onClick={exportExcel} disabled={!visible.length}>
-            Export Excel
-          </button>
-          <button type="button" className="ath-primary" onClick={load} disabled={loading}>
-            {loading ? "Loading…" : "Refresh"}
-          </button>
-        </div>
-      </div>
+      </header>
 
       {error ? (
         <div className="ath-state">
@@ -210,7 +219,11 @@ export function GivingClient() {
       ) : null}
 
       {!error && data ? (
-        <>
+        <div className="ath-page ath-giving-body">
+          <div className="ath-giving-details">
+            <span>Let&apos;s dive into</span>
+            <h2>The details</h2>
+          </div>
           <div className="ath-giving-filters">
             <label>
               Sport
@@ -376,7 +389,7 @@ export function GivingClient() {
             </div>
             <GiftTable rows={visible} />
           </section>
-        </>
+        </div>
       ) : null}
     </main>
   );
