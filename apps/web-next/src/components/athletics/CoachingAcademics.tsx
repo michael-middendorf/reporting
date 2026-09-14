@@ -127,7 +127,7 @@ export function AcademicsPage({ sportKey }: { sportKey: string }) {
           </div>
 
           <h3>Needs office hours</h3>
-          <p>Athletes with a course that is not an A or B (or has no grade yet).</p>
+          <p>Athletes with a course that is not an A or B.</p>
           {data.officeHours.length ? (
             <div className="ath-table-scroll ath-coach-academics">
               <table className="ath-table">

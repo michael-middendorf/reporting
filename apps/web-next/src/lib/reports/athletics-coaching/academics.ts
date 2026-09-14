@@ -556,7 +556,7 @@ function summarizeMatchedAthletes(athletes: AcademicsAthlete[]): Pick<
 
     for (const course of athlete.courses) {
       const letter = letterFromPercent(course.grade);
-      if (course.grade === null || !isAB(letter)) {
+      if (course.grade !== null && !isAB(letter)) {
         officeHours.push({
           name: athlete.name,
           email: athlete.email,

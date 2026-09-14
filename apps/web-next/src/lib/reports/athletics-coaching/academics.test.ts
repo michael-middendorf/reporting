@@ -437,10 +437,10 @@ describe("live coaching snapshot KPIs", () => {
 
     const officeCourses = summary.officeHours.map((row) => `${row.name}|${row.course}|${row.letter}`);
     assert.equal(officeCourses.includes("One Alpha|THE 105|C"), true);
-    assert.equal(officeCourses.includes("One Alpha|LAT 101|None"), true);
+    assert.equal(officeCourses.includes("One Alpha|LAT 101|None"), false);
     assert.equal(officeCourses.some((row) => row.includes("BIO 101")), false);
     assert.equal(officeCourses.some((row) => row.includes("ENG 201")), false);
-    assert.equal(summary.officeHours.length, 2);
+    assert.equal(summary.officeHours.length, 1);
 
     assert.equal(summary.peopleMissingClass, 1);
     assert.equal(summary.classesWithAbsences, 2);
