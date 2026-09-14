@@ -85,6 +85,15 @@ export function formatGiftDate(iso: string | null | undefined): string {
   return `${month}/${day}/${year}`;
 }
 
+export function giftsFromLastTwoFiscalYears(
+  gifts: AthleticsGivingGift[],
+  fyStart: string,
+): AthleticsGivingGift[] {
+  const cutoff = previousFiscalYearWindow(fyStart).start;
+  if (!cutoff) return gifts;
+  return gifts.filter((gift) => (gift.giftDate || "") >= cutoff);
+}
+
 export function giftsInRange(
   gifts: AthleticsGivingGift[],
   start: string | null,
@@ -106,7 +115,7 @@ export const DATE_PRESETS: { id: DatePreset; label: string }[] = [
   { id: "this-week", label: "This week" },
   { id: "last-week", label: "Last week" },
   { id: "this-month", label: "This month" },
-  { id: "all", label: "All time" },
+  { id: "all", label: "This year + last year" },
   { id: "custom", label: "Date range" },
 ];
 
@@ -160,8 +169,16 @@ export function rangeForPreset(
     const previous = previousFiscalYearWindow(fyStart);
     return { start: previous.start || null, end: previous.end || null };
   }
-  if (preset === "custom") return { start: customStart || null, end: customEnd || null };
-  return { start: null, end: null };
+  if (preset === "custom") {
+    const cutoff = previousFiscalYearWindow(fyStart).start;
+    const start = customStart && cutoff && customStart < cutoff ? cutoff : customStart || null;
+    return { start, end: customEnd || null };
+  }
+  if (preset === "all") {
+    const previous = previousFiscalYearWindow(fyStart);
+    return { start: previous.start || null, end: day };
+  }
+  return { start: previousFiscalYearWindow(fyStart).start || null, end: day };
 }
 
 export function totalsFromGifts(gifts: AthleticsGivingGift[]): AthleticsGivingTotals {

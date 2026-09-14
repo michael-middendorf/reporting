@@ -140,17 +140,22 @@ def parse_gift_date(value: Any) -> dt.date | None:
         return None
 
 
-def designation_query() -> dict[str, Any]:
-    return {
-        "groups": [
-            {
-                "conditions": [
-                    {"parameter": "Segment Name", "operator": "Is", "value": segment},
-                ]
-            }
-            for segment in SEGMENTS
+def previous_fiscal_year_start(fy_start: dt.date) -> dt.date:
+    return dt.date(fy_start.year - 1, fy_start.month, fy_start.day)
+
+
+def designation_query(since: dt.date | None = None) -> dict[str, Any]:
+    groups = []
+    for segment in SEGMENTS:
+        conditions: list[dict[str, str]] = [
+            {"parameter": "Segment Name", "operator": "Is", "value": segment},
         ]
-    }
+        if since is not None:
+            conditions.append(
+                {"parameter": "Gift Date", "operator": "OnOrAfter", "value": since.isoformat()},
+            )
+        groups.append({"conditions": conditions})
+    return {"groups": groups}
 
 
 def contact_url(contact_id: Any) -> str | None:
@@ -268,7 +273,13 @@ def build_snapshot(
     generated_at: str,
 ) -> dict[str, Any]:
     fy, fy_start, fy_end = fiscal_year_window(today)
+    since = previous_fiscal_year_start(fy_start)
     rows = [row for row in (normalize_row(raw) for raw in raw_rows) if row]
+    rows = [
+        row
+        for row in rows
+        if (day := parse_gift_date(row.get("giftDate"))) is not None and day >= since
+    ]
     rows.sort(
         key=lambda row: (
             row.get("giftDate") or "",
@@ -285,10 +296,12 @@ def build_snapshot(
         "fiscalYearLabel": fiscal_year_label(fy),
         "fyStart": fy_start.isoformat(),
         "fyEnd": fy_end.isoformat(),
+        "since": since.isoformat(),
         "asOf": generated_at,
         "weekly": window_totals(rows, week_start, today),
         "fytd": window_totals(rows, fy_start, min(today, fy_end)),
-        "allTime": window_totals(rows, None, None),
+        "lastFy": window_totals(rows, since, fy_start - dt.timedelta(days=1)),
+        "allTime": window_totals(rows, since, None),
         "funds": fund_rows(rows),
         "gifts": rows,
     }
@@ -303,10 +316,16 @@ def handler(event: dict[str, Any] | None = None, context: Any = None) -> dict[st
         key,
         os.environ.get("VIRTUOUS_BASE_URL") or "https://api.virtuoussoftware.com",
     )
-    print("  athletics giving querying GiftDesignation by segment…", flush=True)
-    raw = client.paged_query(GIFT_DESIGNATION_QUERY_PATH, designation_query())
     now = dt.datetime.now(dt.timezone.utc)
-    snapshot = build_snapshot(raw, today=now.date(), generated_at=now.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    today = now.date()
+    _fy, fy_start, _fy_end = fiscal_year_window(today)
+    since = previous_fiscal_year_start(fy_start)
+    print(
+        f"  athletics giving querying GiftDesignation by segment since {since.isoformat()}…",
+        flush=True,
+    )
+    raw = client.paged_query(GIFT_DESIGNATION_QUERY_PATH, designation_query(since))
+    snapshot = build_snapshot(raw, today=today, generated_at=now.strftime("%Y-%m-%dT%H:%M:%SZ"))
     from common.s3util import put_json
 
     uri = put_json(CACHE_KEY, snapshot)

@@ -6,6 +6,7 @@ import {
   formatGiftDate,
   fundsThisYearVsLastYear,
   giftExportRows,
+  giftsFromLastTwoFiscalYears,
   giftsInRange,
   isGivingReady,
   previousFiscalYearLabel,
@@ -119,8 +120,12 @@ describe("athletics giving shape", () => {
       end: "2026-06-30",
     });
     assert.deepEqual(rangeForPreset("all", "2026-09-14", "2026-07-01", "", ""), {
-      start: null,
-      end: null,
+      start: "2025-07-01",
+      end: "2026-09-14",
+    });
+    assert.deepEqual(rangeForPreset("custom", "2026-09-14", "2026-07-01", "2024-01-01", "2026-08-15"), {
+      start: "2025-07-01",
+      end: "2026-08-15",
     });
     const week = filterGifts(SAMPLE.gifts, {
       start: "2026-09-07",
@@ -148,7 +153,7 @@ describe("athletics giving shape", () => {
     assert.equal(datePresetLabel("this-week"), "This week");
     assert.equal(datePresetLabel("last-week"), "Last week");
     assert.equal(datePresetLabel("custom"), "Date range");
-    assert.equal(datePresetLabel("all"), "All time");
+    assert.equal(datePresetLabel("all"), "This year + last year");
     assert.deepEqual(previousFiscalYearWindow("2026-07-01"), { start: "2025-07-01", end: "2026-06-30" });
     assert.equal(previousFiscalYearLabel("FY 2026-27"), "FY 2025-26");
   });
@@ -192,6 +197,9 @@ describe("athletics giving shape", () => {
       rows.some((row) => row.thisYear === 9999 || row.lastYear === 9999),
       false,
     );
+    const kept = giftsFromLastTwoFiscalYears(gifts, "2026-07-01");
+    assert.equal(kept.some((gift) => gift.giftId === 22), false);
+    assert.equal(kept.some((gift) => gift.giftId === 20), true);
   });
 
   it("this fiscal year excludes prior-year gifts that remain in all time", () => {

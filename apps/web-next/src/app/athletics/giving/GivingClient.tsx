@@ -11,6 +11,7 @@ import {
   formatGiftDate,
   fundsThisYearVsLastYear,
   giftExportRows,
+  giftsFromLastTwoFiscalYears,
   isGivingReady,
   previousFiscalYearLabel,
   previousFiscalYearWindow,
@@ -55,6 +56,10 @@ export function GivingClient() {
   const thisFyStart = data?.fyStart?.slice(0, 10) || "";
   const lastFy = useMemo(() => previousFiscalYearWindow(thisFyStart), [thisFyStart]);
   const lastFyLabel = previousFiscalYearLabel(data?.fiscalYearLabel);
+  const gifts = useMemo(
+    () => (data ? giftsFromLastTwoFiscalYears(data.gifts, data.fyStart) : []),
+    [data],
+  );
   const range = useMemo(
     () => rangeForPreset(preset, asOf || "2026-09-14", data?.fyStart || "", customStart, customEnd),
     [preset, asOf, data?.fyStart, customStart, customEnd],
@@ -62,16 +67,14 @@ export function GivingClient() {
 
   const twoYear = useMemo(
     () =>
-      data
-        ? filterGifts(data.gifts, {
-            start: lastFy.start || null,
-            end: asOf || lastFy.end || null,
-            sportKey: "all",
-            fund: "all",
-            search: "",
-          })
-        : [],
-    [data, lastFy.start, lastFy.end, asOf],
+      filterGifts(gifts, {
+        start: lastFy.start || null,
+        end: asOf || lastFy.end || null,
+        sportKey: "all",
+        fund: "all",
+        search: "",
+      }),
+    [gifts, lastFy.start, lastFy.end, asOf],
   );
 
   const sportOptions = useMemo(() => {
@@ -81,22 +84,20 @@ export function GivingClient() {
 
   const visible = useMemo(
     () =>
-      data
-        ? filterGifts(data.gifts, {
-            start: range.start,
-            end: range.end,
-            sportKey,
-            fund,
-            search,
-          })
-        : [],
-    [data, range.start, range.end, sportKey, fund, search],
+      filterGifts(gifts, {
+        start: range.start,
+        end: range.end,
+        sportKey,
+        fund,
+        search,
+      }),
+    [gifts, range.start, range.end, sportKey, fund, search],
   );
 
   const fundRows = useMemo(
     () =>
       fundsThisYearVsLastYear(
-        filterGifts(data?.gifts || [], {
+        filterGifts(gifts, {
           start: lastFy.start || null,
           end: asOf || lastFy.end || null,
           sportKey,
@@ -108,13 +109,13 @@ export function GivingClient() {
         lastFy.start,
         lastFy.end,
       ),
-    [data, sportKey, thisFyStart, asOf, lastFy.start, lastFy.end],
+    [gifts, sportKey, thisFyStart, asOf, lastFy.start, lastFy.end],
   );
   const totals = useMemo(() => totalsFromGifts(visible), [visible]);
   const fyTotals = useMemo(
     () =>
       totalsFromGifts(
-        filterGifts(data?.gifts || [], {
+        filterGifts(gifts, {
           start: thisFyStart || null,
           end: asOf || null,
           sportKey,
@@ -122,12 +123,12 @@ export function GivingClient() {
           search: "",
         }),
       ),
-    [data, thisFyStart, asOf, sportKey, fund],
+    [gifts, thisFyStart, asOf, sportKey, fund],
   );
   const lastFyTotals = useMemo(
     () =>
       totalsFromGifts(
-        filterGifts(data?.gifts || [], {
+        filterGifts(gifts, {
           start: lastFy.start || null,
           end: lastFy.end || null,
           sportKey,
@@ -135,7 +136,7 @@ export function GivingClient() {
           search: "",
         }),
       ),
-    [data, lastFy.start, lastFy.end, sportKey, fund],
+    [gifts, lastFy.start, lastFy.end, sportKey, fund],
   );
   const maxFund = Math.max(1, ...fundRows.map((item) => item.thisYear));
   const sportLabel = sportKey === "all" ? "All sports" : sportForGiftLabel(sportKey);
@@ -171,9 +172,8 @@ export function GivingClient() {
           <h1>Athletics Giving</h1>
           <p>
             Gifts posted to Athletics Fundraising, Athletics - Specific Sport, and the
-            historical athletics segment in Virtuous. Fund totals are this fiscal year vs last
-            fiscal year
-            {data?.fiscalYearLabel ? ` (${data.fiscalYearLabel} / ${lastFyLabel})` : ""}
+            historical athletics segment in Virtuous. Only {lastFyLabel} and this fiscal year
+            {data?.fiscalYearLabel ? ` (${data.fiscalYearLabel})` : ""} are included
             {data?.generated_at ? ` · updated ${data.generated_at.slice(0, 10)}` : ""}.
           </p>
         </div>
@@ -241,6 +241,7 @@ export function GivingClient() {
               From
               <input
                 type="date"
+                min={lastFy.start || undefined}
                 value={preset === "custom" ? customStart : range.start || ""}
                 onChange={(event) => {
                   setPreset("custom");
@@ -253,6 +254,7 @@ export function GivingClient() {
               To
               <input
                 type="date"
+                min={lastFy.start || undefined}
                 value={preset === "custom" ? customEnd : range.end || ""}
                 onChange={(event) => {
                   setPreset("custom");
@@ -298,8 +300,8 @@ export function GivingClient() {
             <h2>By fund</h2>
             <p>
               This year ({data.fiscalYearLabel || "FY"}) vs last year ({lastFyLabel})
-              {sportKey === "all" ? "" : ` · ${sportLabel}`}. Older gifts are not included. Click a fund to
-              filter the total and table.
+              {sportKey === "all" ? "" : ` · ${sportLabel}`}. Gifts before {lastFyLabel} are not shown. Click a
+              fund to filter the total and table.
             </p>
             <div className="ath-giving-fund-list">
               {fundRows.map((item) => (
