@@ -192,11 +192,6 @@ export function GivingClient() {
           <div>
             <p className="ath-kicker">Athletics</p>
             <h1>Giving</h1>
-            <p>
-              Virtuous gifts for {lastFyLabel} and this fiscal year
-              {data?.fiscalYearLabel ? ` (${data.fiscalYearLabel})` : ""}
-              {data?.generated_at ? ` · updated ${data.generated_at.slice(0, 10)}` : ""}.
-            </p>
           </div>
         </div>
         <div className="ath-giving-actions">

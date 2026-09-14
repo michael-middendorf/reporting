@@ -114,7 +114,6 @@ a.ath-hub-card:hover { box-shadow: 0 8px 26px rgba(10, 34, 64, .12); transform: 
   text-transform: uppercase;
   letter-spacing: -.03em;
 }
-.ath-giving-banner p { max-width: 46ch; font-size: 13px; }
 .ath-page-heading:not(:has(p)) { align-items: center; }
 .ath-page-heading h1 { margin: 0; color: var(--ath-navy); font-size: clamp(24px, 2.6vw, 30px); font-weight: 750; letter-spacing: -.03em; }
 .ath-page-heading p { margin: 7px 0 0; color: var(--ath-muted); font-size: 14px; line-height: 1.45; }
