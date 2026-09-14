@@ -71,6 +71,10 @@ describe("GET /api/athletics-coaching/academics access and MFA", () => {
     assert.equal(coachBody.error, "MFA required");
     assert.equal(coachBody.mfaUrl.startsWith("/athletics/coaching/mfa"), true);
     assert.equal(String(coachBody.mfaUrl).includes("/aspiredu/mfa"), false);
+    assert.equal(
+      String(coachBody.mfaUrl),
+      "/athletics/coaching/mfa?next=%2Fathletics%2Fcoaching%2Ffootball%2Facademics",
+    );
 
     const leadership = await GET(authRequest(ERIC, "womens-volleyball"));
     assert.equal(leadership.status, 401);

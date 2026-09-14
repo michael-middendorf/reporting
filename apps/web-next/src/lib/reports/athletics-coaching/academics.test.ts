@@ -13,7 +13,10 @@ import {
   buildAcademicsSummary,
   coachingLambdaPayload,
   coachingMfaUrl,
+  gpaPointsFromPercent,
+  isAB,
   isCoachingActionUnavailable,
+  letterFromPercent,
   matchedRosterRows,
   normalizePcid,
   rosterJoinKeys,
@@ -100,8 +103,15 @@ describe("academics MFA unlock", () => {
 
 describe("coaching MFA urls", () => {
   it("keeps mfaUrl under /athletics/coaching and rejects open redirects", () => {
-    assert.equal(coachingMfaUrl("football"), "/athletics/coaching/mfa?next=%2Fathletics%2Fcoaching%2Ffootball");
+    assert.equal(
+      coachingMfaUrl("football"),
+      "/athletics/coaching/mfa?next=%2Fathletics%2Fcoaching%2Ffootball%2Facademics",
+    );
     assert.equal(safeCoachingNext("/athletics/coaching/football"), "/athletics/coaching/football");
+    assert.equal(
+      safeCoachingNext("/athletics/coaching/football/academics"),
+      "/athletics/coaching/football/academics",
+    );
     assert.equal(safeCoachingNext("https://evil.example/"), "/athletics/coaching");
     assert.equal(safeCoachingNext("//evil.example"), "/athletics/coaching");
     assert.equal(safeCoachingNext("/aspiredu/mfa"), "/athletics/coaching");
@@ -262,7 +272,15 @@ describe("academics join and pulse", () => {
     const stale = daysAgo(20);
     assert.deepEqual(
       attendancePulse({ latestSession: "present", lastAttended: stale, now: NOW }),
-      { band: "attending", source: "session", lastAttended: stale },
+      {
+        band: "attending",
+        source: "session",
+        lastAttended: stale,
+        present: null,
+        absent: null,
+        late: null,
+        sessionCount: null,
+      },
     );
     assert.equal(attendancePulse({ latestSession: "late", lastAttended: daysAgo(1), now: NOW })?.band, "watch");
     assert.equal(attendancePulse({ latestSession: "absent", lastAttended: daysAgo(1), now: NOW })?.band, "inactive");
@@ -286,6 +304,181 @@ describe("academics join and pulse", () => {
     const pulse = attendancePulse({ lastAttended: daysAgo(10), now: NOW });
     assert.equal(pulse?.source, "last-attended");
     assert.equal(JSON.stringify(pulse).toLowerCase().includes("attendance %"), false);
+  });
+});
+
+describe("letter grades and GPA points", () => {
+  it("maps percent cutoffs, treats null as None, and marks A/B letters", () => {
+    assert.equal(letterFromPercent(null), "None");
+    assert.equal(letterFromPercent(97), "A+");
+    assert.equal(letterFromPercent(93), "A");
+    assert.equal(letterFromPercent(90), "A-");
+    assert.equal(letterFromPercent(87), "B+");
+    assert.equal(letterFromPercent(83), "B");
+    assert.equal(letterFromPercent(80), "B-");
+    assert.equal(letterFromPercent(79.9), "C+");
+    assert.equal(letterFromPercent(59), "F");
+    assert.equal(gpaPointsFromPercent(97), 4.0);
+    assert.equal(gpaPointsFromPercent(93), 4.0);
+    assert.equal(gpaPointsFromPercent(90), 3.7);
+    assert.equal(gpaPointsFromPercent(83), 3.0);
+    assert.equal(gpaPointsFromPercent(74), 2.0);
+    assert.equal(gpaPointsFromPercent(59), 0);
+    assert.equal(isAB("A-"), true);
+    assert.equal(isAB("B"), true);
+    assert.equal(isAB("C+"), false);
+    assert.equal(isAB("None"), false);
+  });
+});
+
+describe("live coaching snapshot KPIs", () => {
+  const rosterRows = [
+    {
+      personreferenceid: "r1",
+      email: "athlete.one@avemaria.edu",
+      pcid: "P000000001",
+      firstname: "One",
+      lastname: "Alpha",
+      currentsport: "Football",
+    },
+    {
+      personreferenceid: "r2",
+      email: "athlete.two@avemaria.edu",
+      pcid: "P000000002",
+      firstname: "Two",
+      lastname: "Bravo",
+      currentsport: "Football",
+    },
+    {
+      personreferenceid: "r3",
+      email: "athlete.three@avemaria.edu",
+      pcid: "P000000003",
+      firstname: "Three",
+      lastname: "Unmatched",
+      currentsport: "Football",
+    },
+  ];
+
+  it("maps overallRisk and pulse, and computes team GPA and office hours", () => {
+    const lastClass = daysAgo(2);
+    const summary = buildAcademicsSummary({
+      sport: "football",
+      rosterRows,
+      now: NOW,
+      lambdaResult: {
+        asOf: "2026-09-03T11:00:00Z",
+        students: [
+          {
+            email: "athlete.one@avemaria.edu",
+            studentSisId: "P000000001",
+            overallRisk: 4,
+            pulse: {
+              present: 8,
+              absent: 2,
+              late: 0,
+              other: 0,
+              sessionCount: 10,
+              latestClassDate: lastClass,
+            },
+            courses: [
+              {
+                course: "BIO 101",
+                courseGrade: 93,
+                missingAssignments: 0,
+                courseLastAccess: daysAgo(1),
+                timesPresent: 8,
+                timesAbsent: 2,
+                percentageAttendance: 80,
+              },
+              {
+                course: "THE 105",
+                courseGrade: 73,
+                missingAssignments: 3,
+                timesPresent: 6,
+                timesAbsent: 1,
+              },
+              {
+                course: "LAT 101",
+                courseGrade: null,
+                missingAssignments: 0,
+              },
+            ],
+          },
+          {
+            email: "athlete.two@avemaria.edu",
+            studentSisId: "P000000002",
+            overallRisk: 1,
+            pulse: { present: 9, absent: 0, late: 0, sessionCount: 9, latestClassDate: daysAgo(1) },
+            courses: [
+              {
+                course: "ENG 201",
+                courseGrade: 83,
+                missingAssignments: 0,
+                timesPresent: 9,
+                timesAbsent: 0,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    assert.equal(summary.athletes[0].risk, "4");
+    assert.equal(summary.athletes[0].pulse?.absent, 2);
+    assert.equal(summary.athletes[0].pulse?.present, 8);
+    assert.equal(summary.athletes[0].pulse?.sessionCount, 10);
+    assert.equal(summary.athletes[0].lastAttended, lastClass);
+    assert.equal(summary.athletes[0].courses[0].timesAbsent, 2);
+
+    // One: (A 4.0 + C 2.0) / 2 = 3.0. Two: B 3.0. Team = 3.00.
+    assert.equal(summary.teamGpa, 3);
+    // One mean percent (93+73)/2 = 83. Two 83. Team = 83.0.
+    assert.equal(summary.teamAvgPercent, 83);
+
+    const officeCourses = summary.officeHours.map((row) => `${row.name}|${row.course}|${row.letter}`);
+    assert.equal(officeCourses.includes("One Alpha|THE 105|C"), true);
+    assert.equal(officeCourses.includes("One Alpha|LAT 101|None"), true);
+    assert.equal(officeCourses.some((row) => row.includes("BIO 101")), false);
+    assert.equal(officeCourses.some((row) => row.includes("ENG 201")), false);
+    assert.equal(summary.officeHours.length, 2);
+
+    assert.equal(summary.peopleMissingClass, 1);
+    assert.equal(summary.classesWithAbsences, 2);
+    assert.equal(summary.totalAbsenceSessions, 2);
+    assert.equal(summary.missingClass[0].name, "One Alpha");
+    assert.equal(summary.missingClass[0].sessionAbsences, 2);
+  });
+
+  it("counts people missing class from course absences when pulse.absent is missing", () => {
+    const summary = buildAcademicsSummary({
+      sport: "football",
+      rosterRows,
+      now: NOW,
+      lambdaResult: {
+        students: [
+          {
+            email: "athlete.one@avemaria.edu",
+            studentSisId: "P000000001",
+            riskBand: "2",
+            attendance: { present: 5, late: 0, latest: "present" },
+            courses: [{ course: "HIS 201", courseGrade: 88, timesAbsent: 3, timesPresent: 5 }],
+          },
+          {
+            email: "athlete.two@avemaria.edu",
+            studentSisId: "P000000002",
+            riskBand: "1",
+            attendance: { present: 6, absent: 0, late: 0, latest: "present" },
+            courses: [{ course: "ENG 201", courseGrade: 90, timesAbsent: 0, timesPresent: 6 }],
+          },
+        ],
+      },
+    });
+    assert.equal(summary.peopleMissingClass, 1);
+    assert.equal(summary.classesWithAbsences, 1);
+    assert.equal(summary.missingClass[0].sessionAbsences, 3);
+    assert.equal(summary.missingClass[0].coursesWithAbsences[0].course, "HIS 201");
+    assert.equal(summary.missingClass[0].coursesWithAbsences[0].timesAbsent, 3);
+    assert.equal(summary.officeHours.length, 0);
   });
 });
 

@@ -18,6 +18,22 @@ export const COACHING_LAMBDA_UNAVAILABLE =
 const DAY_MS = 86_400_000;
 const PCID_PATTERN = /^P\d{9}$/;
 
+const LETTER_POINTS: Record<string, number> = {
+  "A+": 4.0,
+  A: 4.0,
+  "A-": 3.7,
+  "B+": 3.3,
+  B: 3.0,
+  "B-": 2.7,
+  "C+": 2.3,
+  C: 2.0,
+  "C-": 1.7,
+  "D+": 1.3,
+  D: 1.0,
+  "D-": 0.7,
+  F: 0,
+};
+
 export type AttendancePulseBand = "attending" | "watch" | "inactive";
 export type AttendancePulseSource = "session" | "last-attended";
 
@@ -25,6 +41,10 @@ export type AttendancePulse = {
   band: AttendancePulseBand;
   source: AttendancePulseSource;
   lastAttended: string | null;
+  present: number | null;
+  absent: number | null;
+  late: number | null;
+  sessionCount: number | null;
 };
 
 export type AcademicsCourse = {
@@ -32,6 +52,9 @@ export type AcademicsCourse = {
   grade: number | null;
   missing: number | null;
   lastAccess: string | null;
+  timesAbsent: number | null;
+  timesPresent: number | null;
+  percentageAttendance: number | null;
 };
 
 export type AcademicsAthlete = {
@@ -45,6 +68,24 @@ export type AcademicsAthlete = {
   courses: AcademicsCourse[];
 };
 
+export type OfficeHoursRow = {
+  name: string;
+  email: string;
+  pcid: string;
+  course: string;
+  grade: number | null;
+  letter: string;
+  missing: number | null;
+};
+
+export type MissingClassRow = {
+  name: string;
+  email: string;
+  pcid: string;
+  sessionAbsences: number;
+  coursesWithAbsences: { course: string; timesAbsent: number }[];
+};
+
 export type AcademicsSummary = {
   sport: string;
   sportLabel: string;
@@ -54,6 +95,13 @@ export type AcademicsSummary = {
   matchRate: number | null;
   matchedCount: number;
   rosterCount: number;
+  teamGpa: number | null;
+  teamAvgPercent: number | null;
+  peopleMissingClass: number;
+  classesWithAbsences: number;
+  totalAbsenceSessions: number;
+  officeHours: OfficeHoursRow[];
+  missingClass: MissingClassRow[];
   athletes: AcademicsAthlete[];
 };
 
@@ -73,6 +121,7 @@ type Snapshot = {
   present: number | null;
   absent: number | null;
   late: number | null;
+  sessionCount: number | null;
   latestSession: "present" | "absent" | "late" | null;
   courses: AcademicsCourse[];
 };
@@ -98,6 +147,43 @@ function asFiniteNumber(value: unknown): number | null {
     if (Number.isFinite(parsed)) return parsed;
   }
   return null;
+}
+
+function mean(values: number[]): number | null {
+  if (!values.length) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function roundTo(value: number, digits: number): number {
+  return Number(value.toFixed(digits));
+}
+
+/** Convert a 0-100 course percent to a letter. Null grade is "None". */
+export function letterFromPercent(percent: number | null | undefined): string {
+  if (percent === null || percent === undefined || !Number.isFinite(percent)) return "None";
+  if (percent >= 97) return "A+";
+  if (percent >= 93) return "A";
+  if (percent >= 90) return "A-";
+  if (percent >= 87) return "B+";
+  if (percent >= 83) return "B";
+  if (percent >= 80) return "B-";
+  if (percent >= 77) return "C+";
+  if (percent >= 73) return "C";
+  if (percent >= 70) return "C-";
+  if (percent >= 67) return "D+";
+  if (percent >= 63) return "D";
+  if (percent >= 60) return "D-";
+  return "F";
+}
+
+/** 4.0-scale points for a 0-100 course percent. */
+export function gpaPointsFromPercent(percent: number): number {
+  return LETTER_POINTS[letterFromPercent(percent)] ?? 0;
+}
+
+/** True when the letter is A/A+/A- or B/B+/B-. */
+export function isAB(letter: string): boolean {
+  return letter.startsWith("A") || letter.startsWith("B");
 }
 
 export function normalizePcid(raw: string): string | null {
@@ -162,7 +248,7 @@ export function coachingLambdaPayload(
 }
 
 export function coachingMfaUrl(sport: string): string {
-  const next = `/athletics/coaching/${sport}`;
+  const next = `/athletics/coaching/${sport}/academics`;
   return `/athletics/coaching/mfa?next=${encodeURIComponent(next)}`;
 }
 
@@ -248,6 +334,7 @@ export function attendancePulse(input: {
   present?: number | null;
   absent?: number | null;
   late?: number | null;
+  sessionCount?: number | null;
   latestSession?: string | null;
   lastAttended?: string | null;
   now?: Date;
@@ -255,6 +342,12 @@ export function attendancePulse(input: {
   const now = input.now || new Date();
   const lastAttended = asString(input.lastAttended) || null;
   const latest = normalizeSessionStatus(input.latestSession);
+  const counts = {
+    present: input.present ?? null,
+    absent: input.absent ?? null,
+    late: input.late ?? null,
+    sessionCount: input.sessionCount ?? null,
+  };
   const sessionBand = bandFromSession(
     latest,
     input.present ?? null,
@@ -262,20 +355,27 @@ export function attendancePulse(input: {
     input.late ?? null,
   );
   if (sessionBand) {
-    return { band: sessionBand, source: "session", lastAttended };
+    return { band: sessionBand, source: "session", lastAttended, ...counts };
   }
   if (lastAttended) {
     const band = bandFromLastAttended(lastAttended, now);
-    if (band) return { band, source: "last-attended", lastAttended };
+    if (band) return { band, source: "last-attended", lastAttended, ...counts };
   }
   return null;
 }
 
-function pickLastAttended(record: Record<string, unknown>, attendance: Record<string, unknown> | null): string | null {
+function pickLastAttended(
+  record: Record<string, unknown>,
+  attendance: Record<string, unknown> | null,
+  pulse: Record<string, unknown> | null,
+): string | null {
   const candidates = [
+    pulse?.latestClassDate,
+    pulse?.latestAttendanceDate,
     attendance?.lastAttended,
     attendance?.latestAttendanceDate,
     attendance?.latestAttendance,
+    attendance?.latestClassDate,
     record.lastAttended,
     record.latestAttendanceDate,
     record.latestAttendance,
@@ -295,28 +395,48 @@ function mapCourse(value: unknown): AcademicsCourse | null {
   const grade = asFiniteNumber(record.courseGrade ?? record.grade);
   const missing = asFiniteNumber(record.missingAssignments ?? record.missing);
   const lastAccess = asString(record.courseLastAccess) || asString(record.lastAccess) || null;
-  if (!course && grade === null && missing === null && !lastAccess) return null;
+  const timesAbsent = asFiniteNumber(record.timesAbsent);
+  const timesPresent = asFiniteNumber(record.timesPresent);
+  const percentageAttendance = asFiniteNumber(record.percentageAttendance);
+  if (
+    !course &&
+    grade === null &&
+    missing === null &&
+    !lastAccess &&
+    timesAbsent === null &&
+    timesPresent === null &&
+    percentageAttendance === null
+  ) {
+    return null;
+  }
   return {
     course: course || "Course",
     grade,
     missing,
     lastAccess,
+    timesAbsent,
+    timesPresent,
+    percentageAttendance,
   };
 }
 
 function mapSnapshot(value: unknown): Snapshot | null {
   const record = asRecord(value);
   if (!record) return null;
+  const pulse = asRecord(record.pulse);
   const attendance = asRecord(record.attendance);
+  const counts = pulse || attendance;
   const email = normalizeEmail(asString(record.email));
   const pcid =
     normalizePcid(asString(record.pcid) || asString(record.studentSisId) || asString(record.sisId)) || "";
-  const riskValue = record.riskBand ?? record.risk ?? record.riskScore;
+  const riskValue = record.overallRisk ?? record.riskBand ?? record.risk ?? record.riskScore;
   const risk = riskValue === undefined || riskValue === null || riskValue === "" ? null : String(riskValue);
   const latestFromSessions = asArray(record.sessions)
     .map((session) => {
       const item = asRecord(session);
-      return item ? { status: normalizeSessionStatus(item.status ?? item.attendance), at: asString(item.date ?? item.classDate ?? item.timestamp) } : null;
+      return item
+        ? { status: normalizeSessionStatus(item.status ?? item.attendance), at: asString(item.date ?? item.classDate ?? item.timestamp) }
+        : null;
     })
     .filter((item): item is { status: "present" | "absent" | "late" | null; at: string } => Boolean(item))
     .sort((a, b) => (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0))[0];
@@ -328,10 +448,11 @@ function mapSnapshot(value: unknown): Snapshot | null {
     email,
     pcid,
     risk,
-    lastAttended: pickLastAttended(record, attendance) || latestFromSessions?.at || null,
-    present: asFiniteNumber(attendance?.present ?? record.timesPresent ?? record.present),
-    absent: asFiniteNumber(attendance?.absent ?? record.timesAbsent ?? record.absent),
-    late: asFiniteNumber(attendance?.late ?? record.timesLate ?? record.late),
+    lastAttended: pickLastAttended(record, attendance, pulse) || latestFromSessions?.at || null,
+    present: asFiniteNumber(counts?.present ?? record.timesPresent ?? record.present),
+    absent: asFiniteNumber(counts?.absent ?? record.timesAbsent ?? record.absent),
+    late: asFiniteNumber(counts?.late ?? record.timesLate ?? record.late),
+    sessionCount: asFiniteNumber(counts?.sessionCount ?? record.sessionCount),
     latestSession,
     courses: asArray(record.courses).map(mapCourse).filter((course): course is AcademicsCourse => Boolean(course)),
   };
@@ -364,6 +485,102 @@ function athleteName(row: NormalizedRosterRow): string {
   return [row.firstName, row.lastName].filter(Boolean).join(" ").trim() || row.email || row.pcid || "Unnamed";
 }
 
+function emptyKpis(): Pick<
+  AcademicsSummary,
+  | "teamGpa"
+  | "teamAvgPercent"
+  | "peopleMissingClass"
+  | "classesWithAbsences"
+  | "totalAbsenceSessions"
+  | "officeHours"
+  | "missingClass"
+> {
+  return {
+    teamGpa: null,
+    teamAvgPercent: null,
+    peopleMissingClass: 0,
+    classesWithAbsences: 0,
+    totalAbsenceSessions: 0,
+    officeHours: [],
+    missingClass: [],
+  };
+}
+
+function sessionAbsencesFor(athlete: AcademicsAthlete): number {
+  if (athlete.pulse?.absent != null) return athlete.pulse.absent;
+  return athlete.courses.reduce((sum, course) => sum + (course.timesAbsent ?? 0), 0);
+}
+
+function summarizeMatchedAthletes(athletes: AcademicsAthlete[]): Pick<
+  AcademicsSummary,
+  | "teamGpa"
+  | "teamAvgPercent"
+  | "peopleMissingClass"
+  | "classesWithAbsences"
+  | "totalAbsenceSessions"
+  | "officeHours"
+  | "missingClass"
+> {
+  const matched = athletes.filter((athlete) => athlete.matched);
+  const studentGpas: number[] = [];
+  const studentPercents: number[] = [];
+  const officeHours: OfficeHoursRow[] = [];
+  const missingClass: MissingClassRow[] = [];
+  let classesWithAbsences = 0;
+  let totalAbsenceSessions = 0;
+
+  for (const athlete of matched) {
+    const grades = athlete.courses
+      .map((course) => course.grade)
+      .filter((grade): grade is number => grade !== null);
+    if (grades.length) {
+      studentGpas.push(mean(grades.map(gpaPointsFromPercent)) as number);
+      studentPercents.push(mean(grades) as number);
+    }
+
+    const sessionAbsences = sessionAbsencesFor(athlete);
+    totalAbsenceSessions += sessionAbsences;
+    const coursesWithAbsences = athlete.courses
+      .filter((course) => (course.timesAbsent ?? 0) > 0)
+      .map((course) => ({ course: course.course, timesAbsent: course.timesAbsent ?? 0 }));
+    classesWithAbsences += coursesWithAbsences.length;
+    if ((athlete.pulse?.absent ?? 0) > 0 || coursesWithAbsences.length) {
+      missingClass.push({
+        name: athlete.name,
+        email: athlete.email,
+        pcid: athlete.pcid,
+        sessionAbsences,
+        coursesWithAbsences,
+      });
+    }
+
+    for (const course of athlete.courses) {
+      const letter = letterFromPercent(course.grade);
+      if (course.grade === null || !isAB(letter)) {
+        officeHours.push({
+          name: athlete.name,
+          email: athlete.email,
+          pcid: athlete.pcid,
+          course: course.course,
+          grade: course.grade,
+          letter,
+          missing: course.missing,
+        });
+      }
+    }
+  }
+
+  return {
+    teamGpa: studentGpas.length ? roundTo(mean(studentGpas) as number, 2) : null,
+    teamAvgPercent: studentPercents.length ? roundTo(mean(studentPercents) as number, 1) : null,
+    peopleMissingClass: missingClass.length,
+    classesWithAbsences,
+    totalAbsenceSessions,
+    officeHours,
+    missingClass,
+  };
+}
+
 export function buildAcademicsSummary(input: {
   sport: string;
   rosterRows: SlateRow[] | null;
@@ -383,6 +600,7 @@ export function buildAcademicsSummary(input: {
       matchedCount: 0,
       rosterCount: 0,
       athletes: [],
+      ...emptyKpis(),
     };
   }
 
@@ -404,6 +622,7 @@ export function buildAcademicsSummary(input: {
           present: snapshot.present,
           absent: snapshot.absent,
           late: snapshot.late,
+          sessionCount: snapshot.sessionCount,
           latestSession: snapshot.latestSession,
           lastAttended,
           now,
@@ -432,5 +651,6 @@ export function buildAcademicsSummary(input: {
     matchedCount,
     rosterCount,
     athletes,
+    ...summarizeMatchedAthletes(athletes),
   };
 }

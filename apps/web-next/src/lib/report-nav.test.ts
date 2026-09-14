@@ -198,6 +198,13 @@ describe("reportCrumbs", () => {
       { href: "/athletics/coaching", label: "Coaching" },
       { href: "/athletics/coaching/mens-soccer", label: "Men's Soccer" },
     ]);
+    assert.deepEqual(reportCrumbs("/athletics/coaching/ultimate-frisbee/academics"), [
+      { href: "/", label: "Reports" },
+      { href: "/athletics", label: "Athletics" },
+      { href: "/athletics/coaching", label: "Coaching" },
+      { href: "/athletics/coaching/ultimate-frisbee", label: "Ultimate Frisbee" },
+      { href: "/athletics/coaching/ultimate-frisbee/academics", label: "Academics" },
+    ]);
     assert.deepEqual(reportCrumbs("/athletics/coaching/mfa"), [
       { href: "/", label: "Reports" },
       { href: "/athletics", label: "Athletics" },
