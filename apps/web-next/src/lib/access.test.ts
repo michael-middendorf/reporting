@@ -13,6 +13,7 @@ import {
   coachSportKeys,
   isCoachingLeadership,
 } from "./reports/athletics-coaching/access";
+import { canAccessAthleticsGiving } from "./reports/athletics-giving/access";
 import { SPORTS } from "./reports/athletics-coaching/sports";
 
 const ROBERT = "Robert.Musselman@avemaria.edu";
@@ -103,6 +104,18 @@ describe("athletics-only grant", () => {
     assert.equal(canAccessReport(COACH, "enrollment"), false);
     assert.equal(canAccessReport(COACH, "census"), false);
     assert.deepEqual(reportsForEmail(COACH), ["athletics"]);
+  });
+});
+
+describe("athletics giving access", () => {
+  const ERIC = "Eric.Vanheusen@avemaria.edu";
+  const COACH = "Jamon.Copeland@avemaria.edu";
+  const JIM = "jim.thomas@avemaria.edu";
+
+  it("is for coaching leadership and Advancement, not head coaches", () => {
+    assert.equal(canAccessAthleticsGiving(ERIC), true);
+    assert.equal(canAccessAthleticsGiving(JIM), true);
+    assert.equal(canAccessAthleticsGiving(COACH), false);
   });
 });
 

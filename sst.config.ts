@@ -294,6 +294,23 @@ export default $config({
       permissions: reportDataPerms,
     });
 
+    const athleticsGiving = new sst.aws.Function("AthleticsGivingData", {
+      handler: "services/publishers/athletics-giving/handler.handler",
+      runtime: "python3.12",
+      timeout: "5 minutes",
+      memory: "1024 MB",
+      link: [data],
+      python: { uv: true },
+      copyFiles: commonFiles,
+      environment: {
+        DATA_BUCKET: data.name,
+        API_KEY: virtuousApiKey.value,
+        VIRTUOUS_API_KEY: virtuousApiKey.value,
+        ATHLETICS_GIVING_CACHE_KEY: "athletics-giving/latest.json",
+      },
+      permissions: reportDataPerms,
+    });
+
     const athleticsCoachingFundraising = new sst.aws.Function("AthleticsCoachingFundraisingData", {
       handler: "services/publishers/athletics-coaching-fundraising/handler.handler",
       runtime: "python3.12",
@@ -455,6 +472,11 @@ export default $config({
       function: athleticsCoachingFundraising,
     });
 
+    new sst.aws.Cron("AthleticsGivingRefresh", {
+      schedule: "rate(15 minutes)",
+      function: athleticsGiving,
+    });
+
     // Hourly is enough: appeal figures do not need 15-minute freshness, and
     // geography does a bounded per-donor fetch.
     new sst.aws.Cron("FallAppealRefresh", {
@@ -475,6 +497,7 @@ export default $config({
       stainedGlassWindows: stainedGlassWindows.name,
       fallAppeal: fallAppeal.name,
       athleticsCoachingFundraising: athleticsCoachingFundraising.name,
+      athleticsGiving: athleticsGiving.name,
     };
   },
 });

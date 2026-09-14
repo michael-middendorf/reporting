@@ -19,6 +19,7 @@ export const ADVANCEMENT_NAV: ReportNavItem[] = [
   { href: "/advancement/points/methodology", label: "Points Methodology", report: "points" },
   { href: "/advancement/chapel-naming", label: "Chapel Naming", report: "chapel" },
   { href: "/advancement/stained-glass-windows", label: "Stained Glass", report: "chapel" },
+  { href: "/athletics/giving", label: "Athletics Giving", report: "advancement" },
 ];
 
 export const ENROLLMENT_NAV: ReportNavItem[] = [
@@ -46,6 +47,7 @@ export const ATHLETICS_NAV: ReportNavItem[] = [
   { href: "/athletics/master/recruiting/sectors", label: "Sector Boards", report: "athletics" },
   { href: "/athletics/master/recruiting/applications", label: "Applications", report: "athletics" },
   { href: "/athletics/master/recruiting/prospects", label: "Prospects / Inquiries", report: "athletics" },
+  { href: "/athletics/giving", label: "Giving", report: "athletics-coaching" },
   { href: "/athletics/coaching", label: "Coaching", exact: true, report: "athletics-coaching" },
   { href: "/athletics/coaching/overview", label: "Overview", report: "athletics-coaching" },
 ];

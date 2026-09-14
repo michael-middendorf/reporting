@@ -148,14 +148,18 @@ export function AthleticsProvider({ children }: { children: ReactNode }) {
       const reports = me.reports || [];
       const hasAthletics = reports.includes("athletics");
       const hasCoaching = reports.includes("athletics-coaching");
+      const hasAdvancement = reports.includes("advancement");
       const path = pathname || "";
       const coachingPath = path.startsWith("/athletics/coaching");
+      const givingPath = path === "/athletics/giving" || path.startsWith("/athletics/giving/");
       const hubPath = path === "/athletics";
       const allowed = coachingPath
         ? hasCoaching
-        : hubPath
-          ? hasAthletics || hasCoaching
-          : hasAthletics;
+        : givingPath
+          ? hasCoaching || hasAdvancement
+          : hubPath
+            ? hasAthletics || hasCoaching
+            : hasAthletics;
       setCanLoadRecruiting(hasAthletics);
       setAccess(allowed ? "allowed" : "denied");
     });
@@ -258,9 +262,16 @@ export function AthleticsProvider({ children }: { children: ReactNode }) {
   if (access === "loading") return <div className="ath-state">Checking access…</div>;
   if (access === "denied") {
     const coachingPath = (pathname || "").startsWith("/athletics/coaching");
+    const givingPath = (pathname || "").startsWith("/athletics/giving");
     return (
       <div className="ath-state">
-        <p>{coachingPath ? "You do not have access to the coaching dashboard." : "You do not have access to Athletics Master."}</p>
+        <p>
+          {coachingPath
+            ? "You do not have access to the coaching dashboard."
+            : givingPath
+              ? "You do not have access to Athletics Giving."
+              : "You do not have access to Athletics Master."}
+        </p>
         <Link href="/">← Hub</Link>
       </div>
     );
@@ -274,6 +285,7 @@ export function AthleticsChrome({ children }: { children: ReactNode }) {
   const isHub = pathname === "/athletics" || pathname === "/athletics/master";
   const isRecruiting = pathname === "/athletics/master/recruiting" || pathname.startsWith("/athletics/master/recruiting/");
   const isCoaching = (pathname || "").startsWith("/athletics/coaching");
+  const isGiving = (pathname || "").startsWith("/athletics/giving");
   const [coachingLeadership, setCoachingLeadership] = useState(false);
 
   useEffect(() => {
@@ -315,7 +327,7 @@ export function AthleticsChrome({ children }: { children: ReactNode }) {
           />
         }
         actions={
-          isCoaching ? undefined : (
+          isCoaching || isGiving ? undefined : (
             <>
               <span className="rc-meta">
                 {loading ? "Loading…" : generatedAt ? `As of ${new Date(generatedAt).toLocaleString()}` : ""}

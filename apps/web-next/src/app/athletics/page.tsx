@@ -23,6 +23,12 @@ const CARDS: {
     desc: "Team dashboards for fundraising, enrollment, and academics.",
     report: "athletics-coaching",
   },
+  {
+    href: "/athletics/giving",
+    title: "Giving",
+    desc: "Department gift list and fund totals from Virtuous, replacing the Qlik Athletics Giving app.",
+    report: "athletics-coaching",
+  },
 ];
 
 export default function AthleticsHubPage() {
