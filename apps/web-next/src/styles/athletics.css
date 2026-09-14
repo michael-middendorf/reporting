@@ -343,6 +343,83 @@ a.ath-hub-card:hover { box-shadow: 0 8px 26px rgba(10, 34, 64, .12); transform: 
 .ath-roster-summary strong { color: var(--ath-green-dark); }
 
 .ath-giving .ath-kpi-grid { margin-bottom: 22px; }
+.ath-giving-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.ath-giving-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--ath-line);
+  border-radius: 8px;
+  background: #fff;
+}
+.ath-giving-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+  color: var(--ath-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.ath-giving-filters select,
+.ath-giving-filters input[type="date"] {
+  min-width: 180px;
+  border: 1px solid var(--ath-line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #fff;
+  color: var(--ath-ink);
+  font: 650 13px/1.2 system-ui, sans-serif;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.ath-giving-date-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 420px;
+  color: var(--ath-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.ath-giving-date-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ath-giving-date-presets button {
+  border: 1px solid var(--ath-line);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: #fff;
+  color: var(--ath-navy);
+  font: 700 12px/1 system-ui, sans-serif;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+.ath-giving-date-presets button.is-active {
+  background: var(--ath-green);
+  border-color: var(--ath-green);
+  color: #fff;
+}
+.ath-giving-kpis { grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(160px, 1fr)); }
+.ath-secondary {
+  border: 1px solid var(--ath-line);
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: #fff;
+  color: var(--ath-navy);
+  font: 700 13px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+.ath-secondary:disabled { opacity: .5; cursor: default; }
 .ath-giving-funds { margin: 0 0 22px; }
 .ath-giving-funds h2 { margin: 0 0 6px; color: var(--ath-navy); font-size: 16px; }
 .ath-giving-funds p { margin: 0 0 12px; color: var(--ath-muted); font-size: 13px; }
