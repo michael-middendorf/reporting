@@ -8,9 +8,14 @@ export default function AthleticsMasterHubPage() {
       <header className="ath-hub-header">
         <span>Athletics</span>
         <h1>Master</h1>
-        <p>Department-wide recruiting and giving reports.</p>
+        <p>Program overview, recruiting, and giving.</p>
       </header>
       <div className="ath-hub-grid">
+        <Link href="/athletics/master/overview" className="ath-hub-card">
+          <h2>Overview</h2>
+          <p>One-sheet stats for a sport: recruiting, academics, and fundraising.</p>
+          <strong>Open →</strong>
+        </Link>
         <Link href="/athletics/master/recruiting" className="ath-hub-card">
           <h2>Recruiting</h2>
           <p>Sector boards, athlete applications, and prospects / inquiries.</p>

@@ -19,7 +19,7 @@ import {
   type FilterKey,
   type FilterState,
 } from "@/lib/reports/athletics/types";
-import { ATHLETICS_COACHING_NAV, ATHLETICS_RECRUITING_NAV } from "@/lib/report-nav";
+import { ATHLETICS_COACHING_NAV, ATHLETICS_MASTER_NAV, ATHLETICS_RECRUITING_NAV } from "@/lib/report-nav";
 import gyreneShield from "@/assets/athletics/gyrene-shield.png";
 
 const EMPTY_FILTERS: FilterState = {
@@ -287,6 +287,7 @@ export function AthleticsChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { generatedAt, refresh, loading } = useAthletics();
   const isHub = pathname === "/athletics" || pathname === "/athletics/master";
+  const isOverview = (pathname || "").startsWith("/athletics/master/overview");
   const isRecruiting = pathname === "/athletics/master/recruiting" || pathname.startsWith("/athletics/master/recruiting/");
   const isCoaching = (pathname || "").startsWith("/athletics/coaching");
   const isGiving =
@@ -313,9 +314,15 @@ export function AthleticsChrome({ children }: { children: ReactNode }) {
 
   const nav = isCoaching
     ? (coachingLeadership ? ATHLETICS_COACHING_NAV : [])
-    : isHub || !isRecruiting
-      ? []
-      : ATHLETICS_RECRUITING_NAV;
+    : isOverview
+      ? ATHLETICS_MASTER_NAV
+      : isHub
+        ? []
+        : isRecruiting
+          ? ATHLETICS_RECRUITING_NAV
+          : isGiving
+            ? ATHLETICS_MASTER_NAV
+            : [];
 
   return (
     <div className="ath-root">

@@ -35,6 +35,12 @@ export const POINTS_NAV: ReportNavItem[] = [
   { href: "/advancement/points/methodology", label: "Methodology" },
 ];
 
+export const ATHLETICS_MASTER_NAV: ReportNavItem[] = [
+  { href: "/athletics/master/overview", label: "Overview", report: "athletics" },
+  { href: "/athletics/master/recruiting", label: "Recruiting", exact: true, report: "athletics" },
+  { href: "/athletics/master/giving", label: "Giving", report: "athletics" },
+];
+
 export const ATHLETICS_RECRUITING_NAV: ReportNavItem[] = [
   { href: "/athletics/master/recruiting", label: "Overview", exact: true, report: "athletics" },
   { href: "/athletics/master/recruiting/sectors", label: "Sector Boards", report: "athletics" },
@@ -44,6 +50,7 @@ export const ATHLETICS_RECRUITING_NAV: ReportNavItem[] = [
 
 export const ATHLETICS_NAV: ReportNavItem[] = [
   { href: "/athletics/master", label: "Master", report: "athletics" },
+  { href: "/athletics/master/overview", label: "Overview", report: "athletics" },
   { href: "/athletics/master/recruiting", label: "Recruiting", exact: true, report: "athletics" },
   { href: "/athletics/master/recruiting/sectors", label: "Sector Boards", report: "athletics" },
   { href: "/athletics/master/recruiting/applications", label: "Applications", report: "athletics" },

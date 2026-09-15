@@ -11,7 +11,8 @@ Remote: https://github.com/colecantu904/reporting
 | `/` | Hub |
 | `/enrollment` | Admissions enrollment dashboard |
 | `/census` | Fall census (headcount, FTE, UG profile, retention, eRez residency; Excel draft download) |
-| `/athletics` | Athletics Master recruiting, sector, application, and prospect dashboards |
+| `/athletics` | Athletics Master overview, recruiting, and giving |
+| `/athletics/master/overview` | Per-sport program stats (recruiting, academics, fundraising) |
 | `/athletics/master/giving` | Athletics Giving (Virtuous gifts by athletics segment: FY26, FY27, funds) |
 | `/housing` | Housing occupancy, floor maps, move-ins, verification |
 | `/institute` | The Institute admissions pipeline |

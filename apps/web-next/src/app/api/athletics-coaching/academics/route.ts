@@ -8,7 +8,6 @@ import {
   buildAcademicsSummary,
   coachingLambdaPayload,
   coachingMfaUrl,
-  enrollmentAccess,
   isCoachingActionUnavailable,
   matchedRosterRows,
   mergeOfficeHoursLedger,
@@ -20,6 +19,7 @@ import {
 import { backfillOfficeHoursFromSnapshots } from "@/lib/reports/athletics-coaching/office-hours-history";
 import { putJsonObject, readJsonObject } from "@/lib/reports/housing/store";
 import type { SlateRow } from "@/lib/reports/athletics/types";
+import { sportDashboardAccess } from "@/lib/reports/athletics/overview";
 import { isMissingSource, loadSourceRowsOptional } from "@/lib/sources";
 
 export const dynamic = "force-dynamic";
@@ -61,7 +61,7 @@ async function saveOfficeHoursLedger(sport: string, ledger: OfficeHoursLedger): 
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const access = enrollmentAccess(currentUserEmail(req), url.searchParams.get("sport"));
+  const access = sportDashboardAccess(currentUserEmail(req), url.searchParams.get("sport"));
   if (!access.ok) {
     return NextResponse.json({ error: access.error }, { status: access.status, headers });
   }
