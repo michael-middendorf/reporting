@@ -21,6 +21,8 @@ import {
 } from "@/lib/reports/athletics/types";
 import { ATHLETICS_COACHING_NAV, ATHLETICS_MASTER_NAV, ATHLETICS_RECRUITING_NAV } from "@/lib/report-nav";
 import gyreneMark from "@/assets/athletics/gyrene-am-circle.png";
+import gyreneMark2x from "@/assets/athletics/gyrene-am-circle@2x.png";
+import gyreneMark3x from "@/assets/athletics/gyrene-am-circle@3x.png";
 
 const EMPTY_FILTERS: FilterState = {
   sport: [],
@@ -334,6 +336,7 @@ export function AthleticsChrome({ children }: { children: ReactNode }) {
           <img
             className="ath-rc-mark"
             src={gyreneMark.src}
+            srcSet={`${gyreneMark.src} 1x, ${gyreneMark2x.src} 2x, ${gyreneMark3x.src} 3x`}
             alt="Ave Maria University Gyrenes"
             width={40}
             height={40}
