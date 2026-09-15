@@ -250,7 +250,7 @@ export default $config({
     const portfolios = new sst.aws.Function("PortfoliosData", {
       handler: "services/publishers/portfolios/handler.handler",
       runtime: "python3.12",
-      timeout: "5 minutes",
+      timeout: "15 minutes",
       memory: "2048 MB",
       link: [data],
       python: { uv: true },

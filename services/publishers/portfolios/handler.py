@@ -566,7 +566,6 @@ def fetch_activity_for_users(client: VirtuousClient, users: list[str]) -> dict[s
     activity: dict[str, dict[int, dict[str, str | None]]] = {u: {} for u in users}
     if not users:
         return activity
-    discover_created_by_param(client)
     for user in users:
         first, last = split_creator_name(user)
         body = {
