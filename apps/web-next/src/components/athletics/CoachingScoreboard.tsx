@@ -106,7 +106,9 @@ export function CoachingScoreboard({ sportKey }: { sportKey: string }) {
           <div className="ath-kpi">
             <span>Current roster</span>
             <strong>{rosterValue}</strong>
-            <small>From the Slate roster feed</small>
+            <small>
+              {enrollment.data?.roster.available ? "From the Slate roster feed" : "Awaiting roster secret"}
+            </small>
           </div>
           <div className="ath-kpi">
             <span>Signed / deposited</span>
@@ -141,7 +143,7 @@ export function CoachingScoreboard({ sportKey }: { sportKey: string }) {
               <strong>
                 {academics.data.peopleMissingClass} of {academics.data.matchedCount}
               </strong>
-              <small>Athletes with recorded absences</small>
+              <small>Athletes with 2 or more session absences</small>
             </div>
             {sportKey === "ultimate-frisbee" ? (
               <div className="ath-kpi">

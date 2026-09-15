@@ -186,7 +186,7 @@ export function AcademicsPage({ sportKey }: { sportKey: string }) {
               <strong>
                 {data.peopleMissingClass} of {data.matchedCount}
               </strong>
-              <small>{data.totalAbsenceSessions} session absences</small>
+              <small>2 or more session absences</small>
             </div>
             {sportKey === OFFICE_HOURS_SPORT ? (
               <div className="ath-kpi">
@@ -265,7 +265,7 @@ export function AcademicsPage({ sportKey }: { sportKey: string }) {
               </table>
             </div>
           ) : (
-            <p>No recorded absences on this snapshot.</p>
+            <p>No athletes with 2 or more session absences.</p>
           )}
 
           <h3>Roster</h3>

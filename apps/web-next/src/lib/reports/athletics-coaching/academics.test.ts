@@ -876,6 +876,28 @@ describe("office hours below-A/B ledger", () => {
     assert.equal(officeHoursNeedsHistory(rows, historyLedger), false);
   });
 
+  it("skips history once historyAttemptedAt is set and merge keeps the flag", () => {
+    const asOf = "2026-09-13T12:00:00Z";
+    const attempted = "2026-09-13T12:05:00Z";
+    const later = "2026-09-14T12:00:00Z";
+    const rows = [officeRow("BIO 101", "C", 74)];
+    const unknownLedger = mergeOfficeHoursLedger(null, rows, asOf);
+    assert.equal(unknownLedger.historyAttemptedAt, undefined);
+    assert.equal(officeHoursNeedsHistory(rows, unknownLedger), true);
+
+    const attemptedLedger: OfficeHoursLedger = {
+      ...unknownLedger,
+      historyAttemptedAt: attempted,
+    };
+    assert.equal(officeHoursNeedsHistory(rows, attemptedLedger), false);
+
+    const next = mergeOfficeHoursLedger(attemptedLedger, rows, later);
+    const key = officeHoursLedgerKey("athlete.one@avemaria.edu", "P000000001", "BIO 101");
+    assert.equal(next.historyAttemptedAt, attempted);
+    assert.equal(next.entries[key].source, "unknown");
+    assert.equal(officeHoursNeedsHistory(rows, next), false);
+  });
+
   it("labels duration unknown, at least N days, or today from history", () => {
     assert.equal(officeHoursDurationLabel(null), "unknown");
     assert.equal(officeHoursDurationLabel(12), "unknown");

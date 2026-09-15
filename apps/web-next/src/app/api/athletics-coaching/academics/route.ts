@@ -41,6 +41,9 @@ async function loadOfficeHoursLedger(sport: string): Promise<OfficeHoursLedger |
     return {
       updatedAt: typeof stored.updatedAt === "string" ? stored.updatedAt : "",
       entries,
+      ...(typeof stored.historyAttemptedAt === "string" && stored.historyAttemptedAt
+        ? { historyAttemptedAt: stored.historyAttemptedAt }
+        : {}),
     };
   } catch (error) {
     console.warn("office-hours ledger read failed", error);
@@ -134,10 +137,20 @@ export async function GET(req: Request) {
     if (officeHoursLedger) {
       const asOfIso = draft.asOf || new Date().toISOString();
       let backfill: OfficeHoursHistoryBackfill = {};
-      if (officeHoursNeedsHistory(draft.officeHours, officeHoursLedger)) {
-        backfill = await backfillOfficeHoursFromSnapshots(draft.officeHours);
+      const shouldBackfill =
+        access.sport === "ultimate-frisbee" &&
+        officeHoursNeedsHistory(draft.officeHours, officeHoursLedger);
+      if (shouldBackfill) {
+        try {
+          backfill = await backfillOfficeHoursFromSnapshots(draft.officeHours);
+        } catch {
+          backfill = {};
+        }
       }
       nextLedger = mergeOfficeHoursLedger(officeHoursLedger, draft.officeHours, asOfIso, backfill);
+      if (shouldBackfill) {
+        nextLedger = { ...nextLedger, historyAttemptedAt: new Date().toISOString() };
+      }
       await saveOfficeHoursLedger(access.sport, nextLedger);
     }
     const summary = buildAcademicsSummary({

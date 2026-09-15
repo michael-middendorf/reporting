@@ -185,6 +185,10 @@ export class ReportingEcsStack extends cdk.Stack {
         resources: [`arn:aws:dynamodb:${region}:${account}:table/amu-aspiredu-student-snapshots`],
       }),
     );
+    task.addToTaskRolePolicy(new iam.PolicyStatement({
+      actions: ["kms:Decrypt", "kms:DescribeKey"],
+      resources: ["arn:aws:kms:us-east-2:905418447941:key/b3537eed-7c05-488b-ab94-bd6d452394ad"],
+    }));
     // On-demand report Lambdas (Institute/MAS/Alumni) live in the SST runtime; the
     // web app invokes them by name (see /api/institute-data, /api/reports/mas, alumni).
     // The web container needs both the function names AND permission to invoke them.

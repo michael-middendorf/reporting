@@ -117,6 +117,7 @@ export type OfficeHoursHistoryBackfill = Record<string, OfficeHoursHistoryHit>;
 export type OfficeHoursLedger = {
   updatedAt: string;
   entries: Record<string, OfficeHoursLedgerEntry>;
+  historyAttemptedAt?: string;
 };
 
 export type MissingClassRow = {
@@ -336,6 +337,7 @@ export function officeHoursNeedsHistory(
   officeHoursRows: Pick<OfficeHoursRow, "email" | "pcid" | "course">[],
   ledger: OfficeHoursLedger | null | undefined,
 ): boolean {
+  if (typeof ledger?.historyAttemptedAt === "string" && ledger.historyAttemptedAt) return false;
   if (!officeHoursRows.length) return false;
   const entries =
     ledger?.entries && typeof ledger.entries === "object" && !Array.isArray(ledger.entries) ? ledger.entries : {};
@@ -415,7 +417,15 @@ export function mergeOfficeHoursLedger(
     }
     entries[key] = ledgerEntryFromRow(row, existing, asOfIso, "unknown", false);
   }
-  return { updatedAt: asOfIso, entries };
+  const historyAttemptedAt =
+    typeof prev?.historyAttemptedAt === "string" && prev.historyAttemptedAt
+      ? prev.historyAttemptedAt
+      : undefined;
+  return {
+    updatedAt: asOfIso,
+    entries,
+    ...(historyAttemptedAt ? { historyAttemptedAt } : {}),
+  };
 }
 
 function withOfficeHoursDuration(
