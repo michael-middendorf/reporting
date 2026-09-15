@@ -1,6 +1,10 @@
 import { canAccessReport } from "../../access";
 
-/** Named athletics gifts: coaching leadership and Advancement. Not head coaches. */
+/** Athletics Master, coaching leadership, and Advancement. */
 export function canAccessAthleticsGiving(email: string): boolean {
-  return canAccessReport(email, "athletics-coaching") || canAccessReport(email, "advancement");
+  return (
+    canAccessReport(email, "athletics") ||
+    canAccessReport(email, "athletics-coaching") ||
+    canAccessReport(email, "advancement")
+  );
 }

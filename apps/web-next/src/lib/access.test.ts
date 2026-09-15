@@ -160,12 +160,12 @@ describe("athletics giving access", () => {
   const COACH = "Jamon.Copeland@avemaria.edu";
   const JIM = "jim.thomas@avemaria.edu";
 
-  it("is for coaching leadership and Advancement, not head coaches", () => {
+  it("is for Athletics Master, coaching leadership, and Advancement", () => {
     assert.equal(canAccessAthleticsGiving(ERIC), true);
     assert.equal(canAccessAthleticsGiving("elizabeth.feger@avemaria.edu"), true);
     assert.equal(canAccessAthleticsGiving("john.weisbrod@avemaria.edu"), true);
     assert.equal(canAccessAthleticsGiving(JIM), true);
-    assert.equal(canAccessAthleticsGiving(COACH), false);
+    assert.equal(canAccessAthleticsGiving(COACH), true);
   });
 });
 

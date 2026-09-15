@@ -14,19 +14,13 @@ const CARDS: {
   {
     href: "/athletics/master",
     title: "Master",
-    desc: "Department-wide recruiting, sector boards, applications, and prospects.",
+    desc: "Department-wide recruiting and giving reports.",
     report: "athletics",
   },
   {
     href: "/athletics/coaching",
     title: "Coaching",
     desc: "Team dashboards for fundraising, enrollment, and academics.",
-    report: "athletics-coaching",
-  },
-  {
-    href: "/athletics/giving",
-    title: "Giving",
-    desc: "Department gift list and fund totals from Virtuous, replacing the Qlik Athletics Giving app.",
     report: "athletics-coaching",
   },
 ];
@@ -43,7 +37,7 @@ export default function AthleticsHubPage() {
       <header className="ath-hub-header">
         <span>Athletics</span>
         <h1>Gyrenes</h1>
-        <p>Department reports for recruiting, coaching, and giving.</p>
+        <p>Department reports for recruiting, coaching, and giving. Giving is under Master.</p>
       </header>
       <div className="ath-hub-grid">
         {visible.map((card) => (
