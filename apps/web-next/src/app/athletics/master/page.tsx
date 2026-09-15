@@ -26,6 +26,11 @@ export default function AthleticsMasterHubPage() {
           <p>Department gift list and fund totals from Virtuous.</p>
           <strong>Open →</strong>
         </Link>
+        <Link href="/athletics/master/eligibility" className="ath-hub-card">
+          <h2>Eligibility</h2>
+          <p>Roster hours, GPA, and matriculation for NAIA eligibility.</p>
+          <strong>Open →</strong>
+        </Link>
       </div>
     </main>
   );

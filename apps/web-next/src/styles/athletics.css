@@ -30,8 +30,9 @@
 }
 .ath-root .ath-rc-mark {
   display: block;
-  width: auto;
+  width: 40px;
   height: 40px;
+  border-radius: 50%;
 }
 .ath-root .rc-sep { color: rgba(255, 255, 255, .28); }
 .ath-root .rc a.rc-crumb { color: #9ad4b3; }

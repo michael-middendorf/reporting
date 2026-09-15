@@ -20,7 +20,7 @@ import {
   type FilterState,
 } from "@/lib/reports/athletics/types";
 import { ATHLETICS_COACHING_NAV, ATHLETICS_MASTER_NAV, ATHLETICS_RECRUITING_NAV } from "@/lib/report-nav";
-import gyreneShield from "@/assets/athletics/gyrene-shield.png";
+import gyreneMark from "@/assets/athletics/gyrene-am-circle.png";
 
 const EMPTY_FILTERS: FilterState = {
   sport: [],
@@ -293,6 +293,7 @@ export function AthleticsChrome({ children }: { children: ReactNode }) {
   const isGiving =
     (pathname || "").startsWith("/athletics/giving") ||
     (pathname || "").startsWith("/athletics/master/giving");
+  const isEligibility = (pathname || "").startsWith("/athletics/master/eligibility");
   const [coachingLeadership, setCoachingLeadership] = useState(false);
 
   useEffect(() => {
@@ -320,7 +321,7 @@ export function AthleticsChrome({ children }: { children: ReactNode }) {
         ? []
         : isRecruiting
           ? ATHLETICS_RECRUITING_NAV
-          : isGiving
+          : isGiving || isEligibility
             ? ATHLETICS_MASTER_NAV
             : [];
 
@@ -332,14 +333,14 @@ export function AthleticsChrome({ children }: { children: ReactNode }) {
         wordmark={
           <img
             className="ath-rc-mark"
-            src={gyreneShield.src}
+            src={gyreneMark.src}
             alt="Ave Maria University Gyrenes"
-            width={38}
+            width={40}
             height={40}
           />
         }
         actions={
-          isCoaching || isGiving ? undefined : (
+          isCoaching || isGiving || isEligibility ? undefined : (
             <>
               <span className="rc-meta">
                 {loading ? "Loading…" : generatedAt ? `As of ${new Date(generatedAt).toLocaleString()}` : ""}
