@@ -76,6 +76,19 @@ export type OfficeHoursRow = {
   grade: number | null;
   letter: string;
   missing: number | null;
+  firstSeen: string | null;
+  daysBelow: number | null;
+};
+
+export type OfficeHoursLedgerEntry = {
+  firstSeen: string;
+  letter: string;
+  grade: number;
+};
+
+export type OfficeHoursLedger = {
+  updatedAt: string;
+  entries: Record<string, OfficeHoursLedgerEntry>;
 };
 
 export type MissingClassRow = {
@@ -184,6 +197,72 @@ export function gpaPointsFromPercent(percent: number): number {
 /** True when the letter is A/A+/A- or B/B+/B-. */
 export function isAB(letter: string): boolean {
   return letter.startsWith("A") || letter.startsWith("B");
+}
+
+export function officeHoursLedgerObjectKey(sport: string): string {
+  const safe = (sport || "").trim().toLowerCase().replace(/[^a-z0-9-]+/g, "") || "unknown";
+  return `athletics-coaching-academics/office-hours-below-ab/${safe}.json`;
+}
+
+/** Stable S3 ledger id: email if present, otherwise PCID, then course. */
+export function officeHoursLedgerKey(email: string, pcid: string, course: string): string {
+  const id = normalizeEmail(email) || (pcid || "").trim();
+  return `${id}|${course}`;
+}
+
+/** Whole days from firstSeen to asOf, never negative. Invalid dates count as 0. */
+export function daysBelow(firstSeenIso: string, asOfIso: string): number {
+  const first = Date.parse(firstSeenIso);
+  const asOf = Date.parse(asOfIso);
+  if (Number.isNaN(first) || Number.isNaN(asOf)) return 0;
+  return Math.max(0, Math.floor((asOf - first) / DAY_MS));
+}
+
+export function mergeOfficeHoursLedger(
+  prev: OfficeHoursLedger | null | undefined,
+  officeHoursRows: Pick<OfficeHoursRow, "email" | "pcid" | "course" | "letter" | "grade">[],
+  asOfIso: string,
+): OfficeHoursLedger {
+  const prevEntries =
+    prev?.entries && typeof prev.entries === "object" && !Array.isArray(prev.entries) ? prev.entries : {};
+  const entries: Record<string, OfficeHoursLedgerEntry> = {};
+  for (const row of officeHoursRows) {
+    const course = (row.course || "").trim();
+    if (!course) continue;
+    const key = officeHoursLedgerKey(row.email, row.pcid, course);
+    const existing = prevEntries[key];
+    const grade =
+      typeof row.grade === "number" && Number.isFinite(row.grade)
+        ? row.grade
+        : typeof existing?.grade === "number" && Number.isFinite(existing.grade)
+          ? existing.grade
+          : 0;
+    entries[key] = {
+      firstSeen: (typeof existing?.firstSeen === "string" && existing.firstSeen) || asOfIso,
+      letter: row.letter,
+      grade,
+    };
+  }
+  return { updatedAt: asOfIso, entries };
+}
+
+function withOfficeHoursDuration(
+  rows: OfficeHoursRow[],
+  ledger: OfficeHoursLedger | null | undefined,
+  asOfIso: string,
+): OfficeHoursRow[] {
+  if (!ledger) {
+    return rows.map((row) => ({ ...row, firstSeen: null, daysBelow: null }));
+  }
+  return rows.map((row) => {
+    const key = officeHoursLedgerKey(row.email, row.pcid, row.course);
+    const firstSeen = ledger.entries[key]?.firstSeen || asOfIso;
+    return {
+      ...row,
+      firstSeen,
+      daysBelow: daysBelow(firstSeen, asOfIso),
+    };
+  });
 }
 
 export function normalizePcid(raw: string): string | null {
@@ -568,6 +647,8 @@ function summarizeMatchedAthletes(athletes: AcademicsAthlete[]): Pick<
           grade: course.grade,
           letter,
           missing: course.missing,
+          firstSeen: null,
+          daysBelow: null,
         });
       }
     }
@@ -590,6 +671,7 @@ export function buildAcademicsSummary(input: {
   lambdaResult?: unknown;
   rosterPulledAt?: string | null;
   now?: Date;
+  officeHoursLedger?: OfficeHoursLedger | null;
 }): AcademicsSummary {
   const sportLabel = sportByKey[input.sport]?.label || input.sport;
   if (input.rosterRows === null) {
@@ -645,15 +727,22 @@ export function buildAcademicsSummary(input: {
 
   const matchedCount = athletes.filter((athlete) => athlete.matched).length;
   const rosterCount = athletes.length;
+  const asOf = lambdaAsOf(input.lambdaResult) || input.rosterPulledAt || null;
+  const kpis = summarizeMatchedAthletes(athletes);
+  kpis.officeHours = withOfficeHoursDuration(
+    kpis.officeHours,
+    input.officeHoursLedger,
+    asOf || now.toISOString(),
+  );
   return {
     sport: input.sport,
     sportLabel,
     rosterAvailable: true,
-    asOf: lambdaAsOf(input.lambdaResult) || input.rosterPulledAt || null,
+    asOf,
     matchRate: rosterCount ? matchedCount / rosterCount : null,
     matchedCount,
     rosterCount,
     athletes,
-    ...summarizeMatchedAthletes(athletes),
+    ...kpis,
   };
 }

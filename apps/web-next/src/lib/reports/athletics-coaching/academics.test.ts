@@ -13,14 +13,19 @@ import {
   buildAcademicsSummary,
   coachingLambdaPayload,
   coachingMfaUrl,
+  daysBelow,
   gpaPointsFromPercent,
   isAB,
   isCoachingActionUnavailable,
   letterFromPercent,
   matchedRosterRows,
+  mergeOfficeHoursLedger,
   normalizePcid,
+  officeHoursLedgerKey,
+  officeHoursLedgerObjectKey,
   rosterJoinKeys,
   safeCoachingNext,
+  type OfficeHoursRow,
 } from "./academics";
 import { SPORTS } from "./sports";
 
@@ -568,5 +573,147 @@ describe("coaching Lambda unavailable", () => {
     assert.equal(isCoachingActionUnavailable(new Error("Processor error: unsupported action")), true);
     assert.equal(isCoachingActionUnavailable(new Error('Processor error: {"errorMessage":"unknown action"}')), true);
     assert.equal(isCoachingActionUnavailable({ ok: true, students: [] }), false);
+  });
+});
+
+describe("office hours below-A/B ledger", () => {
+  function officeRow(course: string, letter: string, grade: number): OfficeHoursRow {
+    return {
+      name: "One Alpha",
+      email: "athlete.one@avemaria.edu",
+      pcid: "P000000001",
+      course,
+      grade,
+      letter,
+      missing: null,
+      firstSeen: null,
+      daysBelow: null,
+    };
+  }
+
+  const rosterRows = [
+    {
+      personreferenceid: "r1",
+      email: "athlete.one@avemaria.edu",
+      pcid: "P000000001",
+      firstname: "One",
+      lastname: "Alpha",
+      currentsport: "Football",
+    },
+  ];
+
+  it("keys by email when present, otherwise PCID, and writes a per-sport S3 object", () => {
+    assert.equal(
+      officeHoursLedgerKey("Athlete.One@avemaria.edu", "P000000001", "BIO 101"),
+      "athlete.one@avemaria.edu|BIO 101",
+    );
+    assert.equal(officeHoursLedgerKey("", "P000000001", "BIO 101"), "P000000001|BIO 101");
+    assert.equal(
+      officeHoursLedgerObjectKey("ultimate-frisbee"),
+      "athletics-coaching-academics/office-hours-below-ab/ultimate-frisbee.json",
+    );
+  });
+
+  it("counts whole days below, never negative", () => {
+    assert.equal(daysBelow("2026-09-01T12:00:00Z", "2026-09-01T12:00:00Z"), 0);
+    assert.equal(daysBelow("2026-09-01T12:00:00Z", "2026-09-02T11:59:59Z"), 0);
+    assert.equal(daysBelow("2026-09-01T12:00:00Z", "2026-09-02T12:00:00Z"), 1);
+    assert.equal(daysBelow("2026-09-01T12:00:00Z", "2026-09-13T12:00:00Z"), 12);
+    assert.equal(daysBelow("2026-09-13T12:00:00Z", "2026-09-01T12:00:00Z"), 0);
+    assert.equal(daysBelow("not-a-date", "2026-09-01T12:00:00Z"), 0);
+  });
+
+  it("first snapshot: firstSeen is asOf and daysBelow is 0", () => {
+    const asOf = "2026-09-01T12:00:00Z";
+    const next = mergeOfficeHoursLedger(null, [officeRow("BIO 101", "C", 74)], asOf);
+    const key = officeHoursLedgerKey("athlete.one@avemaria.edu", "P000000001", "BIO 101");
+    assert.equal(next.updatedAt, asOf);
+    assert.equal(next.entries[key].firstSeen, asOf);
+    assert.equal(next.entries[key].letter, "C");
+    assert.equal(next.entries[key].grade, 74);
+    assert.equal(daysBelow(next.entries[key].firstSeen, asOf), 0);
+  });
+
+  it("second snapshot of the same course keeps firstSeen and increases daysBelow", () => {
+    const first = "2026-09-01T12:00:00Z";
+    const later = "2026-09-13T12:00:00Z";
+    const prev = mergeOfficeHoursLedger(null, [officeRow("BIO 101", "C", 74)], first);
+    const next = mergeOfficeHoursLedger(prev, [officeRow("BIO 101", "D", 64)], later);
+    const key = officeHoursLedgerKey("athlete.one@avemaria.edu", "P000000001", "BIO 101");
+    assert.equal(next.entries[key].firstSeen, first);
+    assert.equal(next.entries[key].letter, "D");
+    assert.equal(next.entries[key].grade, 64);
+    assert.equal(daysBelow(next.entries[key].firstSeen, later), 12);
+  });
+
+  it("drops a recovered A/B course from the ledger", () => {
+    const asOf = "2026-09-13T12:00:00Z";
+    const prev = mergeOfficeHoursLedger(null, [officeRow("BIO 101", "C", 74)], "2026-09-01T12:00:00Z");
+    const next = mergeOfficeHoursLedger(prev, [], asOf);
+    assert.deepEqual(next.entries, {});
+    assert.equal(next.updatedAt, asOf);
+  });
+
+  it("gives a newly below-A/B course its own firstSeen", () => {
+    const first = "2026-09-01T12:00:00Z";
+    const later = "2026-09-13T12:00:00Z";
+    const prev = mergeOfficeHoursLedger(null, [officeRow("BIO 101", "C", 74)], first);
+    const next = mergeOfficeHoursLedger(
+      prev,
+      [officeRow("BIO 101", "C", 74), officeRow("THE 105", "D", 64)],
+      later,
+    );
+    const bio = officeHoursLedgerKey("athlete.one@avemaria.edu", "P000000001", "BIO 101");
+    const theology = officeHoursLedgerKey("athlete.one@avemaria.edu", "P000000001", "THE 105");
+    assert.equal(next.entries[bio].firstSeen, first);
+    assert.equal(next.entries[theology].firstSeen, later);
+    assert.equal(daysBelow(next.entries[theology].firstSeen, later), 0);
+  });
+
+  it("fills OfficeHoursRow duration from a ledger and leaves it null without one", () => {
+    const firstSeen = "2026-09-01T12:00:00Z";
+    const asOf = "2026-09-13T12:00:00Z";
+    const lambdaFor = (when: string) => ({
+      asOf: when,
+      students: [
+        {
+          email: "athlete.one@avemaria.edu",
+          studentSisId: "P000000001",
+          courses: [{ course: "THE 105", courseGrade: 73 }],
+        },
+      ],
+    });
+
+    const without = buildAcademicsSummary({
+      sport: "football",
+      rosterRows,
+      lambdaResult: lambdaFor(asOf),
+      now: NOW,
+    });
+    assert.equal(without.officeHours.length, 1);
+    assert.equal(without.officeHours[0].firstSeen, null);
+    assert.equal(without.officeHours[0].daysBelow, null);
+
+    const emptyLedger = { updatedAt: "", entries: {} };
+    const firstPass = buildAcademicsSummary({
+      sport: "football",
+      rosterRows,
+      lambdaResult: lambdaFor(firstSeen),
+      now: NOW,
+      officeHoursLedger: emptyLedger,
+    });
+    assert.equal(firstPass.officeHours[0].firstSeen, firstSeen);
+    assert.equal(firstPass.officeHours[0].daysBelow, 0);
+
+    const merged = mergeOfficeHoursLedger(emptyLedger, firstPass.officeHours, firstSeen);
+    const second = buildAcademicsSummary({
+      sport: "football",
+      rosterRows,
+      lambdaResult: lambdaFor(asOf),
+      now: NOW,
+      officeHoursLedger: merged,
+    });
+    assert.equal(second.officeHours[0].firstSeen, firstSeen);
+    assert.equal(second.officeHours[0].daysBelow, 12);
   });
 });

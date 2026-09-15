@@ -13,26 +13,47 @@ import { formatCount, formatWhen } from "./CoachingHub";
 
 const OFFICE_HOURS_SPORT = "ultimate-frisbee";
 
+type OfficeHoursCourse = {
+  course: string;
+  letter: string;
+  daysBelow: number | null;
+};
+
 type OfficeHoursAthlete = {
   key: string;
   name: string;
-  courses: { course: string; letter: string }[];
+  courses: OfficeHoursCourse[];
 };
+
+function officeHoursDurationLabel(daysBelow: number | null): string {
+  if (daysBelow === null) return "since this check";
+  if (daysBelow <= 0) return "since today";
+  if (daysBelow === 1) return "1 day";
+  return `${daysBelow} days`;
+}
+
+function officeHoursClassLabel(course: OfficeHoursCourse): string {
+  const duration = officeHoursDurationLabel(course.daysBelow);
+  return course.letter ? `${course.course} (${course.letter}, ${duration})` : `${course.course} (${duration})`;
+}
 
 function groupOfficeHoursByAthlete(rows: OfficeHoursRow[]): OfficeHoursAthlete[] {
   const order: string[] = [];
   const byKey = new Map<string, OfficeHoursAthlete>();
   for (const row of rows) {
-    const key = row.email || row.pcid || row.name;
+    const course = (row.course || "").trim();
+    if (!course) continue;
+    const key = row.email || row.pcid || row.name || course;
+    if (!key) continue;
     let group = byKey.get(key);
     if (!group) {
-      group = { key, name: row.name, courses: [] };
+      group = { key, name: (row.name || "").trim() || "Unnamed", courses: [] };
       byKey.set(key, group);
       order.push(key);
     }
-    group.courses.push({ course: row.course, letter: row.letter });
+    group.courses.push({ course, letter: row.letter, daysBelow: row.daysBelow });
   }
-  return order.map((key) => byKey.get(key)!);
+  return order.map((key) => byKey.get(key)!).filter((group) => group.courses.length > 0);
 }
 
 function officeHoursMessage(courseNames: string[]): string {
@@ -184,6 +205,7 @@ export function AcademicsPage({ sportKey }: { sportKey: string }) {
                       <tr>
                         <th>Athlete</th>
                         <th>Classes</th>
+                        <th>Below A/B</th>
                         <th>Copy</th>
                       </tr>
                     </thead>
@@ -192,11 +214,18 @@ export function AcademicsPage({ sportKey }: { sportKey: string }) {
                         <tr key={row.key}>
                           <td>{row.name}</td>
                           <td>
-                            {row.courses
-                              .map((course) =>
-                                course.letter ? `${course.course} (${course.letter})` : course.course,
-                              )
-                              .join(", ")}
+                            {row.courses.map((course, index) => (
+                              <div key={`${row.key}-class-${course.course}-${index}`}>
+                                {officeHoursClassLabel(course)}
+                              </div>
+                            ))}
+                          </td>
+                          <td>
+                            {row.courses.map((course, index) => (
+                              <div key={`${row.key}-below-${course.course}-${index}`}>
+                                {officeHoursDurationLabel(course.daysBelow)}
+                              </div>
+                            ))}
                           </td>
                           <td>
                             <CopyOfficeHoursButton courseNames={row.courses.map((course) => course.course)} />
