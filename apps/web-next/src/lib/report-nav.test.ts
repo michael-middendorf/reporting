@@ -169,6 +169,19 @@ describe("reportCrumbs", () => {
       { href: "/athletics", label: "Athletics" },
       { href: "/athletics/master", label: "Master" },
     ]);
+    assert.deepEqual(reportCrumbs("/athletics/master/overview"), [
+      { href: "/", label: "Reports" },
+      { href: "/athletics", label: "Athletics" },
+      { href: "/athletics/master", label: "Master" },
+      { href: "/athletics/master/overview", label: "Overview" },
+    ]);
+    assert.deepEqual(reportCrumbs("/athletics/master/overview/ultimate-frisbee"), [
+      { href: "/", label: "Reports" },
+      { href: "/athletics", label: "Athletics" },
+      { href: "/athletics/master", label: "Master" },
+      { href: "/athletics/master/overview", label: "Overview" },
+      { href: "/athletics/master/overview/ultimate-frisbee", label: "Ultimate Frisbee" },
+    ]);
     assert.deepEqual(reportCrumbs("/athletics/master/recruiting"), [
       { href: "/", label: "Reports" },
       { href: "/athletics", label: "Athletics" },

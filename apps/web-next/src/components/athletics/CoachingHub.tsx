@@ -12,8 +12,21 @@ export function CoachingDenied({ message }: { message?: string }) {
   );
 }
 
-export function TeamPicker({ sports, title, description }: { sports: SportDef[]; title: string; description: string }) {
+export function TeamPicker({
+  sports,
+  title,
+  description,
+  sportHref,
+  sportBlurb,
+}: {
+  sports: SportDef[];
+  title: string;
+  description: string;
+  sportHref?: (key: string) => string;
+  sportBlurb?: string;
+}) {
   const ordered = [...sports].sort((a, b) => a.label.localeCompare(b.label));
+  const hrefFor = sportHref || ((key: string) => `/athletics/coaching/${key}`);
   return (
     <main className="ath-hub">
       <header className="ath-hub-header">
@@ -24,9 +37,9 @@ export function TeamPicker({ sports, title, description }: { sports: SportDef[];
       {ordered.length ? (
         <div className="ath-hub-grid">
           {ordered.map((sport) => (
-            <Link key={sport.key} href={`/athletics/coaching/${sport.key}`} className="ath-hub-card">
+            <Link key={sport.key} href={hrefFor(sport.key)} className="ath-hub-card">
               <h2>{sport.label}</h2>
-              <p>Team dashboard for fundraising, enrollment, and academics.</p>
+              <p>{sportBlurb || "Team dashboard for fundraising, enrollment, and academics."}</p>
               <strong>Open →</strong>
             </Link>
           ))}

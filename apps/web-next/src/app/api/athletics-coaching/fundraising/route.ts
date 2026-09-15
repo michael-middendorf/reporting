@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { currentUserEmail } from "@/lib/auth";
-import { enrollmentAccess } from "@/lib/reports/athletics-coaching/enrollment";
+import { sportDashboardAccess } from "@/lib/reports/athletics/overview";
 import {
   FUNDRAISING_CACHE_KEY,
   sportFundraisingFromCache,
@@ -26,7 +26,7 @@ export const fundraisingCache = {
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const access = enrollmentAccess(currentUserEmail(req), url.searchParams.get("sport"));
+  const access = sportDashboardAccess(currentUserEmail(req), url.searchParams.get("sport"));
   if (!access.ok) {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
