@@ -57,17 +57,24 @@ export type SportFundraising = {
   gifts: FundraisingGift[];
 };
 
-function emptyTotals(reason: "unmapped" | "unavailable"): Pick<
-  FundraisingSportRow,
-  | "mapped"
-  | "fytdAmount"
-  | "fytdGiftCount"
-  | "allTimeAmount"
-  | "allTimeGiftCount"
-  | "asOf"
-  | "reason"
-  | "gifts"
-> {
+function emptyGifts(): FundraisingGift[] {
+  return [];
+}
+
+function giftsFrom(raw: FundraisingGift[] | undefined): FundraisingGift[] {
+  return Array.isArray(raw) ? raw : emptyGifts();
+}
+
+function emptyTotals(reason: "unmapped" | "unavailable"): {
+  mapped: boolean;
+  fytdAmount: null;
+  fytdGiftCount: null;
+  allTimeAmount: null;
+  allTimeGiftCount: null;
+  asOf: null;
+  reason: "unmapped" | "unavailable";
+  gifts: FundraisingGift[];
+} {
   return {
     mapped: reason === "unmapped" ? false : true,
     fytdAmount: null,
@@ -76,7 +83,7 @@ function emptyTotals(reason: "unmapped" | "unavailable"): Pick<
     allTimeGiftCount: null,
     asOf: null,
     reason,
-    gifts: [],
+    gifts: emptyGifts(),
   };
 }
 
@@ -124,6 +131,6 @@ export function sportFundraisingFromCache(cache: FundraisingCache, sport: string
     allTimeAmount: raw.allTimeAmount,
     allTimeGiftCount: raw.allTimeGiftCount,
     asOf: raw.asOf,
-    gifts: Array.isArray(raw.gifts) ? raw.gifts : [],
+    gifts: giftsFrom(raw.gifts),
   };
 }
