@@ -8,11 +8,15 @@ Qlik filters gifts whose Segment Name is one of:
   Athletics - Specific Sport
   Athletics Fundraising-HIST_DS
 
+This year's AMU Athletics Golf Tournament posts to its own event segment
+(2026 AMU Athletic Golf Tournament), not those three, so it is included too.
+
 Those QVDs live in lib://Advancement (DEV):DataFiles/virtuous_full_gifts_*.qvd
 and are produced by the Advancement Virtuous reload apps. This publisher hits
-POST /api/GiftDesignation/Query with the same three segments so totals stay on
-the designation grain (one fund split per gift). That avoids the Qlik join that
-inflates Sum(amountDesignated) and the Concat(segment) "Gift Destination" cell.
+POST /api/GiftDesignation/Query with those Qlik segments plus the 2026 golf
+tournament event so totals stay on the designation grain (one fund split per
+gift). That avoids the Qlik join that inflates Sum(amountDesignated) and the
+Concat(segment) "Gift Destination" cell.
 
 CREDITCARDCOSTS is kept on gift rows (Qlik shows it) and split out of program
 totals. Do not read sources/virtuous/gifts (365-day window).
@@ -38,6 +42,7 @@ SEGMENTS = (
     "Athletics Fundraising",
     "Athletics - Specific Sport",
     "Athletics Fundraising-HIST_DS",
+    "2026 AMU Athletic Golf Tournament",
 )
 FEE_CODES = frozenset({"CREDITCARDCOSTS"})
 
