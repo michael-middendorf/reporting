@@ -149,12 +149,16 @@ export function AthleticsProvider({ children }: { children: ReactNode }) {
       const hasAdvancement = reports.includes("advancement");
       const path = pathname || "";
       const coachingPath = path.startsWith("/athletics/coaching");
-      const givingPath = path === "/athletics/giving" || path.startsWith("/athletics/giving/");
+      const givingPath =
+        path === "/athletics/giving" ||
+        path.startsWith("/athletics/giving/") ||
+        path === "/athletics/master/giving" ||
+        path.startsWith("/athletics/master/giving/");
       const hubPath = path === "/athletics";
       const allowed = coachingPath
         ? hasCoaching
         : givingPath
-          ? hasCoaching || hasAdvancement
+          ? hasAthletics || hasCoaching || hasAdvancement
           : hubPath
             ? hasAthletics || hasCoaching
             : hasAthletics;
@@ -260,7 +264,9 @@ export function AthleticsProvider({ children }: { children: ReactNode }) {
   if (access === "loading") return <div className="ath-state">Checking access…</div>;
   if (access === "denied") {
     const coachingPath = (pathname || "").startsWith("/athletics/coaching");
-    const givingPath = (pathname || "").startsWith("/athletics/giving");
+    const givingPath =
+      (pathname || "").startsWith("/athletics/giving") ||
+      (pathname || "").startsWith("/athletics/master/giving");
     return (
       <div className="ath-state">
         <p>
@@ -283,7 +289,9 @@ export function AthleticsChrome({ children }: { children: ReactNode }) {
   const isHub = pathname === "/athletics" || pathname === "/athletics/master";
   const isRecruiting = pathname === "/athletics/master/recruiting" || pathname.startsWith("/athletics/master/recruiting/");
   const isCoaching = (pathname || "").startsWith("/athletics/coaching");
-  const isGiving = (pathname || "").startsWith("/athletics/giving");
+  const isGiving =
+    (pathname || "").startsWith("/athletics/giving") ||
+    (pathname || "").startsWith("/athletics/master/giving");
   const [coachingLeadership, setCoachingLeadership] = useState(false);
 
   useEffect(() => {

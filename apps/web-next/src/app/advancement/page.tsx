@@ -61,7 +61,7 @@ const REPORTS: {
     report: "chapel",
   },
   {
-    href: "/athletics/giving",
+    href: "/athletics/master/giving",
     title: "Athletics Giving",
     desc: "Athletics gifts by fund and donor from Virtuous, replacing the Qlik Athletics Giving dashboard.",
     report: "advancement",
