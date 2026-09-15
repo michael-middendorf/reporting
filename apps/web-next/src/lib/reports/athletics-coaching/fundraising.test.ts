@@ -33,7 +33,7 @@ function cache(sports: Record<string, FundraisingSportRow>): FundraisingCache {
 }
 
 describe("athletics coaching fundraising cache shape", () => {
-  it("returns mapped football totals without gift rows", () => {
+  it("returns mapped football totals and defaults gifts to an empty list", () => {
     const payload = sportFundraisingFromCache(
       cache({ football: row({ key: "football" }) }),
       "football",
@@ -48,7 +48,28 @@ describe("athletics coaching fundraising cache shape", () => {
     assert.equal(payload.allTimeAmount, 500);
     assert.equal(payload.allTimeGiftCount, 9);
     assert.equal(payload.asOf, "2026-09-03T12:00:00Z");
-    assert.equal("gifts" in payload, false);
+    assert.deepEqual(payload.gifts, []);
+  });
+
+  it("passes through gift rows from the cache", () => {
+    const payload = sportFundraisingFromCache(
+      cache({
+        football: row({
+          key: "football",
+          gifts: [
+            { donorName: "Alex Rivera", amount: 80, giftDate: "2026-07-01", fytd: true },
+            { donorName: "Jordan Lee", amount: 60, giftDate: "2026-06-30", fytd: false },
+          ],
+        }),
+      }),
+      "football",
+    );
+    assert.equal(payload.gifts.length, 2);
+    assert.equal(payload.gifts[0].donorName, "Alex Rivera");
+    assert.equal(payload.gifts[0].amount, 80);
+    assert.equal(payload.gifts[0].fytd, true);
+    assert.equal(payload.gifts[1].donorName, "Jordan Lee");
+    assert.equal(payload.gifts[1].fytd, false);
   });
 
   it("treats a null project code as unmapped not zeros", () => {
@@ -76,6 +97,7 @@ describe("athletics coaching fundraising cache shape", () => {
     assert.equal(payload.allTimeGiftCount, null);
     assert.equal(payload.asOf, null);
     assert.equal(payload.projectCode, null);
+    assert.deepEqual(payload.gifts, []);
   });
 
   it("never surfaces 6117AthGEN or 6644 even if they appear in cache", () => {
@@ -118,5 +140,6 @@ describe("athletics coaching fundraising cache shape", () => {
     assert.equal(payload.reason, "unavailable");
     assert.equal(payload.fytdAmount, null);
     assert.equal(payload.allTimeAmount, null);
+    assert.deepEqual(payload.gifts, []);
   });
 });

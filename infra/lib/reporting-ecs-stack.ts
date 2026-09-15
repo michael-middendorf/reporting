@@ -165,6 +165,30 @@ export class ReportingEcsStack extends cdk.Stack {
     task.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:PutObject"], resources: [`${dataBucketArn}/points/review-flags.json`] }));
     // Housing verification/uploads: staff xlsx + edit state under cache/housing/.
     task.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:PutObject"], resources: [`${dataBucketArn}/cache/housing/*`] }));
+    // Office-hours below-A/B ledger: persist firstSeen so coaches see duration, not today.
+    task.addToTaskRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:PutObject"],
+        resources: [`${dataBucketArn}/athletics-coaching-academics/*`],
+      }),
+    );
+    const aspireduAggregateBucket = "aspiredudatatransferstack-aggregatebucket62f91ffa-aaetik2gcfbf";
+    task.addToTaskRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:GetObject", "s3:ListBucket"],
+        resources: [`arn:aws:s3:::${aspireduAggregateBucket}`, `arn:aws:s3:::${aspireduAggregateBucket}/*`],
+      }),
+    );
+    task.addToTaskRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["dynamodb:Query"],
+        resources: [`arn:aws:dynamodb:${region}:${account}:table/amu-aspiredu-student-snapshots`],
+      }),
+    );
+    task.addToTaskRolePolicy(new iam.PolicyStatement({
+      actions: ["kms:Decrypt", "kms:DescribeKey"],
+      resources: ["arn:aws:kms:us-east-2:905418447941:key/b3537eed-7c05-488b-ab94-bd6d452394ad"],
+    }));
     // On-demand report Lambdas (Institute/MAS/Alumni) live in the SST runtime; the
     // web app invokes them by name (see /api/institute-data, /api/reports/mas, alumni).
     // The web container needs both the function names AND permission to invoke them.

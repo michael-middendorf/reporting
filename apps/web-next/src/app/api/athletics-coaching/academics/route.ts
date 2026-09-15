@@ -11,13 +11,53 @@ import {
   enrollmentAccess,
   isCoachingActionUnavailable,
   matchedRosterRows,
+  mergeOfficeHoursLedger,
+  officeHoursLedgerObjectKey,
+  officeHoursNeedsHistory,
+  type OfficeHoursHistoryBackfill,
+  type OfficeHoursLedger,
 } from "@/lib/reports/athletics-coaching/academics";
+import { backfillOfficeHoursFromSnapshots } from "@/lib/reports/athletics-coaching/office-hours-history";
+import { putJsonObject, readJsonObject } from "@/lib/reports/housing/store";
 import type { SlateRow } from "@/lib/reports/athletics/types";
 import { isMissingSource, loadSourceRowsOptional } from "@/lib/sources";
 
 export const dynamic = "force-dynamic";
 
 const headers = { ...aspireduPrivateHeaders, "Cache-Control": "no-store, max-age=0" };
+
+function emptyOfficeHoursLedger(): OfficeHoursLedger {
+  return { updatedAt: "", entries: {} };
+}
+
+async function loadOfficeHoursLedger(sport: string): Promise<OfficeHoursLedger | null> {
+  try {
+    const stored = await readJsonObject<OfficeHoursLedger>(officeHoursLedgerObjectKey(sport));
+    if (!stored) return emptyOfficeHoursLedger();
+    const entries =
+      stored.entries && typeof stored.entries === "object" && !Array.isArray(stored.entries)
+        ? stored.entries
+        : {};
+    return {
+      updatedAt: typeof stored.updatedAt === "string" ? stored.updatedAt : "",
+      entries,
+      ...(typeof stored.historyAttemptedAt === "string" && stored.historyAttemptedAt
+        ? { historyAttemptedAt: stored.historyAttemptedAt }
+        : {}),
+    };
+  } catch (error) {
+    console.warn("office-hours ledger read failed", error);
+    return null;
+  }
+}
+
+async function saveOfficeHoursLedger(sport: string, ledger: OfficeHoursLedger): Promise<void> {
+  try {
+    await putJsonObject(officeHoursLedgerObjectKey(sport), ledger);
+  } catch (error) {
+    console.warn("office-hours ledger write failed", error);
+  }
+}
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -86,15 +126,42 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: COACHING_LAMBDA_UNAVAILABLE }, { status: 503, headers });
     }
 
-    return NextResponse.json(
-      buildAcademicsSummary({
-        sport: access.sport,
-        rosterRows: roster.rows,
-        lambdaResult,
-        rosterPulledAt: roster.latest.pulled_at ?? null,
-      }),
-      { headers },
-    );
+    const officeHoursLedger = await loadOfficeHoursLedger(access.sport);
+    const draft = buildAcademicsSummary({
+      sport: access.sport,
+      rosterRows: roster.rows,
+      lambdaResult,
+      rosterPulledAt: roster.latest.pulled_at ?? null,
+    });
+    let nextLedger = officeHoursLedger;
+    if (officeHoursLedger) {
+      const asOfIso = draft.asOf || new Date().toISOString();
+      let backfill: OfficeHoursHistoryBackfill = {};
+      const shouldBackfill =
+        access.sport === "ultimate-frisbee" &&
+        officeHoursNeedsHistory(draft.officeHours, officeHoursLedger);
+      if (shouldBackfill) {
+        try {
+          backfill = await backfillOfficeHoursFromSnapshots(draft.officeHours);
+        } catch {
+          backfill = {};
+        }
+      }
+      nextLedger = mergeOfficeHoursLedger(officeHoursLedger, draft.officeHours, asOfIso, backfill);
+      if (shouldBackfill) {
+        nextLedger = { ...nextLedger, historyAttemptedAt: new Date().toISOString() };
+      }
+      await saveOfficeHoursLedger(access.sport, nextLedger);
+    }
+    const summary = buildAcademicsSummary({
+      sport: access.sport,
+      rosterRows: roster.rows,
+      lambdaResult,
+      rosterPulledAt: roster.latest.pulled_at ?? null,
+      officeHoursLedger: nextLedger,
+    });
+
+    return NextResponse.json(summary, { headers });
   } catch (error) {
     if (isMissingSource(error)) {
       return NextResponse.json(

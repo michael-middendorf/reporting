@@ -166,17 +166,29 @@ export function reportCrumbs(pathname: string): Crumb[] {
 
   if (crumbs[crumbs.length - 1]?.href !== pathname) {
     const extra = EXTRA_LEAVES.find((leaf) => leaf.href === pathname);
-    const coachingKey = pathname.startsWith("/athletics/coaching/")
-      ? pathname.slice("/athletics/coaching/".length)
-      : "";
-    const sport = coachingKey && !coachingKey.includes("/") ? sportByKey[coachingKey] : undefined;
+    if (extra) {
+      crumbs.push(extra);
+      return crumbs;
+    }
+    if (pathname.startsWith("/athletics/coaching/")) {
+      const parts = pathname.slice("/athletics/coaching/".length).split("/").filter(Boolean);
+      const sport = parts[0] ? sportByKey[parts[0]] : undefined;
+      if (sport) {
+        const sportHref = `/athletics/coaching/${sport.key}`;
+        if (crumbs[crumbs.length - 1]?.href !== sportHref) {
+          crumbs.push({ href: sportHref, label: sport.label });
+        }
+        if (parts.length > 1) {
+          crumbs.push({
+            href: pathname,
+            label: titleCaseSegment(parts.slice(1).join("-")),
+          });
+        }
+        return crumbs;
+      }
+    }
     const leaf = pathname.split("/").filter(Boolean).pop() || "Page";
-    crumbs.push(
-      extra ??
-        (sport
-          ? { href: pathname, label: sport.label }
-          : { href: pathname, label: titleCaseSegment(leaf) }),
-    );
+    crumbs.push({ href: pathname, label: titleCaseSegment(leaf) });
   }
   return crumbs;
 }
