@@ -247,6 +247,23 @@ export default $config({
       permissions: reportDataPerms,
     });
 
+    const portfolios = new sst.aws.Function("PortfoliosData", {
+      handler: "services/publishers/portfolios/handler.handler",
+      runtime: "python3.12",
+      timeout: "5 minutes",
+      memory: "2048 MB",
+      link: [data],
+      python: { uv: true },
+      copyFiles: commonFiles,
+      environment: {
+        DATA_BUCKET: data.name,
+        API_KEY: virtuousApiKey.value,
+        VIRTUOUS_API_KEY: virtuousApiKey.value,
+        PORTFOLIOS_CACHE_KEY: "portfolios/latest.json",
+      },
+      permissions: reportDataPerms,
+    });
+
     const fallAppeal = new sst.aws.Function("FallAppealData", {
       handler: "services/publishers/fall-appeal/handler.handler",
       runtime: "python3.12",
@@ -462,6 +479,11 @@ export default $config({
       function: mgoTopProspects,
     });
 
+    new sst.aws.Cron("PortfoliosRefresh", {
+      schedule: "rate(15 minutes)",
+      function: portfolios,
+    });
+
     new sst.aws.Cron("StainedGlassWindowsRefresh", {
       schedule: "rate(15 minutes)",
       function: stainedGlassWindows,
@@ -494,6 +516,7 @@ export default $config({
       chapelNaming: chapelNaming.name,
       advancementOverview: advancementOverview.name,
       mgoTopProspects: mgoTopProspects.name,
+      portfolios: portfolios.name,
       stainedGlassWindows: stainedGlassWindows.name,
       fallAppeal: fallAppeal.name,
       athleticsCoachingFundraising: athleticsCoachingFundraising.name,

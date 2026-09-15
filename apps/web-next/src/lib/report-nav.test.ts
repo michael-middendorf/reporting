@@ -57,6 +57,18 @@ describe("reportNavActive", () => {
     );
   });
 
+  it("hides Portfolios unless the user has the portfolios report", () => {
+    const advancementOnly = navForReports(ADVANCEMENT_NAV, ["advancement", "chapel", "annunciation"]);
+    assert.equal(advancementOnly.some((n) => n.href === "/advancement/portfolios"), false);
+    const pointsOnly = navForReports(ADVANCEMENT_NAV, ["points"]);
+    assert.equal(pointsOnly.some((n) => n.href === "/advancement/portfolios"), false);
+    const portfoliosOnly = navForReports(ADVANCEMENT_NAV, ["portfolios"]);
+    assert.deepEqual(
+      portfoliosOnly.map((n) => n.href),
+      ["/advancement/portfolios"],
+    );
+  });
+
   it("keeps Enrollment Overview exact so nested pages stay distinct", () => {
     const overview = item(ENROLLMENT_NAV, "/enrollment");
     const admissions = item(ENROLLMENT_NAV, "/enrollment/admissions");

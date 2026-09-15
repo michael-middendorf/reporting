@@ -21,7 +21,7 @@ export default function AdvancementLayout({
   children: React.ReactNode;
 }) {
   return (
-    <AccessGate report={["advancement", "chapel", "points"]}>
+    <AccessGate report={["advancement", "chapel", "points", "portfolios"]}>
       <AdvancementBar />
       {children}
     </AccessGate>

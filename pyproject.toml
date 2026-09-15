@@ -17,6 +17,7 @@ members = [
   "services/publishers/chapel-naming",
   "services/publishers/advancement-overview",
   "services/publishers/mgo-top-prospects",
+  "services/publishers/portfolios",
   "services/publishers/stained-glass-windows",
   "services/publishers/fall-appeal",
   "services/publishers/athletics-coaching-fundraising",

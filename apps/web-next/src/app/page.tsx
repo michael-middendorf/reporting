@@ -104,7 +104,10 @@ export default function HomePage() {
     if (allowed.includes(r.id)) return true;
     // Chapel-only and Points-only users still land on the Advancement folder
     // (cards inside are filtered to what they can open).
-    if (r.id === "advancement" && (allowed.includes("chapel") || allowed.includes("points"))) {
+    if (
+      r.id === "advancement" &&
+      (allowed.includes("chapel") || allowed.includes("points") || allowed.includes("portfolios"))
+    ) {
       return true;
     }
     if (r.id === "athletics" && allowed.includes("athletics-coaching")) {

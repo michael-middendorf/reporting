@@ -31,6 +31,12 @@ const REPORTS: {
     report: "advancement",
   },
   {
+    href: "/advancement/portfolios",
+    title: "Portfolios",
+    desc: "MGO and MA books by pipeline stage, last gift, and last activity.",
+    report: "portfolios",
+  },
+  {
     href: "/advancement/fall-appeal",
     title: "Fall Appeal",
     desc: "Fall 2026 Appeal revenue, segmentation, and year-over-year pace from Virtuous.",

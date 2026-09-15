@@ -13,6 +13,7 @@ export type ReportNavItem = {
 export const ADVANCEMENT_NAV: ReportNavItem[] = [
   { href: "/advancement/overview", label: "Overview", report: "advancement" },
   { href: "/advancement/mgo-top-prospects", label: "MGO Top Prospects", report: "advancement" },
+  { href: "/advancement/portfolios", label: "Portfolios", report: "portfolios" },
   { href: "/annunciation", label: "Annunciation Circle", report: "annunciation" },
   { href: "/advancement/fall-appeal", label: "Fall Appeal", report: "advancement" },
   { href: "/advancement/points", label: "MA Points", report: "points", exact: true },

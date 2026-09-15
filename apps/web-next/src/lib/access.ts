@@ -12,6 +12,7 @@ export const REPORT_IDS = [
   "advancement",
   "chapel",
   "points",
+  "portfolios",
   "annunciation",
   "aspiredu",
 ] as const;
@@ -98,6 +99,10 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
   chapel: "robert.musselman@avemaria.edu",
   points:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,annie.esposito@avemaria.edu,leslie.sonnen@avemaria.edu",
+  // MGO + MA officers, Leslie (both teams), Annie (MA team). Jim is already an MGO.
+  // Do not add Zena, Cassandra, Sarah, Susan, or Becca. Annie stays off advancement.
+  portfolios:
+    "beatrice.sanford@avemaria.edu,brigid.luzarraga@avemaria.edu,colleen.dolnick@avemaria.edu,jim.thomas@avemaria.edu,julie.musselman@avemaria.edu,marita.emond@avemaria.edu,mark.middendorf@avemaria.edu,matthew.buzzanca@avemaria.edu,patrick.oconnell@avemaria.edu,alanna.f.mccann@avemaria.edu,betsy.scaletty@avemaria.edu,caleb.m.metzen@avemaria.edu,elena.j.barnes@avemaria.edu,joseph.c.blaso@avemaria.edu,natalia.p.abrams@avemaria.edu,sean.e.kelly@avemaria.edu,leslie.sonnen@avemaria.edu,annie.esposito@avemaria.edu",
   annunciation:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu,susan.gallagher@avemaria.edu,mark.middendorf@avemaria.edu,leslie.sonnen@avemaria.edu,julie.musselman@avemaria.edu,jim.thomas@avemaria.edu,becca.kennedy@avemaria.edu",
   aspiredu:
@@ -114,6 +119,7 @@ const ENV_KEYS: Record<ReportId, string> = {
   advancement: "ADVANCEMENT_ALLOWED_EMAILS",
   chapel: "CHAPEL_ALLOWED_EMAILS",
   points: "POINTS_ALLOWED_EMAILS",
+  portfolios: "PORTFOLIOS_ALLOWED_EMAILS",
   annunciation: "ANNUNCIATION_ALLOWED_EMAILS",
   aspiredu: "ASPIREDU_ALLOWED_EMAILS",
 };

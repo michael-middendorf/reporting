@@ -1,0 +1,42 @@
+.pf-selects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pf-select {
+  border: 1px solid var(--ac-border);
+  background: var(--ac-card);
+  color: var(--ac-text);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.pf-stage-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pf-stage-count {
+  font-size: 12px;
+  color: var(--ao-muted);
+  font-weight: 600;
+}
+
+.pf-table .pf-rel {
+  font-size: 13px;
+  color: var(--ao-muted);
+}
+
+.pf-table .pf-date {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.pf-table .mtp-donor td:first-child {
+  padding-left: 16px;
+}
