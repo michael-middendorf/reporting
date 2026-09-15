@@ -10,9 +10,6 @@ import {
   type PortfolioSolicitor,
   type PortfoliosSnapshot,
 } from "@/lib/reports/portfolios/shape";
-import "@/styles/annunciation.css";
-import "@/styles/advancement-overview.css";
-import "@/styles/mgo-top-prospects.css";
 import "@/styles/portfolios.css";
 
 type Row = PortfolioDonor & { solicitorName: string; solicitorId: string };
@@ -110,44 +107,44 @@ export default function PortfoliosPage() {
   const missingActivity = allDonors.filter((d) => !d.lastActivityDate).length;
 
   return (
-    <main className="ac-page ao-page mtp-page">
-      <div className="ac-head">
+    <main className="pf-page">
+      <div className="pf-head">
         <div>
           <h1>Portfolios</h1>
-          <p className="ac-sub">
+          <p className="pf-sub">
             Pipeline stages for each officer&apos;s book
             {data?.generated_at ? ` · updated ${data.generated_at}` : ""}.
           </p>
         </div>
-        <button type="button" className="ac-refresh" onClick={load} disabled={loading}>
+        <button type="button" className="pf-refresh" onClick={load} disabled={loading}>
           {loading ? "Loading…" : "Refresh"}
         </button>
       </div>
 
       {error && (
-        <div className="ac-error">
+        <div className="pf-error">
           <p>{error}</p>
         </div>
       )}
 
       {!error && (
         <>
-          <div className="ac-cards">
-            <div className="ac-card">
-              <span className="ac-card-num">{allDonors.length}</span>
-              <span className="ac-card-label">Donors</span>
+          <div className="pf-cards">
+            <div className="pf-card">
+              <span className="pf-card-num">{allDonors.length}</span>
+              <span className="pf-card-label">Donors</span>
             </div>
-            <div className="ac-card">
-              <span className="ac-card-num">{untaggedCount}</span>
-              <span className="ac-card-label">Untagged</span>
+            <div className="pf-card">
+              <span className="pf-card-num">{untaggedCount}</span>
+              <span className="pf-card-label">Untagged</span>
             </div>
-            <div className="ac-card">
-              <span className="ac-card-num">{missingActivity}</span>
-              <span className="ac-card-label">Missing last activity</span>
+            <div className="pf-card">
+              <span className="pf-card-num">{missingActivity}</span>
+              <span className="pf-card-label">Missing last activity</span>
             </div>
           </div>
 
-          <div className="ac-toolbar">
+          <div className="pf-toolbar">
             {showSelector && (
               <div className="pf-selects">
                 <select
@@ -197,20 +194,20 @@ export default function PortfoliosPage() {
               ))}
             </select>
             <input
-              className="ac-search"
+              className="pf-search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search donor name"
             />
-            <span className="ac-count">
+            <span className="pf-count">
               {filteredStages.reduce((n, st) => n + st.donors.length, 0)} donor
               {filteredStages.reduce((n, st) => n + st.donors.length, 0) === 1 ? "" : "s"}
             </span>
           </div>
 
           {filteredStages.length === 0 && (
-            <section className="ao-card">
-              <p className="ao-empty">{loading ? "Loading…" : "No matching donors."}</p>
+            <section className="pf-panel">
+              <p className="pf-empty">{loading ? "Loading…" : "No matching donors."}</p>
             </section>
           )}
 
@@ -218,11 +215,11 @@ export default function PortfoliosPage() {
             const isOpen = open[st.key] !== false;
             const cols = showSolicitorCol ? 5 : 4;
             return (
-              <section key={st.key} className="ao-card">
-                <header className="ao-panel-head pf-stage-head">
+              <section key={st.key} className="pf-panel">
+                <header className="pf-stage-head">
                   <button
                     type="button"
-                    className="mtp-toggle"
+                    className="pf-toggle"
                     aria-expanded={isOpen}
                     onClick={() => setOpen((s) => ({ ...s, [st.key]: !isOpen }))}
                   >
@@ -233,43 +230,45 @@ export default function PortfoliosPage() {
                   </span>
                 </header>
                 {isOpen && (
-                  <table className="mtp-table pf-table">
-                    <thead>
-                      <tr>
-                        <th>Donor</th>
-                        {showSolicitorCol && <th>Solicitor</th>}
-                        <th>Relationship</th>
-                        <th>Last gift</th>
-                        <th>Last activity</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {st.donors.length === 0 && (
+                  <div className="pf-table-wrap">
+                    <table className="pf-table">
+                      <thead>
                         <tr>
-                          <td colSpan={cols} className="ao-empty">
-                            No donors in this stage.
-                          </td>
+                          <th>Donor</th>
+                          {showSolicitorCol && <th>Solicitor</th>}
+                          <th>Relationship</th>
+                          <th>Last gift</th>
+                          <th>Last activity</th>
                         </tr>
-                      )}
-                      {st.donors.map((d) => (
-                        <tr key={`${d.solicitorId}:${d.contactId ?? d.donorName}`} className="mtp-donor">
-                          <td>
-                            {d.contactUrl ? (
-                              <a href={d.contactUrl} target="_blank" rel="noopener noreferrer">
-                                {d.donorName || "-"}
-                              </a>
-                            ) : (
-                              d.donorName || "-"
-                            )}
-                          </td>
-                          {showSolicitorCol && <td>{d.solicitorName}</td>}
-                          <td className="pf-rel">{relationshipLabel(d.relationship)}</td>
-                          <td className="pf-date">{formatMdDate(d.lastGiftDate)}</td>
-                          <td className="pf-date">{formatMdDate(d.lastActivityDate)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {st.donors.length === 0 && (
+                          <tr>
+                            <td colSpan={cols} className="pf-empty">
+                              No donors in this stage.
+                            </td>
+                          </tr>
+                        )}
+                        {st.donors.map((d) => (
+                          <tr key={`${d.solicitorId}:${d.contactId ?? d.donorName}`}>
+                            <td>
+                              {d.contactUrl ? (
+                                <a href={d.contactUrl} target="_blank" rel="noopener noreferrer">
+                                  {d.donorName || "-"}
+                                </a>
+                              ) : (
+                                d.donorName || "-"
+                              )}
+                            </td>
+                            {showSolicitorCol && <td>{d.solicitorName}</td>}
+                            <td className="pf-rel">{relationshipLabel(d.relationship)}</td>
+                            <td className="pf-date">{formatMdDate(d.lastGiftDate)}</td>
+                            <td className="pf-date">{formatMdDate(d.lastActivityDate)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </section>
             );
