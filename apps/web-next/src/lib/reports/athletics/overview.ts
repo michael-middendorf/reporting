@@ -2,7 +2,7 @@ import { canAccessReport, sportsScopeForAthleticsEmail } from "../../access";
 import { canAccessSport, isCoachingLeadership } from "../athletics-coaching/access";
 import type { EnrollmentAccess } from "../athletics-coaching/enrollment";
 import { isSportKey, SPORTS, resolveSportKey, sportByKey, type SportDef } from "../athletics-coaching/sports";
-import { eligibleSigned } from "./normalize";
+import { eligibleIncomingSigned } from "./normalize";
 import type { AthleticsRecord } from "./types";
 
 export type RecruitingOverviewStats = {
@@ -54,7 +54,7 @@ export function recruitingOverviewStats(
   sportKey: string,
 ): RecruitingOverviewStats {
   const rows = applications.filter((record) => recordMatchesCoachingSport(record, sportKey));
-  const signed = rows.filter(eligibleSigned);
+  const signed = rows.filter(eligibleIncomingSigned);
   const signedWithAid = signed.filter((record) => record.athleticScholarship > 0);
   const total = signedWithAid.reduce((sum, record) => sum + record.athleticScholarship, 0);
   return {

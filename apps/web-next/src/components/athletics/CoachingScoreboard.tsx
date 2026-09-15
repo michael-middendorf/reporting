@@ -113,7 +113,7 @@ export function CoachingScoreboard({ sportKey }: { sportKey: string }) {
           <div className="ath-kpi">
             <span>Signed / deposited</span>
             <strong>{signedValue ?? (enrollment.loading ? "Loading…" : "n/a")}</strong>
-            <small>Varsity LOI signed or deposited</small>
+            <small>Fall 2027 incoming</small>
           </div>
         </div>
         <strong className="ath-coach-open">Open enrollment →</strong>
