@@ -13,8 +13,11 @@ import {
   matchedRosterRows,
   mergeOfficeHoursLedger,
   officeHoursLedgerObjectKey,
+  officeHoursNeedsHistory,
+  type OfficeHoursHistoryBackfill,
   type OfficeHoursLedger,
 } from "@/lib/reports/athletics-coaching/academics";
+import { backfillOfficeHoursFromSnapshots } from "@/lib/reports/athletics-coaching/office-hours-history";
 import { putJsonObject, readJsonObject } from "@/lib/reports/housing/store";
 import type { SlateRow } from "@/lib/reports/athletics/types";
 import { isMissingSource, loadSourceRowsOptional } from "@/lib/sources";
@@ -121,18 +124,29 @@ export async function GET(req: Request) {
     }
 
     const officeHoursLedger = await loadOfficeHoursLedger(access.sport);
+    const draft = buildAcademicsSummary({
+      sport: access.sport,
+      rosterRows: roster.rows,
+      lambdaResult,
+      rosterPulledAt: roster.latest.pulled_at ?? null,
+    });
+    let nextLedger = officeHoursLedger;
+    if (officeHoursLedger) {
+      const asOfIso = draft.asOf || new Date().toISOString();
+      let backfill: OfficeHoursHistoryBackfill = {};
+      if (officeHoursNeedsHistory(draft.officeHours, officeHoursLedger)) {
+        backfill = await backfillOfficeHoursFromSnapshots(draft.officeHours);
+      }
+      nextLedger = mergeOfficeHoursLedger(officeHoursLedger, draft.officeHours, asOfIso, backfill);
+      await saveOfficeHoursLedger(access.sport, nextLedger);
+    }
     const summary = buildAcademicsSummary({
       sport: access.sport,
       rosterRows: roster.rows,
       lambdaResult,
       rosterPulledAt: roster.latest.pulled_at ?? null,
-      officeHoursLedger,
+      officeHoursLedger: nextLedger,
     });
-    if (officeHoursLedger) {
-      const asOfIso = summary.asOf || new Date().toISOString();
-      const nextLedger = mergeOfficeHoursLedger(officeHoursLedger, summary.officeHours, asOfIso);
-      await saveOfficeHoursLedger(access.sport, nextLedger);
-    }
 
     return NextResponse.json(summary, { headers });
   } catch (error) {

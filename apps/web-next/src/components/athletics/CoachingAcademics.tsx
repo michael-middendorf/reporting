@@ -5,9 +5,11 @@ import { Fragment, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import {
   letterFromPercent,
+  officeHoursDurationLabel,
   type AcademicsSummary,
   type AttendancePulse,
   type OfficeHoursRow,
+  type OfficeHoursSource,
 } from "@/lib/reports/athletics-coaching/academics";
 import { formatCount, formatWhen } from "./CoachingHub";
 
@@ -17,6 +19,8 @@ type OfficeHoursCourse = {
   course: string;
   letter: string;
   daysBelow: number | null;
+  source: OfficeHoursSource | null;
+  lowerBound: boolean | null;
 };
 
 type OfficeHoursAthlete = {
@@ -25,15 +29,8 @@ type OfficeHoursAthlete = {
   courses: OfficeHoursCourse[];
 };
 
-function officeHoursDurationLabel(daysBelow: number | null): string {
-  if (daysBelow === null) return "since this check";
-  if (daysBelow <= 0) return "since today";
-  if (daysBelow === 1) return "1 day";
-  return `${daysBelow} days`;
-}
-
 function officeHoursClassLabel(course: OfficeHoursCourse): string {
-  const duration = officeHoursDurationLabel(course.daysBelow);
+  const duration = officeHoursDurationLabel(course.daysBelow, course);
   return course.letter ? `${course.course} (${course.letter}, ${duration})` : `${course.course} (${duration})`;
 }
 
@@ -51,7 +48,13 @@ function groupOfficeHoursByAthlete(rows: OfficeHoursRow[]): OfficeHoursAthlete[]
       byKey.set(key, group);
       order.push(key);
     }
-    group.courses.push({ course, letter: row.letter, daysBelow: row.daysBelow });
+    group.courses.push({
+      course,
+      letter: row.letter,
+      daysBelow: row.daysBelow,
+      source: row.source,
+      lowerBound: row.lowerBound,
+    });
   }
   return order.map((key) => byKey.get(key)!).filter((group) => group.courses.length > 0);
 }
@@ -223,7 +226,7 @@ export function AcademicsPage({ sportKey }: { sportKey: string }) {
                           <td>
                             {row.courses.map((course, index) => (
                               <div key={`${row.key}-below-${course.course}-${index}`}>
-                                {officeHoursDurationLabel(course.daysBelow)}
+                                {officeHoursDurationLabel(course.daysBelow, course)}
                               </div>
                             ))}
                           </td>

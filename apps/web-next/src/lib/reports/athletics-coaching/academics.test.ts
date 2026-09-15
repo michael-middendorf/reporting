@@ -14,6 +14,7 @@ import {
   coachingLambdaPayload,
   coachingMfaUrl,
   daysBelow,
+  firstSeenBelowAB,
   gpaPointsFromPercent,
   isAB,
   isCoachingActionUnavailable,
@@ -21,10 +22,16 @@ import {
   matchedRosterRows,
   mergeOfficeHoursLedger,
   normalizePcid,
+  officeHoursDurationLabel,
+  officeHoursHistoryFromSnapshots,
   officeHoursLedgerKey,
   officeHoursLedgerObjectKey,
+  officeHoursNeedsHistory,
   rosterJoinKeys,
   safeCoachingNext,
+  type OfficeHoursGradeSnapshot,
+  type OfficeHoursHistoryCourse,
+  type OfficeHoursLedger,
   type OfficeHoursRow,
 } from "./academics";
 import { SPORTS } from "./sports";
@@ -588,7 +595,26 @@ describe("office hours below-A/B ledger", () => {
       missing: null,
       firstSeen: null,
       daysBelow: null,
+      source: null,
+      lowerBound: null,
     };
+  }
+
+  function historyCourse(
+    grade: number,
+    extra?: Partial<OfficeHoursHistoryCourse>,
+  ): OfficeHoursHistoryCourse {
+    return {
+      email: "athlete.one@avemaria.edu",
+      studentSisId: "P000000001",
+      course: "BIO 101",
+      courseGrade: grade,
+      ...extra,
+    };
+  }
+
+  function snap(asOf: string, grade: number, extra?: Partial<OfficeHoursHistoryCourse>): OfficeHoursGradeSnapshot {
+    return { asOf, courses: [historyCourse(grade, extra)] };
   }
 
   const rosterRows = [
@@ -623,7 +649,7 @@ describe("office hours below-A/B ledger", () => {
     assert.equal(daysBelow("not-a-date", "2026-09-01T12:00:00Z"), 0);
   });
 
-  it("first snapshot: firstSeen is asOf and daysBelow is 0", () => {
+  it("first snapshot without history: firstSeen is asOf and source is unknown", () => {
     const asOf = "2026-09-01T12:00:00Z";
     const next = mergeOfficeHoursLedger(null, [officeRow("BIO 101", "C", 74)], asOf);
     const key = officeHoursLedgerKey("athlete.one@avemaria.edu", "P000000001", "BIO 101");
@@ -631,19 +657,68 @@ describe("office hours below-A/B ledger", () => {
     assert.equal(next.entries[key].firstSeen, asOf);
     assert.equal(next.entries[key].letter, "C");
     assert.equal(next.entries[key].grade, 74);
+    assert.equal(next.entries[key].source, "unknown");
+    assert.equal(next.entries[key].lowerBound, undefined);
     assert.equal(daysBelow(next.entries[key].firstSeen, asOf), 0);
   });
 
-  it("second snapshot of the same course keeps firstSeen and increases daysBelow", () => {
+  it("unknown without backfill restamps firstSeen to asOf", () => {
     const first = "2026-09-01T12:00:00Z";
     const later = "2026-09-13T12:00:00Z";
     const prev = mergeOfficeHoursLedger(null, [officeRow("BIO 101", "C", 74)], first);
     const next = mergeOfficeHoursLedger(prev, [officeRow("BIO 101", "D", 64)], later);
     const key = officeHoursLedgerKey("athlete.one@avemaria.edu", "P000000001", "BIO 101");
-    assert.equal(next.entries[key].firstSeen, first);
+    assert.equal(next.entries[key].firstSeen, later);
+    assert.equal(next.entries[key].source, "unknown");
     assert.equal(next.entries[key].letter, "D");
     assert.equal(next.entries[key].grade, 64);
-    assert.equal(daysBelow(next.entries[key].firstSeen, later), 12);
+  });
+
+  it("does not overwrite source=history firstSeen with today", () => {
+    const first = "2026-06-01T12:00:00Z";
+    const later = "2026-09-13T12:00:00Z";
+    const key = officeHoursLedgerKey("athlete.one@avemaria.edu", "P000000001", "BIO 101");
+    const prev = {
+      updatedAt: first,
+      entries: {
+        [key]: { firstSeen: first, letter: "C", grade: 74, source: "history" as const, lowerBound: true },
+      },
+    };
+    const next = mergeOfficeHoursLedger(prev, [officeRow("BIO 101", "D", 64)], later, {
+      [key]: { firstSeen: later, lowerBound: false },
+    });
+    assert.equal(next.entries[key].firstSeen, first);
+    assert.equal(next.entries[key].source, "history");
+    assert.equal(next.entries[key].lowerBound, true);
+    assert.equal(next.entries[key].letter, "D");
+    assert.equal(daysBelow(next.entries[key].firstSeen, later), 104);
+  });
+
+  it("overwrites missing source and unknown with backfill", () => {
+    const stamped = "2026-09-13T12:00:00Z";
+    const history = "2026-06-20T08:00:00Z";
+    const key = officeHoursLedgerKey("athlete.one@avemaria.edu", "P000000001", "BIO 101");
+    const missingSource = {
+      updatedAt: stamped,
+      entries: { [key]: { firstSeen: stamped, letter: "C", grade: 74 } },
+    };
+    const fromMissing = mergeOfficeHoursLedger(
+      missingSource as unknown as OfficeHoursLedger,
+      [officeRow("BIO 101", "C", 74)],
+      stamped,
+      { [key]: { firstSeen: history, lowerBound: true } },
+    );
+    assert.equal(fromMissing.entries[key].firstSeen, history);
+    assert.equal(fromMissing.entries[key].source, "history");
+    assert.equal(fromMissing.entries[key].lowerBound, true);
+
+    const unknown = mergeOfficeHoursLedger(null, [officeRow("BIO 101", "C", 74)], stamped);
+    const fromUnknown = mergeOfficeHoursLedger(unknown, [officeRow("BIO 101", "C", 74)], stamped, {
+      [key]: { firstSeen: history, lowerBound: false },
+    });
+    assert.equal(fromUnknown.entries[key].firstSeen, history);
+    assert.equal(fromUnknown.entries[key].source, "history");
+    assert.equal(fromUnknown.entries[key].lowerBound, undefined);
   });
 
   it("drops a recovered A/B course from the ledger", () => {
@@ -657,16 +732,20 @@ describe("office hours below-A/B ledger", () => {
   it("gives a newly below-A/B course its own firstSeen", () => {
     const first = "2026-09-01T12:00:00Z";
     const later = "2026-09-13T12:00:00Z";
-    const prev = mergeOfficeHoursLedger(null, [officeRow("BIO 101", "C", 74)], first);
+    const bio = officeHoursLedgerKey("athlete.one@avemaria.edu", "P000000001", "BIO 101");
+    const theology = officeHoursLedgerKey("athlete.one@avemaria.edu", "P000000001", "THE 105");
+    const prev = mergeOfficeHoursLedger(null, [officeRow("BIO 101", "C", 74)], first, {
+      [bio]: { firstSeen: first, lowerBound: false },
+    });
     const next = mergeOfficeHoursLedger(
       prev,
       [officeRow("BIO 101", "C", 74), officeRow("THE 105", "D", 64)],
       later,
     );
-    const bio = officeHoursLedgerKey("athlete.one@avemaria.edu", "P000000001", "BIO 101");
-    const theology = officeHoursLedgerKey("athlete.one@avemaria.edu", "P000000001", "THE 105");
     assert.equal(next.entries[bio].firstSeen, first);
+    assert.equal(next.entries[bio].source, "history");
     assert.equal(next.entries[theology].firstSeen, later);
+    assert.equal(next.entries[theology].source, "unknown");
     assert.equal(daysBelow(next.entries[theology].firstSeen, later), 0);
   });
 
@@ -693,6 +772,8 @@ describe("office hours below-A/B ledger", () => {
     assert.equal(without.officeHours.length, 1);
     assert.equal(without.officeHours[0].firstSeen, null);
     assert.equal(without.officeHours[0].daysBelow, null);
+    assert.equal(without.officeHours[0].source, null);
+    assert.equal(without.officeHours[0].lowerBound, null);
 
     const emptyLedger = { updatedAt: "", entries: {} };
     const firstPass = buildAcademicsSummary({
@@ -704,16 +785,106 @@ describe("office hours below-A/B ledger", () => {
     });
     assert.equal(firstPass.officeHours[0].firstSeen, firstSeen);
     assert.equal(firstPass.officeHours[0].daysBelow, 0);
+    assert.equal(firstPass.officeHours[0].source, "unknown");
 
-    const merged = mergeOfficeHoursLedger(emptyLedger, firstPass.officeHours, firstSeen);
+    const historyLedger = mergeOfficeHoursLedger(emptyLedger, firstPass.officeHours, firstSeen, {
+      [officeHoursLedgerKey("athlete.one@avemaria.edu", "P000000001", "THE 105")]: {
+        firstSeen,
+        lowerBound: false,
+      },
+    });
     const second = buildAcademicsSummary({
       sport: "football",
       rosterRows,
       lambdaResult: lambdaFor(asOf),
       now: NOW,
-      officeHoursLedger: merged,
+      officeHoursLedger: historyLedger,
     });
     assert.equal(second.officeHours[0].firstSeen, firstSeen);
     assert.equal(second.officeHours[0].daysBelow, 12);
+    assert.equal(second.officeHours[0].source, "history");
+    assert.equal(second.officeHours[0].lowerBound, false);
+  });
+
+  it("walks fake snapshots for firstSeen of the current stretch below 80", () => {
+    const oldest = "2026-06-01T12:00:00Z";
+    const mid = "2026-07-15T12:00:00Z";
+    const latest = "2026-09-01T12:00:00Z";
+    const target = { email: "athlete.one@avemaria.edu", pcid: "P000000001", course: "BIO 101" };
+
+    const stillBelow = firstSeenBelowAB([snap(oldest, 70), snap(mid, 72), snap(latest, 64)], target);
+    assert.equal(stillBelow?.firstSeen, oldest);
+    assert.equal(stillBelow?.lowerBound, true);
+
+    const droppedAfterAB = firstSeenBelowAB([snap(oldest, 90), snap(mid, 85), snap(latest, 74)], target);
+    assert.equal(droppedAfterAB?.firstSeen, latest);
+    assert.equal(droppedAfterAB?.lowerBound, false);
+
+    const recoveredThenDropped = firstSeenBelowAB(
+      [snap(oldest, 70), snap(mid, 88), snap(latest, 74)],
+      target,
+    );
+    assert.equal(recoveredThenDropped?.firstSeen, latest);
+    assert.equal(recoveredThenDropped?.lowerBound, false);
+
+    assert.equal(firstSeenBelowAB([snap(oldest, 91), snap(latest, 84)], target), null);
+  });
+
+  it("matches history by email case or pcid and by course or courseSisId", () => {
+    const asOf = "2026-07-01T12:00:00Z";
+    const byEmail = firstSeenBelowAB(
+      [snap(asOf, 71, { email: "Athlete.One@AveMaria.edu", studentSisId: undefined })],
+      { email: "athlete.one@avemaria.edu", pcid: "", course: "BIO 101" },
+    );
+    assert.equal(byEmail?.firstSeen, asOf);
+    assert.equal(byEmail?.lowerBound, true);
+
+    const byPcid = firstSeenBelowAB(
+      [snap(asOf, 71, { email: undefined, studentSisId: "P000000001" })],
+      { email: "", pcid: "P000000001", course: "BIO 101" },
+    );
+    assert.equal(byPcid?.firstSeen, asOf);
+
+    const bySis = firstSeenBelowAB(
+      [snap(asOf, 71, { course: "Other", courseSisId: "BIO101" })],
+      { email: "athlete.one@avemaria.edu", pcid: "P000000001", course: "BIO 101", courseSisId: "BIO101" },
+    );
+    assert.equal(bySis?.firstSeen, asOf);
+  });
+
+  it("builds a backfill map and reports when history is still missing", () => {
+    const oldest = "2026-06-01T12:00:00Z";
+    const rows = [officeRow("BIO 101", "C", 74), officeRow("THE 105", "D", 64)];
+    const backfill = officeHoursHistoryFromSnapshots(rows, [
+      snap(oldest, 70),
+      { asOf: oldest, courses: [historyCourse(91, { course: "THE 105" })] },
+      {
+        asOf: "2026-08-01T12:00:00Z",
+        courses: [historyCourse(70), historyCourse(64, { course: "THE 105" })],
+      },
+    ]);
+    const bio = officeHoursLedgerKey("athlete.one@avemaria.edu", "P000000001", "BIO 101");
+    const theology = officeHoursLedgerKey("athlete.one@avemaria.edu", "P000000001", "THE 105");
+    assert.equal(backfill[bio].firstSeen, oldest);
+    assert.equal(backfill[bio].lowerBound, true);
+    assert.equal(backfill[theology].firstSeen, "2026-08-01T12:00:00Z");
+    assert.equal(backfill[theology].lowerBound, false);
+
+    const unknownLedger = mergeOfficeHoursLedger(null, rows, "2026-09-13T12:00:00Z");
+    assert.equal(officeHoursNeedsHistory(rows, unknownLedger), true);
+    const historyLedger = mergeOfficeHoursLedger(unknownLedger, rows, "2026-09-13T12:00:00Z", backfill);
+    assert.equal(officeHoursNeedsHistory(rows, historyLedger), false);
+  });
+
+  it("labels duration unknown, at least N days, or today from history", () => {
+    assert.equal(officeHoursDurationLabel(null), "unknown");
+    assert.equal(officeHoursDurationLabel(12), "unknown");
+    assert.equal(officeHoursDurationLabel(12, { source: "unknown" }), "unknown");
+    assert.equal(officeHoursDurationLabel(0, { source: "history", lowerBound: true }), "at least 1 day");
+    assert.equal(officeHoursDurationLabel(1, { source: "history", lowerBound: true }), "at least 1 day");
+    assert.equal(officeHoursDurationLabel(12, { source: "history", lowerBound: true }), "at least 12 days");
+    assert.equal(officeHoursDurationLabel(0, { source: "history" }), "today");
+    assert.equal(officeHoursDurationLabel(1, { source: "history" }), "1 day");
+    assert.equal(officeHoursDurationLabel(12, { source: "history" }), "12 days");
   });
 });

@@ -68,6 +68,8 @@ export type AcademicsAthlete = {
   courses: AcademicsCourse[];
 };
 
+export type OfficeHoursSource = "history" | "unknown";
+
 export type OfficeHoursRow = {
   name: string;
   email: string;
@@ -78,13 +80,39 @@ export type OfficeHoursRow = {
   missing: number | null;
   firstSeen: string | null;
   daysBelow: number | null;
+  source: OfficeHoursSource | null;
+  lowerBound: boolean | null;
 };
 
 export type OfficeHoursLedgerEntry = {
   firstSeen: string;
   letter: string;
   grade: number;
+  source: OfficeHoursSource;
+  lowerBound?: boolean;
 };
+
+export type OfficeHoursHistoryCourse = {
+  email?: string;
+  studentSisId?: string;
+  pcid?: string;
+  sisId?: string;
+  course?: string;
+  courseSisId?: string;
+  courseGrade?: number | null;
+};
+
+export type OfficeHoursGradeSnapshot = {
+  asOf: string;
+  courses: OfficeHoursHistoryCourse[];
+};
+
+export type OfficeHoursHistoryHit = {
+  firstSeen: string;
+  lowerBound: boolean;
+};
+
+export type OfficeHoursHistoryBackfill = Record<string, OfficeHoursHistoryHit>;
 
 export type OfficeHoursLedger = {
   updatedAt: string;
@@ -218,10 +246,148 @@ export function daysBelow(firstSeenIso: string, asOfIso: string): number {
   return Math.max(0, Math.floor((asOf - first) / DAY_MS));
 }
 
+function isBelowABPercent(grade: number): boolean {
+  return !isAB(letterFromPercent(grade));
+}
+
+function ledgerSource(value: unknown): OfficeHoursSource {
+  return value === "history" ? "history" : "unknown";
+}
+
+function sameOfficeHoursStudent(item: OfficeHoursHistoryCourse, email: string, pcid: string): boolean {
+  const wantEmail = normalizeEmail(email);
+  const itemEmail = normalizeEmail(asString(item.email));
+  if (wantEmail && itemEmail && wantEmail === itemEmail) return true;
+  const wantPcid = normalizePcid(pcid) || asString(pcid).toUpperCase();
+  const itemPcid =
+    normalizePcid(asString(item.studentSisId) || asString(item.pcid) || asString(item.sisId)) ||
+    asString(item.studentSisId || item.pcid || item.sisId).toUpperCase();
+  return Boolean(wantPcid && itemPcid && wantPcid === itemPcid);
+}
+
+function sameOfficeHoursCourse(
+  item: OfficeHoursHistoryCourse,
+  course: string,
+  courseSisId?: string,
+): boolean {
+  const wantCourse = asString(course).toLowerCase();
+  const itemCourse = asString(item.course).toLowerCase();
+  if (wantCourse && itemCourse && wantCourse === itemCourse) return true;
+  const wantSis = asString(courseSisId);
+  const itemSis = asString(item.courseSisId);
+  return Boolean(wantSis && itemSis && wantSis === itemSis);
+}
+
+function observedGrade(
+  snapshot: OfficeHoursGradeSnapshot,
+  target: { email: string; pcid: string; course: string; courseSisId?: string },
+): number | null {
+  for (const item of snapshot.courses) {
+    if (!sameOfficeHoursStudent(item, target.email, target.pcid)) continue;
+    if (!sameOfficeHoursCourse(item, target.course, target.courseSisId)) continue;
+    const grade = asFiniteNumber(item.courseGrade);
+    if (grade !== null) return grade;
+  }
+  return null;
+}
+
+/** Earliest asOf of the current stretch below 80%. Oldest-first snapshots. */
+export function firstSeenBelowAB(
+  snapshots: OfficeHoursGradeSnapshot[],
+  target: { email: string; pcid: string; course: string; courseSisId?: string },
+): OfficeHoursHistoryHit | null {
+  const observations: { asOf: string; below: boolean }[] = [...snapshots]
+    .sort((a, b) => (Date.parse(a.asOf) || 0) - (Date.parse(b.asOf) || 0))
+    .flatMap((snapshot) => {
+      const grade = observedGrade(snapshot, target);
+      if (grade === null || !asString(snapshot.asOf)) return [];
+      return [{ asOf: snapshot.asOf, below: isBelowABPercent(grade) }];
+    });
+  if (!observations.length) return null;
+
+  let lastRecoveryIndex = -1;
+  for (let i = 0; i < observations.length; i += 1) {
+    if (!observations[i].below) lastRecoveryIndex = i;
+  }
+  const firstBelow = observations.slice(lastRecoveryIndex + 1).find((row) => row.below);
+  if (!firstBelow) return null;
+  return {
+    firstSeen: firstBelow.asOf,
+    lowerBound: lastRecoveryIndex < 0,
+  };
+}
+
+export function officeHoursHistoryFromSnapshots(
+  officeHoursRows: Pick<OfficeHoursRow, "email" | "pcid" | "course">[],
+  snapshots: OfficeHoursGradeSnapshot[],
+): OfficeHoursHistoryBackfill {
+  const out: OfficeHoursHistoryBackfill = {};
+  for (const row of officeHoursRows) {
+    const course = (row.course || "").trim();
+    if (!course) continue;
+    const hit = firstSeenBelowAB(snapshots, { email: row.email, pcid: row.pcid, course });
+    if (!hit) continue;
+    out[officeHoursLedgerKey(row.email, row.pcid, course)] = hit;
+  }
+  return out;
+}
+
+export function officeHoursNeedsHistory(
+  officeHoursRows: Pick<OfficeHoursRow, "email" | "pcid" | "course">[],
+  ledger: OfficeHoursLedger | null | undefined,
+): boolean {
+  if (!officeHoursRows.length) return false;
+  const entries =
+    ledger?.entries && typeof ledger.entries === "object" && !Array.isArray(ledger.entries) ? ledger.entries : {};
+  return officeHoursRows.some((row) => {
+    const course = (row.course || "").trim();
+    if (!course) return false;
+    return entries[officeHoursLedgerKey(row.email, row.pcid, course)]?.source !== "history";
+  });
+}
+
+export function officeHoursDurationLabel(
+  daysBelowValue: number | null,
+  options?: { source?: OfficeHoursSource | null; lowerBound?: boolean | null },
+): string {
+  if (daysBelowValue === null || options?.source !== "history") return "unknown";
+  const n = Math.max(0, daysBelowValue);
+  if (options?.lowerBound) {
+    if (n <= 1) return "at least 1 day";
+    return `at least ${n} days`;
+  }
+  if (n <= 0) return "today";
+  if (n === 1) return "1 day";
+  return `${n} days`;
+}
+
+function ledgerEntryFromRow(
+  row: Pick<OfficeHoursRow, "letter" | "grade">,
+  existing: OfficeHoursLedgerEntry | undefined,
+  firstSeen: string,
+  source: OfficeHoursSource,
+  lowerBound: boolean,
+): OfficeHoursLedgerEntry {
+  const grade =
+    typeof row.grade === "number" && Number.isFinite(row.grade)
+      ? row.grade
+      : typeof existing?.grade === "number" && Number.isFinite(existing.grade)
+        ? existing.grade
+        : 0;
+  return {
+    firstSeen,
+    letter: row.letter,
+    grade,
+    source,
+    ...(lowerBound ? { lowerBound: true } : {}),
+  };
+}
+
 export function mergeOfficeHoursLedger(
   prev: OfficeHoursLedger | null | undefined,
   officeHoursRows: Pick<OfficeHoursRow, "email" | "pcid" | "course" | "letter" | "grade">[],
   asOfIso: string,
+  backfill?: OfficeHoursHistoryBackfill | null,
 ): OfficeHoursLedger {
   const prevEntries =
     prev?.entries && typeof prev.entries === "object" && !Array.isArray(prev.entries) ? prev.entries : {};
@@ -231,17 +397,23 @@ export function mergeOfficeHoursLedger(
     if (!course) continue;
     const key = officeHoursLedgerKey(row.email, row.pcid, course);
     const existing = prevEntries[key];
-    const grade =
-      typeof row.grade === "number" && Number.isFinite(row.grade)
-        ? row.grade
-        : typeof existing?.grade === "number" && Number.isFinite(existing.grade)
-          ? existing.grade
-          : 0;
-    entries[key] = {
-      firstSeen: (typeof existing?.firstSeen === "string" && existing.firstSeen) || asOfIso,
-      letter: row.letter,
-      grade,
-    };
+    const existingSource = ledgerSource(existing?.source);
+    const history = backfill?.[key];
+    if (existingSource === "history" && typeof existing?.firstSeen === "string" && existing.firstSeen) {
+      entries[key] = ledgerEntryFromRow(
+        row,
+        existing,
+        existing.firstSeen,
+        "history",
+        existing.lowerBound === true,
+      );
+      continue;
+    }
+    if (history?.firstSeen) {
+      entries[key] = ledgerEntryFromRow(row, existing, history.firstSeen, "history", history.lowerBound === true);
+      continue;
+    }
+    entries[key] = ledgerEntryFromRow(row, existing, asOfIso, "unknown", false);
   }
   return { updatedAt: asOfIso, entries };
 }
@@ -252,15 +424,20 @@ function withOfficeHoursDuration(
   asOfIso: string,
 ): OfficeHoursRow[] {
   if (!ledger) {
-    return rows.map((row) => ({ ...row, firstSeen: null, daysBelow: null }));
+    return rows.map((row) => ({ ...row, firstSeen: null, daysBelow: null, source: null, lowerBound: null }));
   }
   return rows.map((row) => {
     const key = officeHoursLedgerKey(row.email, row.pcid, row.course);
-    const firstSeen = ledger.entries[key]?.firstSeen || asOfIso;
+    const entry = ledger.entries[key];
+    const firstSeen = (typeof entry?.firstSeen === "string" && entry.firstSeen) || asOfIso;
+    const source = ledgerSource(entry?.source);
+    const lowerBound = entry?.lowerBound === true;
     return {
       ...row,
       firstSeen,
       daysBelow: daysBelow(firstSeen, asOfIso),
+      source,
+      lowerBound,
     };
   });
 }
@@ -649,6 +826,8 @@ function summarizeMatchedAthletes(athletes: AcademicsAthlete[]): Pick<
           missing: course.missing,
           firstSeen: null,
           daysBelow: null,
+          source: null,
+          lowerBound: null,
         });
       }
     }
