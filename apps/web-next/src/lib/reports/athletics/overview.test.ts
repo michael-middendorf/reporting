@@ -81,12 +81,13 @@ describe("athletics master overview", () => {
         term: "Fall 2026",
       }),
     ];
-    const football = recruitingOverviewStats(rows, "football");
+    const football = recruitingOverviewStats(rows, [], "football");
     assert.equal(football.applications, 5);
     assert.equal(football.signed, 3);
     assert.equal(football.signedWithAid, 2);
+    assert.equal(football.totalScholarshipSigned, 30000);
     assert.equal(football.avgScholarshipSigned, 15000);
-    const mbb = recruitingOverviewStats(rows, "mens-basketball");
+    const mbb = recruitingOverviewStats(rows, [], "mens-basketball");
     assert.equal(mbb.applications, 1);
     assert.equal(mbb.avgScholarshipSigned, 8000);
   });

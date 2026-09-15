@@ -7,7 +7,6 @@ import { apiFetch } from "@/lib/api";
 import { recruitingOverviewStats } from "@/lib/reports/athletics/overview-stats";
 import type { AcademicsSummary } from "@/lib/reports/athletics-coaching/academics";
 import type { SportFundraising } from "@/lib/reports/athletics-coaching/fundraising";
-import { sportByKey } from "@/lib/reports/athletics-coaching/sports";
 import { formatCurrency } from "@/components/athletics/DataTable";
 import { useEffect, useMemo, useState } from "react";
 
@@ -53,12 +52,21 @@ function useSportFetch<T>(url: string): LoadState<T> {
   return { data, error, loading, mfaUrl };
 }
 
+function Metric({ label, value, detail }: { label: string; value: string; detail?: string }) {
+  return (
+    <article className="ath-kpi">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      {detail ? <small>{detail}</small> : null}
+    </article>
+  );
+}
+
 export function MasterOverviewSheet({ sportKey }: { sportKey: string }) {
-  const sport = sportByKey[sportKey];
-  const { applications, loading: recruitingLoading, error: recruitingError } = useAthletics();
+  const { applications, prospects, loading: recruitingLoading, error: recruitingError } = useAthletics();
   const recruiting = useMemo(
-    () => recruitingOverviewStats(applications, sportKey),
-    [applications, sportKey],
+    () => recruitingOverviewStats(applications, prospects, sportKey),
+    [applications, prospects, sportKey],
   );
   const fundraising = useSportFetch<SportFundraising>(
     `/api/athletics-coaching/fundraising?sport=${encodeURIComponent(sportKey)}`,
@@ -69,103 +77,134 @@ export function MasterOverviewSheet({ sportKey }: { sportKey: string }) {
   const academicsReady =
     !academics.loading && !academics.error && !academics.mfaUrl && academics.data?.rosterAvailable;
 
-  const fundraisingValue = (() => {
-    if (fundraising.loading) return "Loading…";
-    if (fundraising.error) return fundraising.error;
-    const data = fundraising.data;
-    if (!data) return "n/a";
-    if (!data.mapped) return "No sport fund mapped";
-    if (data.reason === "unavailable") return "Unavailable";
-    return formatMoney(data.fytdAmount);
-  })();
+  const dash = (loading: boolean, value: string) => (loading ? "Loading…" : value);
+  const fyLabel = fundraising.data?.fiscalYearLabel || "This fiscal year";
 
   return (
-    <div className="ath-coach-bands ath-coach-scoreboard">
-      <Link href="/athletics/master/recruiting" className="ath-coach-band ath-coach-scorecard">
-        <h2>Recruiting</h2>
-        {recruitingError ? <p>{recruitingError}</p> : null}
-        <div className="ath-coach-kpis">
-          <div className="ath-kpi">
-            <span>Applications</span>
-            <strong>{recruitingLoading ? "Loading…" : recruiting.applications.toLocaleString()}</strong>
-            <small>{sport?.label || "This sport"}</small>
-          </div>
-          <div className="ath-kpi">
-            <span>Signed / deposited</span>
-            <strong>{recruitingLoading ? "Loading…" : recruiting.signed.toLocaleString()}</strong>
-            <small>Fall 2027 incoming</small>
-          </div>
-          <div className="ath-kpi">
-            <span>Avg scholarship signed</span>
-            <strong>
-              {recruitingLoading
-                ? "Loading…"
-                : recruiting.avgScholarshipSigned == null
-                  ? "n/a"
-                  : formatCurrency(recruiting.avgScholarshipSigned)}
-            </strong>
-            <small>
-              {recruiting.signedWithAid
-                ? `${recruiting.signedWithAid} non-zero award${recruiting.signedWithAid === 1 ? "" : "s"}`
-                : "No signed awards"}
-            </small>
-          </div>
+    <div className="ath-master-sheet">
+      <section>
+        <div className="ath-section-heading-row">
+          <h2>Recruiting</h2>
+          <Link href="/athletics/master/recruiting">Open recruiting →</Link>
         </div>
-        <strong className="ath-coach-open">Open recruiting →</strong>
-      </Link>
+        {recruitingError ? <p className="ath-muted">{recruitingError}</p> : null}
+        <div className="ath-kpi-grid ath-kpi-grid-primary">
+          <Metric
+            label="Applications"
+            value={dash(recruitingLoading, recruiting.applications.toLocaleString())}
+            detail="This sport"
+          />
+          <Metric
+            label="Prospects / Inquiries"
+            value={dash(recruitingLoading, recruiting.prospects.toLocaleString())}
+            detail="Have not applied"
+          />
+          <Metric
+            label="Total Scholarship Signed"
+            value={dash(recruitingLoading, formatCurrency(recruiting.totalScholarshipSigned))}
+            detail={`${recruiting.signedWithAid.toLocaleString()} non-zero awards · Fall 2027`}
+          />
+          <Metric
+            label="Average Scholarship Signed"
+            value={dash(
+              recruitingLoading,
+              recruiting.avgScholarshipSigned == null ? "n/a" : formatCurrency(recruiting.avgScholarshipSigned),
+            )}
+            detail="Fall 2027 signed/deposited"
+          />
+          <Metric
+            label="Total Scholarship All"
+            value={dash(recruitingLoading, formatCurrency(recruiting.totalScholarshipAll))}
+            detail={`${recruiting.allAwards.toLocaleString()} awards`}
+          />
+          <Metric
+            label="Average Scholarship All"
+            value={dash(
+              recruitingLoading,
+              recruiting.avgScholarshipAll == null ? "n/a" : formatCurrency(recruiting.avgScholarshipAll),
+            )}
+            detail="Excludes blank and zero awards"
+          />
+        </div>
+      </section>
 
-      <Link href={`/athletics/coaching/${sportKey}/academics`} className="ath-coach-band ath-coach-scorecard">
-        <h2>Academics</h2>
-        {academics.loading ? <p>Loading academic snapshots…</p> : null}
+      <section>
+        <div className="ath-section-heading-row">
+          <h2>Academics</h2>
+          <Link href={`/athletics/coaching/${sportKey}/academics`}>Open academics →</Link>
+        </div>
+        {academics.loading ? <p className="ath-muted">Loading academic snapshots…</p> : null}
         {academics.mfaUrl ? (
-          <p>
-            Named athlete academics need an authenticator code.{" "}
-            <span>Continue on the academics page.</span>
+          <p className="ath-muted">
+            Named athlete academics need an authenticator code. Continue on the academics page.
           </p>
         ) : null}
-        {academics.error ? <p>{academics.error}</p> : null}
+        {academics.error ? <p className="ath-muted">{academics.error}</p> : null}
         {!academics.loading && !academics.error && !academics.mfaUrl && academics.data && !academics.data.rosterAvailable ? (
-          <p>The roster feed is not in yet.</p>
+          <p className="ath-muted">The roster feed is not in yet.</p>
         ) : null}
         {academicsReady && academics.data ? (
-          <div className="ath-coach-kpis">
-            <div className="ath-kpi">
-              <span>Team GPA</span>
-              <strong>{academics.data.teamGpa == null ? "n/a" : academics.data.teamGpa.toFixed(2)}</strong>
-              <small>from current course grades, unweighted</small>
-            </div>
-            <div className="ath-kpi">
-              <span>Missing class</span>
-              <strong>
-                {academics.data.peopleMissingClass} of {academics.data.matchedCount}
-              </strong>
-              <small>Athletes with 2 or more session absences</small>
-            </div>
+          <div className="ath-kpi-grid ath-kpi-grid-primary">
+            <Metric
+              label="Team GPA"
+              value={academics.data.teamGpa == null ? "n/a" : academics.data.teamGpa.toFixed(2)}
+              detail="Current course grades, unweighted"
+            />
+            <Metric
+              label="Missing class"
+              value={`${academics.data.peopleMissingClass} of ${academics.data.matchedCount}`}
+              detail="Athletes with 2 or more session absences"
+            />
+            <Metric
+              label="Current roster"
+              value={academics.data.matchedCount.toLocaleString()}
+              detail="Matched to AspireDU snapshots"
+            />
           </div>
         ) : null}
-        <strong className="ath-coach-open">Open academics →</strong>
-      </Link>
+      </section>
 
-      <Link href="/athletics/master/giving" className="ath-coach-band ath-coach-scorecard">
-        <h2>Fundraising</h2>
-        <div className="ath-coach-kpis">
-          <div className="ath-kpi">
-            <span>FYTD</span>
-            <strong>{fundraisingValue}</strong>
-            <small>{fundraising.data?.fiscalYearLabel || "This fiscal year"}</small>
-          </div>
-          <div className="ath-kpi">
-            <span>FYTD gifts</span>
-            <strong>
-              {fundraising.loading
-                ? "Loading…"
-                : formatCount(fundraising.data?.mapped ? fundraising.data.fytdGiftCount : null)}
-            </strong>
-            <small>Sport fund designations</small>
-          </div>
+      <section>
+        <div className="ath-section-heading-row">
+          <h2>Fundraising</h2>
+          <Link href="/athletics/master/giving">Open giving →</Link>
         </div>
-        <strong className="ath-coach-open">Open giving →</strong>
-      </Link>
+        <div className="ath-kpi-grid ath-kpi-grid-primary">
+          <Metric
+            label="FYTD"
+            value={
+              fundraising.loading
+                ? "Loading…"
+                : fundraising.error
+                  ? fundraising.error
+                  : !fundraising.data?.mapped
+                    ? "No sport fund mapped"
+                    : fundraising.data.reason === "unavailable"
+                      ? "Unavailable"
+                      : formatMoney(fundraising.data.fytdAmount)
+            }
+            detail={fyLabel}
+          />
+          <Metric
+            label="FYTD gifts"
+            value={
+              fundraising.loading
+                ? "Loading…"
+                : formatCount(fundraising.data?.mapped ? fundraising.data.fytdGiftCount : null)
+            }
+            detail="Sport fund designations"
+          />
+          <Metric
+            label="All-time"
+            value={
+              fundraising.loading
+                ? "Loading…"
+                : formatMoney(fundraising.data?.mapped ? fundraising.data.allTimeAmount : null)
+            }
+            detail="This sport fund"
+          />
+        </div>
+      </section>
     </div>
   );
 }

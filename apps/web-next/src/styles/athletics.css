@@ -178,9 +178,33 @@ a.ath-hub-card:hover { box-shadow: 0 8px 26px rgba(10, 34, 64, .12); transform: 
 .ath-active-filters small { color: var(--ath-muted); font-size: 9px; text-transform: uppercase; letter-spacing: .03em; }
 .ath-active-filters b { color: var(--ath-green-dark); font-size: 14px; line-height: 9px; }
 
-.ath-page:has(.ath-overview) { padding: 16px clamp(16px, 3vw, 32px) 20px; }
-.ath-page:has(.ath-overview) .ath-page-heading { margin-bottom: 10px; }
-.ath-page:has(.ath-overview) .ath-page-heading h1 { font-size: 22px; }
+.ath-page:has(.ath-overview),
+.ath-page:has(.ath-master-sheet) { padding: 16px clamp(16px, 3vw, 32px) 20px; }
+.ath-page:has(.ath-overview) .ath-page-heading,
+.ath-page:has(.ath-master-sheet) .ath-page-heading { margin-bottom: 10px; }
+.ath-page:has(.ath-overview) .ath-page-heading h1,
+.ath-page:has(.ath-master-sheet) .ath-page-heading h1 { font-size: 22px; }
+
+.ath-master-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.ath-master-sheet .ath-section-heading-row { margin-bottom: 8px; }
+.ath-master-sheet .ath-section-heading-row a {
+  color: var(--ath-green-dark);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.ath-master-sheet .ath-kpi-grid { gap: 8px; }
+.ath-master-sheet .ath-kpi {
+  min-height: 0;
+  padding: 10px 12px;
+}
+.ath-master-sheet .ath-kpi span { font-size: 10px; letter-spacing: .04em; }
+.ath-master-sheet .ath-kpi strong { margin-top: 4px; font-size: 22px; }
+.ath-master-sheet .ath-kpi small { margin-top: 3px; font-size: 10px; }
 
 .ath-overview {
   display: grid;
