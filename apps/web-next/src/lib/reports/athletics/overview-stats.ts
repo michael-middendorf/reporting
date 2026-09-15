@@ -4,9 +4,14 @@ import { resolveSportKey } from "../athletics-coaching/sports";
 
 export type RecruitingOverviewStats = {
   applications: number;
+  prospects: number;
   signed: number;
-  avgScholarshipSigned: number | null;
   signedWithAid: number;
+  totalScholarshipSigned: number;
+  avgScholarshipSigned: number | null;
+  allAwards: number;
+  totalScholarshipAll: number;
+  avgScholarshipAll: number | null;
 };
 
 function genderToken(value: string): "M" | "F" | null {
@@ -48,16 +53,25 @@ export function recordMatchesCoachingSport(record: AthleticsRecord, sportKey: st
 
 export function recruitingOverviewStats(
   applications: AthleticsRecord[],
+  prospects: AthleticsRecord[],
   sportKey: string,
 ): RecruitingOverviewStats {
   const rows = applications.filter((record) => recordMatchesCoachingSport(record, sportKey));
+  const prospectRows = prospects.filter((record) => recordMatchesCoachingSport(record, sportKey));
   const signed = rows.filter(eligibleIncomingSigned);
   const signedWithAid = signed.filter((record) => record.athleticScholarship > 0);
-  const total = signedWithAid.reduce((sum, record) => sum + record.athleticScholarship, 0);
+  const allAwards = rows.filter((record) => record.athleticScholarship > 0);
+  const totalSigned = signedWithAid.reduce((sum, record) => sum + record.athleticScholarship, 0);
+  const totalAll = allAwards.reduce((sum, record) => sum + record.athleticScholarship, 0);
   return {
     applications: rows.length,
+    prospects: prospectRows.length,
     signed: signed.length,
     signedWithAid: signedWithAid.length,
-    avgScholarshipSigned: signedWithAid.length ? total / signedWithAid.length : null,
+    totalScholarshipSigned: totalSigned,
+    avgScholarshipSigned: signedWithAid.length ? totalSigned / signedWithAid.length : null,
+    allAwards: allAwards.length,
+    totalScholarshipAll: totalAll,
+    avgScholarshipAll: allAwards.length ? totalAll / allAwards.length : null,
   };
 }
