@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { SimpleXlsx, triggerXlsxDownload } from "@/lib/aspiredu-xlsx";
-import { SPORTS } from "@/lib/reports/athletics-coaching/sports";
 import gyreneShield from "@/assets/athletics/gyrene-shield.png";
 import {
   DATE_PRESETS,
@@ -36,7 +35,6 @@ export function GivingClient() {
   const [preset, setPreset] = useState<DatePreset>("fytd");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
-  const [sportKey, setSportKey] = useState("all");
   const [fund, setFund] = useState("all");
   const [search, setSearch] = useState("");
 
@@ -70,33 +68,16 @@ export function GivingClient() {
     [preset, asOf, data?.fyStart, customStart, customEnd],
   );
 
-  const twoYear = useMemo(
-    () =>
-      filterGifts(gifts, {
-        start: lastFy.start || null,
-        end: asOf || lastFy.end || null,
-        sportKey: "all",
-        fund: "all",
-        search: "",
-      }),
-    [gifts, lastFy.start, lastFy.end, asOf],
-  );
-
-  const sportOptions = useMemo(() => {
-    const present = new Set(twoYear.map((gift) => sportForGift(gift).key));
-    return SPORTS.filter((sport) => present.has(sport.key));
-  }, [twoYear]);
-
   const visible = useMemo(
     () =>
       filterGifts(gifts, {
         start: range.start,
         end: range.end,
-        sportKey,
+        sportKey: "all",
         fund,
         search,
       }),
-    [gifts, range.start, range.end, sportKey, fund, search],
+    [gifts, range.start, range.end, fund, search],
   );
 
   const fundGifts = useMemo(
@@ -104,11 +85,11 @@ export function GivingClient() {
       filterGifts(gifts, {
         start: range.start,
         end: range.end,
-        sportKey,
+        sportKey: "all",
         fund: "all",
         search: "",
       }),
-    [gifts, range.start, range.end, sportKey],
+    [gifts, range.start, range.end],
   );
   const yearWindows = useMemo(() => {
     const thisWindow = intersectDateRange(range.start, range.end, thisFyStart, asOf);
@@ -141,12 +122,12 @@ export function GivingClient() {
         filterGifts(gifts, {
           start: thisFyStart || null,
           end: asOf || null,
-          sportKey,
+          sportKey: "all",
           fund,
           search: "",
         }),
       ),
-    [gifts, thisFyStart, asOf, sportKey, fund],
+    [gifts, thisFyStart, asOf, fund],
   );
   const lastFyTotals = useMemo(
     () =>
@@ -154,19 +135,18 @@ export function GivingClient() {
         filterGifts(gifts, {
           start: lastFy.start || null,
           end: lastFy.end || null,
-          sportKey,
+          sportKey: "all",
           fund,
           search: "",
         }),
       ),
-    [gifts, lastFy.start, lastFy.end, sportKey, fund],
+    [gifts, lastFy.start, lastFy.end, fund],
   );
   const maxFund = Math.max(
     1,
     ...fundCompare.map((item) => item.thisYear),
     ...fundSingle.map((item) => item.amount),
   );
-  const sportLabel = sportKey === "all" ? "All sports" : sportForGiftLabel(sportKey);
   const periodLabel = datePresetLabel(preset, data?.fiscalYearLabel);
   const rangeLabel =
     range.start && range.end
@@ -186,13 +166,12 @@ export function GivingClient() {
       : lastFyShort;
 
   const filtersActive =
-    sportKey !== "all" || fund !== "all" || search.trim() !== "" || preset !== "fytd" || Boolean(customStart || customEnd);
+    fund !== "all" || search.trim() !== "" || preset !== "fytd" || Boolean(customStart || customEnd);
 
   function clearFilters() {
     setPreset("fytd");
     setCustomStart("");
     setCustomEnd("");
-    setSportKey("all");
     setFund("all");
     setSearch("");
   }
@@ -239,26 +218,6 @@ export function GivingClient() {
       {!error && data ? (
         <>
           <div className="ath-giving-filters">
-            <label>
-              Sport
-              <select
-                value={sportKey}
-                onChange={(event) => {
-                  setSportKey(event.target.value);
-                  setFund("all");
-                }}
-              >
-                <option value="all">All sports</option>
-                {sportOptions.map((sport) => (
-                  <option key={sport.key} value={sport.key}>
-                    {sport.label}
-                  </option>
-                ))}
-                {twoYear.some((gift) => sportForGift(gift).key === "other") ? (
-                  <option value="other">General / other</option>
-                ) : null}
-              </select>
-            </label>
             <div className="ath-giving-date-filter">
               <span>Gift date</span>
               <div className="ath-giving-date-presets" role="group" aria-label="Gift date">
@@ -321,7 +280,7 @@ export function GivingClient() {
               <span>Total gifts received</span>
               <strong>{usd(totals.programAmount)}</strong>
               <small>
-                {periodLabel} · {sportLabel} · {rangeLabel}
+                {periodLabel} · {rangeLabel}
                 {totals.giftCount || totals.feeAmount
                   ? ` · ${totals.giftCount} gift${totals.giftCount === 1 ? "" : "s"}`
                   : ""}
@@ -348,8 +307,8 @@ export function GivingClient() {
           <section className="ath-giving-funds">
             <h2>By fund</h2>
             <p>
-              {compareYears ? `${thisFyShort} vs ${lastFyShort}` : periodLabel}
-              {sportKey === "all" ? "" : ` · ${sportLabel}`}. Click a fund to filter the table.
+              {compareYears ? `${thisFyShort} vs ${lastFyShort}` : periodLabel}. Click a fund to
+              filter the table.
             </p>
             <div className="ath-giving-fund-list">
               {compareYears
@@ -417,11 +376,6 @@ export function GivingClient() {
       ) : null}
     </main>
   );
-}
-
-function sportForGiftLabel(key: string): string {
-  if (key === "other") return "General / other";
-  return SPORTS.find((sport) => sport.key === key)?.label || key;
 }
 
 function GiftTable({ rows }: { rows: AthleticsGivingGift[] }) {
