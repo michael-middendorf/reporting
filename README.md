@@ -14,6 +14,7 @@ Remote: https://github.com/colecantu904/reporting
 | `/athletics` | Athletics Master overview, recruiting, and giving |
 | `/athletics/master/overview` | Per-sport program stats (recruiting, academics, fundraising) |
 | `/athletics/master/giving` | Athletics Giving (Virtuous gifts by athletics segment: FY26, FY27, funds) |
+| `/athletics/master/eligibility` | Athletics eligibility hours, GPA, and matriculation |
 | `/housing` | Housing occupancy, floor maps, move-ins, verification |
 | `/institute` | The Institute admissions pipeline |
 | `/advancement` | Advancement folder (Overview, MGO Top Prospects, Annunciation Circle, Fall Appeal, MA Points, Chapel Naming, Stained Glass) |

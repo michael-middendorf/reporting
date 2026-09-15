@@ -30,7 +30,6 @@ export default async function CoachingSportLayout({
       <div className="ath-page-heading">
         <div>
           <h1>{sport.label}</h1>
-          <p>Team dashboard.</p>
         </div>
       </div>
       <CoachingSportNav sportKey={sport.key} />

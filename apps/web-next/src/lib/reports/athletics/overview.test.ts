@@ -21,7 +21,7 @@ function app(partial: Partial<AthleticsRecord>): AthleticsRecord {
     sport: "Football",
     position: "",
     gender: "M",
-    term: "",
+    term: "Fall 2027",
     sector: "Varsity",
     athleteStatus: "",
     applicationStatus: "",
@@ -66,10 +66,23 @@ describe("athletics master overview", () => {
       app({ id: "2", sport: "Football", athleticScholarship: 20000, signed: "Signed or Deposited" }),
       app({ id: "3", sport: "Football", athleticScholarship: 0, signed: "Signed or Deposited" }),
       app({ id: "4", sport: "Football", athleticScholarship: 5000, signed: "" }),
-      app({ id: "5", sport: "Basketball", gender: "M", athleticScholarship: 8000, signed: "Signed or Deposited" }),
+      app({
+        id: "5",
+        sport: "Basketball",
+        gender: "M",
+        athleticScholarship: 8000,
+        signed: "Signed or Deposited",
+      }),
+      app({
+        id: "6",
+        sport: "Football",
+        athleticScholarship: 12000,
+        signed: "Signed or Deposited",
+        term: "Fall 2026",
+      }),
     ];
     const football = recruitingOverviewStats(rows, "football");
-    assert.equal(football.applications, 4);
+    assert.equal(football.applications, 5);
     assert.equal(football.signed, 3);
     assert.equal(football.signedWithAid, 2);
     assert.equal(football.avgScholarshipSigned, 15000);

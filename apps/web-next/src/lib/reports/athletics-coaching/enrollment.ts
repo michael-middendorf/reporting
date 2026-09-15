@@ -1,5 +1,5 @@
 import { canAccessReport } from "../../access";
-import { eligibleSigned } from "../athletics/normalize";
+import { eligibleIncomingSigned } from "../athletics/normalize";
 import type { AthleticsRecord, SlateRow } from "../athletics/types";
 import { canAccessSport } from "./access";
 import { isSportKey, resolveSportKey, sportByKey } from "./sports";
@@ -186,7 +186,7 @@ export function buildEnrollmentSummary(input: {
     applications = { available: true, count: sportApps.length };
     signed = {
       available: true,
-      count: sportApps.filter(eligibleSigned).length,
+      count: sportApps.filter(eligibleIncomingSigned).length,
     };
   }
 

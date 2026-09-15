@@ -30,8 +30,9 @@
 }
 .ath-root .ath-rc-mark {
   display: block;
-  width: auto;
+  width: 40px;
   height: 40px;
+  border-radius: 50%;
 }
 .ath-root .rc-sep { color: rgba(255, 255, 255, .28); }
 .ath-root .rc a.rc-crumb { color: #9ad4b3; }
@@ -89,7 +90,37 @@ a.ath-hub-card:hover { box-shadow: 0 8px 26px rgba(10, 34, 64, .12); transform: 
 }
 
 .ath-page { width: min(1760px, 100%); margin: 0 auto; padding: 28px clamp(16px, 3vw, 42px) 64px; }
+.ath-page:has(.ath-coach-scoreboard) { padding-top: 16px; padding-bottom: 24px; }
 .ath-page-heading { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 16px; }
+.ath-page:has(.ath-coach-scoreboard) .ath-page-heading { margin-bottom: 8px; }
+.ath-page:has(.ath-coach-scoreboard) .ath-page-heading h1 { font-size: 22px; }
+.ath-overview-sport {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ath-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.ath-overview-sport select {
+  min-width: 200px;
+  border: 1px solid var(--ath-line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #fff;
+  color: var(--ath-ink);
+  font: 650 13px/1.2 system-ui, sans-serif;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.ath-overview-sport-name {
+  margin: 0;
+  color: var(--ath-navy);
+  font-size: 16px;
+  font-weight: 750;
+}
 .ath-giving-banner {
   align-items: center;
   margin-bottom: 16px;
@@ -266,7 +297,7 @@ a.ath-hub-card:hover { box-shadow: 0 8px 26px rgba(10, 34, 64, .12); transform: 
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin: 0 0 16px;
+  margin: 0 0 10px;
 }
 .ath-coach-subnav a {
   padding: 8px 12px;
@@ -288,14 +319,16 @@ a.ath-hub-card:hover { box-shadow: 0 8px 26px rgba(10, 34, 64, .12); transform: 
 }
 .ath-coach-bands {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   max-width: 1100px;
 }
 .ath-coach-scoreboard {
-  max-width: 1100px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: none;
+  align-items: start;
 }
 .ath-coach-band {
-  padding: 18px 20px;
+  padding: 10px 12px 12px;
   border: 1px solid var(--ath-line);
   border-top: 3px solid var(--ath-green);
   border-radius: 8px;
@@ -311,15 +344,15 @@ a.ath-coach-scorecard:hover {
   box-shadow: 0 8px 26px rgba(10, 34, 64, .12);
 }
 .ath-coach-open {
-  margin-top: 14px;
+  margin-top: 8px;
   color: var(--ath-green-dark);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 .ath-coach-band h2 {
   margin: 0;
   color: var(--ath-navy);
-  font-size: 16px;
+  font-size: 13px;
 }
 .ath-coach-band h3 {
   margin: 22px 0 0;
@@ -334,15 +367,20 @@ a.ath-coach-scorecard:hover {
 }
 .ath-coach-kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 10px;
-  margin-top: 14px;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  margin-top: 8px;
+}
+.ath-coach-scoreboard .ath-coach-kpis {
+  grid-template-columns: 1fr;
 }
 .ath-coach-kpis .ath-kpi {
   min-height: 0;
-  padding: 12px 14px;
+  padding: 8px 10px;
 }
-.ath-coach-kpis .ath-kpi strong { font-size: 28px; }
+.ath-coach-kpis .ath-kpi span { font-size: 10px; }
+.ath-coach-kpis .ath-kpi strong { margin-top: 4px; font-size: 22px; }
+.ath-coach-kpis .ath-kpi small { margin-top: 3px; font-size: 10px; }
 .ath-coach-mix {
   display: flex;
   flex-wrap: wrap;
@@ -574,6 +612,7 @@ a.ath-coach-scorecard:hover {
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
 @media (max-width: 900px) {
+  .ath-coach-scoreboard { grid-template-columns: 1fr; }
   .ath-overview, .ath-two-column { grid-template-columns: 1fr; }
   .ath-kpi-grid-compact { grid-template-columns: 1fr; }
   .ath-kpi-grid-primary, .ath-kpi-grid-awards { grid-template-columns: repeat(2, minmax(160px, 1fr)); }

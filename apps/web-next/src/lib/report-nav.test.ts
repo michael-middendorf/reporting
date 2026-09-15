@@ -201,6 +201,12 @@ describe("reportCrumbs", () => {
       { href: "/athletics/master", label: "Master" },
       { href: "/athletics/master/rosters", label: "Rosters" },
     ]);
+    assert.deepEqual(reportCrumbs("/athletics/master/eligibility"), [
+      { href: "/", label: "Reports" },
+      { href: "/athletics", label: "Athletics" },
+      { href: "/athletics/master", label: "Master" },
+      { href: "/athletics/master/eligibility", label: "Eligibility" },
+    ]);
     assert.deepEqual(reportCrumbs("/athletics/master/giving"), [
       { href: "/", label: "Reports" },
       { href: "/athletics", label: "Athletics" },

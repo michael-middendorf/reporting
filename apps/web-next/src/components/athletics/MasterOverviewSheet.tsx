@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useAthletics } from "@/components/athletics/AthleticsShell";
 import { formatCount, formatMoney } from "@/components/athletics/CoachingHub";
 import { apiFetch } from "@/lib/api";
-import { recruitingOverviewStats } from "@/lib/reports/athletics/overview";
+import { recruitingOverviewStats } from "@/lib/reports/athletics/overview-stats";
 import type { AcademicsSummary } from "@/lib/reports/athletics-coaching/academics";
 import type { SportFundraising } from "@/lib/reports/athletics-coaching/fundraising";
 import { sportByKey } from "@/lib/reports/athletics-coaching/sports";
@@ -93,7 +93,7 @@ export function MasterOverviewSheet({ sportKey }: { sportKey: string }) {
           <div className="ath-kpi">
             <span>Signed / deposited</span>
             <strong>{recruitingLoading ? "Loading…" : recruiting.signed.toLocaleString()}</strong>
-            <small>Varsity LOI signed or deposited</small>
+            <small>Fall 2027 incoming</small>
           </div>
           <div className="ath-kpi">
             <span>Avg scholarship signed</span>

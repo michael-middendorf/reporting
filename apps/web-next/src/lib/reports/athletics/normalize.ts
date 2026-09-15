@@ -160,6 +160,13 @@ export function normalizeProspect(row: SlateRow, index: number): AthleticsRecord
   };
 }
 
+export const INCOMING_SIGNING_TERM = "Fall 2027";
+
+export function isIncomingSigningTerm(term: string): boolean {
+  const folded = term.trim().toLowerCase().replace(/['’]/g, "").replace(/\s+/g, " ");
+  return /^(fall|fa)\s*2027$/.test(folded);
+}
+
 export function eligibleSigned(record: AthleticsRecord): boolean {
   return (
     record.kind === "application" &&
@@ -167,6 +174,10 @@ export function eligibleSigned(record: AthleticsRecord): boolean {
     Boolean(record.sector) &&
     !/non-varsity|non-naia|student coach|manager/i.test(record.sector)
   );
+}
+
+export function eligibleIncomingSigned(record: AthleticsRecord): boolean {
+  return eligibleSigned(record) && isIncomingSigningTerm(record.term);
 }
 
 export function stageColor(record: AthleticsRecord): string {

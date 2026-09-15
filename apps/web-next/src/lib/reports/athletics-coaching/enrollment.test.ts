@@ -116,6 +116,19 @@ describe("athletics coaching enrollment sport filter", () => {
     assert.equal(eligibleSigned(application({ sport: "Football", signed: "Signed or Deposited" })), true);
   });
 
+  it("counts signed / deposited for Fall 2027 only", () => {
+    const summary = buildEnrollmentSummary({
+      sport: "football",
+      rosterRows: [],
+      applicationRows: [
+        application({ id: "n1", sport: "Football", signed: "Signed or Deposited", term: "Fall 2027" }),
+        application({ id: "n2", sport: "Football", signed: "Signed or Deposited", term: "Fall 2026" }),
+        application({ id: "n3", sport: "Football", signed: "Signed or Deposited", term: "Spring 2027" }),
+      ],
+    });
+    assert.equal(summary.signed.count, 1);
+  });
+
   it("does not invent a roster headcount when the roster file is missing", () => {
     const summary = buildEnrollmentSummary({
       sport: "football",
