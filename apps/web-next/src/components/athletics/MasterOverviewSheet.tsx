@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useAthletics } from "@/components/athletics/AthleticsShell";
 import { formatCount, formatMoney } from "@/components/athletics/CoachingHub";
 import { apiFetch } from "@/lib/api";
-import { recruitingOverviewStats } from "@/lib/reports/athletics/overview";
+import { recruitingOverviewStats } from "@/lib/reports/athletics/overview-stats";
 import type { AcademicsSummary } from "@/lib/reports/athletics-coaching/academics";
 import type { SportFundraising } from "@/lib/reports/athletics-coaching/fundraising";
 import { sportByKey } from "@/lib/reports/athletics-coaching/sports";

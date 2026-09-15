@@ -2,68 +2,13 @@ import { canAccessReport, sportsScopeForAthleticsEmail } from "../../access";
 import { canAccessSport, isCoachingLeadership } from "../athletics-coaching/access";
 import type { EnrollmentAccess } from "../athletics-coaching/enrollment";
 import { isSportKey, SPORTS, resolveSportKey, sportByKey, type SportDef } from "../athletics-coaching/sports";
-import { eligibleIncomingSigned } from "./normalize";
-import type { AthleticsRecord } from "./types";
 
-export type RecruitingOverviewStats = {
-  applications: number;
-  signed: number;
-  avgScholarshipSigned: number | null;
-  signedWithAid: number;
-};
-
-function genderToken(value: string): "M" | "F" | null {
-  const folded = value.trim().toLowerCase();
-  if (folded === "m" || folded === "male" || folded === "man" || folded === "men") return "M";
-  if (folded === "f" || folded === "female" || folded === "w" || folded === "woman" || folded === "women") {
-    return "F";
-  }
-  return null;
-}
-
-/** Map a Slate application/prospect row onto a coaching sport key. */
-export function coachingSportKeyForRecord(record: Pick<AthleticsRecord, "sport" | "gender">): string | null {
-  const direct = resolveSportKey(record.sport);
-  if (direct) return direct;
-  const folded = record.sport.trim().toLowerCase();
-  const gender = genderToken(record.gender);
-  if (folded === "basketball") {
-    if (gender === "F") return "womens-basketball";
-    if (gender === "M") return "mens-basketball";
-    return null;
-  }
-  if (folded === "soccer") {
-    if (gender === "F") return "womens-soccer";
-    if (gender === "M") return "mens-soccer";
-    return null;
-  }
-  if (folded === "golf") {
-    if (gender === "F") return "womens-golf";
-    if (gender === "M") return "mens-golf";
-    return null;
-  }
-  return null;
-}
-
-export function recordMatchesCoachingSport(record: AthleticsRecord, sportKey: string): boolean {
-  return coachingSportKeyForRecord(record) === sportKey;
-}
-
-export function recruitingOverviewStats(
-  applications: AthleticsRecord[],
-  sportKey: string,
-): RecruitingOverviewStats {
-  const rows = applications.filter((record) => recordMatchesCoachingSport(record, sportKey));
-  const signed = rows.filter(eligibleIncomingSigned);
-  const signedWithAid = signed.filter((record) => record.athleticScholarship > 0);
-  const total = signedWithAid.reduce((sum, record) => sum + record.athleticScholarship, 0);
-  return {
-    applications: rows.length,
-    signed: signed.length,
-    signedWithAid: signedWithAid.length,
-    avgScholarshipSigned: signedWithAid.length ? total / signedWithAid.length : null,
-  };
-}
+export {
+  coachingSportKeyForRecord,
+  recordMatchesCoachingSport,
+  recruitingOverviewStats,
+  type RecruitingOverviewStats,
+} from "./overview-stats";
 
 function coachingKeysForAssignment(sports: readonly string[], genders?: readonly string[]): string[] {
   const keys = new Set<string>();

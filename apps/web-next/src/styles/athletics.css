@@ -94,6 +94,33 @@ a.ath-hub-card:hover { box-shadow: 0 8px 26px rgba(10, 34, 64, .12); transform: 
 .ath-page-heading { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 16px; }
 .ath-page:has(.ath-coach-scoreboard) .ath-page-heading { margin-bottom: 8px; }
 .ath-page:has(.ath-coach-scoreboard) .ath-page-heading h1 { font-size: 22px; }
+.ath-overview-sport {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ath-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.ath-overview-sport select {
+  min-width: 200px;
+  border: 1px solid var(--ath-line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #fff;
+  color: var(--ath-ink);
+  font: 650 13px/1.2 system-ui, sans-serif;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.ath-overview-sport-name {
+  margin: 0;
+  color: var(--ath-navy);
+  font-size: 16px;
+  font-weight: 750;
+}
 .ath-giving-banner {
   align-items: center;
   margin-bottom: 16px;
