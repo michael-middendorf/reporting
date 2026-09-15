@@ -85,13 +85,33 @@ export function formatGiftDate(iso: string | null | undefined): string {
   return `${month}/${day}/${year}`;
 }
 
+export function isHiddenAthleticsFund(project: string | null | undefined): boolean {
+  return (project || "").trim().toLowerCase() === "aquinas center";
+}
+
+export function intersectDateRange(
+  aStart: string | null,
+  aEnd: string | null,
+  bStart: string,
+  bEnd: string,
+): { start: string; end: string } | null {
+  if (!bStart || !bEnd) return null;
+  const start = aStart && aStart > bStart ? aStart : bStart;
+  const end = aEnd && aEnd < bEnd ? aEnd : bEnd;
+  if (start > end) return null;
+  return { start, end };
+}
+
 export function giftsFromLastTwoFiscalYears(
   gifts: AthleticsGivingGift[],
   fyStart: string,
 ): AthleticsGivingGift[] {
   const cutoff = previousFiscalYearWindow(fyStart).start;
-  if (!cutoff) return gifts;
-  return gifts.filter((gift) => (gift.giftDate || "") >= cutoff);
+  return gifts.filter((gift) => {
+    if (isHiddenAthleticsFund(gift.project)) return false;
+    if (cutoff && (gift.giftDate || "") < cutoff) return false;
+    return true;
+  });
 }
 
 export function giftsInRange(

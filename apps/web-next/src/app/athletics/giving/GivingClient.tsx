@@ -10,9 +10,11 @@ import {
   datePresetLabel,
   filterGifts,
   formatGiftDate,
+  fundsFromGifts,
   fundsThisYearVsLastYear,
   giftExportRows,
   giftsFromLastTwoFiscalYears,
+  intersectDateRange,
   isGivingReady,
   previousFiscalYearWindow,
   shortFiscalYearLabel,
@@ -97,23 +99,41 @@ export function GivingClient() {
     [gifts, range.start, range.end, sportKey, fund, search],
   );
 
-  const fundRows = useMemo(
+  const fundGifts = useMemo(
     () =>
-      fundsThisYearVsLastYear(
-        filterGifts(gifts, {
-          start: lastFy.start || null,
-          end: asOf || lastFy.end || null,
-          sportKey,
-          fund: "all",
-          search: "",
-        }),
-        thisFyStart,
-        asOf,
-        lastFy.start,
-        lastFy.end,
-      ),
-    [gifts, sportKey, thisFyStart, asOf, lastFy.start, lastFy.end],
+      filterGifts(gifts, {
+        start: range.start,
+        end: range.end,
+        sportKey,
+        fund: "all",
+        search: "",
+      }),
+    [gifts, range.start, range.end, sportKey],
   );
+  const yearWindows = useMemo(() => {
+    const thisWindow = intersectDateRange(range.start, range.end, thisFyStart, asOf);
+    const lastWindow = intersectDateRange(range.start, range.end, lastFy.start, lastFy.end);
+    return { thisWindow, lastWindow, compareYears: Boolean(thisWindow && lastWindow) };
+  }, [range.start, range.end, thisFyStart, asOf, lastFy.start, lastFy.end]);
+  const fundCompare = useMemo(
+    () =>
+      yearWindows.compareYears && yearWindows.thisWindow && yearWindows.lastWindow
+        ? fundsThisYearVsLastYear(
+            fundGifts,
+            yearWindows.thisWindow.start,
+            yearWindows.thisWindow.end,
+            yearWindows.lastWindow.start,
+            yearWindows.lastWindow.end,
+          ).filter((row) => row.thisYear || row.lastYear)
+        : [],
+    [fundGifts, yearWindows],
+  );
+  const fundSingle = useMemo(
+    () => fundsFromGifts(fundGifts).filter((item) => !item.isFee && item.amount > 0),
+    [fundGifts],
+  );
+  const compareYears = yearWindows.compareYears;
+  const fundRows = compareYears ? fundCompare : fundSingle;
   const totals = useMemo(() => totalsFromGifts(visible), [visible]);
   const fyTotals = useMemo(
     () =>
@@ -141,7 +161,11 @@ export function GivingClient() {
       ),
     [gifts, lastFy.start, lastFy.end, sportKey, fund],
   );
-  const maxFund = Math.max(1, ...fundRows.map((item) => item.thisYear));
+  const maxFund = Math.max(
+    1,
+    ...fundCompare.map((item) => item.thisYear),
+    ...fundSingle.map((item) => item.amount),
+  );
   const sportLabel = sportKey === "all" ? "All sports" : sportForGiftLabel(sportKey);
   const periodLabel = datePresetLabel(preset, data?.fiscalYearLabel);
   const rangeLabel =
@@ -324,40 +348,51 @@ export function GivingClient() {
           <section className="ath-giving-funds">
             <h2>By fund</h2>
             <p>
-              {thisFyShort} vs {lastFyShort}
-              {sportKey === "all" ? "" : ` · ${sportLabel}`}. Click a fund to filter the total and table.
+              {compareYears ? `${thisFyShort} vs ${lastFyShort}` : periodLabel}
+              {sportKey === "all" ? "" : ` · ${sportLabel}`}. Click a fund to filter the table.
             </p>
             <div className="ath-giving-fund-list">
-              {fundRows.map((item) => (
-                <button
-                  key={`${item.projectCode || ""}-${item.project || ""}`}
-                  type="button"
-                  className={fund === (item.projectCode || item.project || "") ? "is-active" : ""}
-                  onClick={() =>
-                    setFund((current) =>
-                      current === (item.projectCode || item.project || "")
-                        ? "all"
-                        : item.projectCode || item.project || "all",
-                    )
-                  }
-                >
-                  <span className="ath-giving-fund-name">{item.project || item.projectCode || "Unnamed fund"}</span>
-                  <span className="ath-giving-fund-years">
-                    <span>
-                      <small>{thisFyShort}</small>
-                      <b>{usd(item.thisYear)}</b>
-                    </span>
-                    <span>
-                      <small>{lastFyShort}</small>
-                      <b>{usd(item.lastYear)}</b>
-                    </span>
-                  </span>
-                  <i style={{ width: `${Math.round((item.thisYear / maxFund) * 100)}%` }} />
-                </button>
-              ))}
-              {!fundRows.length ? (
-                <p className="ath-empty">No funds in {lastFyShort} or {thisFyShort}.</p>
-              ) : null}
+              {compareYears
+                ? fundCompare.map((item) => (
+                    <button
+                      key={`${item.projectCode || ""}-${item.project || ""}`}
+                      type="button"
+                      className={fund === (item.projectCode || item.project || "") ? "is-active" : ""}
+                      onClick={() =>
+                        setFund((current) =>
+                          current === (item.projectCode || item.project || "")
+                            ? "all"
+                            : item.projectCode || item.project || "all",
+                        )
+                      }
+                    >
+                      <span className="ath-giving-fund-name">{item.project || item.projectCode || "Unnamed fund"}</span>
+                      <span className="ath-giving-fund-amt">
+                        <b>{usd(item.thisYear)}</b>
+                        <small>{usd(item.lastYear)}</small>
+                      </span>
+                      <i style={{ width: `${Math.round((item.thisYear / maxFund) * 100)}%` }} />
+                    </button>
+                  ))
+                : fundSingle.map((item) => (
+                    <button
+                      key={`${item.projectCode || ""}-${item.project || ""}`}
+                      type="button"
+                      className={fund === (item.projectCode || item.project || "") ? "is-active" : ""}
+                      onClick={() =>
+                        setFund((current) =>
+                          current === (item.projectCode || item.project || "")
+                            ? "all"
+                            : item.projectCode || item.project || "all",
+                        )
+                      }
+                    >
+                      <span className="ath-giving-fund-name">{item.project || item.projectCode || "Unnamed fund"}</span>
+                      <b>{usd(item.amount)}</b>
+                      <i style={{ width: `${Math.round((item.amount / maxFund) * 100)}%` }} />
+                    </button>
+                  ))}
+              {!fundRows.length ? <p className="ath-empty">No funds in this date range.</p> : null}
             </div>
           </section>
 

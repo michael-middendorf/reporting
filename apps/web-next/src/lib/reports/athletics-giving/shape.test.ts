@@ -6,9 +6,12 @@ import {
   shortPreviousFiscalYearLabel,
   filterGifts,
   formatGiftDate,
+  fundsFromGifts,
   fundsThisYearVsLastYear,
   giftExportRows,
   giftsFromLastTwoFiscalYears,
+  intersectDateRange,
+  isHiddenAthleticsFund,
   giftsInRange,
   isGivingReady,
   previousFiscalYearLabel,
@@ -203,6 +206,40 @@ describe("athletics giving shape", () => {
     const kept = giftsFromLastTwoFiscalYears(gifts, "2026-07-01");
     assert.equal(kept.some((gift) => gift.giftId === 22), false);
     assert.equal(kept.some((gift) => gift.giftId === 20), true);
+  });
+
+  it("fund totals follow the selected gift dates and omit Aquinas Center", () => {
+    assert.equal(isHiddenAthleticsFund("Aquinas Center"), true);
+    assert.equal(isHiddenAthleticsFund("Football Program"), false);
+    const gifts = [
+      ...SAMPLE.gifts,
+      {
+        ...SAMPLE.gifts[0]!,
+        giftId: 30,
+        giftDate: "2026-09-12",
+        amountDesignated: 10,
+        project: "Aquinas Center",
+        projectCode: "AQ",
+      },
+    ];
+    const kept = giftsFromLastTwoFiscalYears(gifts, "2026-07-01");
+    assert.equal(kept.some((gift) => gift.project === "Aquinas Center"), false);
+    const week = filterGifts(kept, {
+      start: "2026-09-07",
+      end: "2026-09-14",
+      sportKey: "all",
+      fund: "all",
+      search: "",
+    });
+    const rows = fundsFromGifts(week).filter((item) => !item.isFee && item.amount > 0);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0]?.project, "Men's Ultimate Frisbee");
+    assert.equal(rows[0]?.amount, 200);
+    assert.deepEqual(intersectDateRange("2026-09-07", "2026-09-14", "2026-07-01", "2026-09-14"), {
+      start: "2026-09-07",
+      end: "2026-09-14",
+    });
+    assert.equal(intersectDateRange("2026-09-07", "2026-09-14", "2025-07-01", "2026-06-30"), null);
   });
 
   it("this fiscal year excludes prior-year gifts that remain in all time", () => {
