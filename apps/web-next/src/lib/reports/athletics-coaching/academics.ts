@@ -547,7 +547,7 @@ function summarizeMatchedAthletes(athletes: AcademicsAthlete[]): Pick<
       .filter((course) => (course.timesAbsent ?? 0) > 0)
       .map((course) => ({ course: course.course, timesAbsent: course.timesAbsent ?? 0 }));
     classesWithAbsences += coursesWithAbsences.length;
-    if ((athlete.pulse?.absent ?? 0) > 0 || coursesWithAbsences.length) {
+    if (sessionAbsences >= 2) {
       missingClass.push({
         name: athlete.name,
         email: athlete.email,

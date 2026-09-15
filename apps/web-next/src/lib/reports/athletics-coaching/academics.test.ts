@@ -525,11 +525,39 @@ describe("live coaching snapshot KPIs", () => {
     });
     assert.equal(summary.athletes[0].courses[0].timesAbsent, 1);
     assert.equal(summary.athletes[0].courses[1].timesAbsent, 0);
-    assert.equal(summary.peopleMissingClass, 1);
+    assert.equal(summary.peopleMissingClass, 0);
     assert.equal(summary.classesWithAbsences, 1);
-    assert.equal(summary.missingClass[0].coursesWithAbsences.length, 1);
-    assert.equal(summary.missingClass[0].coursesWithAbsences[0].course, "BIO 101");
-    assert.equal(summary.missingClass[0].coursesWithAbsences[0].timesAbsent, 1);
+    assert.equal(summary.missingClass.length, 0);
+    assert.equal(summary.totalAbsenceSessions, 1);
+  });
+
+  it("omits athletes with a single session absence from missing class", () => {
+    const summary = buildAcademicsSummary({
+      sport: "football",
+      rosterRows,
+      now: NOW,
+      lambdaResult: {
+        students: [
+          {
+            email: "athlete.one@avemaria.edu",
+            studentSisId: "P000000001",
+            pulse: { present: 8, absent: 1, late: 0, sessionCount: 9, latestClassDate: daysAgo(2) },
+            courses: [{ course: "BIO 101", courseGrade: 93, timesAbsent: 1, timesPresent: 8 }],
+          },
+          {
+            email: "athlete.two@avemaria.edu",
+            studentSisId: "P000000002",
+            pulse: { present: 7, absent: 2, late: 0, sessionCount: 9, latestClassDate: daysAgo(1) },
+            courses: [{ course: "ENG 201", courseGrade: 88, timesAbsent: 2, timesPresent: 7 }],
+          },
+        ],
+      },
+    });
+    assert.equal(summary.peopleMissingClass, 1);
+    assert.equal(summary.missingClass.length, 1);
+    assert.equal(summary.missingClass[0].name, "Two Bravo");
+    assert.equal(summary.missingClass[0].sessionAbsences, 2);
+    assert.equal(summary.totalAbsenceSessions, 3);
   });
 });
 
