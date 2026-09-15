@@ -6,6 +6,13 @@ export const FUNDRAISING_CACHE_KEY =
   process.env.ATHLETICS_COACHING_FUNDRAISING_CACHE_KEY ||
   "athletics-coaching-fundraising/latest.json";
 
+export type FundraisingGift = {
+  donorName: string;
+  amount: number;
+  giftDate: string;
+  fytd: boolean;
+};
+
 export type FundraisingSportRow = {
   key: string;
   projectCode: string | null;
@@ -16,6 +23,7 @@ export type FundraisingSportRow = {
   allTimeGiftCount: number | null;
   asOf: string | null;
   reason?: "unmapped" | "unavailable";
+  gifts?: FundraisingGift[];
 };
 
 export type FundraisingCache = {
@@ -46,6 +54,7 @@ export type SportFundraising = {
   allTimeGiftCount: number | null;
   asOf: string | null;
   reason?: "unmapped" | "unavailable";
+  gifts: FundraisingGift[];
 };
 
 function emptyTotals(reason: "unmapped" | "unavailable"): Pick<
@@ -57,6 +66,7 @@ function emptyTotals(reason: "unmapped" | "unavailable"): Pick<
   | "allTimeGiftCount"
   | "asOf"
   | "reason"
+  | "gifts"
 > {
   return {
     mapped: reason === "unmapped" ? false : true,
@@ -66,6 +76,7 @@ function emptyTotals(reason: "unmapped" | "unavailable"): Pick<
     allTimeGiftCount: null,
     asOf: null,
     reason,
+    gifts: [],
   };
 }
 
@@ -113,5 +124,6 @@ export function sportFundraisingFromCache(cache: FundraisingCache, sport: string
     allTimeAmount: raw.allTimeAmount,
     allTimeGiftCount: raw.allTimeGiftCount,
     asOf: raw.asOf,
+    gifts: Array.isArray(raw.gifts) ? raw.gifts : [],
   };
 }

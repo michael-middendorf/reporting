@@ -9,6 +9,8 @@ from urllib.parse import unquote
 
 from handler import (
     FORBIDDEN_CODES,
+    FULL_GIFT_PATH,
+    GIFT_DESIGNATION_QUERY_PATH,
     all_time_from_project,
     build_snapshot,
     collect_snapshot,
@@ -16,8 +18,10 @@ from handler import (
     fiscal_year_label,
     fiscal_year_window,
     fytd_from_designations,
+    gifts_from_designations,
     load_sports_catalog,
     mapped_row,
+    names_from_full_gifts,
     parse_gift_date,
     parse_sports_catalog,
     unmapped_row,
@@ -31,6 +35,7 @@ def _des(
     amount: float,
     gift_date: str,
     gift_id: int | None = 1,
+    contact_name: str | None = None,
 ) -> dict[str, Any]:
     row: dict[str, Any] = {
         "projectCode": code,
@@ -39,6 +44,8 @@ def _des(
     }
     if gift_id is not None:
         row["giftId"] = gift_id
+    if contact_name is not None:
+        row["contactName"] = contact_name
     return row
 
 
@@ -47,9 +54,12 @@ class FakeClient:
         self,
         projects: dict[str, dict[str, Any] | None],
         designations: dict[str, list[dict[str, Any]]],
+        full_gifts: dict[str, list[dict[str, Any]]] | None = None,
     ):
         self.projects = projects
         self.designations = designations
+        self.full_gifts = full_gifts or {}
+        self.paths: list[str] = []
 
     def get(self, path: str) -> Any:
         code = unquote(path.rsplit("/", 1)[-1])
@@ -58,8 +68,11 @@ class FakeClient:
         return self.projects[code]
 
     def paged_query(self, path: str, body: dict[str, Any], page_size: int = 1000) -> list[dict]:
-        del path, page_size
+        del page_size
+        self.paths.append(path)
         code = body["groups"][0]["conditions"][0]["value"]
+        if path == FULL_GIFT_PATH:
+            return list(self.full_gifts.get(code, []))
         return list(self.designations.get(code, []))
 
 
@@ -143,6 +156,7 @@ class FytdDesignationTests(unittest.TestCase):
         self.assertIsNone(row["allTimeAmount"])
         self.assertIsNone(row["allTimeGiftCount"])
         self.assertEqual(row["reason"], "unmapped")
+        self.assertEqual(row["gifts"], [])
 
     def test_split_uses_only_amount_designated_for_football(self):
         rows = [
@@ -246,6 +260,8 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(snap["sports"]["cross-country"]["reason"], "unmapped")
         self.assertIsNone(snap["sports"]["cross-country"]["fytdAmount"])
         self.assertEqual(snap["sports"]["womens-golf"]["reason"], "unmapped")
+        self.assertEqual(snap["sports"]["cross-country"]["gifts"], [])
+        self.assertEqual(snap["sports"]["womens-golf"]["gifts"], [])
         dumped = json.dumps(snap)
         self.assertNotIn("6117AthGEN", dumped)
         self.assertNotIn("6644", dumped)
@@ -263,6 +279,7 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(row["reason"], "unavailable")
         self.assertIsNone(row["fytdAmount"])
         self.assertIsNone(row["allTimeAmount"])
+        self.assertEqual(row["gifts"], [])
 
     def test_counts_designations_when_project_has_no_gift_count(self):
         sports = [{"key": "football", "projectCode": "6552FB"}]
@@ -306,6 +323,153 @@ class SnapshotTests(unittest.TestCase):
         self.assertIsNone(row["fytdAmount"])
         self.assertIsNone(row["fytdGiftCount"])
         self.assertEqual(row["reason"], "unavailable")
+        self.assertEqual(row["gifts"], [])
+
+
+class GiftListTests(unittest.TestCase):
+    def test_joins_full_gift_name_amount_and_fytd(self):
+        sports = [{"key": "football", "projectCode": "6552FB"}]
+        client = FakeClient(
+            {"6552FB": {"raisedAmount": 140, "giftAmount": 2}},
+            {
+                "6552FB": [
+                    _des(code="6552FB", amount=80, gift_date="2026-07-01", gift_id=11),
+                    _des(code="6552FB", amount=60, gift_date="2026-06-30", gift_id=12),
+                    _des(code="6117AthGEN", amount=20, gift_date="2026-07-01", gift_id=11),
+                ]
+            },
+            {
+                "6552FB": [
+                    {
+                        "id": 11,
+                        "contactName": "Alex Rivera",
+                        "contactId": 9001,
+                        "email": "alex.rivera@example.test",
+                    },
+                    {"id": 12, "contactName": "Jordan Lee"},
+                ]
+            },
+        )
+        snap = collect_snapshot(
+            client,
+            sports,
+            today=dt.date(2026, 9, 3),
+            generated_at="2026-09-03T12:00:00Z",
+        )
+        gifts = snap["sports"]["football"]["gifts"]
+        self.assertEqual(len(gifts), 2)
+        self.assertEqual(
+            gifts[0],
+            {
+                "donorName": "Alex Rivera",
+                "amount": 80.0,
+                "giftDate": "2026-07-01",
+                "fytd": True,
+            },
+        )
+        self.assertEqual(
+            gifts[1],
+            {
+                "donorName": "Jordan Lee",
+                "amount": 60.0,
+                "giftDate": "2026-06-30",
+                "fytd": False,
+            },
+        )
+        self.assertTrue(any(path == FULL_GIFT_PATH for path in client.paths))
+        self.assertGreaterEqual(
+            sum(1 for path in client.paths if path == GIFT_DESIGNATION_QUERY_PATH),
+            2,
+        )
+        for gift in gifts:
+            self.assertEqual(set(gift), {"donorName", "amount", "giftDate", "fytd"})
+        dumped = json.dumps(snap)
+        self.assertNotIn("6117AthGEN", dumped)
+        self.assertNotIn("contactId", dumped)
+        self.assertNotIn("email", dumped)
+        self.assertNotIn("9001", dumped)
+
+    def test_missing_name_is_anonymous(self):
+        sports = [{"key": "football", "projectCode": "6552FB"}]
+        client = FakeClient(
+            {"6552FB": {"raisedAmount": 40, "giftAmount": 1}},
+            {"6552FB": [_des(code="6552FB", amount=40, gift_date="2026-08-01", gift_id=21)]},
+            {"6552FB": [{"id": 21}]},
+        )
+        snap = collect_snapshot(
+            client,
+            sports,
+            today=dt.date(2026, 9, 3),
+            generated_at="2026-09-03T12:00:00Z",
+        )
+        gifts = snap["sports"]["football"]["gifts"]
+        self.assertEqual(len(gifts), 1)
+        self.assertEqual(gifts[0]["donorName"], "Anonymous")
+        self.assertEqual(gifts[0]["amount"], 40.0)
+        self.assertTrue(gifts[0]["fytd"])
+
+    def test_is_anonymous_flag_hides_name(self):
+        rows = [_des(code="6552FB", amount=25, gift_date="2026-08-15", gift_id=31)]
+        name_map = names_from_full_gifts(
+            [{"id": 31, "contactName": "Pat Kim", "isAnonymous": True}]
+        )
+        gifts = gifts_from_designations(
+            "6552FB", rows, name_map, dt.date(2026, 7, 1), dt.date(2027, 6, 30)
+        )
+        self.assertEqual(gifts[0]["donorName"], "Anonymous")
+
+    def test_passthrough_and_designation_name_fallbacks(self):
+        rows = [
+            _des(code="6552FB", amount=10, gift_date="2026-08-01", gift_id=41),
+            _des(
+                code="6552FB",
+                amount=15,
+                gift_date="2026-08-02",
+                gift_id=42,
+                contact_name="Sam Ortiz",
+            ),
+        ]
+        name_map = names_from_full_gifts(
+            [{"id": 41, "giftPassthroughs": [{"contactName": "Riley Chen"}]}]
+        )
+        gifts = gifts_from_designations(
+            "6552FB", rows, name_map, dt.date(2026, 7, 1), dt.date(2027, 6, 30)
+        )
+        by_date = {g["giftDate"]: g["donorName"] for g in gifts}
+        self.assertEqual(by_date["2026-08-01"], "Riley Chen")
+        self.assertEqual(by_date["2026-08-02"], "Sam Ortiz")
+
+    def test_dedup_same_gift_id_and_amount(self):
+        rows = [
+            _des(code="6552FB", amount=50, gift_date="2026-08-01", gift_id=51),
+            _des(code="6552FB", amount=50, gift_date="2026-08-01", gift_id=51),
+        ]
+        gifts = gifts_from_designations(
+            "6552FB",
+            rows,
+            names_from_full_gifts([{"id": 51, "contactName": "Casey Ng"}]),
+            dt.date(2026, 7, 1),
+            dt.date(2027, 6, 30),
+        )
+        self.assertEqual(len(gifts), 1)
+        self.assertEqual(gifts[0]["amount"], 50.0)
+
+    def test_forbidden_codes_never_enter_gift_list(self):
+        rows = [
+            _des(code="6552FB", amount=80, gift_date="2026-07-01", gift_id=61),
+            _des(code="6117AthGEN", amount=20, gift_date="2026-07-01", gift_id=61),
+            _des(code="6644", amount=5, gift_date="2026-07-01", gift_id=62),
+        ]
+        gifts = gifts_from_designations(
+            "6552FB",
+            rows,
+            names_from_full_gifts([{"id": 61, "contactName": "Morgan Blake"}]),
+            dt.date(2026, 7, 1),
+            dt.date(2027, 6, 30),
+        )
+        self.assertEqual(len(gifts), 1)
+        self.assertEqual(gifts[0]["donorName"], "Morgan Blake")
+        self.assertEqual(gifts[0]["amount"], 80.0)
 
 
 if __name__ == "__main__":

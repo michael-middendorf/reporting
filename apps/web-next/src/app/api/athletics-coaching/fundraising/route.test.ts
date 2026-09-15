@@ -93,7 +93,7 @@ describe("GET /api/athletics-coaching/fundraising cache", () => {
       assert.equal(body.mapped, true);
       assert.equal(body.fytdAmount, 80);
       assert.equal(body.fiscalYearLabel, "FY 2026-27");
-      assert.equal("gifts" in body, false);
+      assert.deepEqual(body.gifts, []);
 
       const unmapped = await GET(authRequest(COACH, "cross-country"));
       assert.equal(unmapped.status, 200);
@@ -101,6 +101,7 @@ describe("GET /api/athletics-coaching/fundraising cache", () => {
       assert.equal(empty.mapped, false);
       assert.equal(empty.fytdAmount, null);
       assert.equal(empty.reason, "unmapped");
+      assert.deepEqual(empty.gifts, []);
 
       fundraisingCache.read = async () => null;
       const missing = await GET(authRequest(COACH, "football"));

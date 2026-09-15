@@ -1,7 +1,10 @@
 """Per-sport athletics coaching fundraising publisher.
 
 Writes ``athletics-coaching-fundraising/latest.json`` with FYTD and all-time
-totals per catalog sport. Totals only: no donor names, emails, or gift lists.
+totals per catalog sport plus a ``gifts`` list (donorName, amount, giftDate,
+fytd). Amounts are GiftDesignation ``amountDesignated`` for this sport fund.
+Names come from FullGift (Project Code), else designation contactName, else
+Anonymous. No emails or contact IDs.
 
 Do not read ``sources/virtuous/gifts`` (365-day window, incomplete projectCode).
 Sport codes come from ``apps/web-next/src/lib/reports/athletics-coaching/sports.ts``.
@@ -27,6 +30,7 @@ CACHE_KEY = (
 RETRYABLE = {429, 500, 502, 503, 504}
 FORBIDDEN_CODES = frozenset({"6117AthGEN", "6644"})
 GIFT_DESIGNATION_QUERY_PATH = "/api/GiftDesignation/Query"
+FULL_GIFT_PATH = "/api/Gift/Query/FullGift"
 PROJECT_BY_CODE_PATH = "/api/Project/Code"
 
 _SPORT_BLOCK = re.compile(
@@ -173,6 +177,118 @@ def parse_gift_date(value: Any) -> dt.date | None:
         return None
 
 
+def _norm_gift_id(value: Any) -> Any:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return value
+
+
+def _gift_id(row: dict[str, Any]) -> Any:
+    if row.get("giftId") is not None and row.get("giftId") != "":
+        return _norm_gift_id(row.get("giftId"))
+    if row.get("giftID") is not None and row.get("giftID") != "":
+        return _norm_gift_id(row.get("giftID"))
+    return _norm_gift_id(row.get("id"))
+
+
+def _clean_name(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _is_anonymous(value: Any) -> bool:
+    if value is True or value == 1:
+        return True
+    if isinstance(value, str) and value.strip().lower() in {"true", "yes", "1"}:
+        return True
+    return False
+
+
+def _donor_name(gift: dict[str, Any]) -> str | None:
+    passthroughs = gift.get("giftPassthroughs") or []
+    if passthroughs:
+        name = _clean_name(passthroughs[0].get("contactName"))
+        if name:
+            return name
+    return _clean_name(gift.get("contactName"))
+
+
+def names_from_full_gifts(gifts: list[dict[str, Any]]) -> dict[Any, dict[str, Any]]:
+    mapping: dict[Any, dict[str, Any]] = {}
+    for gift in gifts:
+        gid = _gift_id(gift)
+        if gid is None:
+            continue
+        mapping[gid] = {
+            "name": _donor_name(gift),
+            "anonymous": _is_anonymous(gift.get("isAnonymous")),
+        }
+    return mapping
+
+
+def resolve_donor_name(designation: dict[str, Any], name_map: dict[Any, dict[str, Any]]) -> str:
+    gid = _gift_id(designation)
+    info = name_map.get(gid) if gid is not None else None
+    if info and info.get("anonymous"):
+        return "Anonymous"
+    if _is_anonymous(designation.get("isAnonymous")):
+        return "Anonymous"
+    if info:
+        name = _clean_name(info.get("name"))
+        if name:
+            return name
+    des_name = _clean_name(designation.get("contactName"))
+    if des_name:
+        return des_name
+    return "Anonymous"
+
+
+def gifts_from_designations(
+    code: str,
+    rows: list[dict[str, Any]],
+    name_map: dict[Any, dict[str, Any]],
+    fy_start: dt.date,
+    fy_end: dt.date,
+) -> list[dict[str, Any]]:
+    """Build cache gift rows from designations joined to FullGift names.
+
+    Amount is ``amountDesignated`` (split-safe). Dedupes by giftId + amount.
+    Newest first. No emails or contact IDs.
+    """
+    seen: set[tuple[Any, float]] = set()
+    gifts: list[dict[str, Any]] = []
+    for row in rows:
+        project_code = str(row.get("projectCode") or "").strip()
+        if not project_code or project_code in FORBIDDEN_CODES or project_code != code:
+            continue
+        gift_day = parse_gift_date(row.get("giftDate") or row.get("giftDateFormatted"))
+        if gift_day is None:
+            continue
+        amount = parse_money(row.get("amountDesignated"))
+        amount = 0.0 if amount is None else round(amount, 2)
+        gift_id = _gift_id(row)
+        if gift_id is not None:
+            key = (gift_id, amount)
+            if key in seen:
+                continue
+            seen.add(key)
+        gifts.append(
+            {
+                "donorName": resolve_donor_name(row, name_map),
+                "amount": amount,
+                "giftDate": gift_day.isoformat(),
+                "fytd": fy_start <= gift_day <= fy_end,
+            }
+        )
+    gifts.sort(key=lambda g: str(g.get("giftDate") or ""), reverse=True)
+    return gifts
+
+
 def all_time_from_project(project: dict[str, Any]) -> tuple[float | None, int | None]:
     """All-time $ and gift count from GET /api/Project/Code/{code}.
 
@@ -235,6 +351,7 @@ def unmapped_row(key: str, project_code: str | None = None) -> dict[str, Any]:
         "allTimeGiftCount": None,
         "asOf": None,
         "reason": "unmapped",
+        "gifts": [],
     }
 
 
@@ -249,6 +366,7 @@ def unavailable_row(key: str, project_code: str) -> dict[str, Any]:
         "allTimeGiftCount": None,
         "asOf": None,
         "reason": "unavailable",
+        "gifts": [],
     }
 
 
@@ -261,6 +379,7 @@ def mapped_row(
     all_time_amount: float | None,
     all_time_gift_count: int | None,
     as_of: str,
+    gifts: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     return {
         "key": key,
@@ -271,6 +390,7 @@ def mapped_row(
         "allTimeAmount": all_time_amount,
         "allTimeGiftCount": all_time_gift_count,
         "asOf": as_of,
+        "gifts": list(gifts or []),
     }
 
 
@@ -374,15 +494,18 @@ def collect_sport(
         return unavailable_row(key, code)
     fytd_amount, fytd_count = fytd_from_designations(code, fytd_rows, fy_start, fy_end)
 
-    if all_time_count is None:
-        try:
-            all_rows = client.paged_query(
-                GIFT_DESIGNATION_QUERY_PATH,
-                designation_query(code),
-            )
-        except Exception as exc:  # noqa: BLE001
-            print(f"  {key} all-time count query failed: {type(exc).__name__}", flush=True)
+    all_rows: list[dict[str, Any]] = []
+    try:
+        all_rows = client.paged_query(
+            GIFT_DESIGNATION_QUERY_PATH,
+            designation_query(code),
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"  {key} all-time designation query failed: {type(exc).__name__}", flush=True)
+        if all_time_count is None:
             return unavailable_row(key, code)
+
+    if all_time_count is None:
         _, all_time_count = fytd_from_designations(
             code,
             all_rows,
@@ -390,9 +513,18 @@ def collect_sport(
             dt.date(9999, 12, 31),
         )
 
+    name_map: dict[Any, dict[str, Any]] = {}
+    try:
+        full_gifts = client.paged_query(FULL_GIFT_PATH, designation_query(code))
+        name_map = names_from_full_gifts(full_gifts)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  {key} full gift query failed: {type(exc).__name__}", flush=True)
+
+    gifts = gifts_from_designations(code, all_rows, name_map, fy_start, fy_end)
+
     print(
         f"  {key} code={code} fytd={fytd_amount} fytd_gifts={fytd_count} "
-        f"all_time={all_time_amount} all_time_gifts={all_time_count}",
+        f"all_time={all_time_amount} all_time_gifts={all_time_count} gift_rows={len(gifts)}",
         flush=True,
     )
     return mapped_row(
@@ -403,6 +535,7 @@ def collect_sport(
         all_time_amount=all_time_amount,
         all_time_gift_count=all_time_count,
         as_of=as_of,
+        gifts=gifts,
     )
 
 

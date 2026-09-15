@@ -2,8 +2,37 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import type { SportFundraising } from "@/lib/reports/athletics-coaching/fundraising";
+import type { FundraisingGift, SportFundraising } from "@/lib/reports/athletics-coaching/fundraising";
 import { formatAsOf, formatCount, formatMoney } from "./CoachingHub";
+
+function byNewest(left: FundraisingGift, right: FundraisingGift) {
+  return right.giftDate.localeCompare(left.giftDate);
+}
+
+function GiftTable({ gifts }: { gifts: FundraisingGift[] }) {
+  return (
+    <div className="ath-table-scroll ath-coach-academics">
+      <table className="ath-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Donor</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {gifts.map((gift, index) => (
+            <tr key={`${gift.giftDate}-${gift.donorName}-${gift.amount}-${index}`}>
+              <td>{gift.giftDate}</td>
+              <td>{gift.donorName}</td>
+              <td>{formatMoney(gift.amount)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export function FundraisingBand({ sportKey }: { sportKey: string }) {
   const [data, setData] = useState<SportFundraising | null>(null);
@@ -33,6 +62,16 @@ export function FundraisingBand({ sportKey }: { sportKey: string }) {
 
   const unmapped = Boolean(data && !data.mapped);
   const unavailable = Boolean(data && data.reason === "unavailable");
+  const gifts = data?.gifts ?? [];
+  const fytdGifts = gifts.filter((gift) => gift.fytd).sort(byNewest);
+  const allGifts = [...gifts].sort(byNewest);
+  const hasTotals = Boolean(
+    data &&
+      ((data.fytdAmount ?? 0) > 0 ||
+        (data.allTimeAmount ?? 0) > 0 ||
+        (data.fytdGiftCount ?? 0) > 0 ||
+        (data.allTimeGiftCount ?? 0) > 0),
+  );
 
   return (
     <section className="ath-coach-band">
@@ -47,7 +86,7 @@ export function FundraisingBand({ sportKey }: { sportKey: string }) {
         <>
           <p>
             Gift totals for this team&apos;s sport fund
-            {data.fiscalYearLabel ? ` (${data.fiscalYearLabel})` : ""}. Donor names are not shown.
+            {data.fiscalYearLabel ? ` (${data.fiscalYearLabel})` : ""}.
           </p>
           <div className="ath-coach-kpis">
             <div className="ath-kpi">
@@ -78,6 +117,24 @@ export function FundraisingBand({ sportKey }: { sportKey: string }) {
             </p>
           ) : null}
           {data.asOf ? <p>{formatAsOf(data.asOf)}</p> : null}
+          {allGifts.length ? (
+            <>
+              <h3>This fiscal year</h3>
+              {fytdGifts.length ? (
+                <GiftTable gifts={fytdGifts} />
+              ) : (
+                <p>No gifts this fiscal year yet.</p>
+              )}
+              <h3>All-time</h3>
+              <GiftTable gifts={allGifts} />
+            </>
+          ) : (
+            <p>
+              {hasTotals
+                ? "Gift list is not in this snapshot yet."
+                : "No gifts on this sport fund yet."}
+            </p>
+          )}
         </>
       ) : null}
     </section>
