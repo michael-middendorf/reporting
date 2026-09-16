@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
+import { PointsSubnav } from "@/components/PointsSubnav";
 import {
   aggregate,
   BUCKETS,
@@ -170,14 +172,16 @@ function formatDay(iso: string) {
 
 function RaisedTrendChart({
   weeks,
+  incomingAmount,
 }: {
   weeks: Array<{ key: string; label: string; amount: number }>;
+  incomingAmount: number;
 }) {
   const [hover, setHover] = useState<number | null>(null);
   if (!weeks.length) return null;
   const W = 720;
-  const H = 220;
-  const pad = { t: 16, r: 16, b: 36, l: 56 };
+  const H = 92;
+  const pad = { t: 8, r: 8, b: 22, l: 44 };
   const max = Math.max(0, ...weeks.map((w) => w.amount));
   const yMax = max > 0 ? max : 1;
   const innerW = W - pad.l - pad.r;
@@ -187,61 +191,56 @@ function RaisedTrendChart({
   const d = weeks
     .map((w, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(w.amount).toFixed(1)}`)
     .join(" ");
-  const ticks = [0, 0.5, 1].map((f) => Math.round(f * yMax));
-  const labelEvery = weeks.length > 10 ? Math.ceil(weeks.length / 8) : 1;
+  const raised = weeks.reduce((s, w) => s + w.amount, 0);
+  const labelEvery = weeks.length > 8 ? Math.ceil(weeks.length / 6) : 1;
   const active = hover != null ? weeks[hover] : null;
   return (
-    <section className="section">
-      <h2>
-        Donations by week{" "}
-        <span className="section-hint">total Raised · {money(weeks.reduce((s, w) => s + w.amount, 0))}</span>
-      </h2>
-      <div className="panel raised-trend">
-        <svg
-          className="chart-svg"
-          viewBox={`0 0 ${W} ${H}`}
-          role="img"
-          aria-label="Total amount received in donations each week"
-          onMouseLeave={() => setHover(null)}
-        >
-          {ticks.map((t, i) => (
-            <g key={`t-${i}`}>
-              <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} className="trend-grid" />
-              <text x={pad.l - 8} y={y(t) + 4} textAnchor="end" className="trend-tick">
-                {money(t)}
-              </text>
-            </g>
-          ))}
-          <path d={d} fill="none" className="trend-line" />
-          {weeks.map((w, i) => {
-            const slot = weeks.length === 1 ? innerW : innerW / Math.max(1, weeks.length - 1);
-            return (
-              <g key={w.key}>
-                <rect
-                  x={x(i) - slot / 2}
-                  y={pad.t}
-                  width={slot}
-                  height={innerH}
-                  fill="transparent"
-                  onMouseEnter={() => setHover(i)}
-                />
-                <circle cx={x(i)} cy={y(w.amount)} r={hover === i ? 5 : 3.5} className="trend-dot" />
-                {i % labelEvery === 0 || i === weeks.length - 1 ? (
-                  <text x={x(i)} y={H - 10} textAnchor="middle" className="trend-tick">
-                    {w.label}
-                  </text>
-                ) : null}
-              </g>
-            );
-          })}
-        </svg>
-        <p className="footnote" style={{ margin: "8px 0 0" }}>
-          {active
-            ? `Week of ${active.label} · ${money(active.amount)}`
-            : "Hover a week for the amount received."}
-        </p>
+    <div className="raised-trend-compact">
+      <div className="raised-trend-meta">
+        <span className="raised-trend-label">Raised</span>
+        <strong className="tabular">{money(raised)}</strong>
+        {incomingAmount > 0 ? (
+          <span className="section-hint">
+            · {money(incomingAmount)} waiting in Incoming
+          </span>
+        ) : null}
+        {active ? (
+          <span className="section-hint">
+            · {active.label} {money(active.amount)}
+          </span>
+        ) : null}
       </div>
-    </section>
+      <svg
+        className="chart-svg"
+        viewBox={`0 0 ${W} ${H}`}
+        role="img"
+        aria-label="Raised amount each week. Only assigned gifts."
+        onMouseLeave={() => setHover(null)}
+      >
+        <path d={d} fill="none" className="trend-line" />
+        {weeks.map((w, i) => {
+          const slot = weeks.length === 1 ? innerW : innerW / Math.max(1, weeks.length - 1);
+          return (
+            <g key={w.key}>
+              <rect
+                x={x(i) - slot / 2}
+                y={pad.t}
+                width={slot}
+                height={innerH}
+                fill="transparent"
+                onMouseEnter={() => setHover(i)}
+              />
+              <circle cx={x(i)} cy={y(w.amount)} r={hover === i ? 4 : 2.5} className="trend-dot" />
+              {i % labelEvery === 0 || i === weeks.length - 1 ? (
+                <text x={x(i)} y={H - 4} textAnchor="middle" className="trend-tick">
+                  {w.label}
+                </text>
+              ) : null}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
   );
 }
 
@@ -303,6 +302,16 @@ async function loadRaw() {
 }
 
 export default function PointsPage() {
+  return (
+    <Suspense fallback={<div className="points-root"><main className="wrap dash" /></div>}>
+      <PointsPageInner />
+    </Suspense>
+  );
+}
+
+function PointsPageInner() {
+  const searchParams = useSearchParams();
+  const tab = searchParams.get("tab") === "incoming" ? "incoming" : "points";
   const [raw, setRaw] = useState<{ notes: unknown[]; gifts: unknown[]; meta: Record<string, unknown> } | null>(null);
   const [rows, setRows] = useState<Array<Record<string, unknown>> | null>(null);
   const [meta, setMeta] = useState<Record<string, unknown>>({});
@@ -519,6 +528,9 @@ export default function PointsPage() {
       .sort((a, b) => (a.day || "").localeCompare(b.day || "") || (b.amount || 0) - (a.amount || 0));
   }, [todoQueue.reviewGifts, possibleOwner]);
   const todoAllCount = (todoQueue.possibleGifts || []).length + (todoQueue.reviewGifts || []).length;
+  const todoAllAmount =
+    (todoQueue.possibleGifts || []).reduce((s, g) => s + (g.amount || 0), 0) +
+    (todoQueue.reviewGifts || []).reduce((s, g) => s + (g.amount || 0), 0);
   const todoCount = listedPossible.length + todoReviewGifts.length;
   const todoAmount =
     listedPossible.reduce((s, g) => s + (g.amount || 0), 0) +
@@ -576,7 +588,7 @@ export default function PointsPage() {
   function showUndo(flagId: string, message: string) {
     clearUndoTimer();
     setUndo({ flagId, message });
-    undoTimer.current = setTimeout(() => setUndo(null), 12000);
+    undoTimer.current = setTimeout(() => setUndo(null), 5 * 60 * 1000);
   }
 
   useEffect(() => () => clearUndoTimer(), []);
@@ -719,7 +731,7 @@ export default function PointsPage() {
       status: "removed",
       reason: "Does not qualify",
     });
-    if (ok) showUndo(id, `Removed ${g.contactName || "this gift"} from To do.`);
+    if (ok) showUndo(id, `Removed ${g.contactName || "this gift"}.`);
   }
 
   async function assignMgoGift(g: GiftRow) {
@@ -880,29 +892,10 @@ export default function PointsPage() {
   return (
     <div className="points-root">
         <main className="wrap dash">
-          <header className="page-head">
-            <div>
-              <h1>Points Dashboard</h1>
-              <p className="page-updated">
-                {meta?.generated_at != null
-                  ? `Last refresh: ${formatLastRefresh(String(meta.generated_at))}`
-                  : "Last refresh: pending"}
-              </p>
-            </div>
-            <div className="page-head-actions">
-              {error ? <span className="page-head-meta">{error}</span> : null}
-              <button
-                type="button"
-                onClick={exportCalculation}
-                disabled={!rows}
-                title="Download a spreadsheet of every task and gift, with links to the contact and posted gift in Virtuous"
-                className="mini-btn solid"
-              >
-                Export calculation report
-              </button>
-            </div>
-          </header>
-          <div className="controls">
+          <div className="points-toolbar">
+            <PointsSubnav count={todoAllCount} />
+            {tab === "points" ? (
+              <>
             <div className="seg" role="group" aria-label="Preset range">
               {RANGE_KEYS.map((key) => {
                 const cfg = RANGES[key];
@@ -950,19 +943,31 @@ export default function PointsPage() {
                 </select>
               </label>
             </div>
+              </>
+            ) : null}
+            <span className="points-refresh">
+              {error ? error : meta?.generated_at != null
+                ? formatLastRefresh(String(meta.generated_at))
+                : "pending"}
+            </span>
+            {tab === "points" ? (
+              <button
+                type="button"
+                onClick={exportCalculation}
+                disabled={!rows}
+                title="Download a spreadsheet of every task and gift, with links to the contact and posted gift in Virtuous"
+                className="mini-btn solid"
+              >
+                Export
+              </button>
+            ) : null}
           </div>
 
-          <RaisedTrendChart weeks={weeklyRaised} />
-
+          {tab === "incoming" ? (
           <section className={`todo${todoAllCount === 0 ? " is-clear" : ""}`} id="todo" aria-labelledby="todo-heading">
             <div className="todo-head">
               <div>
-                <h2 id="todo-heading">To do</h2>
-                <p className="todo-lead">
-                  {todoAllCount === 0
-                    ? "Nothing waiting. Incoming gifts land here until someone assigns or removes them."
-                    : "These gifts are not Raised and not 100 points yet. Assign the MA who earned it, or remove it. You can undo for 12 seconds."}
-                </p>
+                <h2 id="todo-heading">Possible gifts</h2>
               </div>
               <div className="todo-stat" aria-label={`${todoAllCount} gifts waiting`}>
                 <strong className="tabular">{todoAllCount}</strong>
@@ -999,9 +1004,9 @@ export default function PointsPage() {
               ) : null}
 
               {todoAllCount === 0 ? (
-                <p className="todo-empty">You are caught up for this date range.</p>
+                <p className="todo-empty">None waiting.</p>
               ) : todoCount === 0 ? (
-                <p className="todo-empty">None for this MA. Switch to All to see the rest.</p>
+                <p className="todo-empty">None for this MA.</p>
               ) : (
                 <>
                   {listedPossible.map((g, i) => {
@@ -1130,7 +1135,7 @@ export default function PointsPage() {
                                     status: "removed",
                                     reason: "Does not qualify",
                                   });
-                                  if (ok) showUndo(id, `Removed ${g.contactName || "this gift"} from To do.`);
+                                  if (ok) showUndo(id, `Removed ${g.contactName || "this gift"}.`);
                                 }}
                               >
                                 {busy ? "Removing…" : "Remove"}
@@ -1145,49 +1150,9 @@ export default function PointsPage() {
               )}
             </div>
           </section>
-
-          <details className="track-chart">
-            <summary>Tracking chart</summary>
-            <div className="track-chart-body">
-              <div className="track-gifts">
-                <p className="track-lead">
-                  Virtuous note type on the donor’s contact, logged as yourself. Gifts are linked by the same
-                  contact when the note is on or before the gift, within 45 days. {TRACKING_CHART.refresh}
-                </p>
-                <ul>
-                  {TRACKING_CHART.gifts.map((g) => (
-                    <li key={g.label}>
-                      <strong>{g.label}.</strong> {g.detail}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="track-types">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Counts as</th>
-                      <th>Virtuous note type</th>
-                      <th>Pts</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {TRACKING_CHART.rows.map((r) => (
-                      <tr key={`${r.tracker}-${r.type}`}>
-                        <td>{r.tracker}</td>
-                        <td>{r.type}</td>
-                        <td className="tabular">{r.pts}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <p className="footnote">
-                  Wrong person, wrong type, or no note = not counted.{" "}
-                  <a href="/advancement/points/methodology">Full rules</a>
-                </p>
-              </div>
-            </div>
-          </details>
+          ) : (
+          <>
+          <RaisedTrendChart weeks={weeklyRaised} incomingAmount={todoAllAmount} />
 
           <section className="section">
             <h2>
@@ -1493,6 +1458,49 @@ export default function PointsPage() {
               </div>
             </section>
           )}
+
+          <details className="track-chart">
+            <summary>Tracking chart</summary>
+            <div className="track-chart-body">
+              <div className="track-gifts">
+                <p className="track-lead">
+                  Virtuous note type on the donor’s contact, logged as yourself. Gifts are linked by the same
+                  contact when the note is on or before the gift, within 45 days. {TRACKING_CHART.refresh}
+                </p>
+                <ul>
+                  {TRACKING_CHART.gifts.map((g) => (
+                    <li key={g.label}>
+                      <strong>{g.label}.</strong> {g.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="track-types">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Counts as</th>
+                      <th>Virtuous note type</th>
+                      <th>Pts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {TRACKING_CHART.rows.map((r) => (
+                      <tr key={`${r.tracker}-${r.type}`}>
+                        <td>{r.tracker}</td>
+                        <td>{r.type}</td>
+                        <td className="tabular">{r.pts}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="footnote">
+                  Wrong person, wrong type, or no note = not counted.{" "}
+                  <a href="/advancement/points/methodology">Full rules</a>
+                </p>
+              </div>
+            </div>
+          </details>
 
           <details className="track-chart">
             <summary>
@@ -1808,6 +1816,8 @@ export default function PointsPage() {
               ))}
             </div>
           </section>
+          </>
+          )}
 
           {undo ? (
             <div className="undo-bar" role="status">

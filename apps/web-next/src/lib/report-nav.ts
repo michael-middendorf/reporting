@@ -16,8 +16,7 @@ export const ADVANCEMENT_NAV: ReportNavItem[] = [
   { href: "/advancement/portfolios", label: "Portfolios", report: "portfolios" },
   { href: "/annunciation", label: "Annunciation Circle", report: "annunciation" },
   { href: "/advancement/fall-appeal", label: "Fall Appeal", report: "advancement" },
-  { href: "/advancement/points", label: "MA Points", report: "points", exact: true },
-  { href: "/advancement/points/methodology", label: "Points Methodology", report: "points" },
+  { href: "/advancement/points", label: "MA Points", report: "points" },
   { href: "/advancement/chapel-naming", label: "Chapel Naming", report: "chapel" },
   { href: "/advancement/stained-glass-windows", label: "Stained Glass", report: "chapel" },
   { href: "/athletics/master/giving", label: "Athletics Giving", report: "advancement" },
@@ -31,7 +30,7 @@ export const ENROLLMENT_NAV: ReportNavItem[] = [
 ];
 
 export const POINTS_NAV: ReportNavItem[] = [
-  { href: "/advancement/points", label: "Dashboard", exact: true },
+  { href: "/advancement/points", label: "Points", exact: true },
   { href: "/advancement/points/methodology", label: "Methodology" },
 ];
 
@@ -120,6 +119,7 @@ export const REPORT_FOLDERS: ReportFolder[] = [
 ];
 
 const EXTRA_LEAVES: Crumb[] = [
+  { href: "/advancement/points/methodology", label: "Methodology" },
   { href: "/aspiredu/mfa", label: "Authenticator" },
   { href: "/athletics/coaching/mfa", label: "Authenticator" },
   { href: "/auth/mfa", label: "Authenticator" },

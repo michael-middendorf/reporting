@@ -26,7 +26,6 @@ describe("reportNavActive", () => {
     const ac = item(ADVANCEMENT_NAV, "/annunciation");
     const fall = item(ADVANCEMENT_NAV, "/advancement/fall-appeal");
     const points = item(ADVANCEMENT_NAV, "/advancement/points");
-    const method = item(ADVANCEMENT_NAV, "/advancement/points/methodology");
     const glass = item(ADVANCEMENT_NAV, "/advancement/stained-glass-windows");
     const athGiving = item(ADVANCEMENT_NAV, "/athletics/master/giving");
     assert.equal(reportNavActive(overview, ADVANCEMENT_NAV, "/advancement/overview"), true);
@@ -34,8 +33,7 @@ describe("reportNavActive", () => {
     assert.equal(reportNavActive(ac, ADVANCEMENT_NAV, "/annunciation"), true);
     assert.equal(reportNavActive(fall, ADVANCEMENT_NAV, "/advancement/fall-appeal"), true);
     assert.equal(reportNavActive(points, ADVANCEMENT_NAV, "/advancement/points"), true);
-    assert.equal(reportNavActive(points, ADVANCEMENT_NAV, "/advancement/points/methodology"), false);
-    assert.equal(reportNavActive(method, ADVANCEMENT_NAV, "/advancement/points/methodology"), true);
+    assert.equal(reportNavActive(points, ADVANCEMENT_NAV, "/advancement/points/methodology"), true);
     assert.equal(reportNavActive(glass, ADVANCEMENT_NAV, "/advancement/stained-glass-windows"), true);
     assert.equal(overview.report, "advancement");
     assert.equal(fall.report, "advancement");
@@ -53,7 +51,7 @@ describe("reportNavActive", () => {
     const pointsOnly = navForReports(ADVANCEMENT_NAV, ["points"]);
     assert.deepEqual(
       pointsOnly.map((n) => n.href),
-      ["/advancement/points", "/advancement/points/methodology"],
+      ["/advancement/points"],
     );
   });
 
@@ -119,7 +117,7 @@ describe("reportCrumbs", () => {
       { href: "/", label: "Reports" },
       { href: "/advancement", label: "Advancement" },
       { href: "/advancement/points", label: "MA Points" },
-      { href: "/advancement/points/methodology", label: "Points Methodology" },
+      { href: "/advancement/points/methodology", label: "Methodology" },
     ]);
     assert.deepEqual(reportCrumbs("/annunciation"), [
       { href: "/", label: "Reports" },
