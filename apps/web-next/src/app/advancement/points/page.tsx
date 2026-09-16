@@ -1190,9 +1190,7 @@ function PointsPageInner() {
             <h2>
               All Mission Advancement{" "}
               <span className="section-hint">
-                {range === "all"
-                  ? `from week of ${weekLabel(SETTINGS.evalStart)} · click a name for their weeks and tasks`
-                  : "click a name for their weeks and tasks"}
+                {range === "all" ? `from ${weekLabel(SETTINGS.evalStart)}` : null}
               </span>
             </h2>
             <div className="panel">
@@ -1314,7 +1312,6 @@ function PointsPageInner() {
                 <div>
                   <h3 style={{ marginTop: 0 }}>
                     {mixHeading}
-                    <span className="section-hint"> click a category to filter tasks</span>
                   </h3>
                   <div className="tracker">
                     <div className="tracker-head">
@@ -1378,10 +1375,7 @@ function PointsPageInner() {
               </div>
               <h3 style={{ marginTop: 18 }}>
                 Tasks — {filteredDayRows.length} {filteredDayRows.length === 1 ? "activity" : "activities"}
-                {activeCategoryLabel ? ` · ${activeCategoryLabel}` : ""}{" "}
-                <span className="section-hint">
-                  Wrong note type or note on the wrong contact will not count · Count/Remove changes totals · Open ↗ verifies in Virtuous
-                </span>
+                {activeCategoryLabel ? ` · ${activeCategoryLabel}` : ""}
               </h3>
               <div style={{ overflow: "auto", maxHeight: 520, border: "1px solid var(--line)", borderRadius: 10 }}>
                 <table className="grid audit">
@@ -1494,7 +1488,7 @@ function PointsPageInner() {
           <details className="track-chart">
             <summary>
               Personal Bests{" "}
-              <span className="section-hint">highest-points week for each MA and for the team</span>
+              <span className="section-hint">best week</span>
             </summary>
             <div className="track-chart-body wide">
               <table className="grid spread">
@@ -1547,16 +1541,9 @@ function PointsPageInner() {
           <section className="section">
             <h2>
               Events{" "}
-              <span className="section-hint">
-                large events · {EVENT_POINTS_PER_HOUR} pts per hour · not written to Virtuous
-              </span>
+              <span className="section-hint">{EVENT_POINTS_PER_HOUR} pts/hour</span>
             </h2>
             <div className="panel">
-              <p className="footnote" style={{ marginTop: 0, marginBottom: 14 }}>
-                Use this for large events only. Points = hours × {EVENT_POINTS_PER_HOUR}. It does not
-                create a Virtuous event. A one-on-one Event or Marketing Event note on a contact still
-                counts at 25 points, same as a meeting.
-              </p>
               <form
                 className="event-form"
                 onSubmit={(e) => {
@@ -1685,17 +1672,8 @@ function PointsPageInner() {
           <section className="section">
             <h2>
               Gifts{" "}
-              <span className="section-hint">
-                Raised with 100 points · unclaimed gifts are in To do
-              </span>
             </h2>
             <div className="panel">
-                  <p className="footnote" style={{ marginTop: 0, marginBottom: 14 }}>
-                    Counted in Raised only with 100 points: a New Donation or New AC, Annunciation Circle
-                    updated, or Update Recurring Gift note, or an assignment from To do. A conversation
-                    or meeting alone stays in To do until assigned or removed. Gift Assist is 100 points
-                    and $0.
-                  </p>
                   <table className="grid" style={{ marginBottom: 18 }}>
                     <thead>
                       <tr>
