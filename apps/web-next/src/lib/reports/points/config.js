@@ -103,8 +103,8 @@ export const CONFLICTS = {
     title: "Event points (300 vs 75)",
     pdf: "‘Ave Near You’ event = 300; Marketing event (Zena’s team) = 75.",
     spreadsheet: "Not tracked as line items.",
-    resolved: "25 points per hour on the Points dashboard",
-    note: "Virtuous Event notes no longer score. Add the event on this dashboard with hours. That is the only way to get event points.",
+    resolved: "Large events: 25 points per hour on this dashboard. One-on-one Event notes on a contact: 25 points.",
+    note: "Add Event hours here for large events only. A Mission Advancement | Event or Marketing Event note on a donor’s contact still counts as 25 points (one-on-one).",
   },
   mgo_appointment: {
     title: "Appointment set for MGO (10 pts)",
@@ -131,8 +131,8 @@ export const CONFLICTS = {
     title: "MAS Event note (attributed to an MA)",
     pdf: "‘Ave Near You’ event = 300; Marketing event (Zena’s team) = 75.",
     spreadsheet: "Not a discrete line item.",
-    resolved: "Does not score. Use Add Event on the dashboard (25 pts per hour).",
-    note: "Logging ‘Mission Advancement | Event’ or ‘Mission Advancement | Marketing Event’ in Virtuous does not count. Event points come only from hours added on this dashboard.",
+    resolved: "25 points when logged on a contact (one-on-one). Large events use hours on this dashboard.",
+    note: "A ‘Mission Advancement | Event’ or ‘Marketing Event’ note on a donor still counts at 25 points, same as a meeting. Use Add Event hours only for large events.",
   },
   mas_meeting_note: {
     title: "MAS Meeting note",
@@ -183,6 +183,11 @@ export const POINTS_MAP = {
 
   "obituary":
     { points: 3, bucket: "obituary", label: "Obituary", source: "spreadsheet", conflict: "obituary" },
+
+  "mission advancement | event":
+    { points: 25, bucket: "event", label: "One-on-one event", source: "pdf", conflict: "mas_event_note" },
+  "mission advancement | marketing event":
+    { points: 25, bucket: "event", label: "One-on-one marketing event", source: "pdf", conflict: "mas_event_note" },
 
   "mission advancement | meeting":
     { points: 25, bucket: "facetoface", label: "MAS Meeting (face-to-face)", source: "pdf", conflict: "mas_meeting_note" },
@@ -289,8 +294,8 @@ export const TRACKER_LAYOUT = [
 ];
 
 /* ---- Event scoring ------------------------------------------------------
- * Virtuous Event records and Event notes do not score. Event points come
- * only from hours added on the Points dashboard (EVENT_POINTS_PER_HOUR). */
+ * Large events: hours added on this dashboard × EVENT_POINTS_PER_HOUR.
+ * One-on-one: Virtuous Event notes on a contact still score (see POINTS_MAP). */
 export const EVENT_RULES = [];
 
 /** Dashboard-added events (reporting only, not written to Virtuous). */
@@ -321,6 +326,12 @@ export const SETTINGS = {
   monthlyAnnualizeFactor: 12,
   /** Credit a gift only if an MA activity note on that contact is on or before the gift, within this many days. */
   giftNoteDaysBefore: 45,
+  /**
+   * If the last Annunciation Circle gift on the contact is older than this
+   * many days, the membership lapsed. A new signup is the full monthly
+   * amount × 12, not an increase off the old rate.
+   */
+  acLapseDays: 45,
   /**
    * Posted gifts counted as assists (100 pts, $0) even before a Gift Assist
    * note is logged. Sean Kelly / Ursula Pfahl $10k QCD 9/1/2026, solicitor
@@ -365,7 +376,9 @@ export const TRACKING_CHART = {
     },
     {
       label: "Monthly AC",
-      detail: "New monthly commitment is amount × 12. An increase is only the difference × 12.",
+      detail:
+        "New monthly commitment is amount × 12. An increase on an active AC is only the difference × 12. " +
+        "If they lapsed (no AC gift in the last 45 days) and signed up again, count the full new amount × 12.",
     },
     {
       label: "Incoming gifts",
@@ -375,7 +388,7 @@ export const TRACKING_CHART = {
     {
       label: "Event hours · 25 pts/hour",
       detail:
-        "The only way to get event points. Add an event on this dashboard with an event type and hours. Points = hours × 25 for the chosen MA. A Virtuous Event note does not count. Reporting only — it does not create a Virtuous event or note.",
+        "Large events only. Add an event on this dashboard with hours. Points = hours × 25 for the chosen MA. Reporting only — it does not create a Virtuous event or note. A one-on-one Event note on a contact still counts at 25 points.",
     },
   ],
   rows: [
@@ -390,7 +403,8 @@ export const TRACKING_CHART = {
     { tracker: "Obituaries", type: "Obituary", pts: 3 },
     { tracker: "Invalid Address", type: "Invalid Mailing Address · Address Change/Update", pts: 1 },
     { tracker: "Live Mtg / Tour", type: "In Person · Mission Advancement | Meeting", pts: 25 },
-    { tracker: "Event hours", type: "Add Event on this dashboard (not Virtuous)", pts: 25 },
+    { tracker: "Event (1:1)", type: "Mission Advancement | Event · Marketing Event on a contact", pts: 25 },
+    { tracker: "Event hours", type: "Large event — Add Event on this dashboard", pts: 25 },
     { tracker: "Secured gift", type: "New Donation or New AC · AC Updated · Update Recurring Gift", pts: 100 },
     { tracker: "Gift Assist", type: "Mission Advancement | Gift Assist", pts: 100 },
   ],
@@ -414,8 +428,8 @@ export const DEFINITIONS = [
     term: "How logging works",
     text:
       "The dashboard scores what is logged in Virtuous, on the donor’s contact, with the correct note type, authored by the MA. " +
-      "Event points come only from hours added on this dashboard (25 points per hour) and are not written to Virtuous. " +
-      "A Virtuous Event note does not count. " +
+      "Large-event hours added on this dashboard count at 25 points per hour and are not written to Virtuous. " +
+      "A one-on-one Event or Marketing Event note on a contact still counts at 25 points. " +
       "A note on the wrong person, a generic type, a note after the gift, or no note at all will not count. " +
       "Raised dollars and 100 gift points always go together. A conversation or meeting on the donor, within 45 days, puts the gift on Incoming — not Raised and not 100 points — until someone assigns it or logs a donation note. " +
       "A New Donation note can be logged up to 45 days after the gift posts and still count. " +
@@ -472,9 +486,14 @@ export const DEFINITIONS = [
   {
     term: "Event hours (25 pts per hour)",
     text:
-      "Add an event on the Points dashboard with an event type and hours. It scores 25 points per hour to the chosen MA and shows in Events on the dashboard. " +
-      "This is the only way to get event points. It does not create a Virtuous event or note. " +
-      "Logging ‘Mission Advancement | Event’ or ‘Mission Advancement | Marketing Event’ in Virtuous does not count.",
+      "Large events only. Add an event on the Points dashboard with an event type and hours. It scores 25 points per hour to the chosen MA. " +
+      "It does not create a Virtuous event or note. One-on-one Event notes on a contact still count separately at 25 points.",
+  },
+  {
+    term: "One-on-one Event (25 pts)",
+    text:
+      "Log ‘Mission Advancement | Event’ or ‘Mission Advancement | Marketing Event’ on the donor’s contact. " +
+      "It scores 25 points, same as a meeting, because it is one-on-one. Do not use Add Event hours for that.",
   },
   {
     term: "Count / Remove",

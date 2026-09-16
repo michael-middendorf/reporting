@@ -18,11 +18,11 @@ export default function PointsMethodologyPage() {
           </div>
           <h1>Methodology</h1>
           <p style={{ maxWidth: "70ch" }}>
-            Points and gifts are scored from Virtuous notes and posted gifts. Event points come only
-            from hours added on the Points dashboard (25 points per hour, reporting-only — not written
-            to Virtuous). A Virtuous Event note does not count. The MA must log the correct note type
-            on the donor’s contact, as themselves. A note on the wrong person, the wrong type, or after
-            the gift will not count. A posted gift with no MA note on that contact is not attributed.
+            Points and gifts are scored from Virtuous notes and posted gifts. Large-event hours on this
+            dashboard are 25 points per hour and are not written to Virtuous. A one-on-one Event note on
+            a contact still counts at 25 points. The MA must log the correct note type on the donor’s
+            contact, as themselves. A note on the wrong person, the wrong type, or after the gift will
+            not count. A posted gift with no MA note on that contact is not attributed.
           </p>
 
           <section style={{ marginTop: 28 }}>

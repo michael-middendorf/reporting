@@ -5,6 +5,7 @@ const points = require("./points.js") as {
     notes: unknown[];
     gifts?: unknown[];
     flags?: Record<string, unknown>;
+    countedGifts?: unknown[];
   }) => unknown[];
   scoreEventsForDisplay: (events: unknown[]) => unknown[];
   scoreTrackedEvents: (events: unknown[]) => unknown[];

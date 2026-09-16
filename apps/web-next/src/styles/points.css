@@ -550,17 +550,17 @@ table.grid tr.grand td { font-weight: 600; color: var(--navy); background: var(-
 }
 .todo-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px 24px;
-  padding: 18px 22px;
+  gap: 12px 24px;
+  padding: 10px 16px;
   background: var(--navy);
   color: #fff;
 }
 .todo-head h2 {
   margin: 0;
   color: #fff;
-  font-size: 1.35rem;
+  font-size: 1.05rem;
 }
 .todo-lead {
   margin: 6px 0 0;
@@ -572,31 +572,30 @@ table.grid tr.grand td { font-weight: 600; color: var(--navy); background: var(-
 }
 .todo-stat {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 10px;
   text-align: right;
   flex-shrink: 0;
-  min-width: 8.5rem;
 }
 .todo-stat strong {
   font-family: var(--serif);
-  font-size: 2.15rem;
+  font-size: 1.35rem;
   line-height: 1;
   color: var(--gold);
 }
 .todo-stat span {
-  font-size: .78rem;
+  font-size: .72rem;
   letter-spacing: .04em;
   text-transform: uppercase;
   color: #cdd6e3;
   font-weight: 500;
 }
 .todo-stat-amt {
-  margin-top: 6px;
   color: #fff !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
-  font-size: 1rem !important;
+  font-size: .95rem !important;
   font-weight: 600 !important;
 }
 .todo.is-clear {
@@ -606,98 +605,40 @@ table.grid tr.grand td { font-weight: 600; color: var(--navy); background: var(-
   background: #14345c;
 }
 .todo.is-clear .todo-stat strong { color: #fff; }
-.todo-body { padding: 16px 20px 20px; }
+.todo-body { padding: 10px 12px 12px; }
 .todo-error {
   color: var(--warn);
   font-size: .88rem;
   margin: 0 0 14px;
 }
-.todo-filter { margin-bottom: 16px; }
+.todo-filter { margin-bottom: 10px; }
 .todo-empty {
   margin: 0;
   color: var(--slate);
   font-size: .95rem;
 }
 .todo-sub {
-  margin: 22px 0 12px;
-  font-size: 1.02rem;
+  margin: 14px 0 8px;
+  font-size: .92rem;
 }
-.todo-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 16.5rem;
-  gap: 12px 24px;
-  padding: 16px 18px;
-  border: 1px solid var(--line);
-  border-left: 4px solid var(--gold);
-  border-radius: 12px;
-  margin-bottom: 12px;
-  background: var(--bg-soft);
-}
-.todo-card:last-child { margin-bottom: 0; }
-.todo-card-mgo { border-left-color: var(--navy); }
-.todo-kicker {
-  font-size: .68rem;
-  font-weight: 600;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: #9a6b12;
-  margin-bottom: 4px;
-}
-.todo-card-mgo .todo-kicker { color: var(--navy); }
-.todo-who {
-  margin: 0 0 4px;
-  font-size: 1.15rem;
-  color: var(--navy);
-}
-.todo-meta {
-  margin: 0 0 8px;
-  font-size: .86rem;
-  color: var(--slate);
-}
-.todo-spoke {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: .88rem;
-  color: var(--navy);
-}
-.todo-spoke li { margin-bottom: 2px; }
-.todo-card-side {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  text-align: right;
-  gap: 6px;
-}
-.todo-amount {
-  font-family: var(--serif);
-  font-size: 1.7rem;
-  line-height: 1;
-  color: var(--navy);
-  font-weight: 700;
-}
-.todo-outcome {
-  margin: 0;
-  font-size: .75rem;
-  font-weight: 600;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  color: #3f7d54;
-}
-.todo-actions {
+.todo-table-wrap { overflow-x: auto; }
+.todo-table { margin: 0; }
+.todo-table th,
+.todo-table td { padding: 5px 8px; font-size: .82rem; vertical-align: middle; }
+.todo-table th:last-child,
+.todo-table td:last-child { text-align: right; }
+.todo-table .nowrap { white-space: nowrap; }
+.todo-muted { color: var(--slate-400); font-weight: 400; }
+.todo-table .todo-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
   justify-content: flex-end;
-  margin-top: 6px;
+  margin: 0;
 }
-.todo-actions .mini-btn.solid { padding: 7px 14px; font-size: .82rem; }
-.todo-link {
-  font-size: .82rem;
-  font-weight: 500;
-  align-self: center;
-  padding: 4px 2px;
-}
+.todo-table .mini-btn { padding: 3px 8px; font-size: .72rem; }
+.todo-table .todo-link { font-size: .78rem; font-weight: 500; }
+.todo-link { font-size: .82rem; font-weight: 500; }
 
 .undo-bar {
   position: fixed;
@@ -763,11 +704,9 @@ table.weekgrid th.metric { text-align: left; color: var(--navy); font-weight: 50
   .two-col { grid-template-columns: 1fr; }
   .track-chart-body { grid-template-columns: 1fr; }
   .ma-drill { grid-template-columns: 1fr; }
-  .todo-head { flex-direction: column; }
-  .todo-stat { align-items: flex-start; text-align: left; }
-  .todo-card { grid-template-columns: 1fr; }
-  .todo-card-side { align-items: flex-start; text-align: left; }
-  .todo-actions { justify-content: flex-start; }
+  .todo-head { flex-direction: column; align-items: flex-start; }
+  .todo-stat { text-align: left; }
+  .todo-table .todo-actions { justify-content: flex-start; }
   .undo-bar { bottom: 16px; width: calc(100vw - 24px); }
   .topbar .wrap { flex-direction: column; align-items: flex-start; gap: 10px; }
   .page-head { align-items: flex-start; }
