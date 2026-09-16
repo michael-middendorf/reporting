@@ -90,7 +90,7 @@ export function buildCalculationCSV(model, { meta = {}, rangeLabel = "All", gene
   if (meta.generated_at) L.push(line(["Data last refreshed", meta.generated_at]));
   if (meta.sample) L.push(line(["WARNING", "SAMPLE DATA — not live Virtuous values"]));
   L.push(line(["How points work", "Each task is scored from its Virtuous note type against the MAS Points rubric. See the Methodology page for every rule."]));
-  L.push(line(["Note", "Events are reference-only and excluded here — Virtuous events carry no MA owner and never score to an MA."]));
+  L.push(line(["Note", "Event points come only from hours added on this dashboard (25 points per hour). Virtuous Event notes and Event records do not score."]));
   L.push("");
 
   // --- Summary (reconciles to the dashboard) -------------------------------

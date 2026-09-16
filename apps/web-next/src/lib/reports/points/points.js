@@ -2,7 +2,7 @@
  * points.js — the scoring engine. Pure functions, no DOM, no I/O.
  * Turns raw Virtuous records into scored activity rows entirely client-side.
  */
-import { POINTS_MAP, EVENT_RULES, SETTINGS, MA_NAMES, MA_ROSTER } from "./config.js";
+import { POINTS_MAP, EVENT_POINTS_PER_HOUR, TRACKED_EVENT_TYPES, SETTINGS, MA_NAMES, MA_ROSTER } from "./config.js";
 
 /** Normalize a Virtuous date string ("8/4/2026" or ISO) to a Date (local). */
 export function parseDate(value) {
@@ -27,6 +27,9 @@ export function isWeekday(d) {
 
 const rosterSet = new Set(MA_NAMES);
 const startByOwner = new Map(MA_ROSTER.map((m) => [m.name, m.startDate || null]));
+const skippedEventNoteTypes = new Set(
+  TRACKED_EVENT_TYPES.map((t) => String(t.type || "").toLowerCase()),
+);
 
 /** True when isoDay(date) is before the owner's optional roster startDate.
  * Compare YYYY-MM-DD strings, not Date objects: parseDate("2026-07-20") is
@@ -80,6 +83,8 @@ export function scoreNote(record) {
 
   const type = (record.type || "").trim();
   const key = type.toLowerCase();
+  // Event notes in Virtuous no longer score. Hours added on the dashboard do.
+  if (skippedEventNoteTypes.has(key)) return null;
   const rule = POINTS_MAP[key];
   const date = parseDate(record.noteDate) || parseDate(record.createDateTimeUtc);
   if (!date) return null;
@@ -111,23 +116,21 @@ export function scoreNote(record) {
 }
 
 /**
- * Score a raw Event record (300 / 75) by name keyword; else flagged untagged.
- * DISPLAY-ONLY: Virtuous events carry no MA owner, so these rows are never
- * aggregated into an MA's total — they feed the Events reference table only.
+ * Virtuous Event records do not score. Kept so callers can still list them
+ * as reference-only rows with 0 points.
  */
 export function scoreEvent(record) {
   const name = record.name || record.eventName || "";
   // Real Virtuous field is `startDateTime` ("7/16/2026 5:30:00 PM"); fall back
   // to the UTC create stamp.
   const date = parseDate(record.startDateTime || record.createDateTimeUtc);
-  const rule = EVENT_RULES.find((r) => r.match.test(name));
   if (!date) return null;
   return {
-    type: "Event", points: rule ? rule.points : 0, bucket: "event",
-    label: rule ? rule.label : `Event (untagged): ${name}`,
+    type: "Event", points: 0, bucket: "event",
+    label: `Event (not scored): ${name}`,
     day: isoDay(date), date, weekday: isWeekday(date),
     eventId: record.id, eventName: name,
-    source: "pdf", unmatched: !rule,
+    source: "reporting", unmatched: true,
   };
 }
 
@@ -310,6 +313,9 @@ const GIFT_ATTRIBUTION_BUCKETS = new Set([
   "conversation", "facetoface", "gift",
 ]);
 
+/** Raised dollars require a donation note (or an Incoming / MGO assignment). */
+const RAISED_HINT_BUCKETS = new Set(["gift"]);
+
 /**
  * A "contact" that can surface a possible gift: they spoke with the donor
  * (phone, two-way email, or a meeting). Voicemail, letter, and email-sent
@@ -373,14 +379,13 @@ export function giftKindLabel(kind, annualized) {
   return annualized ? "Monthly ×12" : "One-time";
 }
 
-/** Dollars follow a conversation, meeting, or donation note — not a letter or thank-you. */
-export function ownerHintForGift(giftDate, notesOnContact) {
+function ownerHintFromBuckets(giftDate, notesOnContact, buckets) {
   const before = SETTINGS.giftNoteDaysBefore ?? 45;
   let best = null;
   let bestScore = Infinity;
   for (const n of notesOnContact || []) {
     if (n.assist) continue;
-    if (!GIFT_ATTRIBUTION_BUCKETS.has(n.bucket)) continue;
+    if (!buckets.has(n.bucket)) continue;
     const delta = daysFromNoteToGift(n.date, giftDate);
     if (delta == null) continue;
     if (delta < 0 || delta > before) continue;
@@ -390,6 +395,16 @@ export function ownerHintForGift(giftDate, notesOnContact) {
     }
   }
   return best;
+}
+
+/** Raised dollars follow a donation note — not a conversation, letter, or thank-you. */
+export function ownerHintForGift(giftDate, notesOnContact) {
+  return ownerHintFromBuckets(giftDate, notesOnContact, RAISED_HINT_BUCKETS);
+}
+
+/** Closest conversation, meeting, or donation note — used for MGO review listing. */
+export function ownerHintForReview(giftDate, notesOnContact) {
+  return ownerHintFromBuckets(giftDate, notesOnContact, GIFT_ATTRIBUTION_BUCKETS);
 }
 
 /**
@@ -455,15 +470,14 @@ function assignedOwnerForGift(gift, hint, flags) {
 }
 
 /**
- * Score a Virtuous Gift as dollars received (0 points; the 100-pt credit
- * comes from the matching donation note so we don't double-count).
- * Owner is the MA who logged an activity note on the contact in the gift
- * window (`ownerHint`). GFT_Solicitor is never used for owner: that is the
- * MA or MGO on the account, not who did the work. Gifts Virtuous coded as
- * MGO work (Direct Solicitation (MGO) segment/project, or a nonempty
- * GFT_Solicitor who is not on the MA roster) return null unless
- * `assignedOwner` is a roster MA (Annie assigned the gift). Returns null
- * when amount is 0 or less.
+ * Score a Virtuous Gift as dollars received (0 points on this row; the 100-pt
+ * credit comes from the matching donation note, or a backfill so Raised never
+ * exists without 100 pts). Owner is the MA who logged a donation note on the
+ * contact in the gift window (`ownerHint`), or `assignedOwner`. A conversation
+ * or meeting alone does not put the gift in Raised — that is Incoming.
+ * GFT_Solicitor is never used for owner. Gifts Virtuous coded as MGO work
+ * return null unless `assignedOwner` is a roster MA. Returns null when amount
+ * is 0 or less.
  */
 export function scoreGift(record, ownerHint = null, assignedOwner = null) {
   const postedAmount = parseAmount(record.amount);
@@ -538,7 +552,7 @@ function markAssist(gift) {
  *
  * Posted gifts on a contact with a conversation/meeting in the 45-day window
  * and no matching donation or Gift Assist note become bucket "possible"
- * (0 pts, not Raised).
+ * (Incoming: 0 pts, not Raised). Raised dollars always pair with 100 pts.
  *
  * `flags` is the shared review-flags map (same object aggregate uses). An
  * MGO-coded gift with status "assigned" and a roster `flag.owner` scores as
@@ -564,34 +578,35 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
   const matchGifts = [];
   for (const g of gifts) {
     const gDate = giftDateOf(g);
-    const hint = (g.contactId != null && gDate)
-      ? ownerHintForGift(gDate, activityByContact.get(g.contactId) || [])
-      : null;
+    const notesOnContact = g.contactId != null ? (activityByContact.get(g.contactId) || []) : [];
+    const reviewHint = gDate ? ownerHintForReview(gDate, notesOnContact) : null;
+    const giftHint = gDate ? ownerHintForGift(gDate, notesOnContact) : null;
     if (isMgoAttributedGift(g)) {
-      const assigned = assignedOwnerForGift(g, hint, flags);
+      const assigned = assignedOwnerForGift(g, reviewHint, flags);
       if (assigned) {
-        const r = scoreGift(g, hint, assigned);
+        const r = scoreGift(g, giftHint, assigned);
         if (r) {
           const credited = { ...r, mgoAssigned: true };
           if (!credited.assist) rows.push(credited);
           scoredGifts.push(credited);
           matchGifts.push(credited);
         }
-      } else if (hint && rosterSet.has(hint)) {
-        const r = donationRow(g, hint);
+      } else if (reviewHint && rosterSet.has(reviewHint)) {
+        const r = donationRow(g, reviewHint);
         if (r) rows.push({ ...r, needsReview: true });
       }
       continue;
     }
-    const r = scoreGift(g, hint);
-    if (r) {
-      if (!r.assist) rows.push(r);
-      scoredGifts.push(r);
-      matchGifts.push(r);
-    } else {
-      const skeleton = matchableGift(g);
-      if (skeleton) matchGifts.push(skeleton);
+    if (isAssistGiftId(g.id) && reviewHint) {
+      const r = scoreGift(g, reviewHint);
+      if (r) {
+        scoredGifts.push(r);
+        matchGifts.push(r);
+      }
+      continue;
     }
+    const skeleton = matchableGift(g);
+    if (skeleton) matchGifts.push(skeleton);
   }
 
   const giftsByContact = new Map();
@@ -655,6 +670,23 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
       giftId: g.giftId, giftAmount: g.postedAmount || 0,
       source: "assist-backfill",
       assist: true,
+    });
+    securedIds.add(String(g.giftId));
+  }
+  for (const g of scoredGifts) {
+    if (g.assist) continue;
+    if ((g.amount || 0) <= 0) continue;
+    if (securedIds.has(String(g.giftId))) continue;
+    rows.push({
+      owner: g.owner,
+      type: "Mission Advancement | New Donation or New AC",
+      points: 100,
+      bucket: "gift",
+      label: "Secured gift",
+      day: g.day, date: g.date, weekday: g.weekday,
+      contactId: g.contactId, contactName: g.contactName || "",
+      giftId: g.giftId, giftAmount: g.postedAmount || g.amount || 0,
+      source: "raised-backfill",
     });
     securedIds.add(String(g.giftId));
   }
@@ -724,4 +756,69 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
 /** Score matched events for the display-only reference table. */
 export function scoreEventsForDisplay(events = []) {
   return events.map(scoreEvent).filter(Boolean);
+}
+
+const trackedTypeById = new Map(TRACKED_EVENT_TYPES.map((t) => [t.id, t]));
+
+/** YYYY-MM-DD as a local calendar date (not UTC midnight). */
+function parseLocalDay(value) {
+  const m = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+  return parseDate(value);
+}
+
+/** Hours × 25. Reporting-only dashboard events, not Virtuous records. */
+export function eventPointsForHours(hours) {
+  const n = Number(hours);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return n * EVENT_POINTS_PER_HOUR;
+}
+
+/**
+ * Score events added on the Points dashboard. Points = hours × 25.
+ * These rows are attributed to the chosen MA and counted in dashboard totals.
+ */
+export function scoreTrackedEvents(events = []) {
+  const rows = [];
+  for (const event of events || []) {
+    const row = scoreTrackedEvent(event);
+    if (row) rows.push(row);
+  }
+  return rows;
+}
+
+export function scoreTrackedEvent(event) {
+  if (!event) return null;
+  const owner = String(event.owner || "").replace(/\s+/g, " ").trim();
+  if (!rosterSet.has(owner)) return null;
+  const date = parseLocalDay(event.day);
+  if (!date) return null;
+  if (beforeStart(date, owner)) return null;
+  const hours = Number(event.hours);
+  if (!Number.isFinite(hours) || hours <= 0) return null;
+  const points = eventPointsForHours(hours);
+  if (points <= 0) return null;
+  const preset = trackedTypeById.get(event.eventType) || TRACKED_EVENT_TYPES.find((t) => t.type === event.eventType);
+  const type = preset?.type || String(event.eventType || "Mission Advancement | Event").trim();
+  const typeLabel = preset?.label || type;
+  const name = String(event.name || "").trim();
+  const hrsLabel = `${hours} ${hours === 1 ? "hr" : "hrs"}`;
+  const label = name ? `${typeLabel} · ${hrsLabel} · ${name}` : `${typeLabel} · ${hrsLabel}`;
+  const id = event.id != null && event.id !== "" ? String(event.id) : null;
+  return {
+    owner,
+    type,
+    points,
+    bucket: "event",
+    label,
+    day: isoDay(date),
+    date,
+    weekday: isWeekday(date),
+    hours,
+    eventName: name,
+    eventId: id,
+    noteId: id ? `event:${id}` : null,
+    source: "reporting",
+    tracked: true,
+  };
 }

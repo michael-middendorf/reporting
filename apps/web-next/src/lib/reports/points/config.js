@@ -103,8 +103,8 @@ export const CONFLICTS = {
     title: "Event points (300 vs 75)",
     pdf: "‘Ave Near You’ event = 300; Marketing event (Zena’s team) = 75.",
     spreadsheet: "Not tracked as line items.",
-    resolved: "Requires event subtype",
-    note: "A generic Virtuous Event/note can’t be split into 300 vs 75 automatically. These are matched by event name keywords (see EVENT_RULES) and otherwise flagged for manual tagging.",
+    resolved: "25 points per hour on the Points dashboard",
+    note: "Virtuous Event notes no longer score. Add the event on this dashboard with hours. That is the only way to get event points.",
   },
   mgo_appointment: {
     title: "Appointment set for MGO (10 pts)",
@@ -131,8 +131,8 @@ export const CONFLICTS = {
     title: "MAS Event note (attributed to an MA)",
     pdf: "‘Ave Near You’ event = 300; Marketing event (Zena’s team) = 75.",
     spreadsheet: "Not a discrete line item.",
-    resolved: "300 points for ‘Mission Advancement | Event’; 75 for ‘Mission Advancement | Marketing Event’",
-    note: "Virtuous Event records still have no MA owner. An MA takes the credit by logging ‘Mission Advancement | Event’ or ‘Mission Advancement | Marketing Event’.",
+    resolved: "Does not score. Use Add Event on the dashboard (25 pts per hour).",
+    note: "Logging ‘Mission Advancement | Event’ or ‘Mission Advancement | Marketing Event’ in Virtuous does not count. Event points come only from hours added on this dashboard.",
   },
   mas_meeting_note: {
     title: "MAS Meeting note",
@@ -184,10 +184,6 @@ export const POINTS_MAP = {
   "obituary":
     { points: 3, bucket: "obituary", label: "Obituary", source: "spreadsheet", conflict: "obituary" },
 
-  "mission advancement | event":
-    { points: 300, bucket: "event", label: "MAS Event (Ave Near You)", source: "pdf", conflict: "mas_event_note" },
-  "mission advancement | marketing event":
-    { points: 75, bucket: "event", label: "MAS Marketing Event", source: "pdf", conflict: "mas_event_note" },
   "mission advancement | meeting":
     { points: 25, bucket: "facetoface", label: "MAS Meeting (face-to-face)", source: "pdf", conflict: "mas_meeting_note" },
 
@@ -198,7 +194,7 @@ export const POINTS_MAP = {
 /* ---- Bucket display order + colors (for the activity breakdown) ---------- */
 export const BUCKETS = [
   { id: "gift",         label: "Gifts secured",     points: 100, color: "var(--gold)" },
-  { id: "event",        label: "MAS Events",        points: 300, color: "#b45309" },
+  { id: "event",        label: "MAS Events",        points: 25,  color: "#b45309" },
   { id: "facetoface",   label: "Meetings / F2F",    points: 25,  color: "#7a5cc0" },
   { id: "mgo",          label: "MGO appts",         points: 10,  color: "#2f6fed" },
   { id: "conversation", label: "Conversations",     points: 10,  color: "#3f7d54" },
@@ -277,6 +273,7 @@ export const TRACKER_LAYOUT = [
     id: "events",
     label: "Events",
     types: ["mission advancement | event", "mission advancement | marketing event"],
+    buckets: ["event"],
   },
   {
     id: "donation",
@@ -291,12 +288,17 @@ export const TRACKER_LAYOUT = [
   { id: "assist", label: "Assist", types: ["mission advancement | gift assist"] },
 ];
 
-/* ---- Event scoring (300 / 75) -------------------------------------------
- * Matched from Event records by name keywords, otherwise flagged. */
-export const EVENT_RULES = [
-  // Live event names use both "Ave Near You" and "AMU Near You"; match either.
-  { match: /(?:ave|amu)?\s*near\s*you/i, points: 300, label: "‘Ave Near You’ event" },
-  { match: /market/i,                    points: 75,  label: "Marketing event" },
+/* ---- Event scoring ------------------------------------------------------
+ * Virtuous Event records and Event notes do not score. Event points come
+ * only from hours added on the Points dashboard (EVENT_POINTS_PER_HOUR). */
+export const EVENT_RULES = [];
+
+/** Dashboard-added events (reporting only, not written to Virtuous). */
+export const EVENT_POINTS_PER_HOUR = 25;
+
+export const TRACKED_EVENT_TYPES = [
+  { id: "event", label: "Event", type: "Mission Advancement | Event" },
+  { id: "marketing", label: "Marketing Event", type: "Mission Advancement | Marketing Event" },
 ];
 
 /* ---- Data source --------------------------------------------------------
@@ -349,7 +351,7 @@ export const TRACKING_CHART = {
     {
       label: "Dollars received",
       detail:
-        "Posted gift on the same contact as a conversation, meeting, or donation note, within 45 days. Conversations and meetings must be on or before the gift. A New Donation note can be the same day or up to 45 days after the gift posts. Credit goes to whoever logged that note, not the MA officer on the account. A letter, email, voicemail, or thank-you does not pull the gift. Gifts coded Direct Solicitation (MGO) show under MGO-coded gifts until assigned. A non-MA GFT_Solicitor is listed the same way.",
+        "Posted gift counted in Raised only with 100 points: a New Donation or New AC, Annunciation Circle updated, or Update Recurring Gift note, or an Incoming / MGO assignment. A conversation or meeting alone puts the gift on Incoming, not Raised. Credit goes to whoever logged that gift note, not the MA officer on the account. A letter, email, voicemail, or thank-you does not pull the gift. Gifts coded Direct Solicitation (MGO) show under MGO-coded gifts until assigned. A non-MA GFT_Solicitor is listed the same way.",
     },
     {
       label: "Secured gift · 100 pts",
@@ -368,7 +370,12 @@ export const TRACKING_CHART = {
     {
       label: "Incoming gifts",
       detail:
-        "Posted gift (one-time, Mission Fund, new AC, or AC increase) after an MA conversation or meeting in the 45 days before the gift, with no donation note yet. Review list only. Log New Donation or New AC, Annunciation Circle updated, or Update Recurring Gift to claim 100 pts.",
+        "Posted gift (one-time, Mission Fund, new AC, or AC increase) after an MA conversation or meeting in the 45 days before the gift, with no donation note yet. Not Raised and not 100 points until assigned. Assign an MA here (or log the gift note in Virtuous) to count the gift and 100 pts together.",
+    },
+    {
+      label: "Event hours · 25 pts/hour",
+      detail:
+        "The only way to get event points. Add an event on this dashboard with an event type and hours. Points = hours × 25 for the chosen MA. A Virtuous Event note does not count. Reporting only — it does not create a Virtuous event or note.",
     },
   ],
   rows: [
@@ -383,8 +390,7 @@ export const TRACKING_CHART = {
     { tracker: "Obituaries", type: "Obituary", pts: 3 },
     { tracker: "Invalid Address", type: "Invalid Mailing Address · Address Change/Update", pts: 1 },
     { tracker: "Live Mtg / Tour", type: "In Person · Mission Advancement | Meeting", pts: 25 },
-    { tracker: "Event", type: "Mission Advancement | Event", pts: 300 },
-    { tracker: "Marketing Event", type: "Mission Advancement | Marketing Event", pts: 75 },
+    { tracker: "Event hours", type: "Add Event on this dashboard (not Virtuous)", pts: 25 },
     { tracker: "Secured gift", type: "New Donation or New AC · AC Updated · Update Recurring Gift", pts: 100 },
     { tracker: "Gift Assist", type: "Mission Advancement | Gift Assist", pts: 100 },
   ],
@@ -407,12 +413,14 @@ export const DEFINITIONS = [
   {
     term: "How logging works",
     text:
-      "The dashboard only sees what is logged in Virtuous, on the donor’s contact, with the correct note type, authored by the MA. " +
+      "The dashboard scores what is logged in Virtuous, on the donor’s contact, with the correct note type, authored by the MA. " +
+      "Event points come only from hours added on this dashboard (25 points per hour) and are not written to Virtuous. " +
+      "A Virtuous Event note does not count. " +
       "A note on the wrong person, a generic type, a note after the gift, or no note at all will not count. " +
-      "Gifts are the same: there must be a conversation or meeting on that contact on or before the gift date (within 45 days). " +
+      "Raised dollars and 100 gift points always go together. A conversation or meeting on the donor, within 45 days, puts the gift on Incoming — not Raised and not 100 points — until someone assigns it or logs a donation note. " +
       "A New Donation note can be logged up to 45 days after the gift posts and still count. " +
       "A letter, email, voicemail, or thank-you does not pull the gift. A thank-you logged after the gift does not pull that gift. " +
-      "100 points additionally require a donation note type (‘New Donation or New AC’, ‘Annunciation Circle updated’, or ‘Update recurring gift’) or a Gift Assist note, paired with a posted gift. Gift Assist is 100 points and does not count dollars.",
+      "100 points require a donation note type (‘New Donation or New AC’, ‘Annunciation Circle updated’, or ‘Update recurring gift’), an Incoming assignment, or a Gift Assist note, paired with a posted gift. Gift Assist is 100 points and does not count dollars.",
   },
   {
     term: "Incoming gifts",
@@ -421,7 +429,7 @@ export const DEFINITIONS = [
       "(phone conversation, two-way email, in-person, or MAS meeting) on or before the gift date, within 45 days, " +
       "when there is no matching donation note yet. Every MA who spoke with that donor in the window is listed. " +
       "This is a review list, not points and not Raised. A voicemail, letter, or email-sent does not put a gift here. " +
-      "Anyone can assign an MA. That scores 100 points on the dashboard immediately. " +
+      "Anyone can assign an MA. That scores 100 points and counts the gift in Raised immediately. " +
       "It does not write a note to Virtuous. Gift Assist is 100 points and $0. " +
       "If it was not because of you, leave it.",
   },
@@ -462,6 +470,13 @@ export const DEFINITIONS = [
       "Logged as ‘Mission Advancement Call | Invalid Number’. They also count as a dial.",
   },
   {
+    term: "Event hours (25 pts per hour)",
+    text:
+      "Add an event on the Points dashboard with an event type and hours. It scores 25 points per hour to the chosen MA and shows in Events on the dashboard. " +
+      "This is the only way to get event points. It does not create a Virtuous event or note. " +
+      "Logging ‘Mission Advancement | Event’ or ‘Mission Advancement | Marketing Event’ in Virtuous does not count.",
+  },
+  {
     term: "Count / Remove",
     text:
       "Every scored task is counted in the totals by default. Remove drops that task from points, activity counts, and gift totals. Count puts it back. The choice is shared for everyone looking at the dashboard.",
@@ -469,8 +484,9 @@ export const DEFINITIONS = [
   {
     term: "Dollars received",
     text:
-      "A posted Virtuous gift counts for an MA only if that MA logged a conversation, meeting, or donation note on that donor’s contact on or before the gift date, within 45 days. " +
-      "A letter, email, voicemail, or thank-you does not claim the gift. No qualifying note on the person = the gift is not counted. Gift Assist notes do not count dollars. " +
+      "A posted Virtuous gift counts in Raised only with 100 points: a donation note on that contact, an Incoming assignment, or an assigned MGO-coded gift. " +
+      "A conversation or meeting alone does not count the gift in Raised — it stays on Incoming. " +
+      "A letter, email, voicemail, or thank-you does not claim the gift. Gift Assist notes do not count dollars. " +
       "Dollars go to the MA who logged the note, not the MA officer on the contact and not GFT_Solicitor. " +
       "Gifts coded Direct Solicitation (MGO) or Direct Solicitation (MGO)-HIST_DS show under MGO-coded gifts until assigned to an MA. " +
       "A nonempty GFT_Solicitor who is not on the MA roster is listed the same way. " +

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MA_NAMES, SETTINGS, evalStartDate } from "./config.js";
-import { assignedNotesFromFlags, isMgoAttributedGift, isMonthlyRecurring, parseDate, prepareGifts, priorAcMonthly, scoreAll, scoreGift } from "./points.js";
+import { assignedNotesFromFlags, eventPointsForHours, isMgoAttributedGift, isMonthlyRecurring, parseDate, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
 import { aggregate, daysOfWeek, isTaskListRow, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
 import { buildCalculationCSV, statusOf, virtuousGiftUrl } from "./report.js";
 
@@ -68,6 +68,8 @@ type ScoredRow = {
   needsReview?: boolean;
   mgoAssigned?: boolean;
   conflict?: string | null;
+  tracked?: boolean;
+  hours?: number;
 };
 
 function donationNote(overrides: Record<string, unknown> = {}) {
@@ -249,7 +251,7 @@ describe("MA points require a posted gift with dollars", () => {
     assert.equal(rows.filter((r) => r.unmatched && r.bucket === "unmatched").length, 1);
   });
 
-  it("one note and two later gifts score 2 gifts, sum dollars, 100 pts once", () => {
+  it("one note and two later gifts scores the matched gift only", () => {
     const { model, owner } = run(
       [donationNote({ noteDate: "8/4/2026" })],
       [
@@ -257,20 +259,20 @@ describe("MA points require a posted gift with dollars", () => {
         postedGift({ id: 502, giftDate: "8/18/2026", amount: 35 }),
       ],
     );
-    assert.equal(owner.gifts, 2);
-    assert.equal(owner.giftAmount, 60);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 25);
     assert.equal(owner.points, 100);
-    assert.equal(model.totals.gifts, 2);
-    assert.equal(model.totals.giftAmount, 60);
+    assert.equal(model.totals.gifts, 1);
+    assert.equal(model.totals.giftAmount, 25);
     assert.equal(model.totals.points, 100);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
     const first = weekRec(owner, "8/11/2026");
     const second = weekRec(owner, "8/18/2026");
     assert.equal(first.gifts, 1);
     assert.equal(first.giftAmount, 25);
     assert.equal(first.points, 100);
-    assert.equal(second.gifts, 1);
-    assert.equal(second.giftAmount, 35);
-    assert.equal(second.points, 0);
+    assert.equal(second.gifts, 0);
+    assert.equal(second.giftAmount, 0);
   });
 
   it("gift dated the day before a donation note still counts (logged after it posted)", () => {
@@ -645,22 +647,24 @@ describe("monthly AC annualization", () => {
 });
 
 describe("gift dollars follow MA activity notes", () => {
-  it("conversation before a gift attributes dollars without 100 pts", () => {
-    const { owner } = run(
+  it("conversation before a gift is Incoming, not Raised, until a donation note", () => {
+    const { owner, model } = run(
       [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026" })],
       [postedGift({ giftDate: "8/11/2026", amount: 51.01 })],
     );
-    assert.equal(owner.giftAmount, 51.01);
-    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
     assert.equal(owner.points, 10);
+    assert.equal(model.possibleGifts?.length, 1);
+    assert.equal(model.possibleGifts?.[0].inRaised, false);
   });
 
-  it("dollars follow the MA who logged the note, not the solicitor on the account", () => {
+  it("dollars follow the MA who logged the donation note, not the solicitor on the account", () => {
     const ELENA = "Elena Barnes";
     const { model } = run(
       [donationNote({
         createdByUser: ELENA,
-        type: "Mission Advancement Call | Conversation",
+        type: "Mission Advancement | New Donation or New AC",
         noteDate: "8/31/2026",
         contactId: 202,
       })],
@@ -678,12 +682,13 @@ describe("gift dollars follow MA activity notes", () => {
     assert.ok(alanna);
     assert.equal(elena.giftAmount, 40);
     assert.equal(elena.gifts, 1);
+    assert.equal(elena.points, 100);
     assert.equal(alanna.giftAmount, 0);
     assert.equal(alanna.gifts, 0);
   });
 
-  it("in-person tour 18 days before a gift still attributes", () => {
-    const { owner } = run(
+  it("in-person tour 18 days before a gift is Incoming, not Raised", () => {
+    const { owner, model } = run(
       [donationNote({
         createdByUser: "Sean Kelly",
         type: "In Person",
@@ -693,8 +698,10 @@ describe("gift dollars follow MA activity notes", () => {
       [postedGift({ contactId: 101, giftDate: "9/1/2026", amount: 75 })],
       "Sean Kelly",
     );
-    assert.equal(owner.giftAmount, 75);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
     assert.equal(owner.points, 25);
+    assert.equal(model.possibleGifts?.length, 1);
   });
 
   it("Gift Assist with a posted gift is 100 pts and $0", () => {
@@ -1035,14 +1042,18 @@ describe("count/remove overrides", () => {
 
 describe("team bests", () => {
   it("uses one all-time best week, not a mix of different weeks", () => {
-    const scored = scoreAll({
-      notes: [
-        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/3/2026", id: 1 }),
-        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/4/2026", id: 2 }),
-        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/5/2026", id: 3 }),
-        donationNote({ type: "Mission Advancement | Event", noteDate: "8/11/2026", id: 4 }),
-      ],
-    }) as ScoredRow[];
+    const scored = [
+      ...scoreAll({
+        notes: [
+          donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/3/2026", id: 1 }),
+          donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/4/2026", id: 2 }),
+          donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/5/2026", id: 3 }),
+        ],
+      }),
+      ...scoreTrackedEvents([
+        { id: "e-best", owner: ALANNA, day: "2026-08-11", eventType: "event", hours: 12 },
+      ]),
+    ] as ScoredRow[];
     const model = aggregate(scored) as Model;
     const weekA = weekOf("8/3/2026");
     const weekB = weekOf("8/11/2026");
@@ -1076,8 +1087,8 @@ describe("possible gifts", () => {
       [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026", id: 11 })],
       [postedGift({ giftDate: "8/11/2026", amount: 51.01 })],
     );
-    assert.equal(owner.giftAmount, 51.01);
-    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
     assert.equal(owner.points, 10);
     assert.equal(rows.filter((r) => r.bucket === "possible").length, 1);
     assert.equal(model.possibleGifts?.length, 1);
@@ -1085,7 +1096,7 @@ describe("possible gifts", () => {
     assert.ok(possible);
     assert.equal(String(possible.giftId), "501");
     assert.equal(possible.amount, 51.01);
-    assert.equal(possible.inRaised, true);
+    assert.equal(possible.inRaised, false);
     assert.equal(possible.noteType, "Mission Advancement Call | Conversation");
     assert.equal(possible.daysAfterNote, 1);
     assert.equal(possible.owner, ALANNA);
@@ -1167,9 +1178,10 @@ describe("possible gifts", () => {
     assert.equal(mix.totalPoints, 10);
     const donationLine = mix.lines.find((l) => l.id === "donation");
     assert.ok(donationLine);
-    assert.equal(donationLine.count, 1);
+    assert.equal(donationLine.count, 0);
     assert.equal(donationLine.points, 0);
     assert.equal(owner.points, 10);
+    assert.equal(owner.giftAmount, 0);
     assert.equal(model.totals.points, 10);
   });
 
@@ -1339,7 +1351,7 @@ describe("MGO-coded gifts do not credit MAs", () => {
     );
     assert.equal(owner.giftAmount, 10000);
     assert.equal(owner.gifts, 1);
-    assert.equal(owner.points, 10);
+    assert.equal(owner.points, 110);
     assert.equal(rows.filter((r) => r.needsReview).length, 0);
     assert.equal((model.reviewGifts || []).length, 0);
     assert.equal(model.gifts.length, 1);
@@ -1468,11 +1480,11 @@ describe("MGO-coded gifts do not credit MAs", () => {
     assert.equal(owner.gifts, 0);
   });
 
-  it("White Mail and Annunciation Circle still credit with an MA note", () => {
+  it("White Mail and Annunciation Circle still credit with a donation note", () => {
     const { owner } = run(
       [
-        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026", contactId: 101, id: 1 }),
-        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026", contactId: 102, id: 2 }),
+        donationNote({ type: "Mission Advancement | New Donation or New AC", noteDate: "8/10/2026", contactId: 101, id: 1 }),
+        donationNote({ type: "Mission Advancement | New Donation or New AC", noteDate: "8/10/2026", contactId: 102, id: 2 }),
       ],
       [
         postedGift({ id: 501, contactId: 101, giftDate: "8/11/2026", amount: 50, segment: "White Mail" }),
@@ -1481,6 +1493,7 @@ describe("MGO-coded gifts do not credit MAs", () => {
     );
     assert.equal(owner.giftAmount, 125);
     assert.equal(owner.gifts, 2);
+    assert.equal(owner.points, 200);
     assert.equal(isMgoAttributedGift(postedGift({ segment: "White Mail" })), false);
   });
 
@@ -1492,11 +1505,12 @@ describe("MGO-coded gifts do not credit MAs", () => {
     });
     assert.equal(isMgoAttributedGift(gift), false);
     const { owner } = run(
-      [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026" })],
+      [donationNote({ type: "Mission Advancement | New Donation or New AC", noteDate: "8/10/2026" })],
       [gift],
     );
     assert.equal(owner.giftAmount, 40);
     assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 100);
   });
 
   it("non-MA GFT_Solicitor is excluded even on White Mail", () => {
@@ -1625,6 +1639,74 @@ describe("MGO-coded gifts do not credit MAs", () => {
     assert.equal(isTaskListRow(assigned.model.rows.find((r) => r.giftId === "rg-3834") as ScoredRow), false);
   });
 });
+
+describe("dashboard-tracked event hours", () => {
+  it("hours × 25 points per hour", () => {
+    assert.equal(eventPointsForHours(1), 25);
+    assert.equal(eventPointsForHours(4), 100);
+    assert.equal(eventPointsForHours(1.5), 37.5);
+    assert.equal(eventPointsForHours(0), 0);
+    assert.equal(eventPointsForHours(-2), 0);
+  });
+
+  it("adds event points to the MA dashboard totals", () => {
+    const eventRows = scoreTrackedEvents([
+      { id: "e1", owner: ALANNA, day: "2026-08-12", eventType: "event", hours: 4, name: "Homecoming" },
+    ]) as ScoredRow[];
+    assert.equal(eventRows.length, 1);
+    assert.equal(eventRows[0].points, 100);
+    assert.equal(eventRows[0].bucket, "event");
+    assert.equal(eventRows[0].owner, ALANNA);
+    assert.equal(eventRows[0].noteId, "event:e1");
+    assert.equal(eventRows[0].day, "2026-08-12");
+    assert.equal(eventRows[0].hours, 4);
+    assert.equal(eventRows[0].tracked, true);
+    const noteRows = scoreAll({ notes: [donationNote({ type: "Letter" })] }) as ScoredRow[];
+    const model = aggregate([...noteRows, ...eventRows], {}) as Model;
+    const owner = model.tableOwners.find((o) => o.name === ALANNA);
+    assert.ok(owner);
+    assert.equal(owner.points, 105);
+    const mix = trackerBreakdown([...noteRows, ...eventRows]);
+    const events = mix.lines.find((l) => l.id === "events");
+    assert.ok(events);
+    assert.equal(events.count, 1);
+    assert.equal(events.points, 100);
+  });
+
+  it("Marketing Event hours also score 25 per hour", () => {
+    const rows = scoreTrackedEvents([
+      { id: "m1", owner: SEAN, day: "2026-08-13", eventType: "marketing", hours: 2 },
+    ]) as ScoredRow[];
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].points, 50);
+    assert.equal(rows[0].type, "Mission Advancement | Marketing Event");
+    const model = aggregate(rows, {}) as Model;
+    const owner = model.tableOwners.find((o) => o.name === SEAN);
+    assert.ok(owner);
+    assert.equal(owner.points, 50);
+  });
+
+  it("Virtuous Event notes do not score", () => {
+    const { owner, rows } = run([
+      donationNote({ type: "Mission Advancement | Event", id: 9 }),
+      donationNote({ type: "Mission Advancement | Marketing Event", id: 10 }),
+    ]);
+    assert.equal(owner.points, 0);
+    assert.equal(rows.filter((r) => r.bucket === "event" || r.noteId === 9 || r.noteId === 10).length, 0);
+  });
+
+  it("ignores events before the MA start date and unknown owners", () => {
+    const rows = scoreTrackedEvents([
+      { id: "early", owner: NATALIA, day: "2026-07-10", eventType: "event", hours: 3 },
+      { id: "ok", owner: NATALIA, day: "2026-08-12", eventType: "event", hours: 2 },
+      { id: "ghost", owner: "Not An MA", day: "2026-08-12", eventType: "event", hours: 8 },
+    ]) as ScoredRow[];
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].noteId, "event:ok");
+    assert.equal(rows[0].points, 50);
+  });
+});
+
 
 
 
