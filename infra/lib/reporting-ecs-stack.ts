@@ -159,10 +159,16 @@ export class ReportingEcsStack extends cdk.Stack {
     const task = new ecs.FargateTaskDefinition(this, "WebTask", { cpu: 512, memoryLimitMiB: 1024 });
     secret.grantRead(task.obtainExecutionRole());
     task.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:GetObject", "s3:ListBucket"], resources: [dataBucketArn, `${dataBucketArn}/*`] }));
-    // Points count/remove overrides: the web app persists the shared map to a single
-    // object. Scope the write narrowly to just that key (least privilege) — reads
-    // are already covered by the GetObject grant above.
-    task.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:PutObject"], resources: [`${dataBucketArn}/points/review-flags.json`] }));
+    // Points count/remove overrides and reporting-only event hours: the web app
+    // persists each as a single object. Scope the write narrowly (least privilege)
+    // — reads are already covered by the GetObject grant above.
+    task.addToTaskRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:PutObject"],
+      resources: [
+        `${dataBucketArn}/points/review-flags.json`,
+        `${dataBucketArn}/points/tracked-events.json`,
+      ],
+    }));
     // Housing verification/uploads: staff xlsx + edit state under cache/housing/.
     task.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:PutObject"], resources: [`${dataBucketArn}/cache/housing/*`] }));
     // Office-hours below-A/B ledger: persist firstSeen so coaches see duration, not today.

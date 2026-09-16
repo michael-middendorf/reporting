@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import {
   aggregate,
@@ -12,6 +12,8 @@ import {
   isTaskListRow,
   scoreAll,
   assignedNotesFromFlags,
+  scoreTrackedEvents,
+  eventPointsForHours,
   noteTypeForIncoming,
   tierFor,
   TIERS,
@@ -25,8 +27,12 @@ import {
   virtuousGiftUrl,
   weekKey,
   weekLabel,
+  MA_ROSTER,
+  TRACKED_EVENT_TYPES,
+  EVENT_POINTS_PER_HOUR,
 } from "@/lib/reports/points/scoring";
 import type { FlagInput, ReviewFlag } from "@/lib/reports/points/flags";
+import type { TrackedEvent } from "@/lib/reports/points/tracked-events";
 import "@/styles/points.css";
 
 type RangeKey = "week" | "all" | "custom";
@@ -142,6 +148,15 @@ type Bests = {
 
 const money = (n: number | undefined) => `$${Math.round(n || 0).toLocaleString()}`;
 const pct = (n: number | undefined) => `${((n || 0) * 100).toFixed(1)}%`;
+function isoToday() {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+}
+
+function eventTypeLabel(id: string) {
+  return TRACKED_EVENT_TYPES.find((t) => t.id === id || t.type === id)?.label || id;
+}
+
 function formatDay(iso: string) {
   if (!iso) return "";
   const d = parseDay(iso);
@@ -151,6 +166,83 @@ function formatDay(iso: string) {
     month: "short",
     day: "numeric",
   });
+}
+
+function RaisedTrendChart({
+  weeks,
+}: {
+  weeks: Array<{ key: string; label: string; amount: number }>;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  if (!weeks.length) return null;
+  const W = 720;
+  const H = 220;
+  const pad = { t: 16, r: 16, b: 36, l: 56 };
+  const max = Math.max(0, ...weeks.map((w) => w.amount));
+  const yMax = max > 0 ? max : 1;
+  const innerW = W - pad.l - pad.r;
+  const innerH = H - pad.t - pad.b;
+  const x = (i: number) => pad.l + (weeks.length === 1 ? innerW / 2 : (i / (weeks.length - 1)) * innerW);
+  const y = (v: number) => pad.t + innerH - (v / yMax) * innerH;
+  const d = weeks
+    .map((w, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(w.amount).toFixed(1)}`)
+    .join(" ");
+  const ticks = [0, 0.5, 1].map((f) => Math.round(f * yMax));
+  const labelEvery = weeks.length > 10 ? Math.ceil(weeks.length / 8) : 1;
+  const active = hover != null ? weeks[hover] : null;
+  return (
+    <section className="section">
+      <h2>
+        Donations by week{" "}
+        <span className="section-hint">total Raised · {money(weeks.reduce((s, w) => s + w.amount, 0))}</span>
+      </h2>
+      <div className="panel raised-trend">
+        <svg
+          className="chart-svg"
+          viewBox={`0 0 ${W} ${H}`}
+          role="img"
+          aria-label="Total amount received in donations each week"
+          onMouseLeave={() => setHover(null)}
+        >
+          {ticks.map((t, i) => (
+            <g key={`t-${i}`}>
+              <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} className="trend-grid" />
+              <text x={pad.l - 8} y={y(t) + 4} textAnchor="end" className="trend-tick">
+                {money(t)}
+              </text>
+            </g>
+          ))}
+          <path d={d} fill="none" className="trend-line" />
+          {weeks.map((w, i) => {
+            const slot = weeks.length === 1 ? innerW : innerW / Math.max(1, weeks.length - 1);
+            return (
+              <g key={w.key}>
+                <rect
+                  x={x(i) - slot / 2}
+                  y={pad.t}
+                  width={slot}
+                  height={innerH}
+                  fill="transparent"
+                  onMouseEnter={() => setHover(i)}
+                />
+                <circle cx={x(i)} cy={y(w.amount)} r={hover === i ? 5 : 3.5} className="trend-dot" />
+                {i % labelEvery === 0 || i === weeks.length - 1 ? (
+                  <text x={x(i)} y={H - 10} textAnchor="middle" className="trend-tick">
+                    {w.label}
+                  </text>
+                ) : null}
+              </g>
+            );
+          })}
+        </svg>
+        <p className="footnote" style={{ margin: "8px 0 0" }}>
+          {active
+            ? `Week of ${active.label} · ${money(active.amount)}`
+            : "Hover a week for the amount received."}
+        </p>
+      </div>
+    </section>
+  );
 }
 
 /** Eastern clock as "Last refresh: 12:18 PM, 09/09/2026". */
@@ -183,6 +275,8 @@ type Row = {
   removed?: boolean;
   needsReview?: boolean;
   mgoAssigned?: boolean;
+  hours?: number;
+  tracked?: boolean;
 };
 
 /** Inclusive Monday–Sunday bounds for one week, or All from the eval start. */
@@ -220,12 +314,23 @@ export default function PointsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [giftOwner, setGiftOwner] = useState<string | null>(null);
   const [possibleOwner, setPossibleOwner] = useState<string>("all");
-  const [giftTab, setGiftTab] = useState<"counted" | "incoming">("incoming");
+  const [meName, setMeName] = useState<string | null>(null);
+  const [undo, setUndo] = useState<{ flagId: string; message: string } | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [flags, setFlags] = useState<Record<string, ReviewFlag>>({});
   const [flagBusy, setFlagBusy] = useState<string | null>(null);
   const [flagError, setFlagError] = useState<string | null>(null);
   const [assignBusy, setAssignBusy] = useState<string | null>(null);
+  const [trackedEvents, setTrackedEvents] = useState<TrackedEvent[]>([]);
+  const [eventBusy, setEventBusy] = useState(false);
+  const [eventForm, setEventForm] = useState({
+    owner: "",
+    day: isoToday(),
+    eventType: TRACKED_EVENT_TYPES[0]?.id || "event",
+    name: "",
+    hours: "1",
+  });
 
   useEffect(() => {
     loadRaw()
@@ -243,14 +348,36 @@ export default function PointsPage() {
   useEffect(() => {
     if (!raw) return;
     const extra = assignedNotesFromFlags(flags) as unknown[];
-    setRows(scoreAll({ notes: [...raw.notes, ...extra], gifts: raw.gifts, flags }) as unknown as Array<Record<string, unknown>>);
-  }, [raw, flags]);
+    const scored = scoreAll({ notes: [...raw.notes, ...extra], gifts: raw.gifts, flags }) as unknown as Array<Record<string, unknown>>;
+    const eventRows = scoreTrackedEvents(trackedEvents) as unknown as Array<Record<string, unknown>>;
+    setRows([...scored, ...eventRows]);
+  }, [raw, flags, trackedEvents]);
 
   // Shared count/remove overrides (persisted in S3; see /api/reports/points/flags).
   useEffect(() => {
     apiFetch("/api/reports/points/flags")
       .then((r) => (r.ok ? r.json() : { flags: {} }))
       .then((d) => setFlags((d?.flags as Record<string, ReviewFlag>) || {}))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    apiFetch("/api/reports/points/tracked-events")
+      .then((r) => (r.ok ? r.json() : { events: [] }))
+      .then((d) => setTrackedEvents(Array.isArray(d?.events) ? (d.events as TrackedEvent[]) : []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    apiFetch("/api/reports/points/me")
+      .then((r) => (r.ok ? r.json() : { maName: null }))
+      .then((d: { maName?: string | null }) => {
+        const name = typeof d?.maName === "string" ? d.maName : "";
+        if (!name) return;
+        setMeName(name);
+        setPossibleOwner((cur) => (cur === "all" ? name : cur));
+        setEventForm((f) => (f.owner ? f : { ...f, owner: name }));
+      })
       .catch(() => {});
   }, []);
 
@@ -374,14 +501,31 @@ export default function PointsPage() {
     if (g.owners?.length) return g.owners;
     return g.owner ? [{ name: g.owner, noteType: g.noteType, noteLabel: g.noteLabel, noteDay: g.noteDay, daysAfterNote: g.daysAfterNote }] : [];
   }
+  const todoQueue = useMemo(() => {
+    return (
+      range === "all"
+        ? model
+        : (aggregate(rows || [], { start: evalStartDate(), end: null, flags }) as typeof model)
+    );
+  }, [range, model, rows, flags]);
   const listedPossible = useMemo(() => {
-    return [...(model.possibleGifts || [])]
+    return [...(todoQueue.possibleGifts || [])]
       .filter((g) => possibleOwner === "all" || incomingOwners(g).some((o) => o.name === possibleOwner))
-      .sort((a, b) => (b.day || "").localeCompare(a.day || ""));
-  }, [model.possibleGifts, possibleOwner]);
+      .sort((a, b) => (a.day || "").localeCompare(b.day || "") || (b.amount || 0) - (a.amount || 0));
+  }, [todoQueue.possibleGifts, possibleOwner]);
+  const todoReviewGifts = useMemo(() => {
+    return [...(todoQueue.reviewGifts || [])]
+      .filter((g) => possibleOwner === "all" || g.owner === possibleOwner)
+      .sort((a, b) => (a.day || "").localeCompare(b.day || "") || (b.amount || 0) - (a.amount || 0));
+  }, [todoQueue.reviewGifts, possibleOwner]);
+  const todoAllCount = (todoQueue.possibleGifts || []).length + (todoQueue.reviewGifts || []).length;
+  const todoCount = listedPossible.length + todoReviewGifts.length;
+  const todoAmount =
+    listedPossible.reduce((s, g) => s + (g.amount || 0), 0) +
+    todoReviewGifts.reduce((s, g) => s + (g.amount || 0), 0);
   const possibleCounts = useMemo(() => {
     const map = new Map<string, { count: number; amount: number }>();
-    for (const g of model.possibleGifts || []) {
+    for (const g of todoQueue.possibleGifts || []) {
       const names = new Set(incomingOwners(g).map((o) => o.name).filter(Boolean));
       for (const name of names) {
         const rec = map.get(name) || { count: 0, amount: 0 };
@@ -391,18 +535,57 @@ export default function PointsPage() {
       }
     }
     return map;
-  }, [model.possibleGifts]);
+  }, [todoQueue.possibleGifts]);
 
-  const listedReviewGifts = useMemo(
-    () => [...(model.reviewGifts || [])].sort((a, b) => (b.day || "").localeCompare(a.day || "")),
-    [model.reviewGifts],
-  );
+  const weeklyRaised = useMemo(() => {
+    const full = (
+      range === "all"
+        ? model
+        : aggregate(rows || [], { start: evalStartDate(), end: null, flags })
+    ) as { weekGrid?: WeekGridRow[] };
+    const byKey = new Map<string, number>();
+    for (const g of full.weekGrid || []) {
+      byKey.set(g.key, g.totals.giftAmount || 0);
+    }
+    return [...weekOptions].sort().map((key) => ({
+      key,
+      label: weekLabel(key),
+      amount: byKey.get(key) || 0,
+    }));
+  }, [range, model, rows, flags, weekOptions]);
+
+  const listedTracked = useMemo(() => {
+    const { start, end } = bounds(range, selectedWeek || null);
+    return trackedEvents.filter((e) => {
+      if (!e.day) return false;
+      const d = parseDay(e.day);
+      if (Number.isNaN(+d)) return false;
+      if (start && d < start) return false;
+      if (end && d > end) return false;
+      return true;
+    });
+  }, [trackedEvents, range, selectedWeek]);
+
+  function clearUndoTimer() {
+    if (undoTimer.current) {
+      clearTimeout(undoTimer.current);
+      undoTimer.current = null;
+    }
+  }
+
+  function showUndo(flagId: string, message: string) {
+    clearUndoTimer();
+    setUndo({ flagId, message });
+    undoTimer.current = setTimeout(() => setUndo(null), 12000);
+  }
+
+  useEffect(() => () => clearUndoTimer(), []);
 
   function giftFlagId(g: GiftRow) {
     return g.giftId != null && g.giftId !== "" ? `gift:${g.giftId}` : null;
   }
 
-  async function saveFlag(input: FlagInput) {
+  async function saveFlag(input: FlagInput): Promise<boolean> {
     setFlagBusy(String(input.noteId));
     setFlagError(null);
     try {
@@ -414,14 +597,16 @@ export default function PointsPage() {
       if (!res.ok) throw new Error(data?.error || res.statusText);
       const flag = data.flag as ReviewFlag;
       setFlags((f) => ({ ...f, [String(flag.noteId)]: flag }));
+      return true;
     } catch (e) {
       setFlagError(`Could not save: ${String(e)}`);
+      return false;
     } finally {
       setFlagBusy(null);
     }
   }
 
-  async function deleteFlag(noteId: string) {
+  async function deleteFlag(noteId: string): Promise<boolean> {
     setFlagBusy(noteId);
     setFlagError(null);
     try {
@@ -438,11 +623,22 @@ export default function PointsPage() {
         delete n[noteId];
         return n;
       });
+      return true;
     } catch (e) {
-      setFlagError(`Could not count: ${String(e)}`);
+      setFlagError(`Could not save: ${String(e)}`);
+      return false;
     } finally {
       setFlagBusy(null);
     }
+  }
+
+  async function undoLast() {
+    if (!undo) return;
+    const id = undo.flagId;
+    clearUndoTimer();
+    setUndo(null);
+    const ok = await deleteFlag(id);
+    if (!ok) setUndo({ flagId: id, message: undo.message });
   }
 
   function onRemove(r: Row) {
@@ -469,10 +665,10 @@ export default function PointsPage() {
     deleteFlag(id);
   }
 
-  async function assignIncoming(g: PossibleGiftRow, owner: string, assist: boolean) {
+  async function assignIncoming(g: PossibleGiftRow, owner: string, assist: boolean, opts?: { skipConfirm?: boolean }) {
     if (g.giftId == null || g.giftId === "" || g.contactId == null || !g.day) return;
     const kindLabel = assist ? "Gift Assist" : (noteTypeForIncoming(g.kind) || "gift note");
-    if (!window.confirm(`Assign this ${kindLabel} to ${owner}? It scores on the dashboard. It does not add a note in Virtuous.`)) return;
+    if (!opts?.skipConfirm && !window.confirm(`Assign this ${kindLabel} to ${owner}? It scores 100 points and counts in Raised. It does not add a note in Virtuous.`)) return;
     setAssignBusy(`${g.giftId}:${owner}`);
     setFlagError(null);
     try {
@@ -493,12 +689,37 @@ export default function PointsPage() {
       if (!res.ok) throw new Error(data?.error || res.statusText);
       if (data.flag?.noteId) {
         setFlags((f) => ({ ...f, [data.flag.noteId]: data.flag as ReviewFlag }));
+        const who = g.contactName || "this donor";
+        showUndo(
+          String(data.flag.noteId),
+          assist
+            ? `Assist for ${who} assigned to ${owner}. 100 pts, $0 Raised.`
+            : `Assigned ${money(g.amount)} from ${who} to ${owner}. 100 pts + Raised.`,
+        );
       }
     } catch (e) {
       setFlagError(`Could not assign gift: ${String(e)}`);
     } finally {
       setAssignBusy(null);
     }
+  }
+
+  async function dismissIncoming(g: PossibleGiftRow) {
+    if (g.giftId == null || g.giftId === "") return;
+    const id = `gift:${g.giftId}`;
+    const ok = await saveFlag({
+      noteId: id,
+      contactId: g.contactId != null ? String(g.contactId) : null,
+      contactName: g.contactName || null,
+      owner: g.owner,
+      day: g.day,
+      type: g.kindLabel || g.giftType || null,
+      label: "Incoming gift dismissed",
+      points: 0,
+      status: "removed",
+      reason: "Does not qualify",
+    });
+    if (ok) showUndo(id, `Removed ${g.contactName || "this gift"} from To do.`);
   }
 
   async function assignMgoGift(g: GiftRow) {
@@ -536,6 +757,7 @@ export default function PointsPage() {
       if (!res.ok) throw new Error(data?.error || res.statusText);
       const flag = data.flag as ReviewFlag;
       setFlags((f) => ({ ...f, [String(flag.noteId)]: flag }));
+      showUndo(id, `Assigned ${money(g.amount)} from ${g.contactName || "this donor"} to ${g.owner}.`);
     } catch (e) {
       setFlags((f) => {
         const next = { ...f };
@@ -574,6 +796,76 @@ export default function PointsPage() {
       setFlagError(`Could not save: ${String(e)}`);
     } finally {
       setFlagBusy(null);
+    }
+  }
+
+  const formHours = Number(eventForm.hours);
+  const formPoints = eventPointsForHours(formHours);
+
+  async function addTrackedEvent() {
+    const hours = Number(eventForm.hours);
+    if (!eventForm.owner) {
+      setFlagError("Choose an MA for the event.");
+      return;
+    }
+    if (!eventForm.day) {
+      setFlagError("Choose the event date.");
+      return;
+    }
+    if (!Number.isFinite(hours) || hours <= 0) {
+      setFlagError("Hours must be greater than 0.");
+      return;
+    }
+    setEventBusy(true);
+    setFlagError(null);
+    try {
+      const res = await apiFetch("/api/reports/points/tracked-events", {
+        method: "POST",
+        body: JSON.stringify({
+          owner: eventForm.owner,
+          day: eventForm.day,
+          eventType: eventForm.eventType,
+          name: eventForm.name.trim(),
+          hours,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || res.statusText);
+      const saved = data.event as TrackedEvent;
+      setTrackedEvents((cur) => {
+        const next = cur.filter((e) => e.id !== saved.id);
+        next.push(saved);
+        next.sort((a, b) => String(b.day).localeCompare(String(a.day)) || String(b.createdAt).localeCompare(String(a.createdAt)));
+        return next;
+      });
+      setEventForm((f) => ({ ...f, name: "", hours: "1" }));
+    } catch (e) {
+      setFlagError(`Could not add event: ${String(e)}`);
+    } finally {
+      setEventBusy(false);
+    }
+  }
+
+  async function deleteTrackedEvent(id: string) {
+    if (!window.confirm("Remove this event from the dashboard? It will no longer count toward points.")) return;
+    setEventBusy(true);
+    setFlagError(null);
+    const previous = trackedEvents;
+    setTrackedEvents((cur) => cur.filter((e) => e.id !== id));
+    try {
+      const res = await apiFetch(
+        `/api/reports/points/tracked-events?id=${encodeURIComponent(id)}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || res.statusText);
+      }
+    } catch (e) {
+      setTrackedEvents(previous);
+      setFlagError(`Could not remove event: ${String(e)}`);
+    } finally {
+      setEventBusy(false);
     }
   }
 
@@ -660,6 +952,200 @@ export default function PointsPage() {
             </div>
           </div>
 
+          <RaisedTrendChart weeks={weeklyRaised} />
+
+          <section className={`todo${todoAllCount === 0 ? " is-clear" : ""}`} id="todo" aria-labelledby="todo-heading">
+            <div className="todo-head">
+              <div>
+                <h2 id="todo-heading">To do</h2>
+                <p className="todo-lead">
+                  {todoAllCount === 0
+                    ? "Nothing waiting. Incoming gifts land here until someone assigns or removes them."
+                    : "These gifts are not Raised and not 100 points yet. Assign the MA who earned it, or remove it. You can undo for 12 seconds."}
+                </p>
+              </div>
+              <div className="todo-stat" aria-label={`${todoAllCount} gifts waiting`}>
+                <strong className="tabular">{todoAllCount}</strong>
+                <span>{todoAllCount === 1 ? "gift waiting" : "gifts waiting"}</span>
+                {todoCount > 0 ? <span className="todo-stat-amt tabular">{money(todoAmount)}</span> : null}
+              </div>
+            </div>
+            <div className="todo-body">
+              {flagError ? <p className="todo-error">{flagError}</p> : null}
+              {todoAllCount > 0 ? (
+                <div className="seg todo-filter" role="group" aria-label="Filter to-do by MA">
+                  <button
+                    type="button"
+                    className={possibleOwner === "all" ? "active" : undefined}
+                    onClick={() => setPossibleOwner("all")}
+                  >
+                    All · {todoAllCount}
+                  </button>
+                  {(model.tableOwners || []).map((o) => {
+                    const n = (possibleCounts.get(o.name)?.count ?? 0) + (todoQueue.reviewGifts || []).filter((g) => g.owner === o.name).length;
+                    return (
+                      <button
+                        key={o.name}
+                        type="button"
+                        className={possibleOwner === o.name ? "active" : undefined}
+                        onClick={() => setPossibleOwner(o.name)}
+                      >
+                        {o.short || o.name} · {n}
+                        {meName === o.name ? " · you" : ""}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              {todoAllCount === 0 ? (
+                <p className="todo-empty">You are caught up for this date range.</p>
+              ) : todoCount === 0 ? (
+                <p className="todo-empty">None for this MA. Switch to All to see the rest.</p>
+              ) : (
+                <>
+                  {listedPossible.map((g, i) => {
+                    const owners = incomingOwners(g);
+                    const busy = assignBusy != null || flagBusy === (g.giftId != null ? `gift:${g.giftId}` : null);
+                    return (
+                      <article key={g.giftId != null && g.giftId !== "" ? String(g.giftId) : `todo-${i}`} className="todo-card">
+                        <div className="todo-card-main">
+                          <div className="todo-kicker">Needs a decision</div>
+                          <h3 className="todo-who">{g.contactName || "Unknown donor"}</h3>
+                          <p className="todo-meta">
+                            {g.day ? formatDay(g.day) : "—"}
+                            {g.kindLabel ? ` · ${g.kindLabel}` : g.giftType ? ` · ${g.giftType}` : ""}
+                            {g.project ? ` · ${g.project}` : ""}
+                          </p>
+                          <ul className="todo-spoke">
+                            {owners.map((o, idx) => (
+                              <li key={`${o.name}-${idx}`}>
+                                <strong>{o.name.split(" ")[0]}</strong>
+                                {" spoke with them"}
+                                {o.noteLabel ? ` (${o.noteLabel})` : ""}
+                                {o.noteDay ? ` on ${formatDay(o.noteDay)}` : ""}
+                                {o.daysAfterNote != null ? ` · gift ${o.daysAfterNote}d later` : ""}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="todo-card-side">
+                          <div className="todo-amount tabular">{money(g.amount)}</div>
+                          <p className="todo-outcome">Assign = 100 pts + Raised</p>
+                          <div className="todo-actions">
+                            {owners.map((o) => (
+                              <button
+                                key={`a-${o.name}`}
+                                type="button"
+                                className="mini-btn solid"
+                                disabled={busy}
+                                onClick={() => assignIncoming(g, o.name, false, { skipConfirm: true })}
+                              >
+                                {assignBusy === `${g.giftId}:${o.name}` ? "Assigning…" : `Assign ${o.name.split(" ")[0]}`}
+                              </button>
+                            ))}
+                            {owners.map((o) => (
+                              <button
+                                key={`s-${o.name}`}
+                                type="button"
+                                className="mini-btn"
+                                disabled={busy}
+                                title="100 points, $0 Raised"
+                                onClick={() => assignIncoming(g, o.name, true, { skipConfirm: true })}
+                              >
+                                Assist {o.name.split(" ")[0]}
+                              </button>
+                            ))}
+                            {virtuousGiftUrl(g.contactId) ? (
+                              <a className="todo-link" href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
+                                Gift ↗
+                              </a>
+                            ) : null}
+                            <button
+                              type="button"
+                              className="mini-btn danger"
+                              disabled={busy}
+                              onClick={() => dismissIncoming(g)}
+                            >
+                              {flagBusy === `gift:${g.giftId}` ? "Removing…" : "Remove"}
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+
+                  {todoReviewGifts.length > 0 ? (
+                    <h3 className="todo-sub">MGO-coded — assign to count dollars, or remove</h3>
+                  ) : null}
+                  {todoReviewGifts.map((g, i) => {
+                    const id = giftFlagId(g);
+                    const busy = flagBusy === id;
+                    return (
+                      <article key={id || `todo-mgo-${i}`} className="todo-card todo-card-mgo">
+                        <div className="todo-card-main">
+                          <div className="todo-kicker">MGO-coded gift</div>
+                          <h3 className="todo-who">{g.contactName || "Unknown donor"}</h3>
+                          <p className="todo-meta">
+                            {g.day ? formatDay(g.day) : "—"}
+                            {g.giftType ? ` · ${g.giftType}` : ""}
+                            {g.project ? ` · ${g.project}` : ""}
+                            {g.owner ? ` · ${g.owner} had a note on this donor` : ""}
+                          </p>
+                        </div>
+                        <div className="todo-card-side">
+                          <div className="todo-amount tabular">{money(g.amount)}</div>
+                          <p className="todo-outcome">Assign = 100 pts + Raised</p>
+                          <div className="todo-actions">
+                            {g.owner && id ? (
+                              <button
+                                type="button"
+                                className="mini-btn solid"
+                                disabled={busy}
+                                onClick={() => assignMgoGift(g)}
+                              >
+                                {busy ? "Assigning…" : `Assign ${g.owner.split(" ")[0]}`}
+                              </button>
+                            ) : null}
+                            {virtuousGiftUrl(g.contactId) ? (
+                              <a className="todo-link" href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
+                                Gift ↗
+                              </a>
+                            ) : null}
+                            {id ? (
+                              <button
+                                type="button"
+                                className="mini-btn danger"
+                                disabled={busy}
+                                onClick={async () => {
+                                  const ok = await saveFlag({
+                                    noteId: id,
+                                    contactId: g.contactId != null ? String(g.contactId) : null,
+                                    contactName: g.contactName || null,
+                                    owner: g.owner,
+                                    day: g.day,
+                                    type: g.giftType || null,
+                                    label: "MGO gift dismissed",
+                                    points: 0,
+                                    status: "removed",
+                                    reason: "Does not qualify",
+                                  });
+                                  if (ok) showUndo(id, `Removed ${g.contactName || "this gift"} from To do.`);
+                                }}
+                              >
+                                {busy ? "Removing…" : "Remove"}
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+          </section>
+
           <details className="track-chart">
             <summary>Tracking chart</summary>
             <div className="track-chart-body">
@@ -702,10 +1188,6 @@ export default function PointsPage() {
               </div>
             </div>
           </details>
-
-          {flagError && (
-            <p style={{ color: "var(--warn)", fontSize: ".85rem", margin: "0 0 16px" }}>{flagError}</p>
-          )}
 
           <section className="section">
             <h2>
@@ -949,6 +1431,9 @@ export default function PointsPage() {
                           </td>
                           <td>
                             {r.label}
+                            {r.tracked ? (
+                              <span style={{ color: "var(--slate-400)" }}> · dashboard</span>
+                            ) : null}
                             {r.contactName ? <span style={{ color: "var(--slate-400)" }}> · {r.contactName}</span> : null}
                             {r.giftId && r.giftAmount != null ? (
                               <span style={{ color: "var(--slate-400)" }}>
@@ -1009,70 +1494,6 @@ export default function PointsPage() {
             </section>
           )}
 
-          <details className="fold section">
-            <summary>
-              Weekly Totals <span className="section-hint">same layout as the tracker — conversations, dials, rate, points, gifts, dollars</span>
-            </summary>
-            <div className="panel week-stack">
-              {!(model.weekGrid || []).length && <p className="footnote">No weekly activity in range.</p>}
-              {[...(model.weekGrid || [])].reverse().map((g) => {
-                const mas = model.tableOwners || [];
-                const cell = (w: WeekRec | undefined, id: string) => {
-                  const rec = w || {};
-                  if (id === "rate") return rec.dials ? pct((rec.conversations || 0) / rec.dials) : "—";
-                  if (id === "giftAmount") return money(rec.giftAmount);
-                  if (id === "points") return (rec.points || 0).toLocaleString();
-                  return String((rec as Record<string, number>)[id] || 0);
-                };
-                const metrics: Array<[string, string]> = [
-                  ["conversations", "Conversations"],
-                  ["dials", "Dials"],
-                  ["rate", "%"],
-                  ["points", "Points"],
-                  ["gifts", "Gifts"],
-                  ["giftAmount", "Raised"],
-                ];
-                return (
-                  <div key={g.key} className="week-block">
-                    <h3>Week of {g.label}</h3>
-                    <div className="week-scroll">
-                      <table className="grid weekgrid">
-                        <thead>
-                          <tr>
-                            <th className="metric" />
-                            {mas.map((o) => (
-                              <th key={o.name} className="ma">{o.short || o.name}</th>
-                            ))}
-                            <th className="ma">Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {metrics.map(([id, label]) => (
-                            <tr key={id}>
-                              <th className="metric">{label}</th>
-                              {mas.map((o) => (
-                                <td key={o.name} className="tabular">{cell(g.byOwner[o.name], id)}</td>
-                              ))}
-                              <td className="tabular pts">
-                                {id === "rate"
-                                  ? pct(g.totals.convRate)
-                                  : id === "giftAmount"
-                                    ? money(g.totals.giftAmount)
-                                    : id === "points"
-                                      ? <>{(g.totals.points || 0).toLocaleString()} <span className="muted">avg {Math.round(g.totals.avgPoints || 0)}</span></>
-                                      : String((g.totals as Record<string, number>)[id] || 0)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </details>
-
           <details className="track-chart">
             <summary>
               Personal Bests{" "}
@@ -1128,40 +1549,155 @@ export default function PointsPage() {
 
           <section className="section">
             <h2>
-              Gifts{" "}
+              Events{" "}
               <span className="section-hint">
-                Counted is Raised · Incoming is unclaimed gifts after an MA conversation or meeting
+                {EVENT_POINTS_PER_HOUR} pts per hour · reporting only, not written to Virtuous
               </span>
             </h2>
             <div className="panel">
-              <div className="seg" role="group" aria-label="Gift list" style={{ marginBottom: 14 }}>
-                <button
-                  type="button"
-                  className={giftTab === "counted" ? "active" : undefined}
-                  aria-pressed={giftTab === "counted"}
-                  onClick={() => setGiftTab("counted")}
-                >
-                  Counted · {model.totals?.gifts ?? 0} · {money(model.totals?.giftAmount)}
-                </button>
-                <button
-                  type="button"
-                  className={giftTab === "incoming" ? "active" : undefined}
-                  aria-pressed={giftTab === "incoming"}
-                  onClick={() => setGiftTab("incoming")}
-                >
-                  Incoming · {(model.possibleGifts || []).length}
-                </button>
-              </div>
+              <p className="footnote" style={{ marginTop: 0, marginBottom: 14 }}>
+                Add an event type and hours to credit an MA. Points = hours × {EVENT_POINTS_PER_HOUR}.
+                This is the only way event points are scored. A Virtuous Event note does not count.
+                This stays on the dashboard for reporting and does not create a Virtuous event or note.
+              </p>
+              <form
+                className="event-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  addTrackedEvent();
+                }}
+              >
+                <label>
+                  MA
+                  <select
+                    aria-label="Event MA"
+                    value={eventForm.owner}
+                    onChange={(e) => setEventForm((f) => ({ ...f, owner: e.target.value }))}
+                    required
+                  >
+                    <option value="">Select MA</option>
+                    {MA_ROSTER.map((m) => (
+                      <option key={m.name} value={m.name}>
+                        {m.short || m.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Date
+                  <input
+                    type="date"
+                    aria-label="Event date"
+                    value={eventForm.day}
+                    onChange={(e) => setEventForm((f) => ({ ...f, day: e.target.value }))}
+                    required
+                  />
+                </label>
+                <label>
+                  Event type
+                  <select
+                    aria-label="Event type"
+                    value={eventForm.eventType}
+                    onChange={(e) => setEventForm((f) => ({ ...f, eventType: e.target.value }))}
+                    required
+                  >
+                    {TRACKED_EVENT_TYPES.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Hours
+                  <input
+                    type="number"
+                    aria-label="Event hours"
+                    min={0.25}
+                    max={24}
+                    step={0.25}
+                    value={eventForm.hours}
+                    onChange={(e) => setEventForm((f) => ({ ...f, hours: e.target.value }))}
+                    required
+                  />
+                </label>
+                <label>
+                  Event name
+                  <input
+                    type="text"
+                    aria-label="Event name"
+                    placeholder="optional"
+                    maxLength={200}
+                    value={eventForm.name}
+                    onChange={(e) => setEventForm((f) => ({ ...f, name: e.target.value }))}
+                  />
+                </label>
+                <div className="event-form-submit">
+                  <div className="pts-preview tabular">
+                    {Number.isFinite(formHours) && formHours > 0
+                      ? `${formPoints.toLocaleString()} pts`
+                      : "— pts"}
+                  </div>
+                  <button type="submit" className="mini-btn solid" disabled={eventBusy}>
+                    {eventBusy ? "Saving…" : "Add event"}
+                  </button>
+                </div>
+              </form>
+              {listedTracked.length === 0 ? (
+                <p className="footnote">No events added in this range.</p>
+              ) : (
+                <table className="grid">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>MA</th>
+                      <th>Type</th>
+                      <th>Event</th>
+                      <th>Hours</th>
+                      <th>Pts</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {listedTracked.map((e) => (
+                      <tr key={e.id}>
+                        <td style={{ whiteSpace: "nowrap" }}>{formatDay(e.day)}</td>
+                        <td>{e.owner}</td>
+                        <td>{eventTypeLabel(e.eventType)}</td>
+                        <td>{e.name || "—"}</td>
+                        <td className="tabular">{e.hours}</td>
+                        <td className="pts tabular">{eventPointsForHours(e.hours).toLocaleString()}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="mini-btn danger"
+                            disabled={eventBusy}
+                            onClick={() => deleteTrackedEvent(e.id)}
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </section>
 
-              {giftTab === "counted" ? (
-                <>
+          <section className="section">
+            <h2>
+              Gifts{" "}
+              <span className="section-hint">
+                Raised with 100 points · unclaimed gifts are in To do
+              </span>
+            </h2>
+            <div className="panel">
                   <p className="footnote" style={{ marginTop: 0, marginBottom: 14 }}>
-                    Counted when an MA logged a conversation, meeting, or donation note on the donor on or
-                    before the gift, within 45 days. Gifts coded Direct Solicitation (MGO) show under
-                    MGO-coded gifts until you assign them. A non-MA GFT_Solicitor is listed the same way.
-                    100 points need a gift note: New Donation or New AC (one-time or Mission Fund),
-                    Annunciation Circle updated, or Update Recurring Gift (AC increase is the monthly
-                    difference × 12). Gift Assist is 100 points and $0.
+                    Counted in Raised only with 100 points: a New Donation or New AC, Annunciation Circle
+                    updated, or Update Recurring Gift note, or an assignment from To do. A conversation
+                    or meeting alone stays in To do until assigned or removed. Gift Assist is 100 points
+                    and $0.
                   </p>
                   <table className="grid" style={{ marginBottom: 18 }}>
                     <thead>
@@ -1256,248 +1792,9 @@ export default function PointsPage() {
                       </tbody>
                     </table>
                   )}
-                </>
-              ) : (
-                <>
-                  <p className="footnote" style={{ marginTop: 0, marginBottom: 14 }}>
-                    Incoming gifts posted after an MA spoke with the donor and nobody has logged a gift note yet.
-                    Assign an MA to score 100 points here. This does not add a note in Virtuous. Gift Assist is
-                    100 points and $0.
-                  </p>
-                  <div className="seg" role="group" aria-label="Incoming MA filter" style={{ marginBottom: 14 }}>
-                    <button
-                      type="button"
-                      className={possibleOwner === "all" ? "active" : undefined}
-                      onClick={() => setPossibleOwner("all")}
-                    >
-                      All · {(model.possibleGifts || []).length}
-                    </button>
-                    {(model.tableOwners || []).map((o) => (
-                      <button
-                        key={o.name}
-                        type="button"
-                        className={possibleOwner === o.name ? "active" : undefined}
-                        onClick={() => setPossibleOwner(o.name)}
-                      >
-                        {o.short || o.name} · {possibleCounts.get(o.name)?.count ?? 0}
-                      </button>
-                    ))}
-                  </div>
-                  {listedPossible.length === 0 ? (
-                    <p className="footnote">
-                      No incoming gifts in this range. A conversation or meeting on the donor before the gift
-                      puts it here.
-                    </p>
-                  ) : (
-                    <table className="grid">
-                      <thead>
-                        <tr>
-                          <th>Gift date</th>
-                          <th>Kind</th>
-                          <th>Amount</th>
-                          <th>Possible MAs</th>
-                          <th>Add note</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {listedPossible.map((g, i) => (
-                          <tr key={g.giftId != null && g.giftId !== "" ? String(g.giftId) : `incoming-${i}`}>
-                            <td style={{ whiteSpace: "nowrap" }}>
-                              {g.day ? formatDay(g.day) : "—"}
-                              {g.contactName ? (
-                                <div style={{ color: "var(--slate-400)", fontWeight: 400 }}>{g.contactName}</div>
-                              ) : null}
-                            </td>
-                            <td>
-                              {g.kindLabel || (g.annualized ? "Monthly ×12" : g.giftType || "—")}
-                              {g.project ? (
-                                <span style={{ color: "var(--slate-400)" }}> · {g.project}</span>
-                              ) : null}
-                            </td>
-                            <td className="pts tabular">
-                              {money(g.amount)}
-                              {g.annualized && g.postedAmount != null ? (
-                                <span className="section-hint"> ({money(g.postedAmount)}/mo)</span>
-                              ) : null}
-                            </td>
-                            <td>
-                              {incomingOwners(g).map((o, idx) => (
-                                <div key={`${o.name}-${idx}`} style={{ marginBottom: 6 }}>
-                                  {o.name}
-                                  <span style={{ color: "var(--slate-400)" }}>
-                                    {" "}
-                                    · {o.noteType || o.noteLabel || "note"}
-                                    {o.noteDay ? ` ${formatDay(o.noteDay)}` : ""}
-                                    {o.daysAfterNote != null ? ` · ${o.daysAfterNote}d later` : ""}
-                                  </span>
-                                </div>
-                              ))}
-                              {incomingOwners(g).map((o) => (
-                                <div key={`assign-${o.name}`} style={{ marginTop: 4 }}>
-                                  <button
-                                    type="button"
-                                    className="mini-btn"
-                                    disabled={assignBusy != null}
-                                    onClick={() => assignIncoming(g, o.name, false)}
-                                  >
-                                    Assign {o.name.split(" ")[0]}
-                                  </button>
-                                  {" "}
-                                  <button
-                                    type="button"
-                                    className="mini-btn"
-                                    disabled={assignBusy != null}
-                                    onClick={() => assignIncoming(g, o.name, true)}
-                                  >
-                                    Assist
-                                  </button>
-                                </div>
-                              ))}
-                            </td>
-                            <td>
-                              {virtuousGiftUrl(g.contactId) ? (
-                                <a href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
-                                  Gift ↗
-                                </a>
-                              ) : (
-                                "—"
-                              )}
-                              {g.giftId != null && g.giftId !== "" ? (
-                                <div style={{ marginTop: 6 }}>
-                                  <button
-                                    type="button"
-                                    className="mini-btn danger"
-                                    disabled={flagBusy === `gift:${g.giftId}` || assignBusy != null}
-                                    onClick={() => {
-                                      if (!window.confirm("Remove this gift from Incoming? It will not score.")) return;
-                                      saveFlag({
-                                        noteId: `gift:${g.giftId}`,
-                                        contactId: g.contactId != null ? String(g.contactId) : null,
-                                        contactName: g.contactName || null,
-                                        owner: g.owner,
-                                        day: g.day,
-                                        type: g.kindLabel || g.giftType || null,
-                                        label: "Incoming gift dismissed",
-                                        points: 0,
-                                        status: "removed",
-                                        reason: "Does not qualify",
-                                      });
-                                    }}
-                                  >
-                                    {flagBusy === `gift:${g.giftId}` ? "Removing…" : "Remove"}
-                                  </button>
-                                </div>
-                              ) : null}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </>
-              )}
-              {listedReviewGifts.length > 0 ? (
-                <>
-                  <h3 style={{ marginTop: 22 }}>
-                    MGO-coded gifts{" "}
-                    <span className="section-hint">not in Raised until assigned</span>
-                  </h3>
-                  <p className="footnote">
-                    Direct Solicitation (MGO) in Virtuous. An MA had a note on the donor in the 45 days
-                    before the gift. Assign scores dollars here. This does not add a note in Virtuous.
-                  </p>
-                  <table className="grid">
-                    <thead>
-                      <tr>
-                        <th>Gift date</th>
-                        <th>Kind</th>
-                        <th>Amount</th>
-                        <th>Possible MAs</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {listedReviewGifts.map((g, i) => {
-                        const id = giftFlagId(g);
-                        return (
-                          <tr key={id || `mgo-${i}`}>
-                            <td style={{ whiteSpace: "nowrap" }}>
-                              {g.day ? formatDay(g.day) : "—"}
-                              {g.contactName ? (
-                                <div style={{ color: "var(--slate-400)", fontWeight: 400 }}>{g.contactName}</div>
-                              ) : null}
-                            </td>
-                            <td>
-                              {g.annualized ? "Monthly ×12" : (g.giftType || "—")}
-                              {g.project ? (
-                                <span style={{ color: "var(--slate-400)" }}> · {g.project}</span>
-                              ) : null}
-                            </td>
-                            <td className="pts tabular">
-                              {money(g.amount)}
-                              {g.annualized && g.postedAmount != null ? (
-                                <span className="section-hint"> ({money(g.postedAmount)}/mo)</span>
-                              ) : null}
-                            </td>
-                            <td>
-                              {g.owner || "—"}
-                              {g.owner ? (
-                                <div style={{ marginTop: 4 }}>
-                                  <button
-                                    type="button"
-                                    className="mini-btn"
-                                    disabled={!id || flagBusy === id}
-                                    onClick={() => assignMgoGift(g)}
-                                  >
-                                    {flagBusy === id ? "Assigning…" : `Assign ${g.owner.split(" ")[0]}`}
-                                  </button>
-                                </div>
-                              ) : null}
-                            </td>
-                            <td>
-                              {virtuousGiftUrl(g.contactId) ? (
-                                <a href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
-                                  Gift ↗
-                                </a>
-                              ) : (
-                                "—"
-                              )}
-                              {id ? (
-                                <div style={{ marginTop: 6 }}>
-                                  <button
-                                    type="button"
-                                    className="mini-btn danger"
-                                    disabled={flagBusy === id}
-                                    onClick={() => {
-                                      if (!window.confirm("Remove this gift from the MGO list? It will not score.")) return;
-                                      saveFlag({
-                                        noteId: id,
-                                        contactId: g.contactId != null ? String(g.contactId) : null,
-                                        contactName: g.contactName || null,
-                                        owner: g.owner,
-                                        day: g.day,
-                                        type: g.giftType || null,
-                                        label: "MGO gift dismissed",
-                                        points: 0,
-                                        status: "removed",
-                                        reason: "Does not qualify",
-                                      });
-                                    }}
-                                  >
-                                    {flagBusy === id ? "Removing…" : "Remove"}
-                                  </button>
-                                </div>
-                              ) : null}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </>
-              ) : null}
             </div>
           </section>
+
 
           <section className="section">
             <h3>Tiers</h3>
@@ -1511,6 +1808,31 @@ export default function PointsPage() {
               ))}
             </div>
           </section>
+
+          {undo ? (
+            <div className="undo-bar" role="status">
+              <p>{undo.message}</p>
+              <button
+                type="button"
+                className="mini-btn solid"
+                disabled={flagBusy === undo.flagId}
+                onClick={() => undoLast()}
+              >
+                {flagBusy === undo.flagId ? "Undoing…" : "Undo"}
+              </button>
+              <button
+                type="button"
+                className="undo-dismiss"
+                aria-label="Dismiss"
+                onClick={() => {
+                  clearUndoTimer();
+                  setUndo(null);
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ) : null}
         </main>
     </div>
   );
