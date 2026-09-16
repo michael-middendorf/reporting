@@ -1872,6 +1872,24 @@ describe("contactDisplayName", () => {
 });
 
 describe("spreadsheet tracker gifts", () => {
+  it("matches Finzio on the tracker to Finizio in Virtuous", () => {
+    const { owner, model } = run(
+      [],
+      [postedGift({
+        contactId: 1867,
+        contactName: "Tobin Finizio",
+        giftDate: "8/13/2026",
+        amount: 75,
+      })],
+      "Sean Kelly",
+      {},
+      COUNTED_SPREADSHEET_GIFTS,
+    );
+    assert.equal(owner.giftAmount, 75);
+    assert.equal(owner.gifts, 1);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
+  });
+
   it("Anna Clark $200 on 8/14 counts for Natalia", () => {
     const { owner, model } = run(
       [],

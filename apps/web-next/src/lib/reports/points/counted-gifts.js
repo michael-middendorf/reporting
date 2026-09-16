@@ -37,6 +37,33 @@ function amountsClose(posted, sheet, monthlySheet) {
   return false;
 }
 
+function editDistance(a, b) {
+  if (a === b) return 0;
+  const m = a.length;
+  const n = b.length;
+  if (Math.abs(m - n) > 1) return 99;
+  const dp = Array.from({ length: m + 1 }, (_, i) => {
+    const row = new Array(n + 1);
+    row[0] = i;
+    return row;
+  });
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+    }
+  }
+  return dp[m][n];
+}
+
+function lastNamesClose(a, b) {
+  if (!a || !b) return true;
+  if (a === b) return true;
+  if (a.length >= 4 && b.length >= 4 && (a.includes(b) || b.includes(a))) return true;
+  return a.length >= 4 && b.length >= 4 && editDistance(a, b) <= 1;
+}
+
 function daysApart(a, b) {
   if (!a || !b) return 99;
   const ms = Math.abs(new Date(`${a}T00:00:00`) - new Date(`${b}T00:00:00`));
@@ -84,7 +111,7 @@ export function matchCountedSpreadsheetGift(gift, counted = COUNTED_SPREADSHEET_
     if (!owners.length) return;
     const names = overlap(donor, row.donor);
     const lastSheet = tokens(row.donor).pop() || "";
-    if (lastGift && lastSheet && lastGift !== lastSheet) return;
+    if (lastGift && lastSheet && !lastNamesClose(lastGift, lastSheet)) return;
     const gap = daysApart(day, row.day);
     if (gap > 21) return;
     const amountOk =
