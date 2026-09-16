@@ -4,6 +4,7 @@ import {
   datePresetLabel,
   shortFiscalYearLabel,
   shortPreviousFiscalYearLabel,
+  ATHLETICS_SPONSORSHIP_EVENT,
   eventLabel,
   eventOptions,
   filterGifts,
@@ -321,13 +322,25 @@ describe("athletics giving shape", () => {
       projectCode: "6117AthGEN",
       segment: "26-27 Athletics Hall of Fame",
     };
-    const gifts = [...SAMPLE.gifts, golf, footballGolf, booster, hallOfFame];
+    const sponsorship: AthleticsGivingGift = {
+      ...SAMPLE.gifts[0]!,
+      giftId: 17,
+      giftDate: "2025-12-31",
+      amountDesignated: 3000,
+      contactName: "Ave Maria Dance Academy",
+      project: "Athletics Program - General",
+      projectCode: "6117AthGEN",
+      segment: "Athletics Fundraising-HIST_DS",
+    };
+    const gifts = [...SAMPLE.gifts, golf, footballGolf, booster, hallOfFame, sponsorship];
     assert.equal(isEventSegment("Athletics Fundraising"), false);
+    assert.equal(isEventSegment("Direct Solicitation (MGO)"), false);
     assert.equal(isEventSegment("2026 AMU Athletic Golf Tournament"), true);
     assert.equal(isEventSegment("26-27 Gyrene Booster Club"), true);
     assert.equal(eventLabel("2025 AMU Athletics Golf Tournament-HIST_EV"), "2025 AMU Athletics Golf Tournament");
     assert.deepEqual(eventOptions(gifts), [
       "FY27 Football Golf Tournament",
+      "Athletics Sponsorship",
       "26-27 Gyrene Booster Club",
       "26-27 Athletics Hall of Fame",
       "2026 AMU Athletic Golf Tournament",
@@ -345,5 +358,15 @@ describe("athletics giving shape", () => {
     const funds = fundsFromGifts(filtered).filter((item) => !item.isFee);
     assert.equal(funds.length, 1);
     assert.equal(funds[0]?.project, "Athletics Program - General");
+    const sponsorshipGifts = filterGifts(gifts, {
+      start: "2025-07-01",
+      end: "2026-09-14",
+      sportKey: "all",
+      event: ATHLETICS_SPONSORSHIP_EVENT,
+      fund: "all",
+      search: "",
+    });
+    assert.equal(totalsFromGifts(sponsorshipGifts).programAmount, 3000);
+    assert.equal(sponsorshipGifts[0]?.contactName, "Ave Maria Dance Academy");
   });
 });

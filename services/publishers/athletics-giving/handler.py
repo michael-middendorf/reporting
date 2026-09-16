@@ -9,8 +9,11 @@ Qlik filters gifts whose Segment Name is one of:
   Athletics Fundraising-HIST_DS
 
 Athletics event gifts post to their own event segments, not those three.
-Segment Name Contains Tournament, Booster, or Hall of Fame picks up golf
-tournaments, Gyrene Booster Club, Boosters registration, and Hall of Fame.
+Segment Name Contains Tournament, Booster, Hall of Fame, or Sponsorship
+picks up golf tournaments, Gyrene Booster Club, Boosters registration,
+Hall of Fame, and athletics sponsorships. Athletics Program - General
+gifts that are not those named events still show as Athletics Sponsorship
+on the Giving Event dropdown.
 
 Sport-fund gifts can be tagged Direct Solicitation (MGO) or other non-
 athletics segments. Coaching fundraising queries by project code, so Master
@@ -53,6 +56,7 @@ EVENT_NAME_CONTAINS = (
     "Tournament",
     "Booster",
     "Hall of Fame",
+    "Sponsorship",
 )
 # Keep in sync with athletics-coaching sports.ts plus general athletics funds.
 ATHLETICS_PROJECT_CODES = (

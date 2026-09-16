@@ -267,9 +267,19 @@ export const PROGRAM_SEGMENTS = new Set([
   "Athletics Fundraising-HIST_DS",
 ]);
 
+export const ATHLETICS_GENERAL_CODE = "6117AthGEN";
+export const ATHLETICS_SPONSORSHIP_EVENT = "Athletics Sponsorship";
+
+const NAMED_EVENT_RE = /tournament|booster|hall of fame|sponsorship/i;
+
 export function isEventSegment(segment: string | null | undefined): boolean {
-  const name = (segment || "").trim();
-  return Boolean(name) && !PROGRAM_SEGMENTS.has(name);
+  return NAMED_EVENT_RE.test((segment || "").trim());
+}
+
+export function isAthleticsSponsorshipGift(gift: AthleticsGivingGift): boolean {
+  if (gift.isFee) return false;
+  if ((gift.projectCode || "") !== ATHLETICS_GENERAL_CODE) return false;
+  return !isEventSegment(gift.segment);
 }
 
 export function eventLabel(segment: string): string {
@@ -278,9 +288,12 @@ export function eventLabel(segment: string): string {
 
 export function eventOptions(gifts: AthleticsGivingGift[]): string[] {
   const names = new Set<string>();
+  let hasSponsorship = false;
   for (const gift of gifts) {
     if (isEventSegment(gift.segment) && gift.segment) names.add(gift.segment);
+    if (isAthleticsSponsorshipGift(gift)) hasSponsorship = true;
   }
+  if (hasSponsorship) names.add(ATHLETICS_SPONSORSHIP_EVENT);
   return [...names].sort((a, b) => b.localeCompare(a));
 }
 
@@ -301,7 +314,13 @@ export function filterGifts(gifts: AthleticsGivingGift[], filters: GivingFilters
     if (filters.start && day < filters.start) return false;
     if (filters.end && day > filters.end) return false;
     if (filters.sportKey !== "all" && sportForGift(gift).key !== filters.sportKey) return false;
-    if (event !== "all" && (gift.segment || "") !== event) return false;
+    if (event !== "all") {
+      if (event === ATHLETICS_SPONSORSHIP_EVENT) {
+        if (!isAthleticsSponsorshipGift(gift)) return false;
+      } else if ((gift.segment || "") !== event) {
+        return false;
+      }
+    }
     if (filters.fund !== "all" && (gift.projectCode || gift.project || "") !== filters.fund) return false;
     if (!needle) return true;
     const sport = sportForGift(gift);
