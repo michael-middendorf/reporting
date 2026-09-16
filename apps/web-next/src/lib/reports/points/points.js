@@ -31,6 +31,30 @@ const skippedEventNoteTypes = new Set(
   TRACKED_EVENT_TYPES.map((t) => String(t.type || "").toLowerCase()),
 );
 
+function contactKey(id) {
+  if (id == null || id === "") return null;
+  const s = String(id).trim();
+  return s && s !== "undefined" && s !== "null" ? s : null;
+}
+
+const DONATION_TYPE_ALIASES = {
+  "new donation or new ac": "mission advancement | new donation or new ac",
+  "new donation": "mission advancement | new donation or new ac",
+  "new ac": "mission advancement | new donation or new ac",
+  "annunciation circle updated": "mission advancement | annunciation circle updated",
+  "update recurring gift": "mission advancement | update recurring gift",
+  "updated recurring gift": "mission advancement | update recurring gift",
+  "gift assist": "mission advancement | gift assist",
+};
+
+function mapNoteType(type) {
+  const raw = String(type || "").trim().toLowerCase();
+  if (!raw) return raw;
+  if (POINTS_MAP[raw]) return raw;
+  const stripped = raw.replace(/^mission advancement( call)?\s*\|\s*/, "").trim();
+  return DONATION_TYPE_ALIASES[stripped] || DONATION_TYPE_ALIASES[raw] || raw;
+}
+
 /** True when isoDay(date) is before the owner's optional roster startDate.
  * Compare YYYY-MM-DD strings, not Date objects: parseDate("2026-07-20") is
  * UTC midnight and can shift the local day. */
@@ -82,9 +106,9 @@ export function scoreNote(record) {
   if (!owner) return null;
 
   const type = (record.type || "").trim();
-  const key = type.toLowerCase();
+  const key = mapNoteType(type);
   // Event notes in Virtuous no longer score. Hours added on the dashboard do.
-  if (skippedEventNoteTypes.has(key)) return null;
+  if (skippedEventNoteTypes.has(type.toLowerCase()) || skippedEventNoteTypes.has(key)) return null;
   const rule = POINTS_MAP[key];
   const date = parseDate(record.noteDate) || parseDate(record.createDateTimeUtc);
   if (!date) return null;
@@ -568,17 +592,19 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
     if (!r) continue;
     rows.push(r);
     if (r.bucket === "gift") donationNotes.push(r);
-    if (r.contactId == null) continue;
-    const list = activityByContact.get(r.contactId) || [];
+    const ck = contactKey(r.contactId);
+    if (!ck) continue;
+    const list = activityByContact.get(ck) || [];
     list.push(r);
-    activityByContact.set(r.contactId, list);
+    activityByContact.set(ck, list);
   }
 
   const scoredGifts = [];
   const matchGifts = [];
   for (const g of gifts) {
     const gDate = giftDateOf(g);
-    const notesOnContact = g.contactId != null ? (activityByContact.get(g.contactId) || []) : [];
+    const ck = contactKey(g.contactId);
+    const notesOnContact = ck ? (activityByContact.get(ck) || []) : [];
     const reviewHint = gDate ? ownerHintForReview(gDate, notesOnContact) : null;
     const giftHint = gDate ? ownerHintForGift(gDate, notesOnContact) : null;
     if (isMgoAttributedGift(g)) {
@@ -611,10 +637,11 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
 
   const giftsByContact = new Map();
   for (const g of matchGifts) {
-    if (g.contactId == null) continue;
-    const list = giftsByContact.get(g.contactId) || [];
+    const ck = contactKey(g.contactId);
+    if (!ck) continue;
+    const list = giftsByContact.get(ck) || [];
     list.push(g);
-    giftsByContact.set(g.contactId, list);
+    giftsByContact.set(ck, list);
   }
   for (const list of giftsByContact.values()) {
     list.sort((a, b) => sortByDayThenId(a.date, a.giftId, b.date, b.giftId));
@@ -625,7 +652,10 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
     (a, b) => sortByDayThenId(a.date, a.noteId, b.date, b.noteId),
   );
   for (const note of notesInOrder) {
-    const candidates = note.contactId != null ? (giftsByContact.get(note.contactId) || []) : [];
+    const candidates = (() => {
+      const ck = contactKey(note.contactId);
+      return ck ? (giftsByContact.get(ck) || []) : [];
+    })();
     const window = SETTINGS.giftNoteDaysBefore ?? 45;
     const match = pickDonationMatch(note, candidates, used, window);
     if (match) {
@@ -702,7 +732,20 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
     if (gid && (securedIds.has(gid) || isAssistGiftId(g.id))) continue;
     const raised = gid ? raisedById.get(gid) : null;
     if (raised?.assist) continue;
-    const hits = possibleNotesForGift(gDate, activityByContact.get(g.contactId) || []);
+    const notesOnContact = (() => {
+      const ck = contactKey(g.contactId);
+      return ck ? (activityByContact.get(ck) || []) : [];
+    })();
+    const donationOnContact = notesOnContact.some((n) => {
+      if (n.assist) return false;
+      const mapped = mapNoteType(n.type);
+      if (!POINTS_MAP[mapped] || POINTS_MAP[mapped].bucket !== "gift") return false;
+      const delta = daysFromNoteToGift(n.date, gDate);
+      const window = SETTINGS.giftNoteDaysBefore ?? 45;
+      return delta != null && Math.abs(delta) <= window;
+    });
+    if (donationOnContact) continue;
+    const hits = possibleNotesForGift(gDate, notesOnContact);
     if (!hits.length) continue;
     const hit = hits[0];
     const monthly = isMonthlyRecurring(g);

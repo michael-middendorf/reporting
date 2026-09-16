@@ -1,5 +1,7 @@
 "use client";
 
+import { Suspense } from "react";
+import { PointsSubnav } from "@/components/PointsSubnav";
 import { CONFLICTS, DAY_TARGETS, DEFINITIONS, POINTS_MAP, TIERS } from "@/lib/reports/points/scoring";
 import "@/styles/points.css";
 
@@ -8,8 +10,13 @@ export default function PointsMethodologyPage() {
 
   return (
     <div className="points-root">
-        <main style={{ padding: "24px 20px 48px", maxWidth: 900, margin: "0 auto" }}>
-          <h1>Methodology &amp; Scoring</h1>
+        <main className="wrap dash points-method">
+          <div className="points-toolbar">
+            <Suspense fallback={null}>
+              <PointsSubnav />
+            </Suspense>
+          </div>
+          <h1>Methodology</h1>
           <p style={{ maxWidth: "70ch" }}>
             Points and gifts are scored from Virtuous notes and posted gifts. Event points come only
             from hours added on the Points dashboard (25 points per hour, reporting-only — not written

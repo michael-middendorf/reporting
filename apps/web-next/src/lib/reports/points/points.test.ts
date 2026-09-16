@@ -184,6 +184,58 @@ describe("MA points require a posted gift with dollars", () => {
     assert.ok(rows.some((r) => r.unmatched && r.bucket === "unmatched"));
   });
 
+  it("string vs number contactId still pairs the donation note to the gift", () => {
+    const { owner, model } = run(
+      [donationNote({ contactId: 101 })],
+      [postedGift({ contactId: "101", amount: 80 })],
+    );
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 80);
+    assert.equal(owner.points, 100);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
+  });
+
+  it("New Donation / New AC / AC updated notes count without the Mission Advancement prefix", () => {
+    const { owner, model } = run(
+      [
+        donationNote({ type: "New Donation or New AC", contactId: 101, id: 1 }),
+        donationNote({ type: "Annunciation Circle Updated", contactId: 102, id: 2, noteDate: "8/5/2026" }),
+        donationNote({ type: "Update Recurring Gift", contactId: 103, id: 3, noteDate: "8/6/2026" }),
+      ],
+      [
+        postedGift({ id: 501, contactId: 101, amount: 20 }),
+        postedGift({ id: 502, contactId: 102, giftDate: "8/5/2026", amount: 30 }),
+        postedGift({
+          id: 503,
+          contactId: 103,
+          giftDate: "8/6/2026",
+          amount: 12,
+          acIncrease: true,
+          priorMonthly: 20,
+          newMonthly: 40,
+          frequency: "Monthly",
+        }),
+      ],
+    );
+    assert.equal(owner.gifts, 3);
+    assert.equal(owner.points, 300);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
+  });
+
+  it("conversation plus a New Donation note is Raised, not Incoming", () => {
+    const { owner, model } = run(
+      [
+        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026", id: 11 }),
+        donationNote({ type: "Mission Advancement | New Donation or New AC", noteDate: "8/11/2026", id: 12 }),
+      ],
+      [postedGift({ giftDate: "8/11/2026", amount: 51.01 })],
+    );
+    assert.equal(owner.giftAmount, 51.01);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 110);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
+  });
+
   it("note plus amount > 0 gift in the same week is 1 gift, $X, 100 pts", () => {
     const { model, owner, rows } = run(
       [donationNote()],
