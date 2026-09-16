@@ -6,6 +6,7 @@ import unittest
 from typing import Any
 
 from handler import (
+    ATHLETICS_PROJECT_CODES,
     EVENT_NAME_CONTAINS,
     SEGMENTS,
     build_snapshot,
@@ -70,7 +71,7 @@ class QueryTests(unittest.TestCase):
     def test_or_groups_include_qlik_segments_and_athletics_events(self):
         body = designation_query()
         self.assertEqual(
-            [group["conditions"][0] for group in body["groups"]],
+            [group["conditions"][0] for group in body["groups"][:6]],
             [
                 {"parameter": "Segment Name", "operator": "Is", "value": "Athletics Fundraising"},
                 {"parameter": "Segment Name", "operator": "Is", "value": "Athletics - Specific Sport"},
@@ -86,6 +87,37 @@ class QueryTests(unittest.TestCase):
             "Athletics - Specific Sport",
             "Athletics Fundraising-HIST_DS",
         ])
+        project_codes = [
+            condition["value"]
+            for group in body["groups"]
+            for condition in group["conditions"]
+            if condition["parameter"] == "Project Code"
+        ]
+        self.assertEqual(project_codes, list(ATHLETICS_PROJECT_CODES))
+        self.assertIn("6552FB", project_codes)
+        self.assertIn("6117AthGEN", project_codes)
+        self.assertIn("6644", project_codes)
+
+    def test_direct_solicitation_football_gift_is_kept(self):
+        snap = build_snapshot(
+            [
+                _des(
+                    amount=20000,
+                    gift_date="7/7/2026",
+                    project="Football Program",
+                    code="6552FB",
+                    gift_id=16,
+                    segment="Direct Solicitation (MGO)",
+                    contact="Kevin and Leslie O'Brien",
+                ),
+            ],
+            today=dt.date(2026, 9, 14),
+            generated_at="2026-09-14T18:00:00Z",
+        )
+        self.assertEqual(snap["fytd"]["programAmount"], 20000.0)
+        self.assertEqual(snap["fytd"]["giftCount"], 1)
+        self.assertEqual(snap["gifts"][0]["contactName"], "Kevin and Leslie O'Brien")
+        self.assertEqual(snap["gifts"][0]["segment"], "Direct Solicitation (MGO)")
 
     def test_unique_designations_drop_duplicate_ids(self):
         row = _des(amount=1000, gift_date="5/13/2026", project="Football Program", code="6552FB")

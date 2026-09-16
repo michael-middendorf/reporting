@@ -12,12 +12,17 @@ Athletics event gifts post to their own event segments, not those three.
 Segment Name Contains Tournament, Booster, or Hall of Fame picks up golf
 tournaments, Gyrene Booster Club, Boosters registration, and Hall of Fame.
 
+Sport-fund gifts can be tagged Direct Solicitation (MGO) or other non-
+athletics segments. Coaching fundraising queries by project code, so Master
+Giving also queries those athletics funds (plus general / booster /
+scholarship / XC) so a football gift on the coaching sheet is on Master too.
+
 Those QVDs live in lib://Advancement (DEV):DataFiles/virtuous_full_gifts_*.qvd
 and are produced by the Advancement Virtuous reload apps. This publisher hits
-POST /api/GiftDesignation/Query with those Qlik segments plus athletics
-events so totals stay on the designation grain (one fund split per gift).
-That avoids the Qlik join that inflates Sum(amountDesignated) and the
-Concat(segment) "Gift Destination" cell.
+POST /api/GiftDesignation/Query with Qlik segments, athletics events, and
+athletics project codes so totals stay on the designation grain (one fund
+split per gift). That avoids the Qlik join that inflates Sum(amountDesignated)
+and the Concat(segment) "Gift Destination" cell.
 
 CREDITCARDCOSTS is kept on gift rows (Qlik shows it) and split out of program
 totals. Do not read sources/virtuous/gifts (365-day window).
@@ -48,6 +53,31 @@ EVENT_NAME_CONTAINS = (
     "Tournament",
     "Booster",
     "Hall of Fame",
+)
+# Keep in sync with athletics-coaching sports.ts plus general athletics funds.
+ATHLETICS_PROJECT_CODES = (
+    "6625Cheer",
+    "6596Dance",
+    "6552FB",
+    "6543MBase",
+    "6530MBB",
+    "6622MGolf",
+    "6569MSoc",
+    "6540MRugby",
+    "6201Swim",
+    "6563Tennis",
+    "6683Track",
+    "6251FrisM",
+    "6514WBB",
+    "6654WLACR",
+    "6572WSoc",
+    "6557WSoft",
+    "6573WVB",
+    "6578MXC",
+    "6580WXC",
+    "6117AthGEN",
+    "6644",
+    "6521",
 )
 FEE_CODES = frozenset({"CREDITCARDCOSTS"})
 
@@ -175,6 +205,15 @@ def designation_query(since: dt.date | None = None) -> dict[str, Any]:
             {
                 "conditions": [
                     {"parameter": "Segment Name", "operator": "Contains", "value": needle},
+                    *_date_condition(since),
+                ]
+            }
+        )
+    for code in ATHLETICS_PROJECT_CODES:
+        groups.append(
+            {
+                "conditions": [
+                    {"parameter": "Project Code", "operator": "Is", "value": code},
                     *_date_condition(since),
                 ]
             }
