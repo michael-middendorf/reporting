@@ -67,7 +67,7 @@ class ParseTests(unittest.TestCase):
 
 
 class QueryTests(unittest.TestCase):
-    def test_or_groups_include_qlik_segments_and_tournament_events(self):
+    def test_or_groups_include_qlik_segments_and_athletics_events(self):
         body = designation_query()
         self.assertEqual(
             [group["conditions"][0] for group in body["groups"]],
@@ -75,9 +75,12 @@ class QueryTests(unittest.TestCase):
                 {"parameter": "Segment Name", "operator": "Is", "value": "Athletics Fundraising"},
                 {"parameter": "Segment Name", "operator": "Is", "value": "Athletics - Specific Sport"},
                 {"parameter": "Segment Name", "operator": "Is", "value": "Athletics Fundraising-HIST_DS"},
-                {"parameter": "Segment Name", "operator": "Contains", "value": EVENT_NAME_CONTAINS},
+                {"parameter": "Segment Name", "operator": "Contains", "value": "Tournament"},
+                {"parameter": "Segment Name", "operator": "Contains", "value": "Booster"},
+                {"parameter": "Segment Name", "operator": "Contains", "value": "Hall of Fame"},
             ],
         )
+        self.assertEqual(list(EVENT_NAME_CONTAINS), ["Tournament", "Booster", "Hall of Fame"])
         self.assertEqual(list(SEGMENTS), [
             "Athletics Fundraising",
             "Athletics - Specific Sport",
@@ -185,6 +188,14 @@ class SnapshotTests(unittest.TestCase):
                 gift_id=14,
                 segment="FY27 Football Golf Tournament",
             ),
+            _des(
+                amount=250,
+                gift_date="9/12/2026",
+                project="Gyrene Booster Club",
+                code="6644",
+                gift_id=15,
+                segment="26-27 Gyrene Booster Club",
+            ),
             _des(amount=9999, gift_date="8/1/2024", project="Old Endowment", code="OLD", gift_id=99),
         ]
         snap = build_snapshot(
@@ -195,17 +206,18 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(snap["source"], "virtuous")
         self.assertEqual(snap["fiscalYearLabel"], "FY 2026-27")
         self.assertEqual(snap["since"], "2025-07-01")
-        self.assertEqual(snap["weekly"]["giftCount"], 1)
-        self.assertEqual(snap["weekly"]["amount"], 206.28)
-        self.assertEqual(snap["fytd"]["giftCount"], 3)
-        self.assertEqual(snap["fytd"]["programAmount"], 2200.0)
+        self.assertEqual(snap["weekly"]["giftCount"], 2)
+        self.assertEqual(snap["weekly"]["amount"], 456.28)
+        self.assertEqual(snap["fytd"]["giftCount"], 4)
+        self.assertEqual(snap["fytd"]["programAmount"], 2450.0)
         self.assertEqual(snap["lastFy"]["programAmount"], 1500.0)
-        self.assertEqual(snap["allTime"]["giftCount"], 5)
-        self.assertEqual(snap["allTime"]["amount"], 3706.28)
+        self.assertEqual(snap["allTime"]["giftCount"], 6)
+        self.assertEqual(snap["allTime"]["amount"], 3956.28)
         self.assertEqual(snap["gifts"][0]["giftDate"], "2026-09-12")
-        self.assertEqual(len(snap["funds"]), 5)
+        self.assertEqual(len(snap["funds"]), 6)
         self.assertIn("2026 AMU Athletic Golf Tournament", snap["segments"])
         self.assertIn("FY27 Football Golf Tournament", snap["segments"])
+        self.assertIn("26-27 Gyrene Booster Club", snap["segments"])
         self.assertTrue(any(row["project"] == "Athletics Program - General" for row in snap["gifts"]))
         self.assertFalse(any(row["project"] == "Old Endowment" for row in snap["gifts"]))
 

@@ -303,12 +303,33 @@ describe("athletics giving shape", () => {
       amountDesignated: 2500,
       segment: "FY27 Football Golf Tournament",
     };
-    const gifts = [...SAMPLE.gifts, golf, footballGolf];
+    const booster: AthleticsGivingGift = {
+      ...SAMPLE.gifts[1]!,
+      giftId: 15,
+      giftDate: "2026-09-12",
+      amountDesignated: 250,
+      project: "Gyrene Booster Club",
+      projectCode: "6644",
+      segment: "26-27 Gyrene Booster Club",
+    };
+    const hallOfFame: AthleticsGivingGift = {
+      ...SAMPLE.gifts[0]!,
+      giftId: 16,
+      giftDate: "2026-08-15",
+      amountDesignated: 400,
+      project: "Athletics Program - General",
+      projectCode: "6117AthGEN",
+      segment: "26-27 Athletics Hall of Fame",
+    };
+    const gifts = [...SAMPLE.gifts, golf, footballGolf, booster, hallOfFame];
     assert.equal(isEventSegment("Athletics Fundraising"), false);
     assert.equal(isEventSegment("2026 AMU Athletic Golf Tournament"), true);
+    assert.equal(isEventSegment("26-27 Gyrene Booster Club"), true);
     assert.equal(eventLabel("2025 AMU Athletics Golf Tournament-HIST_EV"), "2025 AMU Athletics Golf Tournament");
     assert.deepEqual(eventOptions(gifts), [
       "FY27 Football Golf Tournament",
+      "26-27 Gyrene Booster Club",
+      "26-27 Athletics Hall of Fame",
       "2026 AMU Athletic Golf Tournament",
     ]);
     const filtered = filterGifts(gifts, {
