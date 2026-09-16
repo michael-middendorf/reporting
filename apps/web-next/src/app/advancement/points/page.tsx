@@ -22,7 +22,6 @@ import {
   trackerBreakdown,
   trackerSpec,
   rowMatchesTracker,
-  TRACKING_CHART,
   evalStartDate,
   SETTINGS,
   virtuousContactUrl,
@@ -1491,49 +1490,6 @@ function PointsPageInner() {
               </div>
             </section>
           )}
-
-          <details className="track-chart">
-            <summary>Tracking chart</summary>
-            <div className="track-chart-body">
-              <div className="track-gifts">
-                <p className="track-lead">
-                  Virtuous note type on the donor’s contact, logged as yourself. Gifts are linked by the same
-                  contact when the note is on or before the gift, within 45 days. {TRACKING_CHART.refresh}
-                </p>
-                <ul>
-                  {TRACKING_CHART.gifts.map((g) => (
-                    <li key={g.label}>
-                      <strong>{g.label}.</strong> {g.detail}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="track-types">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Counts as</th>
-                      <th>Virtuous note type</th>
-                      <th>Pts</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {TRACKING_CHART.rows.map((r) => (
-                      <tr key={`${r.tracker}-${r.type}`}>
-                        <td>{r.tracker}</td>
-                        <td>{r.type}</td>
-                        <td className="tabular">{r.pts}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <p className="footnote">
-                  Wrong person, wrong type, or no note = not counted.{" "}
-                  <a href="/advancement/points/methodology">Full rules</a>
-                </p>
-              </div>
-            </div>
-          </details>
 
           <details className="track-chart">
             <summary>

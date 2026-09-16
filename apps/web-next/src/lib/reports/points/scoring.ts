@@ -15,6 +15,7 @@ const points = require("./points.js") as {
   assignedNotesFromFlags: (flags?: Record<string, unknown>) => unknown[];
   giftSolicitor: (record: unknown) => string | null;
   isMgoAttributedGift: (record: unknown) => boolean;
+  contactDisplayName: (record: unknown) => string;
 };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const aggregateMod = require("./aggregate.js") as {
@@ -117,3 +118,4 @@ export const noteTypeForIncoming = config.noteTypeForIncoming;
 export const maForEmail = config.maForEmail;
 export const EVENT_POINTS_PER_HOUR = config.EVENT_POINTS_PER_HOUR;
 export const TRACKED_EVENT_TYPES = config.TRACKED_EVENT_TYPES;
+export const contactDisplayName = points.contactDisplayName;

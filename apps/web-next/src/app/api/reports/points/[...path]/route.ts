@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireReportAccess } from "@/lib/s3-proxy";
 import { loadSourceRows, loadSourceRowsOptional } from "@/lib/sources";
-import { giftSolicitor, prepareGifts } from "@/lib/reports/points/scoring";
+import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "@/lib/reports/points/counted-gifts.js";
+import { contactDisplayName, giftSolicitor, prepareGifts } from "@/lib/reports/points/scoring";
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
@@ -23,6 +24,30 @@ const EVENT_FIELDS = [
   "locationName",
   "createdByUser",
 ] as const;
+
+function isoGiftDay(r: Record<string, unknown>): string {
+  const raw = String(r.giftDate || r.giftDateFormatted || r.startDate || r.recurringGiftDate || "");
+  const mdy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (mdy) return `${mdy[3]}-${mdy[1].padStart(2, "0")}-${mdy[2].padStart(2, "0")}`;
+  const iso = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  return iso ? iso[1] : "";
+}
+
+function onTracker(r: Record<string, unknown>, names: Map<number, string>): boolean {
+  const cid = Number(r.contactId);
+  return !!matchCountedSpreadsheetGift(
+    {
+      ...r,
+      contactName: contactDisplayName(r) || (Number.isFinite(cid) ? names.get(cid) : "") || "",
+      day: isoGiftDay(r),
+      postedAmount: Number(r.amount) || 0,
+      amount: Number(r.amount) || 0,
+      newMonthly: Number(r.amount) || 0,
+    },
+    COUNTED_SPREADSHEET_GIFTS,
+    new Set(),
+  );
+}
 
 const GIFT_FIELDS = [
   "id",
@@ -76,34 +101,36 @@ export async function GET(req: Request, ctx: Ctx) {
         "virtuous",
         "recurring_gifts",
       );
-      const posted = gifts.rows.filter((r) => contactIds.has(Number(r.contactId)));
       const names = new Map<number, string>();
       const contacts = await loadSourceRowsOptional<Record<string, unknown>>("virtuous", "contacts");
       for (const c of contacts?.rows || []) {
         const cid = Number(c.id ?? c.contactId);
-        const name = String(c.name || c.contactName || "").trim();
+        const name = contactDisplayName(c);
         if (Number.isFinite(cid) && name) names.set(cid, name);
       }
       for (const r of notes.rows) {
         const cid = Number(r.contactId);
-        const name = String(r.contactName || "").trim();
+        const name = contactDisplayName(r);
         if (Number.isFinite(cid) && name) names.set(cid, name);
       }
-      for (const r of posted) {
+      for (const r of gifts.rows) {
         const cid = Number(r.contactId);
-        const name = String(r.contactName || "").trim();
+        const name = contactDisplayName(r);
         if (Number.isFinite(cid) && name) names.set(cid, name);
       }
+      const posted = gifts.rows.filter(
+        (r) => contactIds.has(Number(r.contactId)) || onTracker(r, names),
+      );
       const namedPosted = posted.map((r) => {
         const cid = Number(r.contactId);
-        const contactName = String(r.contactName || "").trim() || names.get(cid) || "";
+        const contactName = contactDisplayName(r) || names.get(cid) || "";
         return { ...r, contactName };
       });
       const recRows = (recurring?.rows || [])
-        .filter((r) => contactIds.has(Number(r.contactId)))
+        .filter((r) => contactIds.has(Number(r.contactId)) || onTracker(r, names))
         .map((r) => {
           const cid = Number(r.contactId);
-          const contactName = String(r.contactName || "").trim() || names.get(cid) || "";
+          const contactName = contactDisplayName(r) || names.get(cid) || "";
           return { ...r, contactName };
         });
       const kept = (prepareGifts(namedPosted, recRows) as Record<string, unknown>[]).map((r) => {

@@ -34,6 +34,39 @@ function contactKey(id) {
   return s && s !== "undefined" && s !== "null" ? s : null;
 }
 
+/** Virtuous Gift Query, FullContact, and notes use different name fields. */
+export function contactDisplayName(record) {
+  if (!record || typeof record !== "object") return "";
+  const nested = record.contact && typeof record.contact === "object" ? record.contact : {};
+  const people = record.individuals || nested.individuals || record.giftPassthroughs || [];
+  const fromPeople = (Array.isArray(people) ? people : [])
+    .map((p) => {
+      if (!p || typeof p !== "object") return "";
+      return String(p.contactName || [p.firstName, p.lastName].filter(Boolean).join(" ") || "").trim();
+    })
+    .filter(Boolean)
+    .join(" and ");
+  const parts = [
+    record.contactName,
+    record.name,
+    record.formalName,
+    record.formalContactName,
+    record.informalName,
+    nested.contactName,
+    nested.name,
+    nested.formalName,
+    nested.informalName,
+    [record.firstName, record.lastName].filter(Boolean).join(" "),
+    [nested.firstName, nested.lastName].filter(Boolean).join(" "),
+    fromPeople,
+  ];
+  for (const p of parts) {
+    const s = String(p || "").trim();
+    if (s) return s;
+  }
+  return "";
+}
+
 const DONATION_TYPE_ALIASES = {
   "new donation or new ac": "mission advancement | new donation or new ac",
   "new donation": "mission advancement | new donation or new ac",
@@ -117,7 +150,7 @@ export function scoreNote(record) {
     return {
       owner, type, points: 0, bucket: "unmatched", label: type,
       day: isoDay(date), date, weekday: isWeekday(date),
-      contactId: record.contactId, contactName: record.contactName || "",
+      contactId: record.contactId, contactName: contactDisplayName(record),
       noteId: record.id, source: "unmatched", unmatched: true,
     };
   }
@@ -128,7 +161,7 @@ export function scoreNote(record) {
   return {
     owner, type, points, bucket: rule.bucket, label: rule.label,
     day: isoDay(date), date, weekday: isWeekday(date),
-    contactId: record.contactId, contactName: record.contactName || "",
+    contactId: record.contactId, contactName: contactDisplayName(record),
     noteId: record.id, source: rule.source, conflict: rule.conflict || null,
     assist: !!rule.assist,
   };
@@ -231,7 +264,7 @@ export function recurringToGift(record, posted = []) {
   return {
     id: record.id != null ? `rg-${record.id}` : record.id,
     contactId: record.contactId,
-    contactName: record.contactName || "",
+    contactName: contactDisplayName(record),
     giftDate: start,
     amount: creditMonthly,
     newMonthly: newAmt,
@@ -281,7 +314,12 @@ function withPostedMgoCoding(mapped, rg, posted) {
 export function prepareGifts(posted = [], recurring = []) {
   const monthly = recurring.filter((r) => /^monthly$/i.test(String(r.frequency || "").trim()));
   const asGifts = monthly
-    .map((r) => withPostedMgoCoding(recurringToGift(r, posted), r, posted))
+    .map((r) => {
+      const mapped = withPostedMgoCoding(recurringToGift(r, posted), r, posted);
+      if (contactDisplayName(mapped)) return mapped;
+      const named = (posted || []).find((p) => Number(p.contactId) === Number(r.contactId) && contactDisplayName(p));
+      return named ? { ...mapped, contactName: contactDisplayName(named) } : mapped;
+    })
     .filter((g) => parseAmount(g.amount) > 0 || parseAmount(g.newMonthly) > 0);
   const filtered = posted.filter((g) => !monthly.some((rg) => matchesMonthlyInstallment(rg, g)));
   return [...filtered, ...asGifts];
@@ -469,7 +507,7 @@ function donationRow(record, owner) {
     bucket: "donation",
     label,
     day: isoDay(date), date, weekday: isWeekday(date),
-    contactId: record.contactId, contactName: record.contactName || "",
+    contactId: record.contactId, contactName: contactDisplayName(record),
     giftId: record.id, giftType: record.giftType || "",
     frequency: record.frequency || (monthly ? "Monthly" : ""),
     project: giftProject(record), solicitor: solicitor || "",
@@ -530,7 +568,7 @@ function matchableGift(record) {
   if (postedAmount <= 0 || !date) return null;
   return {
     contactId: record.contactId,
-    contactName: record.contactName || "",
+    contactName: contactDisplayName(record),
     date, day: isoDay(date), weekday: isWeekday(date),
     amount: postedAmount, postedAmount, giftId: record.id,
     matchOnly: true,
@@ -626,32 +664,37 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, countedGifts }) {
     );
     if (sheetHit) {
       countedUsed.add(sheetHit.index);
-      const r = scoreGift(
-        {
-          ...g,
-          amount: sheetHit.row.amount,
-          frequency: "",
-          acIncrease: false,
-          priorMonthly: null,
-        },
-        sheetHit.owner,
-        sheetHit.owner,
-      );
-      if (r) {
+      const owners = sheetHit.owners?.length ? sheetHit.owners : [sheetHit.owner];
+      const share = Math.round((Number(sheetHit.row.amount) / owners.length) * 100) / 100;
+      let any = false;
+      for (const owner of owners) {
+        const r = scoreGift(
+          {
+            ...g,
+            amount: share,
+            frequency: "",
+            acIncrease: false,
+            priorMonthly: null,
+          },
+          owner,
+          owner,
+        );
+        if (!r) continue;
         const credited = {
           ...r,
-          amount: sheetHit.row.amount,
-          postedAmount: sheetHit.row.amount,
+          amount: share,
+          postedAmount: share,
           annualized: !!sheetHit.row.monthly,
           acIncrease: false,
           source: "spreadsheet",
-          label: "Counted on MA tracker",
+          label: owners.length > 1 ? "Counted on MA tracker (split)" : "Counted on MA tracker",
         };
         rows.push(credited);
         scoredGifts.push(credited);
         matchGifts.push(credited);
-        continue;
+        any = true;
       }
+      if (any) continue;
     }
     if (isMgoAttributedGift(g)) {
       const assigned = assignedOwnerForGift(g, reviewHint, flags);
@@ -732,9 +775,13 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, countedGifts }) {
   const securedIds = new Set(
     donationNotes.filter((n) => !n.unmatched && n.giftId != null).map((n) => String(n.giftId)),
   );
+  const securedPts = new Set(
+    donationNotes.filter((n) => !n.unmatched && n.giftId != null).map((n) => `${n.giftId}:${n.owner}`),
+  );
   for (const g of scoredGifts) {
     if (!g.assist) continue;
-    if (securedIds.has(String(g.giftId))) continue;
+    const key = `${g.giftId}:${g.owner}`;
+    if (securedPts.has(key)) continue;
     rows.push({
       owner: g.owner,
       type: "Mission Advancement | Gift Assist",
@@ -747,12 +794,14 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, countedGifts }) {
       source: "assist-backfill",
       assist: true,
     });
-    securedIds.add(String(g.giftId));
+    securedPts.add(key);
+    if (g.giftId != null) securedIds.add(String(g.giftId));
   }
   for (const g of scoredGifts) {
     if (g.assist) continue;
     if ((g.amount || 0) <= 0) continue;
-    if (securedIds.has(String(g.giftId))) continue;
+    const key = `${g.giftId}:${g.owner}`;
+    if (securedPts.has(key)) continue;
     rows.push({
       owner: g.owner,
       type: "Mission Advancement | New Donation or New AC",
@@ -764,7 +813,8 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, countedGifts }) {
       giftId: g.giftId, giftAmount: g.postedAmount || g.amount || 0,
       source: "raised-backfill",
     });
-    securedIds.add(String(g.giftId));
+    securedPts.add(key);
+    if (g.giftId != null) securedIds.add(String(g.giftId));
   }
 
   const raisedById = new Map(scoredGifts.map((g) => [String(g.giftId), g]));
@@ -824,7 +874,11 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, countedGifts }) {
       date: gDate,
       weekday: isWeekday(gDate),
       contactId: g.contactId,
-      contactName: g.contactName || hit.note.contactName || "",
+      contactName:
+        contactDisplayName(g)
+        || notesOnContact.map((n) => n.contactName).find(Boolean)
+        || hit.note.contactName
+        || "",
       giftId: g.id,
       giftType: g.giftType || "",
       project: giftProject(g),

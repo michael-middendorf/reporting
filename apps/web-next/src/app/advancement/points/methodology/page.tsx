@@ -2,7 +2,7 @@
 
 import { Suspense } from "react";
 import { PointsSubnav } from "@/components/PointsSubnav";
-import { CONFLICTS, DAY_TARGETS, DEFINITIONS, POINTS_MAP, TIERS } from "@/lib/reports/points/scoring";
+import { CONFLICTS, DAY_TARGETS, DEFINITIONS, POINTS_MAP, TIERS, TRACKING_CHART } from "@/lib/reports/points/scoring";
 import "@/styles/points.css";
 
 export default function PointsMethodologyPage() {
@@ -24,6 +24,40 @@ export default function PointsMethodologyPage() {
             contact, as themselves. A note on the wrong person, the wrong type, or after the gift will
             not count. A posted gift with no MA note on that contact is not attributed.
           </p>
+
+          <section style={{ marginTop: 28 }} id="tracking-chart">
+            <h2>Tracking chart</h2>
+            <p className="track-lead" style={{ maxWidth: "72ch" }}>
+              Virtuous note type on the donor’s contact, logged as yourself. Gifts are linked by the same
+              contact when the note is on or before the gift, within 45 days. {TRACKING_CHART.refresh}
+            </p>
+            <ul style={{ maxWidth: "72ch" }}>
+              {TRACKING_CHART.gifts.map((g) => (
+                <li key={g.label} style={{ marginBottom: 8 }}>
+                  <strong>{g.label}.</strong> {g.detail}
+                </li>
+              ))}
+            </ul>
+            <table style={{ width: "100%", background: "#fff", borderCollapse: "collapse", marginTop: 16 }}>
+              <thead>
+                <tr>
+                  <th align="left">Counts as</th>
+                  <th align="left">Virtuous note type</th>
+                  <th align="right">Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {TRACKING_CHART.rows.map((r) => (
+                  <tr key={`${r.tracker}-${r.type}`}>
+                    <td>{r.tracker}</td>
+                    <td>{r.type}</td>
+                    <td align="right">{r.pts}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="footnote">Wrong person, wrong type, or no note = not counted.</p>
+          </section>
 
           <section style={{ marginTop: 28 }}>
             <h2>Point values</h2>

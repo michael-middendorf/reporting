@@ -43,12 +43,14 @@ function daysApart(a, b) {
   return Math.round(ms / 86400000);
 }
 
-/** Map "Elena", "Betsy and Caleb" to a roster MA name. */
-export function rosterOwnerFromSheetName(name) {
+/** Map "Elena", "Betsy and Caleb" to roster MA names (all of them). */
+export function rosterOwnersFromSheetName(name) {
   const parts = String(name || "")
     .split(/\s+and\s+|\/|,/i)
     .map((s) => s.trim())
     .filter(Boolean);
+  const out = [];
+  const seen = new Set();
   for (const p of parts) {
     const hit = MA_ROSTER.find((m) => {
       const full = m.name.toLowerCase();
@@ -56,9 +58,16 @@ export function rosterOwnerFromSheetName(name) {
       const needle = p.toLowerCase();
       return full === needle || short === needle || full.startsWith(`${needle} `);
     });
-    if (hit) return hit.name;
+    if (hit && !seen.has(hit.name)) {
+      seen.add(hit.name);
+      out.push(hit.name);
+    }
   }
-  return null;
+  return out;
+}
+
+export function rosterOwnerFromSheetName(name) {
+  return rosterOwnersFromSheetName(name)[0] || null;
 }
 
 export function matchCountedSpreadsheetGift(gift, counted = COUNTED_SPREADSHEET_GIFTS, used = new Set()) {
@@ -71,11 +80,10 @@ export function matchCountedSpreadsheetGift(gift, counted = COUNTED_SPREADSHEET_
   let bestScore = Infinity;
   counted.forEach((row, i) => {
     if (used.has(i)) return;
-    const owner = rosterOwnerFromSheetName(row.owner);
-    if (!owner) return;
+    const owners = rosterOwnersFromSheetName(row.owner);
+    if (!owners.length) return;
     const names = overlap(donor, row.donor);
     const lastSheet = tokens(row.donor).pop() || "";
-    if (names < 1) return;
     if (lastGift && lastSheet && lastGift !== lastSheet) return;
     const gap = daysApart(day, row.day);
     if (gap > 21) return;
@@ -83,13 +91,13 @@ export function matchCountedSpreadsheetGift(gift, counted = COUNTED_SPREADSHEET_
       amountsClose(posted, row.amount, row.monthly) ||
       amountsClose(monthly, row.amount, row.monthly) ||
       amountsClose(monthly * 12, row.amount, false);
-    // Spreadsheet association is enough: same donor last name + date window.
-    // Amount helps pick the right gift when a contact has more than one.
+    // Blank Virtuous contactName still matches on amount + date.
+    if (names < 1 && !(amountOk && gap <= 5)) return;
     if (!amountOk && names < 2 && gap > 3) return;
-    const score = (amountOk ? 0 : 40) + gap * 10 - names;
+    const score = (amountOk ? 0 : 40) + gap * 10 - names + (names < 1 ? 20 : 0);
     if (score < bestScore) {
       bestScore = score;
-      best = { index: i, owner, row };
+      best = { index: i, owner: owners[0], owners, row };
     }
   });
   return best;
