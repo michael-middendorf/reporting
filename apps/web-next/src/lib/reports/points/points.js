@@ -3,6 +3,7 @@
  * Turns raw Virtuous records into scored activity rows entirely client-side.
  */
 import { POINTS_MAP, EVENT_POINTS_PER_HOUR, TRACKED_EVENT_TYPES, SETTINGS, MA_NAMES, MA_ROSTER } from "./config.js";
+import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "./counted-gifts.js";
 
 /** Normalize a Virtuous date string ("8/4/2026" or ISO) to a Date (local). */
 export function parseDate(value) {
@@ -27,10 +28,6 @@ export function isWeekday(d) {
 
 const rosterSet = new Set(MA_NAMES);
 const startByOwner = new Map(MA_ROSTER.map((m) => [m.name, m.startDate || null]));
-const skippedEventNoteTypes = new Set(
-  TRACKED_EVENT_TYPES.map((t) => String(t.type || "").toLowerCase()),
-);
-
 function contactKey(id) {
   if (id == null || id === "") return null;
   const s = String(id).trim();
@@ -107,8 +104,6 @@ export function scoreNote(record) {
 
   const type = (record.type || "").trim();
   const key = mapNoteType(type);
-  // Event notes in Virtuous no longer score. Hours added on the dashboard do.
-  if (skippedEventNoteTypes.has(type.toLowerCase()) || skippedEventNoteTypes.has(key)) return null;
   const rule = POINTS_MAP[key];
   const date = parseDate(record.noteDate) || parseDate(record.createDateTimeUtc);
   if (!date) return null;
@@ -188,9 +183,15 @@ function isAcGift(record) {
   return /annunciation/i.test(blob);
 }
 
+function daysBetweenIso(a, b) {
+  if (!a || !b) return null;
+  return Math.round((new Date(`${b}T00:00:00`) - new Date(`${a}T00:00:00`)) / 86400000);
+}
+
 /**
  * Most recent Annunciation Circle monthly amount on this contact before `beforeDay`.
- * Tracker credits only the increase when an existing AC is raised.
+ * Tracker credits only the increase when an existing AC is raised. A gap longer
+ * than acLapseDays means they canceled — the new signup is a full restart.
  */
 export function priorAcMonthly(posted, contactId, beforeDay) {
   const cid = Number(contactId);
@@ -209,6 +210,10 @@ export function priorAcMonthly(posted, contactId, beforeDay) {
       bestAmt = amt;
     }
   }
+  if (!bestDay) return 0;
+  const gap = daysBetweenIso(bestDay, beforeDay);
+  const lapse = SETTINGS.acLapseDays ?? 45;
+  if (gap != null && gap > lapse) return 0;
   return bestAmt;
 }
 
@@ -277,7 +282,7 @@ export function prepareGifts(posted = [], recurring = []) {
   const monthly = recurring.filter((r) => /^monthly$/i.test(String(r.frequency || "").trim()));
   const asGifts = monthly
     .map((r) => withPostedMgoCoding(recurringToGift(r, posted), r, posted))
-    .filter((g) => parseAmount(g.amount) > 0);
+    .filter((g) => parseAmount(g.amount) > 0 || parseAmount(g.newMonthly) > 0);
   const filtered = posted.filter((g) => !monthly.some((rg) => matchesMonthlyInstallment(rg, g)));
   return [...filtered, ...asGifts];
 }
@@ -583,10 +588,11 @@ function markAssist(gift) {
  * a normal donation. An unassigned MGO gift with an MA note in the window
  * is emitted with `needsReview: true` (listed, not added to Raised).
  */
-export function scoreAll({ notes = [], gifts = [], flags = {} }) {
+export function scoreAll({ notes = [], gifts = [], flags = {}, countedGifts }) {
   const rows = [];
   const donationNotes = [];
   const activityByContact = new Map();
+  const countedUsed = new Set();
   for (const n of notes) {
     const r = scoreNote(n);
     if (!r) continue;
@@ -607,6 +613,46 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
     const notesOnContact = ck ? (activityByContact.get(ck) || []) : [];
     const reviewHint = gDate ? ownerHintForReview(gDate, notesOnContact) : null;
     const giftHint = gDate ? ownerHintForGift(gDate, notesOnContact) : null;
+    const sheetHit = matchCountedSpreadsheetGift(
+      {
+        ...g,
+        day: gDate ? isoDay(gDate) : null,
+        postedAmount: parseAmount(g.amount) || parseAmount(g.newMonthly),
+        amount: parseAmount(g.amount) || parseAmount(g.newMonthly),
+        newMonthly: parseAmount(g.newMonthly),
+      },
+      countedGifts === undefined ? COUNTED_SPREADSHEET_GIFTS : countedGifts,
+      countedUsed,
+    );
+    if (sheetHit) {
+      countedUsed.add(sheetHit.index);
+      const r = scoreGift(
+        {
+          ...g,
+          amount: sheetHit.row.amount,
+          frequency: "",
+          acIncrease: false,
+          priorMonthly: null,
+        },
+        sheetHit.owner,
+        sheetHit.owner,
+      );
+      if (r) {
+        const credited = {
+          ...r,
+          amount: sheetHit.row.amount,
+          postedAmount: sheetHit.row.amount,
+          annualized: !!sheetHit.row.monthly,
+          acIncrease: false,
+          source: "spreadsheet",
+          label: "Counted on MA tracker",
+        };
+        rows.push(credited);
+        scoredGifts.push(credited);
+        matchGifts.push(credited);
+        continue;
+      }
+    }
     if (isMgoAttributedGift(g)) {
       const assigned = assignedOwnerForGift(g, reviewHint, flags);
       if (assigned) {

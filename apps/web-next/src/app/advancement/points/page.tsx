@@ -1009,34 +1009,50 @@ function PointsPageInner() {
                 <p className="todo-empty">None for this MA.</p>
               ) : (
                 <>
+                  <div className="todo-table-wrap">
+                    <table className="grid todo-table">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Donor</th>
+                          <th>Kind</th>
+                          <th>Spoke with</th>
+                          <th>Amount</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
                   {listedPossible.map((g, i) => {
                     const owners = incomingOwners(g);
                     const busy = assignBusy != null || flagBusy === (g.giftId != null ? `gift:${g.giftId}` : null);
                     return (
-                      <article key={g.giftId != null && g.giftId !== "" ? String(g.giftId) : `todo-${i}`} className="todo-card">
-                        <div className="todo-card-main">
-                          <div className="todo-kicker">Needs a decision</div>
-                          <h3 className="todo-who">{g.contactName || "Unknown donor"}</h3>
-                          <p className="todo-meta">
-                            {g.day ? formatDay(g.day) : "—"}
-                            {g.kindLabel ? ` · ${g.kindLabel}` : g.giftType ? ` · ${g.giftType}` : ""}
-                            {g.project ? ` · ${g.project}` : ""}
-                          </p>
-                          <ul className="todo-spoke">
-                            {owners.map((o, idx) => (
-                              <li key={`${o.name}-${idx}`}>
-                                <strong>{o.name.split(" ")[0]}</strong>
-                                {" spoke with them"}
-                                {o.noteLabel ? ` (${o.noteLabel})` : ""}
-                                {o.noteDay ? ` on ${formatDay(o.noteDay)}` : ""}
-                                {o.daysAfterNote != null ? ` · gift ${o.daysAfterNote}d later` : ""}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                        <div className="todo-card-side">
-                          <div className="todo-amount tabular">{money(g.amount)}</div>
-                          <p className="todo-outcome">Assign = 100 pts + Raised</p>
+                      <tr key={g.giftId != null && g.giftId !== "" ? String(g.giftId) : `todo-${i}`}>
+                        <td className="nowrap">{g.day ? formatDay(g.day) : "—"}</td>
+                        <td>
+                          {g.contactName || "Unknown donor"}
+                          {virtuousGiftUrl(g.contactId) ? (
+                            <>
+                              {" "}
+                              <a className="todo-link" href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
+                                ↗
+                              </a>
+                            </>
+                          ) : null}
+                        </td>
+                        <td>
+                          {g.kindLabel || g.giftType || "—"}
+                          {g.project ? <span className="todo-muted"> · {g.project}</span> : null}
+                        </td>
+                        <td>
+                          {owners.map((o, idx) => (
+                            <div key={`${o.name}-${idx}`}>
+                              {o.name.split(" ")[0]}
+                              {o.daysAfterNote != null ? <span className="todo-muted"> · {o.daysAfterNote}d</span> : null}
+                            </div>
+                          ))}
+                        </td>
+                        <td className="pts tabular nowrap">{money(g.amount)}</td>
+                        <td>
                           <div className="todo-actions">
                             {owners.map((o) => (
                               <button
@@ -1046,7 +1062,7 @@ function PointsPageInner() {
                                 disabled={busy}
                                 onClick={() => assignIncoming(g, o.name, false, { skipConfirm: true })}
                               >
-                                {assignBusy === `${g.giftId}:${o.name}` ? "Assigning…" : `Assign ${o.name.split(" ")[0]}`}
+                                {assignBusy === `${g.giftId}:${o.name}` ? "…" : o.name.split(" ")[0]}
                               </button>
                             ))}
                             {owners.map((o) => (
@@ -1055,52 +1071,69 @@ function PointsPageInner() {
                                 type="button"
                                 className="mini-btn"
                                 disabled={busy}
-                                title="100 points, $0 Raised"
+                                title={`Assist ${o.name.split(" ")[0]} · 100 pts, $0`}
                                 onClick={() => assignIncoming(g, o.name, true, { skipConfirm: true })}
                               >
-                                Assist {o.name.split(" ")[0]}
+                                Assist
                               </button>
                             ))}
-                            {virtuousGiftUrl(g.contactId) ? (
-                              <a className="todo-link" href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
-                                Gift ↗
-                              </a>
-                            ) : null}
                             <button
                               type="button"
                               className="mini-btn danger"
                               disabled={busy}
                               onClick={() => dismissIncoming(g)}
                             >
-                              {flagBusy === `gift:${g.giftId}` ? "Removing…" : "Remove"}
+                              {flagBusy === `gift:${g.giftId}` ? "…" : "Remove"}
                             </button>
                           </div>
-                        </div>
-                      </article>
+                        </td>
+                      </tr>
                     );
                   })}
+                      </tbody>
+                    </table>
+                  </div>
 
                   {todoReviewGifts.length > 0 ? (
-                    <h3 className="todo-sub">MGO-coded — assign to count dollars, or remove</h3>
-                  ) : null}
+                    <>
+                    <h3 className="todo-sub">MGO-coded</h3>
+                    <div className="todo-table-wrap">
+                    <table className="grid todo-table">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Donor</th>
+                          <th>Kind</th>
+                          <th>MA</th>
+                          <th>Amount</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
                   {todoReviewGifts.map((g, i) => {
                     const id = giftFlagId(g);
                     const busy = flagBusy === id;
                     return (
-                      <article key={id || `todo-mgo-${i}`} className="todo-card todo-card-mgo">
-                        <div className="todo-card-main">
-                          <div className="todo-kicker">MGO-coded gift</div>
-                          <h3 className="todo-who">{g.contactName || "Unknown donor"}</h3>
-                          <p className="todo-meta">
-                            {g.day ? formatDay(g.day) : "—"}
-                            {g.giftType ? ` · ${g.giftType}` : ""}
-                            {g.project ? ` · ${g.project}` : ""}
-                            {g.owner ? ` · ${g.owner} had a note on this donor` : ""}
-                          </p>
-                        </div>
-                        <div className="todo-card-side">
-                          <div className="todo-amount tabular">{money(g.amount)}</div>
-                          <p className="todo-outcome">Assign = 100 pts + Raised</p>
+                      <tr key={id || `todo-mgo-${i}`}>
+                        <td className="nowrap">{g.day ? formatDay(g.day) : "—"}</td>
+                        <td>
+                          {g.contactName || "Unknown donor"}
+                          {virtuousGiftUrl(g.contactId) ? (
+                            <>
+                              {" "}
+                              <a className="todo-link" href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
+                                ↗
+                              </a>
+                            </>
+                          ) : null}
+                        </td>
+                        <td>
+                          {g.giftType || "—"}
+                          {g.project ? <span className="todo-muted"> · {g.project}</span> : null}
+                        </td>
+                        <td>{g.owner ? g.owner.split(" ")[0] : "—"}</td>
+                        <td className="pts tabular nowrap">{money(g.amount)}</td>
+                        <td>
                           <div className="todo-actions">
                             {g.owner && id ? (
                               <button
@@ -1109,13 +1142,8 @@ function PointsPageInner() {
                                 disabled={busy}
                                 onClick={() => assignMgoGift(g)}
                               >
-                                {busy ? "Assigning…" : `Assign ${g.owner.split(" ")[0]}`}
+                                {busy ? "…" : g.owner.split(" ")[0]}
                               </button>
-                            ) : null}
-                            {virtuousGiftUrl(g.contactId) ? (
-                              <a className="todo-link" href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
-                                Gift ↗
-                              </a>
                             ) : null}
                             {id ? (
                               <button
@@ -1138,14 +1166,19 @@ function PointsPageInner() {
                                   if (ok) showUndo(id, `Removed ${g.contactName || "this gift"}.`);
                                 }}
                               >
-                                {busy ? "Removing…" : "Remove"}
+                                {busy ? "…" : "Remove"}
                               </button>
                             ) : null}
                           </div>
-                        </div>
-                      </article>
+                        </td>
+                      </tr>
                     );
                   })}
+                      </tbody>
+                    </table>
+                    </div>
+                    </>
+                  ) : null}
                 </>
               )}
             </div>
@@ -1559,14 +1592,14 @@ function PointsPageInner() {
             <h2>
               Events{" "}
               <span className="section-hint">
-                {EVENT_POINTS_PER_HOUR} pts per hour · reporting only, not written to Virtuous
+                large events · {EVENT_POINTS_PER_HOUR} pts per hour · not written to Virtuous
               </span>
             </h2>
             <div className="panel">
               <p className="footnote" style={{ marginTop: 0, marginBottom: 14 }}>
-                Add an event type and hours to credit an MA. Points = hours × {EVENT_POINTS_PER_HOUR}.
-                This is the only way event points are scored. A Virtuous Event note does not count.
-                This stays on the dashboard for reporting and does not create a Virtuous event or note.
+                Use this for large events only. Points = hours × {EVENT_POINTS_PER_HOUR}. It does not
+                create a Virtuous event. A one-on-one Event or Marketing Event note on a contact still
+                counts at 25 points, same as a meeting.
               </p>
               <form
                 className="event-form"

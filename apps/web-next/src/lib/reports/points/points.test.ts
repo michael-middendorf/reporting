@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MA_NAMES, SETTINGS, evalStartDate } from "./config.js";
 import { assignedNotesFromFlags, eventPointsForHours, isMgoAttributedGift, isMonthlyRecurring, parseDate, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
+import { COUNTED_SPREADSHEET_GIFTS } from "./counted-gifts.js";
 import { aggregate, daysOfWeek, isTaskListRow, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
 import { buildCalculationCSV, statusOf, virtuousGiftUrl } from "./report.js";
 
@@ -101,8 +102,9 @@ function run(
   gifts: unknown[] = [],
   ownerName: string = ALANNA,
   flags: Record<string, { status?: string; owner?: string }> = {},
+  countedGifts: unknown[] = [],
 ) {
-  const rows = scoreAll({ notes, gifts, flags }) as ScoredRow[];
+  const rows = scoreAll({ notes, gifts, flags, countedGifts }) as ScoredRow[];
   const model = aggregate(rows, { flags }) as Model;
   const owner = model.tableOwners.find((o) => o.name === ownerName);
   assert.ok(owner, `expected ${ownerName} on the MA roster`);
@@ -632,23 +634,174 @@ describe("monthly AC annualization", () => {
       newMonthly?: number;
     };
     assert.ok(monthly);
-    assert.equal(monthly.amount, 7.5);
-    assert.equal(monthly.acIncrease, true);
-    assert.equal(monthly.priorMonthly, 32.5);
-    assert.equal(monthly.newMonthly, 40);
+    // Last AC was Nov 2025 — lapsed. Restart is the full $40 × 12, not the $7.50 raise.
+    assert.equal(monthly.amount, 40);
+    assert.equal(monthly.acIncrease, false);
+    assert.equal(monthly.priorMonthly, null);
     assert.equal(merged.some((g: { id?: number | string }) => g.id === 450744), false);
 
     const { owner, rows } = run(
-      [donationNote({ contactId: 88058, noteDate: "7/28/2026", type: "Mission Advancement | Annunciation Circle Updated" })],
+      [donationNote({ contactId: 88058, noteDate: "7/28/2026", type: "Mission Advancement | New Donation or New AC" })],
       merged,
     );
-    assert.equal(owner.giftAmount, 90);
+    assert.equal(owner.giftAmount, 480);
     assert.equal(owner.gifts, 1);
     assert.equal(owner.points, 100);
     const giftRow = rows.find((r) => r.bucket === "donation");
     assert.ok(giftRow);
-    assert.equal(giftRow.amount, 90);
-    assert.match(String(giftRow.label), /AC increase/);
+    assert.equal(giftRow.amount, 480);
+    assert.match(String(giftRow.label), /Monthly gift/);
+  });
+
+  it("credits only the increase when an active AC is raised", () => {
+    const merged = prepareGifts(
+      [
+        postedGift({
+          id: 1,
+          contactId: 88058,
+          contactName: "Active AC member",
+          giftDate: "7/15/2026",
+          amount: 32.5,
+          segment: "Annunciation Circle",
+        }),
+        postedGift({
+          id: 450744,
+          contactId: 88058,
+          contactName: "Active AC member",
+          giftDate: "7/30/2026",
+          amount: 40,
+          segment: "Annunciation Circle",
+        }),
+      ],
+      [
+        {
+          id: 3823,
+          contactId: 88058,
+          contactName: "Active AC member",
+          startDate: "2026-07-30",
+          amount: 40,
+          frequency: "Monthly",
+          segment: "Annunciation Circle",
+          designations: [{ project: "Annunciation Circle" }],
+        },
+      ],
+    );
+    const monthly = merged.find((g: { frequency?: string }) => g.frequency === "Monthly") as {
+      amount: number;
+      acIncrease?: boolean;
+      priorMonthly?: number;
+    };
+    assert.ok(monthly);
+    assert.equal(monthly.amount, 7.5);
+    assert.equal(monthly.acIncrease, true);
+    assert.equal(monthly.priorMonthly, 32.5);
+    const { owner } = run(
+      [donationNote({ contactId: 88058, noteDate: "7/28/2026", type: "Mission Advancement | Annunciation Circle Updated" })],
+      merged,
+    );
+    assert.equal(owner.giftAmount, 90);
+  });
+
+  it("a lapsed AC who signs up again is the full monthly amount × 12", () => {
+    const merged = prepareGifts(
+      [
+        postedGift({
+          id: 1,
+          contactId: 77001,
+          contactName: "Patrick and Erica Applegate",
+          giftDate: "1/12/2025",
+          amount: 31.2,
+          segment: "Annunciation Circle",
+        }),
+        postedGift({
+          id: 2,
+          contactId: 77001,
+          contactName: "Patrick and Erica Applegate",
+          giftDate: "8/12/2026",
+          amount: 31.2,
+          segment: "Annunciation Circle",
+        }),
+      ],
+      [
+        {
+          id: 4001,
+          contactId: 77001,
+          contactName: "Patrick and Erica Applegate",
+          startDate: "2026-08-12",
+          amount: 31.2,
+          frequency: "Monthly",
+          segment: "Annunciation Circle",
+          designations: [{ project: "Annunciation Circle" }],
+        },
+      ],
+    );
+    const monthly = merged.find((g: { frequency?: string }) => g.frequency === "Monthly") as { amount: number; acIncrease?: boolean };
+    assert.ok(monthly);
+    assert.equal(monthly.amount, 31.2);
+    assert.equal(monthly.acIncrease, false);
+    const { owner } = run(
+      [donationNote({
+        createdByUser: ALANNA,
+        contactId: 77001,
+        contactName: "Patrick and Erica Applegate",
+        noteDate: "8/12/2026",
+        type: "Mission Advancement | New Donation or New AC",
+      })],
+      merged,
+    );
+    assert.equal(owner.giftAmount, 374.4);
+    assert.equal(owner.gifts, 1);
+  });
+
+  it("a tracker gift counts even if Virtuous treats the AC as a continuation", () => {
+    const merged = prepareGifts(
+      [
+        postedGift({
+          id: 1,
+          contactId: 77001,
+          contactName: "Patrick and Erica Applegate",
+          giftDate: "7/12/2026",
+          amount: 31.2,
+          segment: "Annunciation Circle",
+        }),
+        postedGift({
+          id: 2,
+          contactId: 77001,
+          contactName: "Patrick and Erica Applegate",
+          giftDate: "8/12/2026",
+          amount: 31.2,
+          segment: "Annunciation Circle",
+        }),
+      ],
+      [
+        {
+          id: 4001,
+          contactId: 77001,
+          contactName: "Patrick and Erica Applegate",
+          startDate: "2026-08-12",
+          amount: 31.2,
+          frequency: "Monthly",
+          segment: "Annunciation Circle",
+          designations: [{ project: "Annunciation Circle" }],
+        },
+      ],
+    );
+    const { owner, model } = run(
+      [donationNote({
+        createdByUser: ALANNA,
+        contactId: 77001,
+        contactName: "Patrick and Erica Applegate",
+        noteDate: "8/12/2026",
+        type: "Mission Advancement Call | Conversation",
+      })],
+      merged,
+      ALANNA,
+      {},
+      COUNTED_SPREADSHEET_GIFTS,
+    );
+    assert.equal(owner.giftAmount, 374.4);
+    assert.equal(owner.gifts, 1);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
   it("does not re-count a same-rate AC continuation", () => {
@@ -681,8 +834,10 @@ describe("monthly AC annualization", () => {
         },
       ],
     );
-    assert.equal(merged.some((g: { frequency?: string }) => g.frequency === "Monthly"), false);
-    assert.equal(merged.length, 0);
+    const monthly = merged.find((g: { frequency?: string; amount?: number }) => g.frequency === "Monthly");
+    assert.ok(monthly);
+    assert.equal(monthly.amount, 0);
+    assert.equal(merged.some((g: { id?: number | string }) => g.id === 2), false);
     assert.equal(priorAcMonthly(
       [
         postedGift({
@@ -1692,6 +1847,65 @@ describe("MGO-coded gifts do not credit MAs", () => {
   });
 });
 
+describe("spreadsheet tracker gifts", () => {
+  it("counts a tracker gift and keeps it out of Incoming", () => {
+    const ELENA = "Elena Barnes";
+    const { owner, model } = run(
+      [donationNote({
+        createdByUser: ELENA,
+        type: "Mission Advancement Call | Conversation",
+        noteDate: "8/31/2026",
+        contactId: 909,
+      })],
+      [postedGift({
+        contactId: 909,
+        contactName: "Mike and Carla Pellegrini",
+        giftDate: "8/31/2026",
+        amount: 721,
+      })],
+      ELENA,
+      {},
+      COUNTED_SPREADSHEET_GIFTS,
+    );
+    assert.equal(owner.giftAmount, 721);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 110);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
+  });
+
+  it("counts a tracker gift when Received is Pending, not Yes", () => {
+    const ELENA = "Elena Barnes";
+    const counted = [{
+      owner: "Elena",
+      donor: "Jane Tracker",
+      amount: 88,
+      day: "2026-08-15",
+      monthly: false,
+      received: "Pending",
+    }];
+    const { owner, model } = run(
+      [donationNote({
+        createdByUser: ELENA,
+        type: "Mission Advancement Call | Conversation",
+        noteDate: "8/15/2026",
+        contactId: 911,
+      })],
+      [postedGift({
+        contactId: 911,
+        contactName: "Jane Tracker",
+        giftDate: "8/15/2026",
+        amount: 88,
+      })],
+      ELENA,
+      {},
+      counted,
+    );
+    assert.equal(owner.giftAmount, 88);
+    assert.equal(owner.gifts, 1);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
+  });
+});
+
 describe("dashboard-tracked event hours", () => {
   it("hours × 25 points per hour", () => {
     assert.equal(eventPointsForHours(1), 25);
@@ -1738,13 +1952,13 @@ describe("dashboard-tracked event hours", () => {
     assert.equal(owner.points, 50);
   });
 
-  it("Virtuous Event notes do not score", () => {
+  it("one-on-one Event notes on a contact still score 25", () => {
     const { owner, rows } = run([
       donationNote({ type: "Mission Advancement | Event", id: 9 }),
       donationNote({ type: "Mission Advancement | Marketing Event", id: 10 }),
     ]);
-    assert.equal(owner.points, 0);
-    assert.equal(rows.filter((r) => r.bucket === "event" || r.noteId === 9 || r.noteId === 10).length, 0);
+    assert.equal(owner.points, 50);
+    assert.equal(rows.filter((r) => r.bucket === "event").length, 2);
   });
 
   it("ignores events before the MA start date and unknown owners", () => {

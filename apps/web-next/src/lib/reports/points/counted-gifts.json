@@ -1,0 +1,626 @@
+[
+  {
+    "owner": "Sean",
+    "donor": "Francis Scardino",
+    "amount": 100.0,
+    "day": "2026-06-10",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Sean",
+    "donor": "Anzelma Lopuch",
+    "amount": 50.0,
+    "day": "2026-07-01",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Sean",
+    "donor": "David and Lisa Bertocchi",
+    "amount": 200.0,
+    "day": "2026-07-27",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Natalia",
+    "donor": "Edward Rebholz",
+    "amount": 938.4,
+    "day": "2026-07-27",
+    "monthly": true,
+    "received": "Yes"
+  },
+  {
+    "owner": "Alanna",
+    "donor": "John and Margaret Given",
+    "amount": 1500.0,
+    "day": "2026-07-27",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Sean",
+    "donor": "Joseph and Janice Ambrose",
+    "amount": 50.0,
+    "day": "2026-07-27",
+    "monthly": false,
+    "received": "No"
+  },
+  {
+    "owner": "Sean",
+    "donor": "Luis and Susan Moreno",
+    "amount": 2000.0,
+    "day": "2026-07-27",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Caleb",
+    "donor": "Gary and Kathleen Murphy",
+    "amount": 103.0,
+    "day": "2026-07-30",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Sean",
+    "donor": "John Contreras",
+    "amount": 480.0,
+    "day": "2026-07-30",
+    "monthly": true,
+    "received": "Yes"
+  },
+  {
+    "owner": "Sean",
+    "donor": "John and Susan O'Neill",
+    "amount": 100.0,
+    "day": "2026-07-30",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Caleb",
+    "donor": "Josephine Olander",
+    "amount": 300.0,
+    "day": "2026-08-03",
+    "monthly": true,
+    "received": "yes"
+  },
+  {
+    "owner": "Betsy",
+    "donor": "Elaine Del Coro",
+    "amount": 50.0,
+    "day": "2026-08-04",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Sean",
+    "donor": "Joseph and Jasmine Patterson",
+    "amount": 2500.0,
+    "day": "2026-08-05",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Elena",
+    "donor": "Michael Cincotta",
+    "amount": 25.0,
+    "day": "2026-08-06",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Betsy",
+    "donor": "Michael Ferraro",
+    "amount": 60.0,
+    "day": "2026-08-06",
+    "monthly": true,
+    "received": "yes"
+  },
+  {
+    "owner": "Alanna",
+    "donor": "Gary and Carol Sienkiewicz",
+    "amount": 100.0,
+    "day": "2026-08-11",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Sean",
+    "donor": "Jerry and Rita McElhinny",
+    "amount": 25.0,
+    "day": "2026-08-11",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Sean",
+    "donor": "Judith McFarland",
+    "amount": 50.0,
+    "day": "2026-08-11",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Sean",
+    "donor": "Robert Ruane",
+    "amount": 10.0,
+    "day": "2026-08-11",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Betsy",
+    "donor": "Yolanda Ochoa",
+    "amount": 120.0,
+    "day": "2026-08-11",
+    "monthly": true,
+    "received": "yes"
+  },
+  {
+    "owner": "Alanna",
+    "donor": "Brian and Anne Carney",
+    "amount": 300.0,
+    "day": "2026-08-12",
+    "monthly": true,
+    "received": "Yes"
+  },
+  {
+    "owner": "Betsy",
+    "donor": "Christopher Riley",
+    "amount": 250.0,
+    "day": "2026-08-12",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Betsy",
+    "donor": "Joyce Platfoot",
+    "amount": 100.0,
+    "day": "2026-08-12",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Alanna",
+    "donor": "Patrick and Erica Applegate",
+    "amount": 374.4,
+    "day": "2026-08-12",
+    "monthly": true,
+    "received": "Yes"
+  },
+  {
+    "owner": "Sean",
+    "donor": "Mark and Nancy Kerner",
+    "amount": 50.0,
+    "day": "2026-08-13",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Elena Barnes",
+    "donor": "Merrill Jacobson",
+    "amount": 100.0,
+    "day": "2026-08-13",
+    "monthly": false,
+    "received": "No"
+  },
+  {
+    "owner": "Alanna",
+    "donor": "Rosaria Vitale",
+    "amount": 376.8,
+    "day": "2026-08-13",
+    "monthly": true,
+    "received": "Yes"
+  },
+  {
+    "owner": "Sean",
+    "donor": "Tobin Finzio",
+    "amount": 75.0,
+    "day": "2026-08-13",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Natalia",
+    "donor": "Anna Clark",
+    "amount": 200.0,
+    "day": "2026-08-14",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Joseph",
+    "donor": "Craig and Jamie Rumrill",
+    "amount": 618.23,
+    "day": "2026-08-14",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Joseph",
+    "donor": "Megan Vitale",
+    "amount": 650.0,
+    "day": "2026-08-16",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Natalia",
+    "donor": "John Suran",
+    "amount": 250.0,
+    "day": "2026-08-18",
+    "monthly": false,
+    "received": "No"
+  },
+  {
+    "owner": "Elena",
+    "donor": "Rosemarie Shoplik",
+    "amount": 100.0,
+    "day": "2026-08-18",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Betsy",
+    "donor": "Brian and Laura Mahoney",
+    "amount": 50.0,
+    "day": "2026-08-19",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Sean",
+    "donor": "Scott and Catherine Abercrombie",
+    "amount": 40.0,
+    "day": "2026-08-19",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Alanna",
+    "donor": "Dustin and Margaret Hamacher",
+    "amount": 612.0,
+    "day": "2026-08-20",
+    "monthly": true,
+    "received": "Yes"
+  },
+  {
+    "owner": "Caleb",
+    "donor": "James and Cynthia Doil",
+    "amount": 52.0,
+    "day": "2026-08-20",
+    "monthly": true,
+    "received": "yes"
+  },
+  {
+    "owner": "Joseph",
+    "donor": "Andres Jimenez",
+    "amount": 132.0,
+    "day": "2026-08-21",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Sean",
+    "donor": "Dennis Kristancic",
+    "amount": 100.0,
+    "day": "2026-08-21",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Sean",
+    "donor": "Joseph and Ann Hynds",
+    "amount": 192.0,
+    "day": "2026-08-21",
+    "monthly": true,
+    "received": "Yes"
+  },
+  {
+    "owner": "Joseph",
+    "donor": "Michael Middendorf",
+    "amount": 250.0,
+    "day": "2026-08-21",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Joseph",
+    "donor": "Stephen + Anegala Byers",
+    "amount": 360.0,
+    "day": "2026-08-23",
+    "monthly": true,
+    "received": "Yes"
+  },
+  {
+    "owner": "Betsy",
+    "donor": "Elizabeth Baldo",
+    "amount": 103.0,
+    "day": "2026-08-24",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Betsy",
+    "donor": "Jeremy and Michelle Valery",
+    "amount": 75.0,
+    "day": "2026-08-25",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Elena",
+    "donor": "Joan Noel",
+    "amount": 100.0,
+    "day": "2026-08-27",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Joseph",
+    "donor": "Brook Schroeder",
+    "amount": 396.0,
+    "day": "2026-08-30",
+    "monthly": true,
+    "received": "yes"
+  },
+  {
+    "owner": "Joseph",
+    "donor": "Timothy and Tara Joseph",
+    "amount": 324.0,
+    "day": "2026-08-30",
+    "monthly": true,
+    "received": "Yes"
+  },
+  {
+    "owner": "Elena",
+    "donor": "Carla Pellegrini",
+    "amount": 721.0,
+    "day": "2026-08-31",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Joseph",
+    "donor": "Phillip Arencibia",
+    "amount": 624.0,
+    "day": "2026-08-31",
+    "monthly": true,
+    "received": "Yes"
+  },
+  {
+    "owner": "Sean",
+    "donor": "Denise Commons",
+    "amount": 100.0,
+    "day": "2026-09-01",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Sean",
+    "donor": "Patrick and Maurita Meehan",
+    "amount": 10.0,
+    "day": "2026-09-01",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Sean",
+    "donor": "Jerry and Kathy Breuss",
+    "amount": 245.0,
+    "day": "2026-09-02",
+    "monthly": true,
+    "received": "Yes"
+  },
+  {
+    "owner": "Alanna",
+    "donor": "Joseph and Kimberly Bocchino",
+    "amount": 326.4,
+    "day": "2026-09-02",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Betsy and Caleb",
+    "donor": "David Hermann",
+    "amount": 40.0,
+    "day": "2026-09-03",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Caleb",
+    "donor": "Edwin and Michelle Gay",
+    "amount": 104.0,
+    "day": "2026-09-06",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Betsy",
+    "donor": "David Hermann",
+    "amount": 1000.0,
+    "day": "2026-09-08",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Betsy",
+    "donor": "John and Danna Trobaugh",
+    "amount": 103.0,
+    "day": "2026-09-09",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Joseph",
+    "donor": "Joseph and Margaret Rosowski",
+    "amount": 25.0,
+    "day": "2026-09-09",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Elena",
+    "donor": "Merrill Jacodson",
+    "amount": 150.0,
+    "day": "2026-09-09",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Joseph",
+    "donor": "Timothy Dilling",
+    "amount": 100.0,
+    "day": "2026-09-09",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Alanna",
+    "donor": "Cecelia Minsky",
+    "amount": 200.0,
+    "day": "2026-09-10",
+    "monthly": false,
+    "received": ""
+  },
+  {
+    "owner": "Caleb",
+    "donor": "Dennis Silverio",
+    "amount": 26.0,
+    "day": "2026-09-11",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Sean",
+    "donor": "Lawrence Birzer",
+    "amount": 25.0,
+    "day": "2026-09-11",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Joseph",
+    "donor": "Bob and Karen Kelly",
+    "amount": 31.0,
+    "day": "2026-09-12",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Natalia",
+    "donor": "John Suran",
+    "amount": 257.78,
+    "day": "2026-09-12",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Alanna",
+    "donor": "Sandra Dawson",
+    "amount": 20.0,
+    "day": "2026-09-12",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Alanna",
+    "donor": "St. Ambrose Catholic Church",
+    "amount": 150.0,
+    "day": "2026-09-12",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Elena",
+    "donor": "Dan and Andrea Donaldson",
+    "amount": 258.0,
+    "day": "2026-09-14",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Sean",
+    "donor": "Jeanne Anderson",
+    "amount": 100.0,
+    "day": "2026-09-14",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Betsy",
+    "donor": "Rosemarie Dotro",
+    "amount": 1000.0,
+    "day": "2026-09-14",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Joseph",
+    "donor": "William and Virginia Peters",
+    "amount": 15.0,
+    "day": "2026-09-14",
+    "monthly": true,
+    "received": "Yes"
+  },
+  {
+    "owner": "Elena",
+    "donor": "Daniel Moore",
+    "amount": 100.0,
+    "day": "2026-09-15",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Joseph",
+    "donor": "James Spera",
+    "amount": 100.0,
+    "day": "2026-09-15",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Elena",
+    "donor": "Janice Stewart",
+    "amount": 50.0,
+    "day": "2026-09-15",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Alanna",
+    "donor": "Jerome and Mary Ann Kolarik",
+    "amount": 25.0,
+    "day": "2026-09-15",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Sean",
+    "donor": "Joseph and Sandy Czerwinski",
+    "amount": 50.0,
+    "day": "2026-09-15",
+    "monthly": false,
+    "received": "Yes"
+  },
+  {
+    "owner": "Alanna",
+    "donor": "Kathleen Boldrick",
+    "amount": 100.0,
+    "day": "2026-09-15",
+    "monthly": false,
+    "received": "yes"
+  },
+  {
+    "owner": "Alanna",
+    "donor": "Lawrence Bleau",
+    "amount": 200.0,
+    "day": "2026-09-15",
+    "monthly": false,
+    "received": "yes"
+  }
+]
