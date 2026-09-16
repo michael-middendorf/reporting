@@ -8,14 +8,15 @@ Qlik filters gifts whose Segment Name is one of:
   Athletics - Specific Sport
   Athletics Fundraising-HIST_DS
 
-This year's AMU Athletics Golf Tournament posts to its own event segment
-(2026 AMU Athletic Golf Tournament), not those three, so it is included too.
+Athletics event gifts (golf tournament, football golf, and other
+Tournament segments) post to their own event segments, not those three,
+so Segment Name Contains Tournament is included too.
 
 Those QVDs live in lib://Advancement (DEV):DataFiles/virtuous_full_gifts_*.qvd
 and are produced by the Advancement Virtuous reload apps. This publisher hits
-POST /api/GiftDesignation/Query with those Qlik segments plus the 2026 golf
-tournament event so totals stay on the designation grain (one fund split per
-gift). That avoids the Qlik join that inflates Sum(amountDesignated) and the
+POST /api/GiftDesignation/Query with those Qlik segments plus tournament
+events so totals stay on the designation grain (one fund split per gift).
+That avoids the Qlik join that inflates Sum(amountDesignated) and the
 Concat(segment) "Gift Destination" cell.
 
 CREDITCARDCOSTS is kept on gift rows (Qlik shows it) and split out of program
@@ -42,8 +43,8 @@ SEGMENTS = (
     "Athletics Fundraising",
     "Athletics - Specific Sport",
     "Athletics Fundraising-HIST_DS",
-    "2026 AMU Athletic Golf Tournament",
 )
+EVENT_NAME_CONTAINS = "Tournament"
 FEE_CODES = frozenset({"CREDITCARDCOSTS"})
 
 
@@ -149,18 +150,50 @@ def previous_fiscal_year_start(fy_start: dt.date) -> dt.date:
     return dt.date(fy_start.year - 1, fy_start.month, fy_start.day)
 
 
+def _date_condition(since: dt.date | None) -> list[dict[str, str]]:
+    if since is None:
+        return []
+    return [{"parameter": "Gift Date", "operator": "OnOrAfter", "value": since.isoformat()}]
+
+
 def designation_query(since: dt.date | None = None) -> dict[str, Any]:
-    groups = []
-    for segment in SEGMENTS:
-        conditions: list[dict[str, str]] = [
-            {"parameter": "Segment Name", "operator": "Is", "value": segment},
-        ]
-        if since is not None:
-            conditions.append(
-                {"parameter": "Gift Date", "operator": "OnOrAfter", "value": since.isoformat()},
-            )
-        groups.append({"conditions": conditions})
+    groups = [
+        {
+            "conditions": [
+                {"parameter": "Segment Name", "operator": "Is", "value": segment},
+                *_date_condition(since),
+            ]
+        }
+        for segment in SEGMENTS
+    ]
+    groups.append(
+        {
+            "conditions": [
+                {"parameter": "Segment Name", "operator": "Contains", "value": EVENT_NAME_CONTAINS},
+                *_date_condition(since),
+            ]
+        }
+    )
     return {"groups": groups}
+
+
+def unique_designations(raw_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[Any] = set()
+    out: list[dict[str, Any]] = []
+    for raw in raw_rows:
+        key = raw.get("id")
+        if key is None:
+            key = (
+                raw.get("giftId"),
+                raw.get("projectCode"),
+                raw.get("amountDesignated"),
+                raw.get("segmentName") or raw.get("segment"),
+            )
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(raw)
+    return out
 
 
 def contact_url(contact_id: Any) -> str | None:
@@ -279,7 +312,7 @@ def build_snapshot(
 ) -> dict[str, Any]:
     fy, fy_start, fy_end = fiscal_year_window(today)
     since = previous_fiscal_year_start(fy_start)
-    rows = [row for row in (normalize_row(raw) for raw in raw_rows) if row]
+    rows = [row for row in (normalize_row(raw) for raw in unique_designations(raw_rows)) if row]
     rows = [
         row
         for row in rows
@@ -296,7 +329,18 @@ def build_snapshot(
     return {
         "generated_at": generated_at,
         "source": "virtuous",
-        "segments": list(SEGMENTS),
+        "segments": list(
+            dict.fromkeys(
+                [
+                    *SEGMENTS,
+                    *[
+                        str(row.get("segment"))
+                        for row in rows
+                        if row.get("segment") and row.get("segment") not in SEGMENTS
+                    ],
+                ]
+            )
+        ),
         "fiscalYear": fy,
         "fiscalYearLabel": fiscal_year_label(fy),
         "fyStart": fy_start.isoformat(),

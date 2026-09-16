@@ -6,6 +6,7 @@ import unittest
 from typing import Any
 
 from handler import (
+    EVENT_NAME_CONTAINS,
     SEGMENTS,
     build_snapshot,
     designation_query,
@@ -16,6 +17,7 @@ from handler import (
     parse_gift_date,
     parse_money,
     previous_fiscal_year_start,
+    unique_designations,
     window_totals,
 )
 
@@ -65,12 +67,28 @@ class ParseTests(unittest.TestCase):
 
 
 class QueryTests(unittest.TestCase):
-    def test_or_groups_include_qlik_segments_and_2026_golf_tournament(self):
+    def test_or_groups_include_qlik_segments_and_tournament_events(self):
         body = designation_query()
-        values = [group["conditions"][0]["value"] for group in body["groups"]]
-        self.assertEqual(values, list(SEGMENTS))
-        self.assertIn("2026 AMU Athletic Golf Tournament", values)
-        self.assertEqual(body["groups"][0]["conditions"][0]["parameter"], "Segment Name")
+        self.assertEqual(
+            [group["conditions"][0] for group in body["groups"]],
+            [
+                {"parameter": "Segment Name", "operator": "Is", "value": "Athletics Fundraising"},
+                {"parameter": "Segment Name", "operator": "Is", "value": "Athletics - Specific Sport"},
+                {"parameter": "Segment Name", "operator": "Is", "value": "Athletics Fundraising-HIST_DS"},
+                {"parameter": "Segment Name", "operator": "Contains", "value": EVENT_NAME_CONTAINS},
+            ],
+        )
+        self.assertEqual(list(SEGMENTS), [
+            "Athletics Fundraising",
+            "Athletics - Specific Sport",
+            "Athletics Fundraising-HIST_DS",
+        ])
+
+    def test_unique_designations_drop_duplicate_ids(self):
+        row = _des(amount=1000, gift_date="5/13/2026", project="Football Program", code="6552FB")
+        row["id"] = 99
+        copy = {**row}
+        self.assertEqual(len(unique_designations([row, copy])), 1)
 
     def test_query_starts_at_fy_2025_26(self):
         body = designation_query(dt.date(2025, 7, 1))
@@ -159,6 +177,14 @@ class SnapshotTests(unittest.TestCase):
                 gift_id=13,
                 segment="2026 AMU Athletic Golf Tournament",
             ),
+            _des(
+                amount=1000,
+                gift_date="9/2/2026",
+                project="Football Program",
+                code="6552FB",
+                gift_id=14,
+                segment="FY27 Football Golf Tournament",
+            ),
             _des(amount=9999, gift_date="8/1/2024", project="Old Endowment", code="OLD", gift_id=99),
         ]
         snap = build_snapshot(
@@ -171,13 +197,15 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(snap["since"], "2025-07-01")
         self.assertEqual(snap["weekly"]["giftCount"], 1)
         self.assertEqual(snap["weekly"]["amount"], 206.28)
-        self.assertEqual(snap["fytd"]["giftCount"], 2)
-        self.assertEqual(snap["fytd"]["programAmount"], 1200.0)
+        self.assertEqual(snap["fytd"]["giftCount"], 3)
+        self.assertEqual(snap["fytd"]["programAmount"], 2200.0)
         self.assertEqual(snap["lastFy"]["programAmount"], 1500.0)
-        self.assertEqual(snap["allTime"]["giftCount"], 4)
-        self.assertEqual(snap["allTime"]["amount"], 2706.28)
+        self.assertEqual(snap["allTime"]["giftCount"], 5)
+        self.assertEqual(snap["allTime"]["amount"], 3706.28)
         self.assertEqual(snap["gifts"][0]["giftDate"], "2026-09-12")
         self.assertEqual(len(snap["funds"]), 5)
+        self.assertIn("2026 AMU Athletic Golf Tournament", snap["segments"])
+        self.assertIn("FY27 Football Golf Tournament", snap["segments"])
         self.assertTrue(any(row["project"] == "Athletics Program - General" for row in snap["gifts"]))
         self.assertFalse(any(row["project"] == "Old Endowment" for row in snap["gifts"]))
 

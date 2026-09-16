@@ -4,6 +4,8 @@ import {
   datePresetLabel,
   shortFiscalYearLabel,
   shortPreviousFiscalYearLabel,
+  eventLabel,
+  eventOptions,
   filterGifts,
   formatGiftDate,
   fundsFromGifts,
@@ -11,6 +13,7 @@ import {
   giftExportRows,
   giftsFromLastTwoFiscalYears,
   intersectDateRange,
+  isEventSegment,
   isHiddenAthleticsFund,
   giftsInRange,
   isGivingReady,
@@ -21,6 +24,7 @@ import {
   totalsFromGifts,
   usd,
   usdExact,
+  type AthleticsGivingGift,
   type AthleticsGivingSnapshot,
 } from "./shape";
 
@@ -136,6 +140,7 @@ describe("athletics giving shape", () => {
       start: "2026-09-07",
       end: "2026-09-14",
       sportKey: "all",
+      event: "all",
       fund: "all",
       search: "",
     });
@@ -144,6 +149,7 @@ describe("athletics giving shape", () => {
       start: null,
       end: null,
       sportKey: "football",
+      event: "all",
       fund: "all",
       search: "",
     });
@@ -228,6 +234,7 @@ describe("athletics giving shape", () => {
       start: "2026-09-07",
       end: "2026-09-14",
       sportKey: "all",
+      event: "all",
       fund: "all",
       search: "",
     });
@@ -256,6 +263,7 @@ describe("athletics giving shape", () => {
       start: "2026-07-01",
       end: "2026-09-14",
       sportKey: "all",
+      event: "all",
       fund: "all",
       search: "",
     });
@@ -263,6 +271,7 @@ describe("athletics giving shape", () => {
       start: null,
       end: null,
       sportKey: "all",
+      event: "all",
       fund: "all",
       search: "",
     });
@@ -275,5 +284,45 @@ describe("athletics giving shape", () => {
     assert.equal(rows[0]?.[5], "Sport");
     assert.equal(rows[1]?.[5], "Ultimate Frisbee");
     assert.equal(rows[2]?.[2], 1000);
+  });
+
+  it("event dropdown lists tournament segments and filters funds to that event", () => {
+    const golf: AthleticsGivingGift = {
+      ...SAMPLE.gifts[1]!,
+      giftId: 13,
+      giftDate: "2026-05-13",
+      amountDesignated: 1000,
+      project: "Athletics Program - General",
+      projectCode: "6117AthGEN",
+      segment: "2026 AMU Athletic Golf Tournament",
+    };
+    const footballGolf: AthleticsGivingGift = {
+      ...SAMPLE.gifts[1]!,
+      giftId: 14,
+      giftDate: "2026-09-02",
+      amountDesignated: 2500,
+      segment: "FY27 Football Golf Tournament",
+    };
+    const gifts = [...SAMPLE.gifts, golf, footballGolf];
+    assert.equal(isEventSegment("Athletics Fundraising"), false);
+    assert.equal(isEventSegment("2026 AMU Athletic Golf Tournament"), true);
+    assert.equal(eventLabel("2025 AMU Athletics Golf Tournament-HIST_EV"), "2025 AMU Athletics Golf Tournament");
+    assert.deepEqual(eventOptions(gifts), [
+      "FY27 Football Golf Tournament",
+      "2026 AMU Athletic Golf Tournament",
+    ]);
+    const filtered = filterGifts(gifts, {
+      start: "2025-07-01",
+      end: "2026-09-14",
+      sportKey: "all",
+      event: "2026 AMU Athletic Golf Tournament",
+      fund: "all",
+      search: "",
+    });
+    assert.equal(totalsFromGifts(filtered).programAmount, 1000);
+    assert.equal(filtered.length, 1);
+    const funds = fundsFromGifts(filtered).filter((item) => !item.isFee);
+    assert.equal(funds.length, 1);
+    assert.equal(funds[0]?.project, "Athletics Program - General");
   });
 });
