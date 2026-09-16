@@ -8,13 +8,13 @@ Qlik filters gifts whose Segment Name is one of:
   Athletics - Specific Sport
   Athletics Fundraising-HIST_DS
 
-Athletics event gifts (golf tournament, football golf, and other
-Tournament segments) post to their own event segments, not those three,
-so Segment Name Contains Tournament is included too.
+Athletics event gifts post to their own event segments, not those three.
+Segment Name Contains Tournament, Booster, or Hall of Fame picks up golf
+tournaments, Gyrene Booster Club, Boosters registration, and Hall of Fame.
 
 Those QVDs live in lib://Advancement (DEV):DataFiles/virtuous_full_gifts_*.qvd
 and are produced by the Advancement Virtuous reload apps. This publisher hits
-POST /api/GiftDesignation/Query with those Qlik segments plus tournament
+POST /api/GiftDesignation/Query with those Qlik segments plus athletics
 events so totals stay on the designation grain (one fund split per gift).
 That avoids the Qlik join that inflates Sum(amountDesignated) and the
 Concat(segment) "Gift Destination" cell.
@@ -44,7 +44,11 @@ SEGMENTS = (
     "Athletics - Specific Sport",
     "Athletics Fundraising-HIST_DS",
 )
-EVENT_NAME_CONTAINS = "Tournament"
+EVENT_NAME_CONTAINS = (
+    "Tournament",
+    "Booster",
+    "Hall of Fame",
+)
 FEE_CODES = frozenset({"CREDITCARDCOSTS"})
 
 
@@ -166,14 +170,15 @@ def designation_query(since: dt.date | None = None) -> dict[str, Any]:
         }
         for segment in SEGMENTS
     ]
-    groups.append(
-        {
-            "conditions": [
-                {"parameter": "Segment Name", "operator": "Contains", "value": EVENT_NAME_CONTAINS},
-                *_date_condition(since),
-            ]
-        }
-    )
+    for needle in EVENT_NAME_CONTAINS:
+        groups.append(
+            {
+                "conditions": [
+                    {"parameter": "Segment Name", "operator": "Contains", "value": needle},
+                    *_date_condition(since),
+                ]
+            }
+        )
     return {"groups": groups}
 
 
