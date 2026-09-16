@@ -7,6 +7,8 @@ import gyreneShield from "@/assets/athletics/gyrene-shield.png";
 import {
   DATE_PRESETS,
   datePresetLabel,
+  eventLabel,
+  eventOptions,
   filterGifts,
   formatGiftDate,
   fundsFromGifts,
@@ -35,6 +37,7 @@ export function GivingClient() {
   const [preset, setPreset] = useState<DatePreset>("fytd");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+  const [event, setEvent] = useState("all");
   const [fund, setFund] = useState("all");
   const [search, setSearch] = useState("");
 
@@ -68,16 +71,18 @@ export function GivingClient() {
     [preset, asOf, data?.fyStart, customStart, customEnd],
   );
 
+  const events = useMemo(() => eventOptions(gifts), [gifts]);
   const visible = useMemo(
     () =>
       filterGifts(gifts, {
         start: range.start,
         end: range.end,
         sportKey: "all",
+        event,
         fund,
         search,
       }),
-    [gifts, range.start, range.end, fund, search],
+    [gifts, range.start, range.end, event, fund, search],
   );
 
   const fundGifts = useMemo(
@@ -86,10 +91,11 @@ export function GivingClient() {
         start: range.start,
         end: range.end,
         sportKey: "all",
+        event,
         fund: "all",
         search: "",
       }),
-    [gifts, range.start, range.end],
+    [gifts, range.start, range.end, event],
   );
   const yearWindows = useMemo(() => {
     const thisWindow = intersectDateRange(range.start, range.end, thisFyStart, asOf);
@@ -123,11 +129,12 @@ export function GivingClient() {
           start: thisFyStart || null,
           end: asOf || null,
           sportKey: "all",
+          event,
           fund,
           search: "",
         }),
       ),
-    [gifts, thisFyStart, asOf, fund],
+    [gifts, thisFyStart, asOf, event, fund],
   );
   const lastFyTotals = useMemo(
     () =>
@@ -136,18 +143,20 @@ export function GivingClient() {
           start: lastFy.start || null,
           end: lastFy.end || null,
           sportKey: "all",
+          event,
           fund,
           search: "",
         }),
       ),
-    [gifts, lastFy.start, lastFy.end, fund],
+    [gifts, lastFy.start, lastFy.end, event, fund],
   );
   const maxFund = Math.max(
     1,
     ...fundCompare.map((item) => item.thisYear),
     ...fundSingle.map((item) => item.amount),
   );
-  const periodLabel = datePresetLabel(preset, data?.fiscalYearLabel);
+  const selectedEventLabel = event !== "all" ? eventLabel(event) : "";
+  const periodLabel = selectedEventLabel || datePresetLabel(preset, data?.fiscalYearLabel);
   const rangeLabel =
     range.start && range.end
       ? `${formatGiftDate(range.start)} to ${formatGiftDate(range.end)}`
@@ -166,12 +175,17 @@ export function GivingClient() {
       : lastFyShort;
 
   const filtersActive =
-    fund !== "all" || search.trim() !== "" || preset !== "fytd" || Boolean(customStart || customEnd);
+    event !== "all" ||
+    fund !== "all" ||
+    search.trim() !== "" ||
+    preset !== "fytd" ||
+    Boolean(customStart || customEnd);
 
   function clearFilters() {
     setPreset("fytd");
     setCustomStart("");
     setCustomEnd("");
+    setEvent("all");
     setFund("all");
     setSearch("");
   }
@@ -239,6 +253,27 @@ export function GivingClient() {
                 ))}
               </div>
             </div>
+            {events.length ? (
+              <label>
+                Event
+                <select
+                  value={event}
+                  onChange={(change) => {
+                    const next = change.target.value;
+                    setEvent(next);
+                    setFund("all");
+                    if (next !== "all") setPreset("all");
+                  }}
+                >
+                  <option value="all">All events</option>
+                  {events.map((name) => (
+                    <option key={name} value={name}>
+                      {eventLabel(name)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <label>
               From
               <input
@@ -307,8 +342,8 @@ export function GivingClient() {
           <section className="ath-giving-funds">
             <h2>By fund</h2>
             <p>
-              {compareYears ? `${thisFyShort} vs ${lastFyShort}` : periodLabel}. Click a fund to
-              filter the table.
+              {compareYears ? `${thisFyShort} vs ${lastFyShort}` : periodLabel}
+              {selectedEventLabel ? " · this event" : ""}. Click a fund to filter the table.
             </p>
             <div className="ath-giving-fund-list">
               {compareYears
@@ -367,6 +402,7 @@ export function GivingClient() {
               />
               <span>
                 {visible.length} row{visible.length === 1 ? "" : "s"}
+                {event !== "all" ? " · event filter on" : ""}
                 {fund !== "all" ? " · fund filter on" : ""}
               </span>
             </div>

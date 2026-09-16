@@ -505,7 +505,7 @@ a.ath-coach-scorecard:hover {
 }
 .ath-giving-filters select,
 .ath-giving-filters input[type="date"] {
-  min-width: 180px;
+  min-width: 220px;
   border: 1px solid var(--ath-line);
   border-radius: 6px;
   padding: 8px 10px;
