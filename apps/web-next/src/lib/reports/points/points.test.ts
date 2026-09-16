@@ -1872,6 +1872,25 @@ describe("contactDisplayName", () => {
 });
 
 describe("spreadsheet tracker gifts", () => {
+  it("Anna Clark $200 on 8/14 counts for Natalia", () => {
+    const { owner, model } = run(
+      [],
+      [postedGift({
+        contactId: 99014,
+        contactName: "Anna Clark",
+        giftDate: "8/14/2026",
+        amount: 200,
+      })],
+      "Natalia Abrams",
+      {},
+      COUNTED_SPREADSHEET_GIFTS,
+    );
+    assert.equal(owner.giftAmount, 200);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 100);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
+  });
+
   it("counts a tracker gift even when there is no MA note on the contact", () => {
     const { owner, model } = run(
       [],
