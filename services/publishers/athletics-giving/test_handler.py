@@ -71,7 +71,7 @@ class QueryTests(unittest.TestCase):
     def test_or_groups_include_qlik_segments_and_athletics_events(self):
         body = designation_query()
         self.assertEqual(
-            [group["conditions"][0] for group in body["groups"][:6]],
+            [group["conditions"][0] for group in body["groups"][:7]],
             [
                 {"parameter": "Segment Name", "operator": "Is", "value": "Athletics Fundraising"},
                 {"parameter": "Segment Name", "operator": "Is", "value": "Athletics - Specific Sport"},
@@ -79,9 +79,10 @@ class QueryTests(unittest.TestCase):
                 {"parameter": "Segment Name", "operator": "Contains", "value": "Tournament"},
                 {"parameter": "Segment Name", "operator": "Contains", "value": "Booster"},
                 {"parameter": "Segment Name", "operator": "Contains", "value": "Hall of Fame"},
+                {"parameter": "Segment Name", "operator": "Contains", "value": "Sponsorship"},
             ],
         )
-        self.assertEqual(list(EVENT_NAME_CONTAINS), ["Tournament", "Booster", "Hall of Fame"])
+        self.assertEqual(list(EVENT_NAME_CONTAINS), ["Tournament", "Booster", "Hall of Fame", "Sponsorship"])
         self.assertEqual(list(SEGMENTS), [
             "Athletics Fundraising",
             "Athletics - Specific Sport",
