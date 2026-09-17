@@ -29,7 +29,7 @@ import { applyCensusVerifyNotes, omitExcludedHousing } from "./verify-notes";
 import snapshot from "./snapshot.json";
 import { presentSnapshot } from "./present";
 import { housingAssignmentRows, residencyFromErez, type HousingAssignmentRow } from "./residency";
-import { applyRegistrationTotals } from "./from-lists";
+import { applyPublishedFa25Historical, applyRegistrationTotals } from "./from-lists";
 import { HOUSING_PENDING, type CensusSnapshot } from "./types";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -97,7 +97,7 @@ export async function loadCensusSnapshot(): Promise<{
   lists: CensusLists;
   ftcaRaw: FtcaRawRow[];
 }> {
-  const data = presentSnapshot(cloneSnapshot());
+  const data = applyPublishedFa25Historical(presentSnapshot(cloneSnapshot()));
   let lists = await loadCensusLists();
   let housingRows: HousingAssignmentRow[] = [];
   try {
@@ -126,6 +126,7 @@ export async function loadCensusSnapshot(): Promise<{
   if (lists.prior.length) {
     lists = { ...lists, prior: applyCensusVerifyNotes(lists.prior, { incomingNotes: false }) };
   }
+  applyPublishedFa25Historical(data);
   if (lists.prior.length && lists.students.length) {
     const notes = applyCensusRetentionNotes(lists.prior, lists.students.map((s) => s.pcid), lists.graduates);
     const gradIds = ayGraduatePcids(notes.graduates);

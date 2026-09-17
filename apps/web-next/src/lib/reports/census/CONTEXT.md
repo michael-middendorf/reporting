@@ -10,7 +10,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 
 ## Gold sources
 
-- FA25 gold: `Documents/PERSONAL Census Files/Fall 2025 Census Final 9.23.25.xlsx` (Summary FTCA **392**, new UG **459**, UG DS **1343**, total **1500**).
+- FA25 published: `Downloads/Fall 2025 Census - NEW.xlsx` (Summary FTCA **391**, new UG **458**, UG DS **1342**, total **1499**). App Historical is locked to this file on every load/export — do not recompute from prior.json (that still has the old 392/1500 gold).
 - FA25 prior JSON is that raw sheet + overlays (roster, housing, incoming 100450 scores). Do not overwrite gold `appDecision` or EOT `gpa` with Official AMU GPA.
 - FA26 spine: `Downloads/Registration Status-29.xlsx` (was -27 through 2 Sep). Unique PCID grand total. Dual UG+GRAD only for Lux Mundi/Ireland extras. Residency overlays: `-6` campus, `-8` Ireland, `-7` Lux Mundi.
 - Mary's Marines FA26: `Downloads/Mary's Marines_As of 9-1-26.xlsx` (410 unique PCIDs). Replaces the Registration Status Sport flag.
@@ -30,7 +30,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 ## Definitions (locked)
 
 - **Summary FTCA** = Incoming AND College Attend FTCA, any class. Spring/summer UG admits are **Returning**. Graduate verify notes can mark a summer starter Incoming (Verburgt MBA).
-- **FA25 FTCA attrition cohort** = gold Incoming+FTCA **392**, minus Aiden Wilson → **391**. Not returning freshmen. Not spring admits.
+- **FA25 FTCA attrition cohort** = Incoming+FTCA after dropping Aiden Wilson → **391**. Same as Historical FTCA. Gold Excel still prints **392**. Not returning freshmen. Not spring admits.
 - **Athletes** (sport table) = Varsity / Non-Varsity / Non-NAIA only. Band and managers = **Associated**. Athlete/Non-Athlete tables use Associated. Census Raw Athlete/Non-Athlete is team players only (band/managers = Non-Athlete). Athletic Type table is Varsity / Non-Varsity / Non-NAIA / Manager / Band / None. Personal enrichment (College Attend ND / Degree PENRIC) never gets a census sport. Dual enrollment is not this rule.
 - Rugby-Women → Rugby-Men associated (no women’s rugby). Ireland is a campus, not a sport. Pickleball dropped.
 - Catholic = Catholic or Eastern Rite. SAT &lt; 400 missing from means. 0 scores = missing.
@@ -38,7 +38,7 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 - Unretained = FA25 − intervening grads − FA26 registration − retention-sheet exceptions (exclude, force retained, force graduated, LOA). LOA is on the FA26 LOA tab, not All Not Retained.
 - Retention % = still enrolled / (cohort − intervening graduates). Same formula on All UG, FTCA, sports, and crosstabs. FTCA tables do not show a graduating count (Incoming+FTCA does not graduate in the intervening year).
 - No-football sheet historical FTCA / All UG rates drop sport Football on that fall's gold file (FTCA raw or Incoming+FTCA; All UG uses census raw + Graduated All-15 intervening grads). F25–F26 is live. Main census historical charts stay published.
-- FA25 retention denominator = gold UG DS minus Aiden Wilson and Hannah Nelson only. Fall 2026 LOA stays in that total and counts as retained.
+- FA25 retention denominator = Historical UG DS **1342** minus Hannah Nelson only (**1341**). Aiden is already out of Historical. Fall 2026 LOA stays in that total and counts as retained.
 
 ## Live headcounts (as of last publish)
 
@@ -48,13 +48,14 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 
 **FA25 FTCA attrition:** cohort **391**, enrolled **322**, not retained **69**, **82.4%**. (None of the six FA26 LOA are Incoming+FTCA.)
 
-**All UG retention after notes:** prior UG **1341** (1343 − Aiden − Hannah; LOA stays in). Enrolled and graduate counts are live. LOA is not a leaver and not on All Not Retained. Notes sheet 135 “not retained” is the UG DS leaver count.
+**All UG retention after notes:** prior UG **1341** (Historical 1342 − Hannah; Aiden already out of Historical; LOA stays in). Enrolled and graduate counts are live. LOA is not a leaver and not on All Not Retained. Notes sheet 135 “not retained” is the UG DS leaver count.
 
 **FA26 LOA tab:** Earnhardt P000341593, Gomez P000346188, Cedeno Medrano P000380481, Pena P000343982, Wagner P000380315. Intend to return. In the FA25 cohort. Counted as retained. Not All Not Retained. Derrick Guza is not retained.
 
 ## Retention notes (col R + extras)
 
-- Exclude: Aiden Wilson P000384377 (dropped after FA25 census), Hannah Nelson P000378273 (deceased).
+- Exclude from Historical counts: Aiden Wilson P000384377 (dropped after FA25 census) — FTCA 391, new 458, UG DS 1342, total 1499.
+- Exclude from retention only: Hannah Nelson P000378273 (deceased). Still on FA25 swimming roster and in Historical UG.
 - Force retained: Trumpore AMSOL, Harrell enrolled, Pritchard last credits, Parks AMSOL.
 - Conferral date wins over extract term (December = Fall). Mather/Suchomski/B.Wilson Dec 13 2025 count as Fall 2025 from All-15. Force-graduated is the remaining Summer list in `retention-overrides.ts`.
 

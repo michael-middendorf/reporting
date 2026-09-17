@@ -5,7 +5,7 @@ import { apiFetch } from "@/lib/api";
 
 const SUGGESTIONS = [
   "Are we up or down versus last fall?",
-  "Why is FTCA 387 not 392?",
+  "Why is FTCA not 391 this year?",
   "What is FTCA retention vs last year?",
   "Why did students leave?",
   "Are athletes retaining?",

@@ -88,7 +88,7 @@ export const HISTORICAL_ROWS: {
   { label: "Graduate & Undergraduate Enrollment", key: "totalEnrollment", total: true, bold: true },
 ];
 
-/** FA25 Historical prints Total Degree-Seeking as "1343 (1334 Full Time)". */
+/** FA25 Historical prints Total Degree-Seeking as "1342 (1333 Full Time)" after dropping Aiden Wilson. */
 export function degreeSeekingHcLabel(hc: number | null | undefined, fullTime: number | null | undefined): string | number | "" {
   if (hc == null) return "";
   if (fullTime == null) return hc;

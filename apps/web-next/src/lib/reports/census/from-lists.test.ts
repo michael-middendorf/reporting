@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { applyRegistrationTotals, buildGraduateEnrollment, meanPositive, summerGraduateCounts, sumCredits, summaryFromStudents } from "./from-lists";
+import { applyPublishedFa25Historical, applyRegistrationTotals, buildGraduateEnrollment, meanPositive, summerGraduateCounts, sumCredits, summaryFromStudents } from "./from-lists";
 import { markSpringAdmitsReturning, promoteFormerDualFtca } from "./lists";
 import snapshot from "./snapshot.json";
 import type { CensusRawStudent } from "./lists-core";
+import type { CensusSnapshot } from "./types";
 import { applyCensusVerifyNotes } from "./verify-notes";
 
 function s(partial: Partial<CensusRawStudent>): CensusRawStudent {
@@ -395,4 +396,24 @@ test("summer graduate counts include every Summer 2026 degree", () => {
       { program: "MBA", n: 2 },
     ],
   );
+});
+
+test("FA25 Historical is locked to Fall 2025 Census - NEW.xlsx, not live prior.json", () => {
+  const data = structuredClone(snapshot) as CensusSnapshot;
+  data.historical.ftca.hc[1] = 392;
+  data.historical.ftca.fte[1] = 392;
+  data.historical.newStudents.hc[1] = 459;
+  data.historical.degreeSeeking.hc[1] = 1343;
+  data.historical.degreeSeeking.fullTime[1] = 1334;
+  data.historical.totalEnrollment.hc[1] = 1500;
+  applyPublishedFa25Historical(data);
+  assert.equal(data.historical.ftca.hc[1], 391);
+  assert.equal(data.historical.ftca.fte[1], 391);
+  assert.equal(data.historical.newStudents.hc[1], 458);
+  assert.equal(data.historical.degreeSeeking.hc[1], 1342);
+  assert.equal(data.historical.degreeSeeking.fullTime?.[1], 1333);
+  assert.equal(data.historical.degreeSeeking.fte[1], 1339);
+  assert.equal(data.historical.totalUndergraduate.hc[1], 1369);
+  assert.equal(data.historical.totalEnrollment.hc[1], 1499);
+  assert.equal(data.historical.returning.hc[1], 884);
 });

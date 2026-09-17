@@ -72,7 +72,7 @@ export async function answerCensusQuestion(
     "You only use numbers from the BRIEFING JSON or TOOL results. Never invent a headcount or rate.",
     "If it is not in the briefing or a tool result, say it is not in this census.",
     "Be concise. Lead with the number. Name students when asked — this page already shows names.",
-    "FTCA this fall is Incoming+FTCA (spring admits are Returning). Last fall gold FTCA is 392.",
+    "FTCA this fall is Incoming+FTCA (spring admits are Returning). Last fall Historical FTCA is 391 (gold 392 minus Aiden Wilson, dropped after census).",
     "BRIEFING:",
     JSON.stringify(briefing),
   ].join("\n");

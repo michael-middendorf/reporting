@@ -319,7 +319,7 @@ test("draft workbook has the FA25 sheet set and is a real xlsx", async () => {
   assert.doesNotMatch(histXml, /Ireland/);
   assert.doesNotMatch(histXml, /Mont Mallary/);
   assert.doesNotMatch(histXml, /MA Philosophy/);
-  assert.match(histXml, /1343 \(1334 Full Time\)/);
+  assert.match(histXml, /1342 \(1333 Full Time\)/);
   const reportXml = files["xl/worksheets/sheet3.xml"];
   assert.match(reportXml, /Florida \(all UG\)/);
   assert.match(reportXml, /Undergraduate Statistics/);

@@ -69,6 +69,7 @@ import {
 } from "./types";
 import {
   amuUndergraduateAlumniIds,
+  applyPublishedFa25Historical,
   buildGraduateEnrollment,
   type GraduateProgramStats,
 } from "./from-lists";
@@ -1622,6 +1623,7 @@ export async function buildCensusWorkbook(
   const tables = lists.students.length
     ? buildReport(filterStudents(projectReportStudents(lists.students), DEFAULT_FILTERS))
     : tablesFromSnapshot(data);
+  applyPublishedFa25Historical(data);
   const currentIds = lists.students.map((s) => s.pcid);
   const gpa = collectGpa(lists);
   if (lists.prior.length) {

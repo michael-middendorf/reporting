@@ -317,7 +317,7 @@ export function collectGpa(lists: CensusLists): Map<string, number> {
 }
 
 /**
- * FA25 Summary FTCA line: Incoming AND College Attend = FTCA (392 on the gold census).
+ * FA25 Summary FTCA line: Incoming AND College Attend = FTCA (391 after dropping Aiden Wilson).
  * Class level does not matter. Spring/summer admits are out.
  */
 export function isFtcaIncoming(s: {
