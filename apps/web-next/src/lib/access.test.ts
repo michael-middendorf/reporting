@@ -145,13 +145,18 @@ describe("athletics-only grant", () => {
     }
   });
 
-  it("lets a mapped head coach sign in to Athletics only", () => {
+  it("lets a mapped head coach sign in to their sport dashboard only, not Master", () => {
     assert.equal(canLogin(COACH), true);
-    assert.equal(canAccessReport(COACH, "athletics"), true);
-    assert.equal(canAccessReport(COACH, "athletics-coaching"), false);
+    assert.equal(canAccessReport(COACH, "athletics"), false);
+    assert.equal(canAccessReport(COACH, "athletics-coaching"), true);
+    assert.equal(isCoachingLeadership(COACH), false);
+    assert.deepEqual(coachSportKeys(COACH), ["mens-basketball"]);
+    assert.equal(canAccessSport(COACH, "mens-basketball"), true);
+    assert.equal(canAccessSport(COACH, "womens-basketball"), false);
+    assert.equal(canAccessSport(COACH, "football"), false);
     assert.equal(canAccessReport(COACH, "enrollment"), false);
     assert.equal(canAccessReport(COACH, "census"), false);
-    assert.deepEqual(reportsForEmail(COACH), ["athletics"]);
+    assert.deepEqual(reportsForEmail(COACH), ["athletics-coaching"]);
   });
 });
 
@@ -160,12 +165,13 @@ describe("athletics giving access", () => {
   const COACH = "Jamon.Copeland@avemaria.edu";
   const JIM = "jim.thomas@avemaria.edu";
 
-  it("is for Athletics Master, coaching leadership, and Advancement", () => {
+  it("is for Athletics Master, coaching leadership, and Advancement, not head coaches", () => {
     assert.equal(canAccessAthleticsGiving(ERIC), true);
     assert.equal(canAccessAthleticsGiving("elizabeth.feger@avemaria.edu"), true);
     assert.equal(canAccessAthleticsGiving("john.weisbrod@avemaria.edu"), true);
+    assert.equal(canAccessAthleticsGiving("joshua.lewis@avemaria.edu"), true);
     assert.equal(canAccessAthleticsGiving(JIM), true);
-    assert.equal(canAccessAthleticsGiving(COACH), true);
+    assert.equal(canAccessAthleticsGiving(COACH), false);
   });
 });
 
@@ -244,6 +250,45 @@ describe("athletics coaching access", () => {
         assert.equal(canAccessSport(email, sport.key), true, `${email} ${sport.key}`);
       }
     }
+  });
+
+  it("maps each head coach to only their sport dashboards", () => {
+    const coaches: [string, string[]][] = [
+      ["robert.cooper@avemaria.edu", ["mens-baseball"]],
+      ["jamon.copeland@avemaria.edu", ["mens-basketball"]],
+      ["jelani.akil@avemaria.edu", ["womens-basketball"]],
+      ["john.schmidt@avemaria.edu", ["womens-volleyball"]],
+      ["camryn.e.olive@avemaria.edu", ["dance-team"]],
+      ["alan.webb@avemaria.edu", ["cross-country", "track-and-field"]],
+      ["joseph.patterson@avemaria.edu", ["football"]],
+      ["katelyn.j.sherman@avemaria.edu", ["womens-lacrosse"]],
+      ["ryan.dolnick@avemaria.edu", ["rugby"]],
+      ["dariel.collazo@avemaria.edu", ["mens-soccer"]],
+      ["tyler.rosser@avemaria.edu", ["womens-soccer"]],
+      ["trinity.e.medina@avemaria.edu", ["womens-softball"]],
+      ["joshua.harriott@avemaria.edu", ["swim-team"]],
+      ["steve.smith@avemaria.edu", ["tennis"]],
+    ];
+    for (const [email, sports] of coaches) {
+      assert.equal(canLogin(email), true, email);
+      assert.equal(isCoachingLeadership(email), false, email);
+      assert.equal(canAccessReport(email, "athletics-coaching"), true, email);
+      assert.equal(canAccessReport(email, "athletics"), false, email);
+      assert.deepEqual(coachSportKeys(email), sports, email);
+      assert.deepEqual(reportsForEmail(email), ["athletics-coaching"], email);
+      assert.equal(canAccessAthleticsGiving(email), false, email);
+      for (const sport of SPORTS) {
+        assert.equal(canAccessSport(email, sport.key), sports.includes(sport.key), `${email} ${sport.key}`);
+      }
+    }
+  });
+
+  it("does not change Michael Middendorf hub-admin access", () => {
+    const email = "michael.t.middendorf@avemaria.edu";
+    assert.equal(isAdmin(email), true);
+    assert.equal(isCoachingLeadership(email), true);
+    assert.equal(coachSportKeys(email), "all");
+    assert.deepEqual(reportsForEmail(email), [...REPORT_IDS]);
   });
 });
 

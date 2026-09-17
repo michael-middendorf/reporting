@@ -9,8 +9,27 @@ const HARDCODED_LEADERSHIP = [
   "joshua.lewis@avemaria.edu",
 ] as const;
 
-/** v1: no named coaches. Add emails here or via ATHLETICS_COACHING_COACHES JSON. */
-const HARDCODED_COACHES: Record<string, string[]> = {};
+/**
+ * Head coaches → coaching dashboard sport keys only. Not Master.
+ * Do not add Michael Middendorf (Ultimate Frisbee HC is a hub admin).
+ * Ty Kaufman (interim golf) has no public email and is omitted.
+ */
+const HARDCODED_COACHES: Record<string, string[]> = {
+  "robert.cooper@avemaria.edu": ["mens-baseball"],
+  "jamon.copeland@avemaria.edu": ["mens-basketball"],
+  "jelani.akil@avemaria.edu": ["womens-basketball"],
+  "john.schmidt@avemaria.edu": ["womens-volleyball"],
+  "camryn.e.olive@avemaria.edu": ["dance-team"],
+  "alan.webb@avemaria.edu": ["cross-country", "track-and-field"],
+  "joseph.patterson@avemaria.edu": ["football"],
+  "katelyn.j.sherman@avemaria.edu": ["womens-lacrosse"],
+  "ryan.dolnick@avemaria.edu": ["rugby"],
+  "dariel.collazo@avemaria.edu": ["mens-soccer"],
+  "tyler.rosser@avemaria.edu": ["womens-soccer"],
+  "trinity.e.medina@avemaria.edu": ["womens-softball"],
+  "joshua.harriott@avemaria.edu": ["swim-team"],
+  "steve.smith@avemaria.edu": ["tennis"],
+};
 
 function leadershipEmails(): Set<string> {
   const emails = parseEmailCsv(HARDCODED_LEADERSHIP.join(","));

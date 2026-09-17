@@ -143,15 +143,15 @@ describe("sportsScopeForAthleticsEmail", () => {
     }
   });
 
-  it("lets every mapped coach log in to athletics without hub admin", () => {
+  it("lets every mapped coach log in to their sport dashboard without Master or hub admin", () => {
     const admins = new Set(ADMIN_EMAILS.map((email) => email.toLowerCase()));
     assert.equal(MAPPED_COACHES.length, 14);
     for (const email of MAPPED_COACHES) {
       assert.equal(canLogin(email), true, email);
-      assert.equal(canAccessReport(email, "athletics"), true, email);
-      assert.equal(canAccessReport(email, "athletics-coaching"), false, email);
+      assert.equal(canAccessReport(email, "athletics"), false, email);
+      assert.equal(canAccessReport(email, "athletics-coaching"), true, email);
       assert.equal(admins.has(email), false, email);
-      assert.deepEqual(reportsForEmail(email), ["athletics"], email);
+      assert.deepEqual(reportsForEmail(email), ["athletics-coaching"], email);
     }
   });
 });
