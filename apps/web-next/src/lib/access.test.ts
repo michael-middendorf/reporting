@@ -390,6 +390,26 @@ describe("aspiredu grant for Daniel Davy", () => {
     assert.equal(canAccessReport(DAN, "aspiredu"), false);
   });
 
+  it("lets Michaelene open Academic Affairs and Advancement, not admin folders", () => {
+    const email = "michaelene.hayward@avemaria.edu";
+    assert.equal(canLogin(email), true);
+    assert.equal(isAdmin(email), false);
+    assert.equal(canAccessReport(email, "aspiredu"), true);
+    assert.equal(canAccessReport(email, "advancement"), true);
+    assert.equal(canAccessReport(email, "chapel"), true);
+    assert.equal(canAccessReport(email, "enrollment"), false);
+    assert.equal(canAccessReport(email, "census"), false);
+    assert.equal(canAccessReport(email, "athletics"), false);
+    assert.equal(canAccessReport(email, "athletics-coaching"), false);
+    assert.equal(canAccessReport(email, "housing"), false);
+    assert.equal(canAccessReport(email, "institute"), false);
+    assert.equal(canAccessReport(email, "points"), false);
+    assert.equal(canAccessReport(email, "portfolios"), false);
+    assert.equal(canAccessReport(email, "annunciation"), false);
+    assert.equal(needsMfaAtSignIn(email), true);
+    assert.deepEqual(reportsForEmail(email), ["advancement", "chapel", "aspiredu"]);
+  });
+
   it("requires MFA at sign-in for Academic Affairs and coaching users", () => {
     assert.equal(needsMfaAtSignIn(DANIEL), true);
     assert.equal(needsMfaAtSignIn("michael.t.middendorf@avemaria.edu"), true);
