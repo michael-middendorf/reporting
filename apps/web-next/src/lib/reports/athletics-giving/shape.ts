@@ -270,15 +270,33 @@ export const PROGRAM_SEGMENTS = new Set([
 export const ATHLETICS_GENERAL_CODE = "6117AthGEN";
 export const ATHLETICS_SPONSORSHIP_EVENT = "Athletics Sponsorship";
 
-const NAMED_EVENT_RE = /tournament|booster|hall of fame|sponsorship/i;
+/** Ledo Pizza (125573) books its athletics sponsorship to 6117AthGEN,
+ *  often on a golf-tournament segment. */
+export const ATHLETICS_SPONSOR_CONTACT_IDS = new Set(["125573"]);
+
+const NAMED_EVENT_RE = /tournament|booster|hall of fame/i;
+const SPONSORSHIP_RE = /sponsorship/i;
 
 export function isEventSegment(segment: string | null | undefined): boolean {
-  return NAMED_EVENT_RE.test((segment || "").trim());
+  const name = (segment || "").trim();
+  if (!name || SPONSORSHIP_RE.test(name)) return false;
+  return NAMED_EVENT_RE.test(name);
+}
+
+export function isKnownAthleticsSponsor(gift: Pick<AthleticsGivingGift, "contactId" | "contactName">): boolean {
+  const id = gift.contactId == null ? "" : String(gift.contactId);
+  if (id && ATHLETICS_SPONSOR_CONTACT_IDS.has(id)) return true;
+  const name = (gift.contactName || "").toLowerCase();
+  return name.includes("ledo pizza");
 }
 
 export function isAthleticsSponsorshipGift(gift: AthleticsGivingGift): boolean {
   if (gift.isFee) return false;
+  if (SPONSORSHIP_RE.test(gift.segment || "") || SPONSORSHIP_RE.test(gift.segmentCode || "")) {
+    return true;
+  }
   if ((gift.projectCode || "") !== ATHLETICS_GENERAL_CODE) return false;
+  if (isKnownAthleticsSponsor(gift)) return true;
   return !isEventSegment(gift.segment);
 }
 
@@ -290,8 +308,11 @@ export function eventOptions(gifts: AthleticsGivingGift[]): string[] {
   const names = new Set<string>();
   let hasSponsorship = false;
   for (const gift of gifts) {
+    if (isAthleticsSponsorshipGift(gift)) {
+      hasSponsorship = true;
+      continue;
+    }
     if (isEventSegment(gift.segment) && gift.segment) names.add(gift.segment);
-    if (isAthleticsSponsorshipGift(gift)) hasSponsorship = true;
   }
   if (hasSponsorship) names.add(ATHLETICS_SPONSORSHIP_EVENT);
   return [...names].sort((a, b) => b.localeCompare(a));
@@ -317,7 +338,7 @@ export function filterGifts(gifts: AthleticsGivingGift[], filters: GivingFilters
     if (event !== "all") {
       if (event === ATHLETICS_SPONSORSHIP_EVENT) {
         if (!isAthleticsSponsorshipGift(gift)) return false;
-      } else if ((gift.segment || "") !== event) {
+      } else if (isAthleticsSponsorshipGift(gift) || (gift.segment || "") !== event) {
         return false;
       }
     }

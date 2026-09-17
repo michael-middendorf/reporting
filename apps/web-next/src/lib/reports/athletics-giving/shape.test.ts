@@ -14,6 +14,7 @@ import {
   giftExportRows,
   giftsFromLastTwoFiscalYears,
   intersectDateRange,
+  isAthleticsSponsorshipGift,
   isEventSegment,
   isHiddenAthleticsFund,
   giftsInRange,
@@ -368,5 +369,112 @@ describe("athletics giving shape", () => {
     });
     assert.equal(totalsFromGifts(sponsorshipGifts).programAmount, 3000);
     assert.equal(sponsorshipGifts[0]?.contactName, "Ave Maria Dance Academy");
+  });
+
+  it("counts Ledo Pizza general-fund gifts as Athletics Sponsorship and leaves Wright Construction on golf", () => {
+    const ledo: AthleticsGivingGift = {
+      ...SAMPLE.gifts[0]!,
+      giftId: 440043,
+      giftDate: "2025-08-18",
+      contactId: 125573,
+      contactName: "Ledo Pizza Ave Maria Dreams & Pizza, LLC.",
+      amountDesignated: 8000,
+      project: "Athletics Program - General",
+      projectCode: "6117AthGEN",
+      segment: "2025 AMU Athletics Golf Tournament-HIST_EV",
+      segmentCode: "FYE25AthGolf-HIST_EV",
+    };
+    const wright: AthleticsGivingGift = {
+      ...SAMPLE.gifts[0]!,
+      giftId: 435716,
+      giftDate: "2025-08-01",
+      contactId: 127206,
+      contactName: "Wright Construction Group Inc",
+      amountDesignated: 10000,
+      project: "Athletics Program - General",
+      projectCode: "6117AthGEN",
+      segment: "2025 AMU Athletics Golf Tournament-HIST_EV",
+      segmentCode: "FYE25AthGolf-HIST_EV",
+    };
+    const ledoDance: AthleticsGivingGift = {
+      ...ledo,
+      giftId: 441968,
+      giftDate: "2025-10-15",
+      amountDesignated: 200,
+      project: "Dance Program",
+      projectCode: "6596Dance",
+    };
+    const portal: AthleticsGivingGift = {
+      ...SAMPLE.gifts[0]!,
+      giftId: 18,
+      giftDate: "2026-09-01",
+      contactName: "New Sponsor LLC",
+      amountDesignated: 5000,
+      project: "Athletics Program - General",
+      projectCode: "6117AthGEN",
+      segment: "Athletics Sponsorships",
+      segmentCode: "VOA_ATHLETICS_SPONSORSHIPS_DS",
+    };
+    const golf: AthleticsGivingGift = {
+      ...SAMPLE.gifts[1]!,
+      giftId: 13,
+      giftDate: "2026-05-13",
+      amountDesignated: 1000,
+      project: "Athletics Program - General",
+      projectCode: "6117AthGEN",
+      segment: "2026 AMU Athletic Golf Tournament",
+    };
+    assert.equal(isAthleticsSponsorshipGift(ledo), true);
+    assert.equal(isAthleticsSponsorshipGift(wright), false);
+    assert.equal(isAthleticsSponsorshipGift(ledoDance), false);
+    assert.equal(isAthleticsSponsorshipGift(portal), true);
+    assert.equal(isEventSegment("Athletics Sponsorships"), false);
+    const gifts = [...SAMPLE.gifts, ledo, wright, ledoDance, portal, golf];
+    assert.deepEqual(eventOptions(gifts), [
+      "Athletics Sponsorship",
+      "2026 AMU Athletic Golf Tournament",
+      "2025 AMU Athletics Golf Tournament-HIST_EV",
+    ]);
+    const sponsorshipGifts = filterGifts(gifts, {
+      start: "2025-07-01",
+      end: "2026-09-14",
+      sportKey: "all",
+      event: ATHLETICS_SPONSORSHIP_EVENT,
+      fund: "all",
+      search: "",
+    });
+    assert.equal(totalsFromGifts(sponsorshipGifts).programAmount, 13000);
+    assert.deepEqual(
+      sponsorshipGifts.map((gift) => gift.contactName).sort(),
+      ["Ledo Pizza Ave Maria Dreams & Pizza, LLC.", "New Sponsor LLC"],
+    );
+    const golfGifts = filterGifts(gifts, {
+      start: "2025-07-01",
+      end: "2026-09-14",
+      sportKey: "all",
+      event: "2026 AMU Athletic Golf Tournament",
+      fund: "all",
+      search: "",
+    });
+    assert.equal(totalsFromGifts(golfGifts).programAmount, 1000);
+    assert.equal(golfGifts[0]?.contactName, "Jane Donor");
+    const histGolf = filterGifts(gifts, {
+      start: "2025-07-01",
+      end: "2026-09-14",
+      sportKey: "all",
+      event: "2025 AMU Athletics Golf Tournament-HIST_EV",
+      fund: "all",
+      search: "",
+    });
+    assert.equal(totalsFromGifts(histGolf).programAmount, 10200);
+    assert.deepEqual(
+      histGolf
+        .map((gift) => `${gift.contactName}|${gift.projectCode}`)
+        .sort(),
+      [
+        "Ledo Pizza Ave Maria Dreams & Pizza, LLC.|6596Dance",
+        "Wright Construction Group Inc|6117AthGEN",
+      ],
+    );
   });
 });
