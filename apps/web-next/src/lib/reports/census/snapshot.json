@@ -156,7 +156,7 @@
     "newStudents": {
       "hc": [
         487,
-        459,
+        458,
         426,
         403,
         431,
@@ -165,7 +165,7 @@
       ],
       "fte": [
         479.8,
-        459,
+        458,
         425,
         402,
         431,
@@ -176,7 +176,7 @@
     "ftca": {
       "hc": [
         398,
-        392,
+        391,
         365,
         318,
         356,
@@ -185,7 +185,7 @@
       ],
       "fte": [
         395.0,
-        392,
+        391,
         365,
         318,
         356,
@@ -316,7 +316,7 @@
     "degreeSeeking": {
       "hc": [
         1400,
-        1343,
+        1342,
         1298,
         1229,
         1231,
@@ -325,7 +325,7 @@
       ],
       "fte": [
         1355.3,
-        1340,
+        1339,
         1292,
         1224,
         1226,
@@ -334,7 +334,7 @@
       ],
       "fullTime": [
         null,
-        1334,
+        1333,
         1283,
         1213,
         1222,
@@ -385,7 +385,7 @@
     "totalUndergraduate": {
       "hc": [
         1476,
-        1370,
+        1369,
         1326,
         1250,
         1248,
@@ -394,7 +394,7 @@
       ],
       "fte": [
         null,
-        1353,
+        1352,
         null,
         null,
         null,
@@ -545,7 +545,7 @@
     "totalEnrollment": {
       "hc": [
         1628,
-        1500,
+        1499,
         1448,
         1335,
         1311,
@@ -1679,11 +1679,11 @@
     ]
   },
   "ftcaAttrition": {
-    "cohort": 392,
-    "enrolledThisFall": 325,
-    "notRetained": 67,
+    "cohort": 391,
+    "enrolledThisFall": 322,
+    "notRetained": 69,
     "graduated": 0,
-    "retentionRate": 0.8291,
+    "retentionRate": 0.8235,
     "byState": [
       {
         "label": "FL",
@@ -2279,12 +2279,12 @@
     ]
   },
   "allUgRetention": {
-    "priorUg": 1343,
-    "graduates": 272,
-    "pool": 1071,
-    "enrolledThisFall": 907,
-    "notRetained": 164,
-    "retentionRate": 0.8469
+    "priorUg": 1341,
+    "graduates": 290,
+    "pool": 1051,
+    "enrolledThisFall": 911,
+    "notRetained": 140,
+    "retentionRate": 0.8668
   },
   "historicalFtcaRetention": [
     {

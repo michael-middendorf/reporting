@@ -394,6 +394,61 @@ function patchYear0(data: CensusSnapshot, key: keyof CensusSummary, c: CountFte)
   if (series.fte && series.fte.length && c.fte != null) series.fte[0] = c.fte;
 }
 
+/** Published Fall 2025 Census - NEW.xlsx (Aiden Wilson dropped). Do not recompute from prior.json. */
+export const FA25_PUBLISHED_HISTORICAL: Partial<
+  Record<keyof CensusSummary, { headcount: number; fte?: number | null; fullTime?: number | null }>
+> = {
+  newStudents: { headcount: 458, fte: 458 },
+  ftca: { headcount: 391, fte: 391 },
+  tran: { headcount: 62, fte: 62 },
+  read: { headcount: 4, fte: 4 },
+  secb: { headcount: 1, fte: 1 },
+  returning: { headcount: 884, fte: 881 },
+  degreeSeeking: { headcount: 1342, fte: 1339, fullTime: 1333 },
+  dualEnrollment: { headcount: 23, fte: 12 },
+  nonDegree: { headcount: 4, fte: 1 },
+  totalUndergraduate: { headcount: 1369, fte: 1352 },
+  gradMaPhil: { headcount: 4, fte: 3 },
+  gradMa: { headcount: 19, fte: 17 },
+  gradPhd: { headcount: 23, fte: 23 },
+  gradMba: { headcount: 45, fte: 32 },
+  gradMedcl: { headcount: 31, fte: 29 },
+  gradMaCrw: { headcount: 8, fte: 3 },
+  totalGraduate: { headcount: 130, fte: 107 },
+  totalEnrollment: { headcount: 1499 },
+};
+
+/**
+ * Lock the Fall 2025 Historical column to Fall 2025 Census - NEW.xlsx.
+ * Live prior.json must not rewrite these (it still has the old 392/1500 gold).
+ */
+export function applyPublishedFa25Historical(data: CensusSnapshot): CensusSnapshot {
+  const i = data.historical.years.indexOf(2025);
+  if (i < 0) return data;
+  for (const [key, c] of Object.entries(FA25_PUBLISHED_HISTORICAL) as [
+    keyof CensusSummary,
+    { headcount: number; fte?: number | null; fullTime?: number | null },
+  ][]) {
+    const series = data.historical[key];
+    if (!series || typeof series !== "object" || Array.isArray(series)) continue;
+    if (series.hc?.length) series.hc[i] = c.headcount;
+    if (c.fte != null && series.fte?.length) series.fte[i] = c.fte;
+    if (c.fullTime != null) {
+      if (!series.fullTime) series.fullTime = Array.from({ length: data.historical.years.length }, () => null);
+      series.fullTime[i] = c.fullTime;
+    }
+  }
+  return data;
+}
+
+/** @deprecated Use applyPublishedFa25Historical. Kept so older call sites still lock FA25. */
+export function applyFa25HistoricalWithoutDroppedAfterCensus(
+  data: CensusSnapshot,
+  _prior?: CensusRawStudent[],
+): CensusSnapshot {
+  return applyPublishedFa25Historical(data);
+}
+
 /** Rebuild Summary, KPIs, and the current Fall column from Registration Status rows. */
 export function applyRegistrationTotals(data: CensusSnapshot, students: CensusRawStudent[]): CensusSnapshot {
   if (!students.length) return data;

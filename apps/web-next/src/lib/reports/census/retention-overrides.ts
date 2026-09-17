@@ -1,8 +1,19 @@
 import { normPcid, type CensusRawStudent, type LoaStudent, type UnretainedStudent } from "./lists-core";
 import type { GraduateRecord } from "./retention";
 
-/** Dropped after FA25 census — out of the FA25 cohort for F26 retention. */
-export const RETENTION_EXCLUDE = new Set(["P000384377", "P000378273"].map(normPcid)); // Aiden Wilson; Hannah Nelson (deceased)
+/** Dropped after FA25 census — out of FA25 Historical counts and the F26 retention cohort. */
+export const DROPPED_AFTER_CENSUS = new Set(["P000384377"].map(normPcid)); // Aiden Wilson
+
+/** Dropped after FA25 census or deceased — out of the FA25 cohort for F26 retention. */
+export const RETENTION_EXCLUDE = new Set([...DROPPED_AFTER_CENSUS, "P000378273"].map(normPcid)); // Aiden Wilson; Hannah Nelson (deceased)
+
+export function isDroppedAfterCensus(pcid: string): boolean {
+  return DROPPED_AFTER_CENSUS.has(normPcid(pcid));
+}
+
+export function omitDroppedAfterCensus<T extends { pcid: string }>(rows: T[]): T[] {
+  return rows.filter((s) => !isDroppedAfterCensus(s.pcid));
+}
 
 /** AMSOL / still enrolled / finishing credits — count as retained even if not UG-registered. */
 export const RETENTION_FORCE_RETAINED = new Set(

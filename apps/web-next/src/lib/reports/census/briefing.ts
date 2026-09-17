@@ -110,11 +110,11 @@ export function buildCensusBriefing(data: CensusSnapshot, lists: CensusLists): C
     ftca: fa25Ftca,
     ugDegreeSeeking: fa25Ug,
     totalEnrollment: fa25All,
-    note: "FA25 Summary gold: new students 459, FTCA 392, UG DS 1343, total 1500.",
+    note: "FA25 Historical (Aiden Wilson dropped after census): new students 458, FTCA 391, UG DS 1342, total 1499. Gold Excel is 459 / 392 / 1343 / 1500.",
   };
 
   const ftcaRetention = {
-    definition: "Fall 2025 Incoming+FTCA (392 on the FA25 Summary). Spring admits out. Aiden Wilson excluded after census. Cohort 391.",
+    definition: "Fall 2025 Incoming+FTCA after dropping Aiden Wilson. Spring admits out. Cohort 391, matching Historical FTCA.",
     cohort: ftca.cohort,
     enrolledThisFall: ftca.enrolledThisFall,
     notRetained: ftca.notRetained,
@@ -167,7 +167,7 @@ export function buildCensusBriefing(data: CensusSnapshot, lists: CensusLists): C
     },
     definitions: [
       "FTCA on Summary = Incoming UG degree-seeking with College Attend FTCA, any class. Spring/summer starters are Returning.",
-      "FA25 FTCA attrition cohort = Incoming+FTCA on the gold FA25 census (392), minus Aiden Wilson (391).",
+      "FA25 FTCA attrition cohort = Incoming+FTCA after dropping Aiden Wilson (391). Same number as Historical FTCA. Gold Excel still prints 392.",
       "Retention notes (Census retention sheet col R): intervening graduates, AMSOL/enrolled/last credits as retained. Only Aiden Wilson (dropped after census) and Hannah Nelson (deceased) are out of the FA25 denominator. Leave of absence stays in the cohort and counts as retained. On the FA26 LOA tab, not All Not Retained.",
       "Verify-tab notes: Trumpore Commuter (AMSOL), Shephard Commuter at MM, Pankratz out of halls and not retained. Intervening graduates on Fall 2026 registration use the note for Incoming vs Returning.",
       "Retention % = still enrolled this fall / (cohort minus intervening graduates). Same formula on All UG, FTCA, sports, and crosstabs. Graduates are not leavers and not in the denominator.",
@@ -219,11 +219,11 @@ function presidentAnswers(args: {
   return [
     {
       question: "Are we up or down versus last fall?",
-      answer: `This fall total enrollment ${t.totalEnrollment} vs FA25 ${lastAll ?? "1500"}. New UG ${t.newStudents} vs ${lastNew ?? 459}. Incoming FTCA ${t.ftca} vs ${lastFtca ?? 392}. UG degree-seeking ${t.ugDegreeSeeking} vs ${args.lastFall.ugDegreeSeeking ?? 1343}.`,
+      answer: `This fall total enrollment ${t.totalEnrollment} vs FA25 ${lastAll ?? "1499"}. New UG ${t.newStudents} vs ${lastNew ?? 458}. Incoming FTCA ${t.ftca} vs ${lastFtca ?? 391}. UG degree-seeking ${t.ugDegreeSeeking} vs ${args.lastFall.ugDegreeSeeking ?? 1342}.`,
     },
     {
-      question: "Why is FTCA not 392 this year?",
-      answer: `Last year’s Summary FTCA is Incoming+FTCA = 392. This year the same rule is Incoming+FTCA with spring/summer starters counted as Returning, so FTCA is ${t.ftca} (10 spring admits left the new-student line).`,
+      question: "Why is FTCA not 391 this year?",
+      answer: `Last year’s Historical FTCA is Incoming+FTCA = 391 (gold 392 minus Aiden Wilson). This year the same rule is Incoming+FTCA with spring/summer starters counted as Returning, so FTCA is ${t.ftca} (10 spring admits left the new-student line).`,
     },
     {
       question: "What is freshman (FTCA) retention, and is that good?",

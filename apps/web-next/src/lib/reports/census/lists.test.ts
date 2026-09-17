@@ -17,6 +17,7 @@ import {
 import { applyErezResidency, markIrelandReturning, markSpringAdmitsReturning, promoteFormerDualFtca, resolveCensusResidency } from "./lists";
 import {
   applyCensusRetentionNotes,
+  isDroppedAfterCensus,
   isOutOfRetentionCohort,
   loaStudentsFromNotes,
   markUnretainedNotes,
@@ -599,6 +600,8 @@ test("unretained notes take graduates, LOA, and exclude/force-retained off All N
     notes.prior.map((s) => s.pcid).sort(),
     ["P000346188", "P000347161", "P000352989", "P1"].sort(),
   );
+  assert.equal(isDroppedAfterCensus("P000384377"), true, "Aiden is out of Historical counts");
+  assert.equal(isDroppedAfterCensus("P000378273"), false, "Hannah stays in Historical UG");
   assert.equal(isOutOfRetentionCohort("P000384377"), true, "Aiden is out of the denominator");
   assert.equal(isOutOfRetentionCohort("P000378273"), true, "Hannah is out of the denominator");
   assert.equal(isOutOfRetentionCohort("P000346188"), false, "LOA stays in the FA25 total");
