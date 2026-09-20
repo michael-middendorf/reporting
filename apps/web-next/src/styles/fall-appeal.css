@@ -20,6 +20,18 @@
   font-weight: 700;
 }
 
+.fa-email-group-row td {
+  background: var(--ac-raised);
+  font-weight: 700;
+  border-top: 2px solid var(--ac-border);
+}
+.fa-email-send { padding-left: 28px !important; }
+.fa-email-send span, .fa-email-send small { display: block; }
+.fa-email-send small { color: var(--ac-dim); font-size: 11px; margin-top: 2px; }
+.fa-email-import { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 12px; font-size: 12px; color: var(--ac-dim); }
+.fa-email-import label { color: var(--ac-text); font-weight: 600; }
+.fa-email-import input { display: block; margin-top: 4px; }
+
 .fa-deferred {
   font-size: 12px;
   color: var(--ac-dim);

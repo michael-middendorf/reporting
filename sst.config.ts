@@ -284,6 +284,7 @@ export default $config({
         FALL_APPEAL_PRIOR_CAMPAIGN: "2025 End of Calendar Year",
         FALL_APPEAL_PRIOR_START: "2025-11-01",
         FALL_APPEAL_CACHE_KEY: "fall-appeal/latest.json",
+        FALL_APPEAL_EMAIL_PERFORMANCE_KEY: "fall-appeal/email-performance.json",
       },
       permissions: reportDataPerms,
     });

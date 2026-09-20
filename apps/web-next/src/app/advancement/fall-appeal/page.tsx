@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, fetchMe, getBearer } from "@/lib/api";
 import {
   addDaysIso,
   formatMdDate,
   usd,
   type FallAppealSnapshot,
+  type EmailPerformanceSegment,
   type PacePoint,
   type SegmentRow,
   type TimelineWeek,
@@ -36,6 +37,8 @@ const DEFS = {
   geography: "Appeal revenue by the donor's state of record (top states shown).",
   timeline: "Cumulative appeal revenue by week, with campaign touch dates overlaid.",
   mail: "Appeal revenue by the acquisition segment recorded on each gift (the appeal's individual asks/lists).",
+  email:
+    "Unique opens and clicks from aggregate Virtuous Analytics email-version records. Segment rates are recipient-weighted across its published sends; they are engagement, not donation conversion rates.",
 } as const;
 
 function InfoDot({ text }: { text: string }) {
@@ -238,6 +241,8 @@ export default function FallAppealPage() {
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [canImportEmail, setCanImportEmail] = useState(false);
+  const [importStatus, setImportStatus] = useState<string | null>(null);
 
   function load() {
     setLoading(true);
@@ -256,6 +261,18 @@ export default function FallAppealPage() {
   }
 
   useEffect(load, []);
+  useEffect(() => { void fetchMe().then((me) => setCanImportEmail(Boolean(me.admin))); }, []);
+
+  async function importEmailCsv(file: File | undefined) {
+    if (!file) return;
+    setImportStatus(`Importing ${file.name}…`);
+    const headers: Record<string, string> = { "Content-Type": "text/csv" };
+    const bearer = getBearer(); if (bearer) headers.Authorization = `Bearer ${bearer}`;
+    try {
+      const result = await fetch("/api/fall-appeal-email-import", { method: "POST", credentials: "include", headers, body: file }).then((response) => response.json());
+      setImportStatus(result.ok ? "Saved. Email metrics will appear after the next hourly appeal refresh." : `Import failed: ${result.error || "unknown error"}`);
+    } catch { setImportStatus("Import failed."); }
+  }
 
   const segments = useMemo(() => data?.segments ?? [], [data]);
   const constituency = segments.filter((s) => s.group === "constituency");
@@ -390,6 +407,60 @@ export default function FallAppealPage() {
               </div>
             </section>
           )}
+
+          <section className="ac-analytics">
+            <h2>
+              Email Engagement <InfoDot text={DEFS.email} />
+            </h2>
+            {!data.emailPerformance || data.emailPerformance.status === "unavailable" ? (
+              <div className="ac-note">
+                Email engagement is not available yet. It will appear after the aggregate Virtuous Analytics
+                refresh completes; this does not change gift reporting.
+              </div>
+            ) : data.emailPerformance.segments.length === 0 ? (
+              <div className="ac-note">No approved Fall Appeal email sends have been published yet.</div>
+            ) : (
+              <>
+                <div className="ac-table-wrap">
+                  <table className="ac-table fa-email-table" style={{ minWidth: 720 }}>
+                    <thead>
+                      <tr>
+                        <th>Segment / send</th>
+                        <th className="ac-num">Sent</th>
+                        <th className="ac-num">Recipients</th>
+                        <th className="ac-num">Unique opens</th>
+                        <th className="ac-num">Open rate</th>
+                        <th className="ac-num">Unique clicks</th>
+                        <th className="ac-num">Click rate</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.emailPerformance.segments.map((segment) => (
+                        <EmailSegmentRows key={segment.key} segment={segment} />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="fa-deferred">
+                  Aggregate email data refreshed {data.emailPerformance.generatedAt || "recently"}
+                  {data.emailPerformance.sourceSyncedAt
+                    ? ` · warehouse synced ${data.emailPerformance.sourceSyncedAt}`
+                    : ""}
+                  .
+                </p>
+              </>
+            )}
+            {canImportEmail && (
+              <div className="fa-email-import">
+                <label>
+                  Update aggregate email metrics
+                  <input type="file" accept=".csv,text/csv" onChange={(event) => void importEmailCsv(event.target.files?.[0])} />
+                </label>
+                <span>CSV columns: email_id, email_name, subject, sent_at, recipients, unique_opens, unique_clicks.</span>
+                {importStatus && <span>{importStatus}</span>}
+              </div>
+            )}
+          </section>
 
           <section className="ac-analytics">
             <h2>
@@ -554,6 +625,36 @@ export default function FallAppealPage() {
         </>
       )}
     </main>
+  );
+}
+
+function EmailSegmentRows({ segment }: { segment: EmailPerformanceSegment }) {
+  return (
+    <>
+      <tr className="fa-email-group-row">
+        <td>{segment.label}</td>
+        <td className="ac-num">—</td>
+        <td className="ac-num">{num(segment.recipients)}</td>
+        <td className="ac-num">{num(segment.uniqueOpens)}</td>
+        <td className="ac-num">{segment.openRate == null ? "—" : pct(segment.openRate)}</td>
+        <td className="ac-num">{num(segment.uniqueClicks)}</td>
+        <td className="ac-num">{segment.clickRate == null ? "—" : pct(segment.clickRate)}</td>
+      </tr>
+      {segment.sends.map((send) => (
+        <tr key={send.emailId} title={send.subject || send.name}>
+          <td className="fa-email-send">
+            <span>{send.name}</span>
+            {send.subject && <small>{send.subject}</small>}
+          </td>
+          <td className="ac-num">{formatMdDate(send.sentAt)}</td>
+          <td className="ac-num">{num(send.recipients)}</td>
+          <td className="ac-num">{num(send.uniqueOpens)}</td>
+          <td className="ac-num">{send.openRate == null ? "—" : pct(send.openRate)}</td>
+          <td className="ac-num">{num(send.uniqueClicks)}</td>
+          <td className="ac-num">{send.clickRate == null ? "—" : pct(send.clickRate)}</td>
+        </tr>
+      ))}
+    </>
   );
 }
 

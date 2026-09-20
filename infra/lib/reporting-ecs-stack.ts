@@ -171,6 +171,8 @@ export class ReportingEcsStack extends cdk.Stack {
     }));
     // Housing verification/uploads: staff xlsx + edit state under cache/housing/.
     task.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:PutObject"], resources: [`${dataBucketArn}/cache/housing/*`] }));
+    // Fall Appeal manual import: one validated aggregate email snapshot.
+    task.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:PutObject"], resources: [`${dataBucketArn}/fall-appeal/email-performance.json`] }));
     // Office-hours below-A/B ledger: persist firstSeen so coaches see duration, not today.
     task.addToTaskRolePolicy(
       new iam.PolicyStatement({

@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import datetime as dt
+import os
 import unittest
+from unittest.mock import patch
 
 from handler import (
     gift_breakdown,
@@ -14,6 +16,8 @@ from handler import (
     _parse_md,
     _parse_money,
     _pct_delta,
+    _load_overlays,
+    build_payload,
 )
 
 
@@ -142,6 +146,29 @@ class PaceTests(unittest.TestCase):
 
     def test_delta_none_when_prior_is_zero(self):
         self.assertIsNone(_pct_delta(10.0, 0.0))
+
+
+class EmailPerformanceTests(unittest.TestCase):
+    def test_payload_carries_aggregate_email_snapshot_without_changing_gift_summary(self):
+        class Client:
+            def paged_query(self, *_args, **_kwargs):
+                return []
+
+        email = {
+            "status": "available",
+            "generatedAt": "2026-09-19T18:00:00Z",
+            "sourceSyncedAt": "2026-09-19T17:00:00Z",
+            "segments": [{"key": "active_donors", "recipients": 100, "openRate": 40.0, "sends": []}],
+        }
+        payload = build_payload(Client(), "2026 Fall Appeal", "", 1000, dt.date(2026, 9, 19), geo_enabled=False, email_performance=email)
+        self.assertEqual(payload["summary"]["totalGifts"], 0)
+        self.assertEqual(payload["emailPerformance"], email)
+
+
+class OverlayTests(unittest.TestCase):
+    def test_reads_configured_overlays(self):
+        with patch.dict(os.environ, {"FALL_APPEAL_OVERLAYS": '[{"label":"Email launch","date":"2026-09-15"}]'}):
+            self.assertEqual(_load_overlays(), [{"label": "Email launch", "date": "2026-09-15"}])
 
 
 if __name__ == "__main__":

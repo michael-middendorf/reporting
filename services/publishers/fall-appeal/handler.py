@@ -1,17 +1,17 @@
 """Fall Appeal publisher.
 
 Writes ``fall-appeal/latest.json`` to ReportData (feeds
-``/advancement/fall-appeal``). All figures are sourced from Virtuous gifts
+``/advancement/fall-appeal``). Gift figures are sourced from Virtuous gifts
 tagged to the appeal campaign (default "2026 Fall Appeal").
 
-Scope (Virtuous-only, per Advancement): executive summary, gift-size breakdown,
-donor segmentation, geography, weekly campaign timeline, and a year-over-year
-point-in-time (pace) comparison against a prior appeal campaign. Deliberately
-OUT of scope (data lives outside Virtuous): direct-mail volume / deliverability
-/ QR scans, email open/click/unsubscribe, website + digital-source analytics,
-and any rate needing a solicited-audience denominator (response / conversion
-rate). Cost-derived metrics (ROI, cost-to-raise-a-dollar, net revenue) and the
-Annual Fund goal are omitted (no source in Virtuous).
+Scope: executive summary, gift-size breakdown, donor segmentation, geography,
+weekly campaign timeline, year-over-year pace, and aggregate email engagement.
+Gift figures come from Virtuous CRM; email metrics come from a validated manual
+CSV of aggregate send counts. Direct-mail volume / deliverability / QR scans,
+website + digital-source analytics, and any rate needing a solicited-audience
+denominator (response / conversion rate) remain out of scope. Cost-derived
+metrics (ROI, cost-to-raise-a-dollar, net revenue) and the Annual Fund goal are
+omitted (no source in Virtuous).
 
 Segmentation is computed with one gift query per segment (Campaign Name Is X AND
 Contact Tag Is[Any|None]Of [...]) so it scales with the number of segments, not
@@ -32,6 +32,7 @@ import urllib.parse
 import urllib.request
 from collections import defaultdict
 from typing import Any
+
 
 GIFT_QUERY_PATH = "/api/Gift/Query"
 CONTACT_PATH = "/api/Contact"
@@ -470,6 +471,38 @@ def _load_overlays() -> list[dict[str, Any]]:
         return []
 
 
+def load_email_performance() -> dict[str, Any]:
+    """Load the latest aggregate email snapshot, keeping gift publishing independent.
+
+    A missing first snapshot is an expected deployment state. Other S3 errors
+    propagate so an access or data-integrity regression is visible in Lambda.
+    """
+    key = os.environ.get("FALL_APPEAL_EMAIL_PERFORMANCE_KEY") or "fall-appeal/email-performance.json"
+    from botocore.exceptions import ClientError
+    from common.s3util import data_bucket, s3
+
+    client = s3()
+    try:
+        response = client.get_object(Bucket=data_bucket(), Key=key)
+    except ClientError as exc:
+        if exc.response.get("Error", {}).get("Code") in {"NoSuchKey", "404"}:
+            return {"status": "unavailable", "generatedAt": None, "sourceSyncedAt": None, "segments": []}
+        raise
+    with response["Body"] as body:
+        snapshot = json.loads(body.read())
+    if not isinstance(snapshot, dict):
+        raise RuntimeError("Fall Appeal email performance snapshot must be an object")
+    segments = snapshot.get("segments")
+    if not isinstance(segments, list):
+        raise RuntimeError("Virtuous email performance snapshot has invalid segments")
+    return {
+        "status": "available",
+        "generatedAt": snapshot.get("generatedAt"),
+        "sourceSyncedAt": snapshot.get("sourceSyncedAt"),
+        "segments": segments,
+    }
+
+
 def build_payload(
     client: VirtuousClient,
     campaign: str,
@@ -480,6 +513,7 @@ def build_payload(
     geo_enabled: bool = True,
     geo_max: int = 5000,
     top_states: int = 10,
+    email_performance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     raw_gifts = client.paged_query(GIFT_QUERY_PATH, {"groups": [{"conditions": [_campaign_condition(campaign)]}]}, page_size)
     gifts = normalize_gifts(raw_gifts)
@@ -532,6 +566,8 @@ def build_payload(
         "geography": build_geography(client, gifts, geo_enabled, geo_max, top_states),
         "timeline": weekly_timeline(gifts, overlays),
         "mailSegments": mail_segments(gifts),
+        "emailPerformance": email_performance
+        or {"status": "unavailable", "generatedAt": None, "sourceSyncedAt": None, "segments": []},
         "overlays": overlays,
     }
 
@@ -559,6 +595,7 @@ def handler(event: dict[str, Any] | None = None, context: Any = None) -> dict[st
         dt.date.today(),
         geo_enabled=geo_enabled,
         geo_max=geo_max,
+        email_performance=load_email_performance(),
     )
     from common.s3util import put_json
 

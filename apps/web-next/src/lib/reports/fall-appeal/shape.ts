@@ -1,9 +1,9 @@
 /** Shapes for the Fall Appeal snapshot (fall-appeal/latest.json).
  *
- * All figures are Virtuous gift data for the appeal campaign. Out of scope
- * (data lives outside Virtuous): direct-mail volume, email engagement, website
- * + digital-source analytics, response/conversion rates, and cost-derived
- * metrics (ROI, cost-to-raise, net-of-cost) + the Annual Fund goal.
+ * Gift figures are Virtuous CRM data. Email engagement is an administrator
+ * imported, aggregate-only CSV for approved Fall 2026 sends; it has no
+ * recipient records. Direct-mail volume, website + digital-source analytics,
+ * response/conversion rates, and cost-derived metrics remain out of scope.
  */
 
 export type Totals = { revenue: number; gifts: number };
@@ -88,6 +88,36 @@ export type MailSegment = {
   avgGift: number;
 };
 
+export type EmailSend = {
+  emailId: number;
+  name: string;
+  subject: string | null;
+  sentAt: string;
+  recipients: number;
+  uniqueOpens: number;
+  openRate: number | null;
+  uniqueClicks: number;
+  clickRate: number | null;
+};
+
+export type EmailPerformanceSegment = {
+  key: string;
+  label: string;
+  recipients: number;
+  uniqueOpens: number;
+  openRate: number | null;
+  uniqueClicks: number;
+  clickRate: number | null;
+  sends: EmailSend[];
+};
+
+export type EmailPerformance = {
+  status: "available" | "unavailable";
+  generatedAt: string | null;
+  sourceSyncedAt: string | null;
+  segments: EmailPerformanceSegment[];
+};
+
 export type FallAppealSnapshot = {
   generated_at: string;
   campaign: string;
@@ -105,6 +135,7 @@ export type FallAppealSnapshot = {
   geography: Geography;
   timeline: TimelineWeek[];
   mailSegments: MailSegment[];
+  emailPerformance?: EmailPerformance;
   overlays: { label: string; date: string }[];
   cache?: string;
   error?: string;
