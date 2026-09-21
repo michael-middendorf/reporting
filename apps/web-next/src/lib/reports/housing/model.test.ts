@@ -20,13 +20,17 @@ import {
   isOffLimits,
   isRome,
   isUnassigned,
+  fmtBirthdate,
+  fmtIsoDate,
+  genderLabel,
   occupantLabel,
+  roommateNames,
   roomFill,
   roomListRows,
   roomStatus,
   sumHalls,
 } from "./model";
-import type { ChartRoom, HallChart, RoomVerificationState } from "./types";
+import type { ChartRoom, HallChart, Resident, RoomVerificationState } from "./types";
 
 const NONE: RoomVerificationState["edits"] = {};
 
@@ -35,6 +39,21 @@ function chartRoom(hall: string, num: string): ChartRoom {
   assert.ok(room, `missing ${hall} ${num}`);
   return room;
 }
+
+test("room profile formats birthdate, gender, and roommates", () => {
+  assert.equal(fmtBirthdate("2006-09-03"), "Sep 3, 2006");
+  assert.equal(fmtBirthdate(""), "Not on file");
+  assert.equal(fmtBirthdate(undefined), "Not on file");
+  assert.equal(fmtIsoDate("2027-05-01T00:00:00"), "May 1, 2027");
+  assert.equal(genderLabel("f"), "Female");
+  assert.equal(genderLabel("M"), "Male");
+  assert.equal(genderLabel(""), "");
+  const ada = { pcid: "A", name: "Ada" } as Resident;
+  const bea = { pcid: "B", name: "Bea" } as Resident;
+  const unnamed = { pcid: "C", name: "" } as Resident;
+  assert.equal(roommateNames([ada, bea, unnamed], ada), "Bea, C");
+  assert.equal(roommateNames([ada], ada), "None");
+});
 
 test("Ireland is CIARA/MALAC; Rome is eRez price type RSTA", () => {
   assert.equal(isIreland("CIARA"), true);

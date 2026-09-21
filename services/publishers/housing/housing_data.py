@@ -230,6 +230,64 @@ def _normalize_dep(name: str) -> str:
     return name
 
 
+_BIRTHDATE_KEYS = (
+    "Birthdate",
+    "Person Birthdate",
+    "Birth Date",
+    "DOB",
+    "Date of Birth",
+    "Dep_Birthdate",
+    "Dep_Birth Date",
+)
+
+
+def _iso_date(value) -> str:
+    """Calendar date as YYYY-MM-DD. Empty when the source value is blank or unrecognized."""
+    if isinstance(value, datetime.datetime):
+        return value.date().isoformat()
+    if isinstance(value, datetime.date):
+        return value.isoformat()
+    text = str(value or "").strip()
+    if not text or text.lower() in {"null", "none", "n/a"}:
+        return ""
+    head = text[:10]
+    if len(head) == 10 and head[4] == "-" and head[7] == "-":
+        try:
+            return datetime.date.fromisoformat(head).isoformat()
+        except ValueError:
+            return ""
+    chunk = text.split(" ")[0].split("T")[0]
+    for fmt in ("%m/%d/%Y", "%Y/%m/%d", "%m-%d-%Y"):
+        try:
+            return datetime.datetime.strptime(chunk, fmt).date().isoformat()
+        except ValueError:
+            continue
+    return ""
+
+
+def _row_birthdate(row: dict) -> str:
+    if not isinstance(row, dict):
+        return ""
+    for key in _BIRTHDATE_KEYS:
+        found = _iso_date(row.get(key))
+        if found:
+            return found
+    return ""
+
+
+def _birthdates_from_deposits(dep_rows: list) -> dict:
+    """PCID → birthdate from the deposit extract. That file is mostly incoming students."""
+    out = {}
+    for rec in dep_rows or []:
+        if not isinstance(rec, dict):
+            continue
+        pcid = (rec.get("Dep_PCID") or "").strip().upper()
+        dob = _row_birthdate(rec)
+        if pcid and dob:
+            out[pcid] = dob
+    return out
+
+
 def _display_date(dt: Optional[datetime.datetime] = None) -> str:
     dt = dt or datetime.datetime.now()
     return f"{dt.strftime('%b')} {dt.day} {dt.year}"
@@ -722,6 +780,7 @@ def _build_cloud_residents(erez_records: list[dict]) -> dict:
     roster = _fetch_slate_roster()
     roster_loaded = bool(roster)
     incoming, withdrawn, dep_rows = _deposit_sets()
+    birth_by_pcid = _birthdates_from_deposits(dep_rows)
     try:
         gender_lookup = _build_gender_lookup()
     except Exception:
@@ -760,6 +819,8 @@ def _build_cloud_residents(erez_records: list[dict]) -> dict:
             last = str(look.get("last") or "").strip()
         name = (first + " " + last).strip() or _name_from_email(email) or pcid
         gender = (s.get("Gender") or "").strip()[:1].upper() or gender_lookup.get(pcid, "")
+        # Slate roster when the query includes birthdate; deposit extract otherwise.
+        birthdate = _row_birthdate(s) or birth_by_pcid.get(pcid, "")
         move_in = DEFAULT_NEW if inc else DEFAULT_RETURN
         move_in_source, move_in_early, early_reason, early_groups = "class-default", "", "", []
         if info:
@@ -843,6 +904,7 @@ def _build_cloud_residents(erez_records: list[dict]) -> dict:
                 "athletic_type": (s.get("AthleticType") or ""),
                 "entry_term": et,
                 "gender": gender,
+                "birthdate": birthdate,
                 "hometown": ", ".join(x for x in [(s.get("City") or ""), (s.get("State") or "")] if x),
                 "is_athlete": is_ath,
                 "price_type": rec.get("price_type_id", ""),

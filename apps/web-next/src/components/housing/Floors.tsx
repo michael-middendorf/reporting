@@ -11,11 +11,15 @@ import {
   SEC_ORDER,
   bedsOpen,
   floorBands,
+  fmtBirthdate,
   fmtDate,
+  fmtIsoDate,
+  genderLabel,
   hallResidents,
   isEarly,
   isIsoDate,
   peopleIn,
+  roommateNames,
   roomCellFill,
   roomFill,
   roomKey,
@@ -23,6 +27,7 @@ import {
   roomStatus,
   shade,
   srcLabel,
+  statusLabel,
   todayIso,
 } from "@/lib/reports/housing/model";
 import type { OccIndex, RoomListRow } from "@/lib/reports/housing/model";
@@ -306,10 +311,18 @@ export function Floors({
                     {asof && p.move_in === asof ? <span className={styles.badge} style={{ background: "#E7F0FB", color: "#1B5EA8", borderColor: "#BBD3EE" }}>Moving in</span> : null}
                     {isEarly(p) ? <span className={styles.badge}>Early</span> : null}
                   </div>
-                  <div className={styles.psub}>{p.student_type || "Resident"}{p.early_reason ? ` · ${p.early_reason}` : ""}</div>
+                  <div className={styles.psub}>{statusLabel(p)}{p.early_reason ? ` · ${p.early_reason}` : ""}</div>
+                  <Kv k="Date of birth" v={fmtBirthdate(p.birthdate)} />
+                  <Kv k="Roommates" v={roommateNames(people, p)} />
                   <Kv k="Class year" v={p.class_status || "—"} />
                   <Kv k="Move-in" v={`${fmtDate(p.move_in)}${p.move_in_source ? ` (${srcLabel(p.move_in_source)})` : ""}`} />
+                  {p.end_date ? <Kv k="Contract end" v={fmtIsoDate(p.end_date)} /> : null}
+                  {genderLabel(p.gender) ? <Kv k="Gender" v={genderLabel(p.gender)} /> : null}
+                  {p.entry_term ? <Kv k="Entry term" v={p.entry_term} /> : null}
+                  {p.category ? <Kv k="Category" v={p.category} /> : null}
                   {p.sport ? <Kv k="Sport" v={p.sport} /> : null}
+                  {p.roster_status ? <Kv k="Roster standing" v={p.roster_status} /> : null}
+                  {p.athletic_type ? <Kv k="Athletic type" v={p.athletic_type} /> : null}
                   {p.hometown ? <Kv k="Hometown" v={p.hometown} /> : null}
                   <Kv k="PCID" v={p.pcid || "—"} />
                   <Kv k="Email" v={p.email || "—"} />
