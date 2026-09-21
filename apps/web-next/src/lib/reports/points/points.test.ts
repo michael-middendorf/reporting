@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MA_NAMES, SETTINGS, evalStartDate } from "./config.js";
 import { assignedNotesFromFlags, contactDisplayName, eventPointsForHours, isMgoAttributedGift, isMonthlyRecurring, parseDate, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
-import { COUNTED_SPREADSHEET_GIFTS } from "./counted-gifts.js";
+import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "./counted-gifts.js";
 import { aggregate, daysOfWeek, isTaskListRow, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
 import { buildCalculationCSV, statusOf, virtuousGiftUrl } from "./report.js";
 
@@ -753,7 +753,7 @@ describe("monthly AC annualization", () => {
     assert.equal(owner.gifts, 1);
   });
 
-  it("a tracker gift counts even if Virtuous treats the AC as a continuation", () => {
+  it("a tracker row does not raise a same-rate AC continuation", () => {
     const merged = prepareGifts(
       [
         postedGift({
@@ -799,8 +799,9 @@ describe("monthly AC annualization", () => {
       {},
       COUNTED_SPREADSHEET_GIFTS,
     );
-    assert.equal(owner.giftAmount, 374.4);
-    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+    assert.equal(owner.points, 10);
     assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
@@ -1872,7 +1873,15 @@ describe("contactDisplayName", () => {
 });
 
 describe("spreadsheet tracker gifts", () => {
-  it("matches Finzio on the tracker to Finizio in Virtuous", () => {
+  it("still recognizes a close name and amount, without assigning Raised", () => {
+    const hit = matchCountedSpreadsheetGift({
+      contactName: "Tobin Finizio",
+      day: "2026-08-13",
+      postedAmount: 75,
+      amount: 75,
+    });
+    assert.ok(hit);
+    assert.equal(hit.owner, "Sean Kelly");
     const { owner, model } = run(
       [],
       [postedGift({
@@ -1885,12 +1894,13 @@ describe("spreadsheet tracker gifts", () => {
       {},
       COUNTED_SPREADSHEET_GIFTS,
     );
-    assert.equal(owner.giftAmount, 75);
-    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+    assert.equal(owner.points, 0);
     assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
-  it("Anna Clark $200 on 8/14 counts for Natalia", () => {
+  it("does not raise Anna Clark for Natalia without a donation note", () => {
     const { owner, model } = run(
       [],
       [postedGift({
@@ -1903,13 +1913,13 @@ describe("spreadsheet tracker gifts", () => {
       {},
       COUNTED_SPREADSHEET_GIFTS,
     );
-    assert.equal(owner.giftAmount, 200);
-    assert.equal(owner.gifts, 1);
-    assert.equal(owner.points, 100);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+    assert.equal(owner.points, 0);
     assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
-  it("counts a tracker gift even when there is no MA note on the contact", () => {
+  it("does not raise a tracker gift when there is no MA note on the contact", () => {
     const { owner, model } = run(
       [],
       [postedGift({
@@ -1923,13 +1933,13 @@ describe("spreadsheet tracker gifts", () => {
       {},
       COUNTED_SPREADSHEET_GIFTS,
     );
-    assert.equal(owner.giftAmount, 624);
-    assert.equal(owner.gifts, 1);
-    assert.equal(owner.points, 100);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+    assert.equal(owner.points, 0);
     assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
-  it("counts a tracker gift and keeps it out of Incoming", () => {
+  it("a conversation on a tracker donor stays Incoming", () => {
     const ELENA = "Elena Barnes";
     const { owner, model } = run(
       [donationNote({
@@ -1948,13 +1958,117 @@ describe("spreadsheet tracker gifts", () => {
       {},
       COUNTED_SPREADSHEET_GIFTS,
     );
-    assert.equal(owner.giftAmount, 721);
-    assert.equal(owner.gifts, 1);
-    assert.equal(owner.points, 110);
-    assert.equal(model.possibleGifts?.length ?? 0, 0);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+    assert.equal(owner.points, 10);
+    assert.equal(model.possibleGifts?.length ?? 0, 1);
   });
 
-  it("splits a Betsy and Caleb tracker gift even with a blank Virtuous name", () => {
+  it("a blank Virtuous name does not claim another donor's tracker row", () => {
+    const hit = matchCountedSpreadsheetGift({
+      contactName: "",
+      day: "2026-09-15",
+      postedAmount: 20,
+      amount: 20,
+    });
+    assert.equal(hit, null);
+    const { model } = run(
+      [
+        donationNote({
+          createdByUser: NATALIA,
+          type: "Mission Advancement Call | Voicemail",
+          noteDate: "9/16/2026",
+          contactId: 79588,
+          id: 1,
+        }),
+        donationNote({
+          createdByUser: NATALIA,
+          type: "Mission Advancement Call | Email Reach Out",
+          noteDate: "9/16/2026",
+          contactId: 79588,
+          id: 2,
+        }),
+        donationNote({
+          createdByUser: NATALIA,
+          type: "Letter",
+          noteDate: "9/16/2026",
+          contactId: 79588,
+          id: 3,
+        }),
+      ],
+      [postedGift({
+        id: 451929,
+        contactId: 79588,
+        contactName: "",
+        giftDate: "9/15/2026",
+        amount: 20,
+        segment: "FYE27 Fall 2026 Appeal Lapsed 24-48 Direct Mail 1",
+      })],
+      ALANNA,
+      {},
+      COUNTED_SPREADSHEET_GIFTS,
+    );
+    const alanna = model.tableOwners.find((o) => o.name === ALANNA);
+    const natalia = model.tableOwners.find((o) => o.name === NATALIA);
+    assert.ok(alanna);
+    assert.ok(natalia);
+    assert.equal(alanna.giftAmount, 0);
+    assert.equal(alanna.gifts, 0);
+    assert.equal(natalia.giftAmount, 0);
+    assert.equal(natalia.gifts, 0);
+    assert.equal(natalia.points, 8);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
+    assert.equal(model.gifts.length, 0);
+  });
+
+  it("a donation note after the gift credits the MA who logged it", () => {
+    const { owner, rows } = run(
+      [donationNote({
+        createdByUser: ALANNA,
+        type: "Mission Advancement | New Donation or New AC",
+        noteDate: "9/16/2026",
+        contactId: 79588,
+        contactName: "Arthur and Janet De Cook",
+      })],
+      [postedGift({
+        id: 451929,
+        contactId: 79588,
+        contactName: "Arthur and Janet De Cook",
+        giftDate: "9/15/2026",
+        amount: 20,
+      })],
+      ALANNA,
+      {},
+      COUNTED_SPREADSHEET_GIFTS,
+    );
+    assert.equal(owner.giftAmount, 20);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 100);
+    assert.equal(rows.some((r) => r.source === "spreadsheet"), false);
+  });
+
+  it("a donation note before the gift credits the MA who logged it", () => {
+    const { owner } = run(
+      [donationNote({
+        createdByUser: ALANNA,
+        type: "Mission Advancement | New Donation or New AC",
+        noteDate: "9/1/2026",
+        contactId: 79588,
+      })],
+      [postedGift({
+        id: 451929,
+        contactId: 79588,
+        contactName: "Arthur and Janet De Cook",
+        giftDate: "9/15/2026",
+        amount: 20,
+      })],
+    );
+    assert.equal(owner.giftAmount, 20);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 100);
+  });
+
+  it("an in-person note does not split an MGO gift across a tracker row", () => {
     const { model } = run(
       [
         donationNote({
@@ -1987,15 +2101,15 @@ describe("spreadsheet tracker gifts", () => {
     const caleb = model.tableOwners.find((o) => o.name === "Caleb Metzen");
     assert.ok(betsy);
     assert.ok(caleb);
-    assert.equal(betsy.giftAmount, 20);
-    assert.equal(caleb.giftAmount, 20);
-    assert.equal(betsy.points, 125);
-    assert.equal(caleb.points, 125);
+    assert.equal(betsy.giftAmount, 0);
+    assert.equal(caleb.giftAmount, 0);
+    assert.equal(betsy.points, 25);
+    assert.equal(caleb.points, 25);
     assert.equal(model.possibleGifts?.length ?? 0, 0);
-    assert.equal((model.reviewGifts || []).length, 0);
+    assert.equal((model.reviewGifts || []).length, 1);
   });
 
-  it("counts a tracker gift when Received is Pending, not Yes", () => {
+  it("a Pending tracker row does not raise the gift", () => {
     const ELENA = "Elena Barnes";
     const counted = [{
       owner: "Elena",
@@ -2022,9 +2136,40 @@ describe("spreadsheet tracker gifts", () => {
       {},
       counted,
     );
-    assert.equal(owner.giftAmount, 88);
-    assert.equal(owner.gifts, 1);
-    assert.equal(model.possibleGifts?.length ?? 0, 0);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+    assert.equal(owner.points, 10);
+    assert.equal(model.possibleGifts?.length ?? 0, 1);
+  });
+
+  it("does not match a different amount on two shared name tokens", () => {
+    const hit = matchCountedSpreadsheetGift({
+      contactName: "Rosemarie Dotro",
+      day: "2026-09-12",
+      postedAmount: 515.24,
+      amount: 515.24,
+    });
+    assert.equal(hit, null);
+  });
+
+  it("skips a tracker row marked received No", () => {
+    const hit = matchCountedSpreadsheetGift(
+      {
+        contactName: "Jane Tracker",
+        day: "2026-08-15",
+        postedAmount: 88,
+        amount: 88,
+      },
+      [{
+        owner: "Elena",
+        donor: "Jane Tracker",
+        amount: 88,
+        day: "2026-08-15",
+        monthly: false,
+        received: "No",
+      }],
+    );
+    assert.equal(hit, null);
   });
 });
 
