@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MA_NAMES, SETTINGS, evalStartDate } from "./config.js";
-import { assignedNotesFromFlags, contactDisplayName, eventPointsForHours, isMgoAttributedGift, isMonthlyRecurring, parseDate, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
+import { assignedNotesFromFlags, contactDisplayName, eventPointsForHours, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, parseDate, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "./counted-gifts.js";
 import { aggregate, daysOfWeek, isTaskListRow, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
 import { buildCalculationCSV, statusOf, virtuousGiftUrl } from "./report.js";
@@ -2170,6 +2170,111 @@ describe("spreadsheet tracker gifts", () => {
       }],
     );
     assert.equal(hit, null);
+  });
+});
+
+describe("gala ticket purchases", () => {
+  const ELENA = "Elena Barnes";
+
+  it("recognizes a gala segment as a gala gift", () => {
+    assert.equal(isGalaGift({ segment: "2026 Chancellor's Gala" }), true);
+    assert.equal(isGalaGift({ project: "Gala tickets" }), true);
+    assert.equal(isGalaGift({ segment: "Main Donation Page" }), false);
+    assert.equal(giftKindOf({ segment: "2026 Chancellor's Gala" }), "gala");
+  });
+
+  it("counts the ticket purchase when an MA conversation is within 45 days", () => {
+    const { owner, model } = run(
+      [donationNote({
+        createdByUser: ELENA,
+        type: "Mission Advancement Call | Conversation",
+        noteDate: "9/15/2026",
+        contactId: 8801,
+        contactName: "Jay Hamilton",
+      })],
+      [postedGift({
+        id: 88011,
+        contactId: 8801,
+        contactName: "Jay Hamilton",
+        giftDate: "9/18/2026",
+        amount: 1275,
+        segment: "2026 Chancellor's Gala",
+      })],
+      ELENA,
+    );
+    assert.equal(owner.giftAmount, 1275);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 110);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
+  });
+
+  it("counts the ticket purchase when the conversation is logged after the gift posts", () => {
+    const { owner } = run(
+      [donationNote({
+        createdByUser: ELENA,
+        type: "Mission Advancement Call | Conversation",
+        noteDate: "9/19/2026",
+        contactId: 8801,
+      })],
+      [postedGift({
+        id: 88012,
+        contactId: 8801,
+        contactName: "Jay Hamilton",
+        giftDate: "9/18/2026",
+        amount: 1275,
+        segment: "Gala",
+      })],
+      ELENA,
+    );
+    assert.equal(owner.giftAmount, 1275);
+    assert.equal(owner.gifts, 1);
+  });
+
+  it("does not count a gala gift from a voicemail", () => {
+    const { owner, model } = run(
+      [donationNote({
+        createdByUser: ELENA,
+        type: "Mission Advancement Call | Voicemail",
+        noteDate: "9/15/2026",
+        contactId: 8801,
+      })],
+      [postedGift({
+        id: 88013,
+        contactId: 8801,
+        contactName: "Jay Hamilton",
+        giftDate: "9/18/2026",
+        amount: 1275,
+        segment: "Gala",
+      })],
+      ELENA,
+    );
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
+  });
+
+  it("does not let a gala conversation claim a different gift", () => {
+    const { owner, model } = run(
+      [donationNote({
+        createdByUser: NATALIA,
+        type: "Mission Advancement Call | Conversation",
+        noteDate: "9/17/2026",
+        contactId: 106479,
+        contactName: "Paul and Mechelle Wagner",
+      })],
+      [postedGift({
+        id: 452002,
+        contactId: 106479,
+        contactName: "Paul and Mechelle Wagner",
+        giftDate: "9/17/2026",
+        amount: 20.91,
+        segment: "Main Donation Page",
+      })],
+      NATALIA,
+    );
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+    assert.equal(model.possibleGifts?.length ?? 0, 1);
   });
 });
 
