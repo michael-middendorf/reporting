@@ -178,6 +178,37 @@ export function occupantLabel(p: Resident): string {
   return n || p.pcid || "";
 }
 
+/** Other people assigned to this dorm room, as one line. */
+export function roommateNames(people: Resident[], self: Resident): string {
+  const names = people
+    .filter((p) => p.pcid !== self.pcid)
+    .map(occupantLabel)
+    .filter(Boolean);
+  return names.length ? names.join(", ") : "None";
+}
+
+export function genderLabel(g?: string): string {
+  const v = (g || "").trim().toUpperCase();
+  if (v === "F") return "Female";
+  if (v === "M") return "Male";
+  return (g || "").trim();
+}
+
+/** ISO date with the year. Birthdate and contract end need the year; move-in uses fmtDate. */
+export function fmtIsoDate(d?: string): string {
+  if (!d) return "—";
+  const iso = d.slice(0, 10);
+  const [y, mo, da] = iso.split("-");
+  if (!y || !mo || !da || y.length !== 4) return d;
+  const dt = new Date(Number(y), Number(mo) - 1, Number(da));
+  if (Number.isNaN(dt.getTime())) return d;
+  return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+export function fmtBirthdate(d?: string): string {
+  return d ? fmtIsoDate(d) : "Not on file";
+}
+
 export function roomFill(
   edits: RoomVerificationState["edits"],
   hall: string,

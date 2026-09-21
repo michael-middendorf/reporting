@@ -19,6 +19,8 @@ export type Resident = {
   athletic_type?: string;
   entry_term?: string;
   gender?: string;
+  /** YYYY-MM-DD when Slate or the deposit extract has it. */
+  birthdate?: string;
   hometown?: string;
   is_athlete?: boolean;
   price_type?: string;
