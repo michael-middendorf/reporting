@@ -3,7 +3,6 @@
  * Turns raw Virtuous records into scored activity rows entirely client-side.
  */
 import { POINTS_MAP, EVENT_POINTS_PER_HOUR, TRACKED_EVENT_TYPES, SETTINGS, MA_NAMES, MA_ROSTER } from "./config.js";
-import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "./counted-gifts.js";
 
 /** Normalize a Virtuous date string ("8/4/2026" or ISO) to a Date (local). */
 export function parseDate(value) {
@@ -621,16 +620,24 @@ function markAssist(gift) {
  * and no matching donation or Gift Assist note become bucket "possible"
  * (Incoming: 0 pts, not Raised). Raised dollars always pair with 100 pts.
  *
+ * A row on the MA tracker spreadsheet does not assign Raised. The MA who
+ * receives the dollars must have a donation note on that contact within 45
+ * days before the gift, or a donation note within 45 days after the gift
+ * (New Donation or New AC, Annunciation Circle updated, or Update Recurring
+ * Gift). A letter, email, voicemail, or thank-you does not qualify. An
+ * Incoming or MGO assignment on the dashboard is the other way a gift is
+ * credited. `countedGifts` is accepted and ignored so older callers keep
+ * working.
+ *
  * `flags` is the shared review-flags map (same object aggregate uses). An
  * MGO-coded gift with status "assigned" and a roster `flag.owner` scores as
  * a normal donation. An unassigned MGO gift with an MA note in the window
  * is emitted with `needsReview: true` (listed, not added to Raised).
  */
-export function scoreAll({ notes = [], gifts = [], flags = {}, countedGifts }) {
+export function scoreAll({ notes = [], gifts = [], flags = {} }) {
   const rows = [];
   const donationNotes = [];
   const activityByContact = new Map();
-  const countedUsed = new Set();
   for (const n of notes) {
     const r = scoreNote(n);
     if (!r) continue;
@@ -651,51 +658,6 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, countedGifts }) {
     const notesOnContact = ck ? (activityByContact.get(ck) || []) : [];
     const reviewHint = gDate ? ownerHintForReview(gDate, notesOnContact) : null;
     const giftHint = gDate ? ownerHintForGift(gDate, notesOnContact) : null;
-    const sheetHit = matchCountedSpreadsheetGift(
-      {
-        ...g,
-        day: gDate ? isoDay(gDate) : null,
-        postedAmount: parseAmount(g.amount) || parseAmount(g.newMonthly),
-        amount: parseAmount(g.amount) || parseAmount(g.newMonthly),
-        newMonthly: parseAmount(g.newMonthly),
-      },
-      countedGifts === undefined ? COUNTED_SPREADSHEET_GIFTS : countedGifts,
-      countedUsed,
-    );
-    if (sheetHit) {
-      countedUsed.add(sheetHit.index);
-      const owners = sheetHit.owners?.length ? sheetHit.owners : [sheetHit.owner];
-      const share = Math.round((Number(sheetHit.row.amount) / owners.length) * 100) / 100;
-      let any = false;
-      for (const owner of owners) {
-        const r = scoreGift(
-          {
-            ...g,
-            amount: share,
-            frequency: "",
-            acIncrease: false,
-            priorMonthly: null,
-          },
-          owner,
-          owner,
-        );
-        if (!r) continue;
-        const credited = {
-          ...r,
-          amount: share,
-          postedAmount: share,
-          annualized: !!sheetHit.row.monthly,
-          acIncrease: false,
-          source: "spreadsheet",
-          label: owners.length > 1 ? "Counted on MA tracker (split)" : "Counted on MA tracker",
-        };
-        rows.push(credited);
-        scoredGifts.push(credited);
-        matchGifts.push(credited);
-        any = true;
-      }
-      if (any) continue;
-    }
     if (isMgoAttributedGift(g)) {
       const assigned = assignedOwnerForGift(g, reviewHint, flags);
       if (assigned) {

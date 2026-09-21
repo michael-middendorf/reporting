@@ -1,7 +1,7 @@
 /**
- * Gifts listed on the MA tracker (any Received status).
- * If the same gift is posted in Virtuous, count it as Raised (and 100 pts)
- * and do not put it in Possible gifts.
+ * Gifts listed on the MA tracker.
+ * Matching is name + amount + date only. A match does not assign Raised;
+ * scoreAll requires a donation note or an Incoming / MGO assignment.
  */
 import { MA_ROSTER } from "./config.js";
 import countedJson from "./counted-gifts.json";
@@ -103,25 +103,27 @@ export function matchCountedSpreadsheetGift(gift, counted = COUNTED_SPREADSHEET_
   const monthly = Number(gift.newMonthly) || 0;
   const day = gift.day;
   const lastGift = tokens(donor).pop() || "";
+  // Gift Query rows often have no donor name. A blank name must not match
+  // another household on amount and date alone.
+  if (!lastGift) return null;
   let best = null;
   let bestScore = Infinity;
   counted.forEach((row, i) => {
     if (used.has(i)) return;
+    if (String(row.received || "").trim().toLowerCase() === "no") return;
     const owners = rosterOwnersFromSheetName(row.owner);
     if (!owners.length) return;
     const names = overlap(donor, row.donor);
     const lastSheet = tokens(row.donor).pop() || "";
-    if (lastGift && lastSheet && !lastNamesClose(lastGift, lastSheet)) return;
+    if (!lastSheet || !lastNamesClose(lastGift, lastSheet)) return;
     const gap = daysApart(day, row.day);
     if (gap > 21) return;
     const amountOk =
       amountsClose(posted, row.amount, row.monthly) ||
       amountsClose(monthly, row.amount, row.monthly) ||
       amountsClose(monthly * 12, row.amount, false);
-    // Blank Virtuous contactName still matches on amount + date.
-    if (names < 1 && !(amountOk && gap <= 5)) return;
-    if (!amountOk && names < 2 && gap > 3) return;
-    const score = (amountOk ? 0 : 40) + gap * 10 - names + (names < 1 ? 20 : 0);
+    if (!amountOk || names < 1) return;
+    const score = gap * 10 - names;
     if (score < bestScore) {
       bestScore = score;
       best = { index: i, owner: owners[0], owners, row };

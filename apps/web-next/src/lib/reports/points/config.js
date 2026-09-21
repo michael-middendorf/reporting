@@ -324,7 +324,7 @@ export const SETTINGS = {
   invalidNumberScores: true,
   /** Tracker credits a new monthly AC as 12 months of the monthly amount. */
   monthlyAnnualizeFactor: 12,
-  /** Credit a gift only if an MA activity note on that contact is on or before the gift, within this many days. */
+  /** Pair a donation note with a posted gift on the same contact within this many days before or after. */
   giftNoteDaysBefore: 45,
   /**
    * If the last Annunciation Circle gift on the contact is older than this
@@ -362,7 +362,7 @@ export const TRACKING_CHART = {
     {
       label: "Dollars received",
       detail:
-        "Posted gift counted in Raised only with 100 points: a New Donation or New AC, Annunciation Circle updated, or Update Recurring Gift note, or an Incoming / MGO assignment. A conversation or meeting alone puts the gift on Incoming, not Raised. Credit goes to whoever logged that gift note, not the MA officer on the account. A letter, email, voicemail, or thank-you does not pull the gift. Gifts coded Direct Solicitation (MGO) show under MGO-coded gifts until assigned. A non-MA GFT_Solicitor is listed the same way.",
+        "Posted gift counted in Raised only with 100 points: a New Donation or New AC, Annunciation Circle updated, or Update Recurring Gift note within 45 days before or after the gift, or an Incoming / MGO assignment. A conversation or meeting alone puts the gift on Incoming, not Raised. Credit goes to whoever logged that gift note, not the MA officer on the account. A letter, email, voicemail, or thank-you does not pull the gift. A row on the MA gift tracker does not assign the gift by itself. Gifts coded Direct Solicitation (MGO) show under MGO-coded gifts until assigned. A non-MA GFT_Solicitor is listed the same way.",
     },
     {
       label: "Secured gift · 100 pts",
@@ -433,6 +433,7 @@ export const DEFINITIONS = [
       "A note on the wrong person, a generic type, a note after the gift, or no note at all will not count. " +
       "Raised dollars and 100 gift points always go together. A conversation or meeting on the donor, within 45 days, puts the gift on Incoming — not Raised and not 100 points — until someone assigns it or logs a donation note. " +
       "A New Donation note can be logged up to 45 days after the gift posts and still count. " +
+      "A row on the MA gift tracker does not assign the gift by itself. " +
       "A letter, email, voicemail, or thank-you does not pull the gift. A thank-you logged after the gift does not pull that gift. " +
       "100 points require a donation note type (‘New Donation or New AC’, ‘Annunciation Circle updated’, or ‘Update recurring gift’), an Incoming assignment, or a Gift Assist note, paired with a posted gift. Gift Assist is 100 points and does not count dollars.",
   },
@@ -503,9 +504,9 @@ export const DEFINITIONS = [
   {
     term: "Dollars received",
     text:
-      "A posted Virtuous gift counts in Raised only with 100 points: a donation note on that contact, an Incoming assignment, or an assigned MGO-coded gift. " +
+      "A posted Virtuous gift counts in Raised only with 100 points: a donation note on that contact within 45 days before the gift, or a donation note within 45 days after the gift, or an Incoming assignment, or an assigned MGO-coded gift. " +
       "A conversation or meeting alone does not count the gift in Raised — it stays on Incoming. " +
-      "A letter, email, voicemail, or thank-you does not claim the gift. Gift Assist notes do not count dollars. " +
+      "A letter, email, voicemail, or thank-you does not claim the gift. A row on the MA gift tracker does not assign the gift by itself. Gift Assist notes do not count dollars. " +
       "Dollars go to the MA who logged the note, not the MA officer on the contact and not GFT_Solicitor. " +
       "Gifts coded Direct Solicitation (MGO) or Direct Solicitation (MGO)-HIST_DS show under MGO-coded gifts until assigned to an MA. " +
       "A nonempty GFT_Solicitor who is not on the MA roster is listed the same way. " +
