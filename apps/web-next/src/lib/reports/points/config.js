@@ -383,7 +383,7 @@ export const TRACKING_CHART = {
     {
       label: "Incoming gifts",
       detail:
-        "Posted gift (one-time, Mission Fund, new AC, or AC increase) after an MA conversation or meeting in the 45 days before the gift, with no donation note yet. Not Raised and not 100 points until assigned. Assign an MA here (or log the gift note in Virtuous) to count the gift and 100 pts together.",
+        "Posted gift (one-time, Mission Fund, new AC, or AC increase) after an MA conversation or meeting in the 45 days before the gift, with no donation note yet. Not Raised and not 100 points until assigned. A gala ticket purchase is a new donation: a conversation, two-way email, or meeting within 45 days of that gift counts it in Raised for the MA who spoke with the donor. Assign an MA here (or log the gift note in Virtuous) to count any other gift and 100 pts together.",
     },
     {
       label: "Event hours · 25 pts/hour",
@@ -505,6 +505,7 @@ export const DEFINITIONS = [
     term: "Dollars received",
     text:
       "A posted Virtuous gift counts in Raised only with 100 points: a donation note on that contact within 45 days before the gift, or a donation note within 45 days after the gift, or an Incoming assignment, or an assigned MGO-coded gift. " +
+      "A gala ticket purchase counts the same way when an MA has a conversation, two-way email, or meeting on that contact within 45 days of the gift. A gala invitation does not claim a different gift. " +
       "A conversation or meeting alone does not count the gift in Raised — it stays on Incoming. " +
       "A letter, email, voicemail, or thank-you does not claim the gift. A row on the MA gift tracker does not assign the gift by itself. Gift Assist notes do not count dollars. " +
       "Dollars go to the MA who logged the note, not the MA officer on the contact and not GFT_Solicitor. " +

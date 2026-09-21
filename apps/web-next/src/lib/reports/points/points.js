@@ -429,9 +429,40 @@ export function nearestPossibleNote(giftDate, notesOnContact) {
   return possibleNotesForGift(giftDate, notesOnContact)[0] || null;
 }
 
-/** AC, Mission Fund, or other — used by Incoming Gifts. */
+/** Ticket purchase for a gala. Segment or project must name the gala. */
+export function isGalaGift(record) {
+  const blob = `${record?.segment || ""} ${record?.project || ""} ${giftProject(record)}`;
+  return /gala/i.test(blob);
+}
+
+/**
+ * Conversation, two-way email, or meeting within 45 days of a gala gift.
+ * The gift is the ticket purchase, so that conversation secures it.
+ * A voicemail, letter, or email-sent does not. One closest note per MA.
+ */
+export function galaSecuringNotes(giftDate, notesOnContact) {
+  const window = SETTINGS.giftNoteDaysBefore ?? 45;
+  const bestByOwner = new Map();
+  for (const n of notesOnContact || []) {
+    const key = (n.type || "").trim().toLowerCase();
+    if (!POSSIBLE_GIFT_TYPES.has(key)) continue;
+    if (n.assist) continue;
+    const delta = daysFromNoteToGift(n.date, giftDate);
+    if (delta == null || Math.abs(delta) > window) continue;
+    if (beforeStart(giftDate, n.owner) || beforeStart(n.date, n.owner)) continue;
+    const cur = bestByOwner.get(n.owner);
+    const nearer = !cur || Math.abs(delta) < Math.abs(cur.days) || (Math.abs(delta) === Math.abs(cur.days) && delta >= 0 && cur.days < 0);
+    if (nearer) bestByOwner.set(n.owner, { note: n, days: delta });
+  }
+  return [...bestByOwner.values()].sort(
+    (a, b) => Math.abs(a.days) - Math.abs(b.days) || (a.days >= 0 ? -1 : 1) - (b.days >= 0 ? -1 : 1) || String(a.note.owner).localeCompare(String(b.note.owner)),
+  );
+}
+
+/** AC, Mission Fund, gala, or other — used by Incoming Gifts. */
 export function giftKindOf(record) {
   const blob = `${record.segment || ""} ${record.project || ""} ${giftProject(record)}`;
+  if (isGalaGift(record)) return "gala";
   if (record.acIncrease) return "ac-increase";
   if (/annunciation/i.test(blob) || isMonthlyRecurring(record)) return "ac";
   if (/mission fund/i.test(blob)) return "mission-fund";
@@ -439,6 +470,7 @@ export function giftKindOf(record) {
 }
 
 export function giftKindLabel(kind, annualized) {
+  if (kind === "gala") return "Gala";
   if (kind === "ac-increase") return "AC increase";
   if (kind === "ac") return annualized ? "AC (monthly ×12)" : "Annunciation Circle";
   if (kind === "mission-fund") return "Mission Fund";
@@ -624,10 +656,12 @@ function markAssist(gift) {
  * receives the dollars must have a donation note on that contact within 45
  * days before the gift, or a donation note within 45 days after the gift
  * (New Donation or New AC, Annunciation Circle updated, or Update Recurring
- * Gift). A letter, email, voicemail, or thank-you does not qualify. An
- * Incoming or MGO assignment on the dashboard is the other way a gift is
- * credited. `countedGifts` is accepted and ignored so older callers keep
- * working.
+ * Gift). A letter, email, voicemail, or thank-you does not qualify. A gala
+ * ticket purchase is a new donation: a conversation, two-way email, or
+ * meeting within 45 days assigns that gift to the MA who spoke with the
+ * donor. The same conversation does not claim a different gift. An Incoming
+ * or MGO assignment on the dashboard is the other way a gift is credited.
+ * `countedGifts` is accepted and ignored so older callers keep working.
  *
  * `flags` is the shared review-flags map (same object aggregate uses). An
  * MGO-coded gift with status "assigned" and a roster `flag.owner` scores as
@@ -658,6 +692,25 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
     const notesOnContact = ck ? (activityByContact.get(ck) || []) : [];
     const reviewHint = gDate ? ownerHintForReview(gDate, notesOnContact) : null;
     const giftHint = gDate ? ownerHintForGift(gDate, notesOnContact) : null;
+    if (gDate && isGalaGift(g)) {
+      const hits = galaSecuringNotes(gDate, notesOnContact);
+      const hit = hits[0];
+      if (hit) {
+        const r = scoreGift(g, hit.note.owner, hit.note.owner);
+        if (r) {
+          const credited = {
+            ...r,
+            kind: "gala",
+            kindLabel: "Gala",
+            source: "gala",
+            label: "Gala tickets",
+          };
+          rows.push(credited);
+          scoredGifts.push(credited);
+          continue;
+        }
+      }
+    }
     if (isMgoAttributedGift(g)) {
       const assigned = assignedOwnerForGift(g, reviewHint, flags);
       if (assigned) {
