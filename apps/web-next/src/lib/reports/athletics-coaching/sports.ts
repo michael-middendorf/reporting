@@ -15,8 +15,8 @@ export type SportDef = {
  * Stable slugs. Giving form slugs where they exist. Golf has no giving page.
  * Marching Band is not a coaching-athletics sport.
  * virtuousProjectCode is the live Virtuous GET /api/Project/Code value.
- * Cross Country stays null (two funds 6578MXC and 6580WXC). Women's Golf has no project.
- * Do not assign 6117AthGEN or 6644 to any sport.
+ * Cross Country is two teams: 6578MXC men's and 6580WXC women's. Gender picks the team.
+ * Women's Golf has no project. Do not assign 6117AthGEN or 6644 to any sport.
  */
 export const SPORTS: SportDef[] = [
   {
@@ -28,13 +28,18 @@ export const SPORTS: SportDef[] = [
     virtuousProjectCode: "6625Cheer",
   },
   {
-    key: "cross-country",
-    label: "Cross Country",
-    gender: "mixed",
-    slateNames: ["Cross Country", "Cross Country/Track", "XC"],
-    givingSlug: "cross-country",
-    // Two funds 6578MXC and 6580WXC; do not pick one.
-    virtuousProjectCode: null,
+    key: "mens-cross-country",
+    label: "Men's Cross Country",
+    gender: "M",
+    slateNames: ["Cross Country-Men", "M Cross Country", "Men's Cross Country", "Mens Cross Country", "MXC"],
+    virtuousProjectCode: "6578MXC",
+  },
+  {
+    key: "womens-cross-country",
+    label: "Women's Cross Country",
+    gender: "W",
+    slateNames: ["Cross Country-Women", "W Cross Country", "Women's Cross Country", "Womens Cross Country", "WXC"],
+    virtuousProjectCode: "6580WXC",
   },
   {
     key: "dance-team",
@@ -215,9 +220,18 @@ const EXTRA_ALIASES: Record<string, string> = {
   dance: "dance-team",
   "dance team": "dance-team",
   "competitive dance": "dance-team",
-  xc: "cross-country",
-  "cross country": "cross-country",
-  "cross country track": "cross-country",
+  "m cross country": "mens-cross-country",
+  "mens cross country": "mens-cross-country",
+  "cross country men": "mens-cross-country",
+  mxc: "mens-cross-country",
+  "mens xc": "mens-cross-country",
+  "m xc": "mens-cross-country",
+  "w cross country": "womens-cross-country",
+  "womens cross country": "womens-cross-country",
+  "cross country women": "womens-cross-country",
+  wxc: "womens-cross-country",
+  "womens xc": "womens-cross-country",
+  "w xc": "womens-cross-country",
   track: "track-and-field",
   "track field": "track-and-field",
   "track and field": "track-and-field",
@@ -263,12 +277,59 @@ export function isSportKey(value: string): boolean {
   return Boolean(sportByKey[value]);
 }
 
-/** Map Slate / giving / informal sport text to a catalog key. Ambiguous ungendered basketball/soccer/golf return null. */
+function genderToken(value: string): "M" | "F" | null {
+  const folded = value.trim().toLowerCase();
+  if (folded === "m" || folded === "male" || folded === "man" || folded === "men") return "M";
+  if (folded === "f" || folded === "female" || folded === "w" || folded === "woman" || folded === "women") return "F";
+  return null;
+}
+
+/**
+ * Slate leaves these names ungendered. Cross Country/Track is the same program
+ * label as Cross Country. Gender picks men's or women's.
+ */
+const GENDERED_SPORTS: Record<string, { M: string; F: string }> = {
+  basketball: { M: "mens-basketball", F: "womens-basketball" },
+  soccer: { M: "mens-soccer", F: "womens-soccer" },
+  golf: { M: "mens-golf", F: "womens-golf" },
+  "cross country": { M: "mens-cross-country", F: "womens-cross-country" },
+  "cross country track": { M: "mens-cross-country", F: "womens-cross-country" },
+  xc: { M: "mens-cross-country", F: "womens-cross-country" },
+};
+
+/** Map Slate / giving / informal sport text to a catalog key. Ambiguous ungendered names return null. */
 export function resolveSportKey(raw: string): string | null {
   const folded = fold(raw);
   if (!folded) return null;
   if (EXCLUDED.has(folded) || folded.includes("pickleball")) return null;
-  if (folded === "basketball" || folded === "soccer" || folded === "golf") return null;
+  if (GENDERED_SPORTS[folded]) return null;
   const key = LOOKUP[folded];
   return key && sportByKey[key] ? key : null;
+}
+
+/**
+ * Resolve a team key. Gender is used only for Basketball, Soccer, Golf, and Cross Country.
+ * A missing gender leaves those rows unmatched.
+ */
+export function resolveGenderedSportKey(raw: string, gender: string): string | null {
+  const direct = resolveSportKey(raw);
+  if (direct) return direct;
+  const pair = GENDERED_SPORTS[fold(raw)];
+  if (!pair) return null;
+  const token = genderToken(gender);
+  if (!token) return null;
+  return pair[token];
+}
+
+/** Coach and overview assignments. An ungendered name grants the teams the gender list allows. */
+export function ambiguousSportKeys(raw: string, genders?: readonly string[]): string[] | null {
+  const pair = GENDERED_SPORTS[fold(raw)];
+  if (!pair) return null;
+  const genderSet = new Set((genders || []).map((item) => item.trim().toUpperCase()));
+  const men = !genderSet.size || genderSet.has("M");
+  const women = !genderSet.size || genderSet.has("F") || genderSet.has("W");
+  const keys: string[] = [];
+  if (men) keys.push(pair.M);
+  if (women) keys.push(pair.F);
+  return keys;
 }

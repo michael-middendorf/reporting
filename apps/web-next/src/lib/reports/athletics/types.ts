@@ -22,6 +22,7 @@ export type AthleticsRecord = {
   withdrawn: string;
   purchasedList: string;
   riskRating: string;
+  recruitRating: string;
   loiStatus: string;
   offered: string;
   readyToOffer: string;
@@ -51,6 +52,7 @@ export const FILTER_KEYS = [
   "withdrawn",
   "position",
   "riskRating",
+  "recruitRating",
   "applicationStatus",
   "workflowBin",
   "purchasedList",

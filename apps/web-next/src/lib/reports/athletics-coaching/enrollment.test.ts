@@ -38,6 +38,7 @@ function application(partial: Partial<AthleticsRecord>): AthleticsRecord {
     withdrawn: "Not Withdrawn",
     purchasedList: "",
     riskRating: "",
+    recruitRating: "",
     loiStatus: "",
     offered: "No",
     readyToOffer: "Not Ready to Offer",
@@ -114,6 +115,73 @@ describe("athletics coaching enrollment sport filter", () => {
     assert.equal(applicationMatchesSport(application({ sport: "Football" }), "football"), true);
     assert.equal(applicationMatchesSport(application({ sport: "Soccer-Men" }), "football"), false);
     assert.equal(eligibleSigned(application({ sport: "Football", signed: "Signed or Deposited" })), true);
+  });
+
+  it("splits ungendered sports with the gender field", () => {
+    const men = normalizeRosterRow({
+      personreferenceid: "m1",
+      Sport: "Basketball",
+      Gender: "M",
+      classyear: "Junior",
+    });
+    assert.equal(men.currentSport, "Basketball");
+    assert.equal(men.sportKey, "mens-basketball");
+    assert.equal(rosterMatchesSport(men, "mens-basketball"), true);
+    assert.equal(rosterMatchesSport(men, "womens-basketball"), false);
+
+    const women = normalizeRosterRow({ Sport: "Basketball", Gender: "F" });
+    assert.equal(women.sportKey, "womens-basketball");
+    assert.equal(normalizeRosterRow({ Sport: "Basketball" }).sportKey, null);
+    assert.equal(normalizeRosterRow({ Sport: "Soccer", Gender: "Male" }).sportKey, "mens-soccer");
+    assert.equal(normalizeRosterRow({ Sport: "Golf", Gender: "Female" }).sportKey, "womens-golf");
+    assert.equal(
+      normalizeRosterRow({ Sport: "Cross Country/Track", Gender: "M" }).sportKey,
+      "mens-cross-country",
+    );
+    assert.equal(
+      normalizeRosterRow({ Sport: "Cross Country/Track", Gender: "F" }).sportKey,
+      "womens-cross-country",
+    );
+    assert.equal(normalizeRosterRow({ Sport: "Cross Country/Track" }).sportKey, null);
+    assert.equal(
+      normalizeRosterRow({ CurrentSport: "Football", Sport: "Basketball", Gender: "M" }).sportKey,
+      "football",
+    );
+
+    const summary = buildEnrollmentSummary({
+      sport: "mens-basketball",
+      rosterRows: [
+        { personreferenceid: "1", Sport: "Basketball", Gender: "M", classyear: "Junior" },
+        { personreferenceid: "2", Sport: "Basketball", Gender: "F", classyear: "Senior" },
+        { personreferenceid: "3", Sport: "Soccer", Gender: "M" },
+        { personreferenceid: "4", CurrentSport: "Basketball-Men" },
+      ],
+      applicationRows: [
+        application({
+          id: "a1",
+          sport: "Basketball",
+          gender: "M",
+          signed: "Signed or Deposited",
+          term: "Fall 2027",
+        }),
+        application({
+          id: "a2",
+          sport: "Basketball",
+          gender: "F",
+          signed: "Signed or Deposited",
+          term: "Fall 2027",
+        }),
+        application({ id: "a3", sport: "Basketball", gender: "M" }),
+        application({ id: "a4", sport: "Basketball", gender: "" }),
+        application({ id: "a5", sport: "Soccer", gender: "M", signed: "Signed or Deposited" }),
+      ],
+    });
+    assert.equal(summary.roster.count, 2);
+    assert.deepEqual(summary.roster.classYearMix, [{ label: "Junior", count: 1 }]);
+    assert.equal(summary.applications.count, 2);
+    assert.equal(summary.signed.count, 1);
+    assert.equal(applicationMatchesSport(application({ sport: "Basketball", gender: "M" }), "mens-basketball"), true);
+    assert.equal(applicationMatchesSport(application({ sport: "Basketball", gender: "F" }), "mens-basketball"), false);
   });
 
   it("counts signed / deposited for Fall 2027 only", () => {

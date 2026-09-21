@@ -90,7 +90,8 @@ export function normalizeApplication(row: SlateRow, index: number): AthleticsRec
     decisionCode: value(row, "ApplicationDecisionCode"),
     withdrawn: value(row, "WDRN") || "Not Withdrawn",
     purchasedList: purchased ? "In a purchased list." : "Not in a purchased list.",
-    riskRating: value(row, "PersonRecruit-Rating") || "No Risk Rating",
+    riskRating: riskRatingFrom(row),
+    recruitRating: recruitRatingFrom(row),
     loiStatus,
     offered: value(row, "Offered") || "No",
     readyToOffer: /loi review|ready to offer/i.test(workflowBin) ? "Ready to Offer" : "Not Ready to Offer",
@@ -139,7 +140,8 @@ export function normalizeProspect(row: SlateRow, index: number): AthleticsRecord
     purchasedList: hasPurchasedField
       ? purchased ? "In a purchased list." : "Not in a purchased list."
       : "",
-    riskRating: "No Risk Rating",
+    riskRating: riskRatingFrom(row),
+    recruitRating: recruitRatingFrom(row),
     loiStatus: "",
     offered: "No",
     readyToOffer: "Not Ready to Offer",
@@ -211,21 +213,65 @@ export function recordMatches(record: AthleticsRecord, filters: FilterState): bo
   });
 }
 
+export function isExcludedAthleticsSport(sport: string): boolean {
+  const folded = sport.toLowerCase();
+  return folded.includes("pickleball") || folded.includes("cheer");
+}
+
+export function isNonAthleticStatus(status: string): boolean {
+  const folded = status.toLowerCase().replace(/[^a-z]/g, "");
+  return folded === "nonathlete" || folded === "nonathletic";
+}
+
+function riskRatingFrom(row: SlateRow): string {
+  const raw = value(
+    row,
+    "Risk Factor",
+    "RiskFactor",
+    "PersonRiskFactor",
+    "PersonRisk",
+    "RiskRating",
+    "PersonRiskRating",
+    "Dep_Risk Factor",
+  );
+  return /^[1-4]$/.test(raw) ? raw : "";
+}
+
+function recruitRatingFrom(row: SlateRow): string {
+  return value(row, "PersonRecruit-Rating", "Recruit-Rating", "RecruitRating");
+}
+
+export function includeInAthleticsReport(record: Pick<AthleticsRecord, "sport" | "athleteStatus">): boolean {
+  if (isExcludedAthleticsSport(record.sport)) return false;
+  if (isNonAthleticStatus(record.athleteStatus)) return false;
+  return true;
+}
+
 export function filterOptions(records: AthleticsRecord[]): Record<FilterKey, string[]> {
   const keys: FilterKey[] = [
     "sport", "gender", "term", "sector", "stage", "athleteStatus", "withdrawn", "position",
-    "riskRating", "applicationStatus", "workflowBin", "purchasedList", "readyToOffer", "signed",
+    "riskRating", "recruitRating", "applicationStatus", "workflowBin", "purchasedList", "readyToOffer", "signed",
   ];
   const stageOrder = ["Applied", "Accepted", "Offered", "LOI Review", "Signed / Deposited", "Withdrawn", "Prospect / Inquiry"];
+  const riskOrder = ["1", "2", "3", "4"];
   return Object.fromEntries(keys.map((key) => {
     const values = [...new Set(
       records
         .map((record) => record[key])
-        .filter((item) => Boolean(item) && !(key === "stage" && item === "Prospect / Inquiry")),
+        .filter((item) => {
+          if (!item) return false;
+          if (key === "stage" && item === "Prospect / Inquiry") return false;
+          if (key === "sport" && isExcludedAthleticsSport(item)) return false;
+          if (key === "athleteStatus" && isNonAthleticStatus(item)) return false;
+          if (key === "riskRating" && !/^[1-4]$/.test(item)) return false;
+          return true;
+        }),
     )];
-    values.sort((left, right) => key === "stage"
-      ? stageOrder.indexOf(left) - stageOrder.indexOf(right)
-      : left.localeCompare(right));
+    values.sort((left, right) => {
+      if (key === "stage") return stageOrder.indexOf(left) - stageOrder.indexOf(right);
+      if (key === "riskRating") return riskOrder.indexOf(left) - riskOrder.indexOf(right);
+      return left.localeCompare(right);
+    });
     return [key, values];
   })) as Record<FilterKey, string[]>;
 }

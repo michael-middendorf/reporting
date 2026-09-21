@@ -1,7 +1,14 @@
 import { canAccessReport, sportsScopeForAthleticsEmail } from "../../access";
 import { canAccessSport, isCoachingLeadership } from "../athletics-coaching/access";
 import type { EnrollmentAccess } from "../athletics-coaching/enrollment";
-import { isSportKey, SPORTS, resolveSportKey, sportByKey, type SportDef } from "../athletics-coaching/sports";
+import {
+  ambiguousSportKeys,
+  isSportKey,
+  SPORTS,
+  resolveSportKey,
+  sportByKey,
+  type SportDef,
+} from "../athletics-coaching/sports";
 
 export {
   coachingSportKeyForRecord,
@@ -14,29 +21,17 @@ function coachingKeysForAssignment(sports: readonly string[], genders?: readonly
   const keys = new Set<string>();
   const genderSet = new Set((genders || []).map((item) => item.toUpperCase()));
   for (const name of sports) {
+    const ambiguous = ambiguousSportKeys(name, genders);
+    if (ambiguous) {
+      for (const key of ambiguous) keys.add(key);
+      continue;
+    }
     const direct = resolveSportKey(name);
     if (direct) {
       keys.add(direct);
       continue;
     }
     const folded = name.trim().toLowerCase();
-    if (folded === "basketball" || folded === "soccer" || folded === "golf") {
-      const men = !genderSet.size || genderSet.has("M");
-      const women = !genderSet.size || genderSet.has("F");
-      if (folded === "basketball") {
-        if (men) keys.add("mens-basketball");
-        if (women) keys.add("womens-basketball");
-      }
-      if (folded === "soccer") {
-        if (men) keys.add("mens-soccer");
-        if (women) keys.add("womens-soccer");
-      }
-      if (folded === "golf") {
-        if (men) keys.add("mens-golf");
-        if (women) keys.add("womens-golf");
-      }
-      continue;
-    }
     for (const sport of SPORTS) {
       const names = [sport.label, sport.key, ...sport.slateNames].map((item) => item.toLowerCase());
       if (!names.includes(folded)) continue;

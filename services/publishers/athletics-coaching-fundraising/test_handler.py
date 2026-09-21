@@ -99,13 +99,15 @@ class FiscalYearTests(unittest.TestCase):
 
 
 class CatalogTests(unittest.TestCase):
-    def test_catalog_has_19_sports_xc_and_womens_golf_unmapped(self):
+    def test_catalog_has_20_sports_and_womens_golf_unmapped(self):
         sports = load_sports_catalog()
         keys = [s["key"] for s in sports]
-        self.assertEqual(len(sports), 19)
-        self.assertEqual(len(set(keys)), 19)
+        self.assertEqual(len(sports), 20)
+        self.assertEqual(len(set(keys)), 20)
         by_key = {s["key"]: s["projectCode"] for s in sports}
-        self.assertIsNone(by_key["cross-country"])
+        self.assertEqual(by_key["mens-cross-country"], "6578MXC")
+        self.assertEqual(by_key["womens-cross-country"], "6580WXC")
+        self.assertNotIn("cross-country", by_key)
         self.assertIsNone(by_key["womens-golf"])
         self.assertEqual(by_key["football"], "6552FB")
         self.assertNotIn("6117AthGEN", by_key.values())
@@ -191,7 +193,7 @@ class SnapshotTests(unittest.TestCase):
     def _sports(self) -> list[dict[str, str | None]]:
         return load_sports_catalog()
 
-    def test_snapshot_has_19_keys_unmapped_and_no_forbidden(self):
+    def test_snapshot_has_20_keys_unmapped_and_no_forbidden(self):
         sports = self._sports()
         as_of = "2026-09-03T12:00:00Z"
         rows = {}
@@ -212,13 +214,16 @@ class SnapshotTests(unittest.TestCase):
                 )
         # Inject forbidden designations into the football total path; output must omit them.
         snap = build_snapshot(sports, rows, today=dt.date(2026, 9, 3), generated_at=as_of)
-        self.assertEqual(len(snap["sports"]), 19)
+        self.assertEqual(len(snap["sports"]), 20)
         self.assertEqual(snap["fiscalYear"], 2027)
         self.assertEqual(snap["fiscalYearLabel"], "FY 2026-27")
         self.assertEqual(snap["fyStart"], "2026-07-01")
         self.assertEqual(snap["fyEnd"], "2027-06-30")
-        self.assertFalse(snap["sports"]["cross-country"]["mapped"])
-        self.assertIsNone(snap["sports"]["cross-country"]["fytdAmount"])
+        self.assertTrue(snap["sports"]["mens-cross-country"]["mapped"])
+        self.assertEqual(snap["sports"]["mens-cross-country"]["projectCode"], "6578MXC")
+        self.assertTrue(snap["sports"]["womens-cross-country"]["mapped"])
+        self.assertEqual(snap["sports"]["womens-cross-country"]["projectCode"], "6580WXC")
+        self.assertNotIn("cross-country", snap["sports"])
         self.assertFalse(snap["sports"]["womens-golf"]["mapped"])
         self.assertIsNone(snap["sports"]["womens-golf"]["allTimeAmount"])
         dumped = json.dumps(snap)

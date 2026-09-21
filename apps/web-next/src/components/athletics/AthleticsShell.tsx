@@ -12,7 +12,7 @@ import {
 } from "react";
 import { ReportTopBar } from "@/components/AccessGate";
 import { apiFetch, fetchMe } from "@/lib/api";
-import { filterOptions, recordMatches, STAGE_COLORS } from "@/lib/reports/athletics/normalize";
+import { filterOptions, includeInAthleticsReport, recordMatches, STAGE_COLORS } from "@/lib/reports/athletics/normalize";
 import {
   type AthleticsPayload,
   type AthleticsRecord,
@@ -37,6 +37,7 @@ const EMPTY_FILTERS: FilterState = {
   withdrawn: [],
   purchasedList: [],
   riskRating: [],
+  recruitRating: [],
   readyToOffer: [],
   signed: [],
 };
@@ -54,6 +55,7 @@ const FILTER_LABELS: Record<FilterKey, string> = {
   withdrawn: "Withdrawn",
   purchasedList: "Purchased List",
   riskRating: "Risk Rating",
+  recruitRating: "Recruit Rating",
   readyToOffer: "Ready to Offer",
   signed: "Signed",
 };
@@ -65,8 +67,8 @@ const CORE_FILTERS: FilterKey[] = [
   "sector",
   "stage",
   "athleteStatus",
-  "applicationStatus",
   "riskRating",
+  "recruitRating",
   "purchasedList",
 ];
 
@@ -191,8 +193,14 @@ export function AthleticsProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [access, canLoadRecruiting, tick]);
 
-  const applications = useMemo(() => payload?.applications || [], [payload]);
-  const prospects = useMemo(() => payload?.prospects || [], [payload]);
+  const applications = useMemo(
+    () => (payload?.applications || []).filter(includeInAthleticsReport),
+    [payload],
+  );
+  const prospects = useMemo(
+    () => (payload?.prospects || []).filter(includeInAthleticsReport),
+    [payload],
+  );
   const allRecords = useMemo(() => [...applications, ...prospects], [applications, prospects]);
   const pageFilters = useMemo(
     () => maskFilters(filters, ignoredFilterKeys(pathname)),
