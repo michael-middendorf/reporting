@@ -118,7 +118,36 @@ export type EmailPerformance = {
   segments: EmailPerformanceSegment[];
 };
 
+export type DirectMailVariant = {
+  label: string;
+  creative: boolean;
+  audience: number;
+  responders: number;
+  responseRate: number | null;
+  revenue: number;
+  gifts: number;
+  avgGift: number;
+};
+
+export type DirectMailPerformance = {
+  status: "available" | "unavailable";
+  audience: number;
+  responders: number;
+  responseRate: number | null;
+  totalMailed: number | null;
+  variants: DirectMailVariant[];
+  mailings: { mailingId: string; label: string; dropDate: string; creative: string | null; totalMailed: number }[];
+};
+
+export type AggregateImportRow = Record<string, string | number | null>;
+export type AggregateImport = {
+  status: "available" | "unavailable";
+  generatedAt: string | null;
+  rows: AggregateImportRow[];
+};
+
 export type FallAppealSnapshot = {
+  campaignSlug?: string;
   generated_at: string;
   campaign: string;
   asOf: string;
@@ -136,6 +165,9 @@ export type FallAppealSnapshot = {
   timeline: TimelineWeek[];
   mailSegments: MailSegment[];
   emailPerformance?: EmailPerformance;
+  emailImport?: AggregateImport;
+  digitalPerformance?: AggregateImport;
+  directMail?: DirectMailPerformance;
   overlays: { label: string; date: string }[];
   cache?: string;
   error?: string;

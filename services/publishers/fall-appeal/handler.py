@@ -471,6 +471,89 @@ def _load_overlays() -> list[dict[str, Any]]:
         return []
 
 
+def _load_import(name: str, campaign_slug: str) -> dict[str, Any]:
+    """Read an administrator-uploaded aggregate dataset without making it a
+    dependency of the CRM gift refresh. Missing files are an expected first-run
+    state; malformed files are surfaced rather than silently rendered as zero."""
+    from botocore.exceptions import ClientError
+    from common.s3util import data_bucket, s3
+
+    key = f"appeals/{campaign_slug}/imports/{name}.json"
+    try:
+        response = s3().get_object(Bucket=data_bucket(), Key=key)
+    except ClientError as exc:
+        if exc.response.get("Error", {}).get("Code") in {"NoSuchKey", "404"}:
+            return {"status": "unavailable", "generatedAt": None, "rows": []}
+        raise
+    with response["Body"] as body:
+        snapshot = json.loads(body.read())
+    if not isinstance(snapshot, dict) or not isinstance(snapshot.get("rows"), list):
+        raise RuntimeError(f"Appeal {name} import has invalid rows")
+    return {"status": "available", "generatedAt": snapshot.get("generatedAt"), "rows": snapshot["rows"]}
+
+
+def _contacts_by_tag(client: VirtuousClient, tag_id: int, page_size: int) -> set[Any]:
+    contacts: set[Any] = set()
+    skip = 0
+    while True:
+        payload = client.get(f"/api/Contact/ByTag/{tag_id}?skip={skip}&take={page_size}")
+        rows = payload.get("list", []) if isinstance(payload, dict) else payload
+        for row in rows or []:
+            contact_id = row.get("id") if isinstance(row, dict) else None
+            if contact_id is not None:
+                contacts.add(contact_id)
+        total = int(payload.get("total", len(contacts)) or 0) if isinstance(payload, dict) else len(contacts)
+        skip += page_size
+        if not rows or skip >= total:
+            break
+    return contacts
+
+
+def build_direct_mail(
+    client: VirtuousClient,
+    gifts: list[dict[str, Any]],
+    audience_tags: list[dict[str, Any]],
+    page_size: int,
+    mail_import: dict[str, Any],
+) -> dict[str, Any]:
+    """Audience counts come from audited Virtuous mailing tags. The optional
+    import records physical pieces and follow-up drops, never recipient rows."""
+    if not audience_tags:
+        return {"status": "unavailable", "audience": 0, "responders": 0, "responseRate": None, "totalMailed": None, "variants": [], "mailings": []}
+    memberships: list[tuple[dict[str, Any], set[Any]]] = []
+    for tag in audience_tags:
+        memberships.append((tag, _contacts_by_tag(client, int(tag["id"]), page_size)))
+    audience = set().union(*(members for _, members in memberships)) if memberships else set()
+    donors = {gift["contactId"] for gift in gifts if gift.get("contactId") is not None}
+    responders = audience & donors
+    variants = []
+    for tag, members in memberships:
+        variant_responders = members & donors
+        variant_gifts = [gift for gift in gifts if gift.get("contactId") in members]
+        revenue = round(sum(gift["amount"] for gift in variant_gifts), 2)
+        variants.append({
+            "label": tag.get("label") or f"Tag {tag['id']}",
+            "creative": bool(tag.get("creative")),
+            "audience": len(members),
+            "responders": len(variant_responders),
+            "responseRate": round(100.0 * len(variant_responders) / len(members), 1) if members else None,
+            "revenue": revenue,
+            "gifts": len(variant_gifts),
+            "avgGift": round(revenue / len(variant_gifts), 2) if variant_gifts else 0.0,
+        })
+    mailings = mail_import.get("rows", []) if mail_import.get("status") == "available" else []
+    total_mailed = sum(int(row.get("totalMailed") or 0) for row in mailings) if mailings else len(audience)
+    return {
+        "status": "available",
+        "audience": len(audience),
+        "responders": len(responders),
+        "responseRate": round(100.0 * len(responders) / len(audience), 1) if audience else None,
+        "totalMailed": total_mailed,
+        "variants": variants,
+        "mailings": mailings,
+    }
+
+
 def load_email_performance() -> dict[str, Any]:
     """Load the latest aggregate email snapshot, keeping gift publishing independent.
 
@@ -514,19 +597,32 @@ def build_payload(
     geo_max: int = 5000,
     top_states: int = 10,
     email_performance: dict[str, Any] | None = None,
+    campaign_slug: str = "fall-2026",
+    audience_tags: list[dict[str, Any]] | None = None,
+    supplemental_imports: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     raw_gifts = client.paged_query(GIFT_QUERY_PATH, {"groups": [{"conditions": [_campaign_condition(campaign)]}]}, page_size)
     gifts = normalize_gifts(raw_gifts)
     print(f"  {campaign}: {len(gifts)} gifts", flush=True)
 
     overlays = _load_overlays()
+    # Import reads belong at the Lambda boundary so the aggregation remains
+    # deterministic and can be tested without AWS.
+    imports = supplemental_imports or {
+        "mail": {"status": "unavailable", "generatedAt": None, "rows": []},
+        "email": {"status": "unavailable", "generatedAt": None, "rows": []},
+        "digital": {"status": "unavailable", "generatedAt": None, "rows": []},
+    }
+    mail_import = imports.get("mail", {"status": "unavailable", "generatedAt": None, "rows": []})
+    email_import = imports.get("email", {"status": "unavailable", "generatedAt": None, "rows": []})
+    digital_import = imports.get("digital", {"status": "unavailable", "generatedAt": None, "rows": []})
     summary = summarize(gifts)
     appeal_start = (
         _env_start("FALL_APPEAL_START")
         or (min(g["date"] for g in gifts) if gifts else None)
         or DEFAULT_CAMPAIGN_START
     )
-    appeal_end = _env_start("FALL_APPEAL_END") or DEFAULT_CAMPAIGN_END
+    appeal_end = None if (os.environ.get("APPEAL_ALLOW_OPEN_END") or "").strip() == "1" else (_env_start("FALL_APPEAL_END") or DEFAULT_CAMPAIGN_END)
 
     yoy: dict[str, Any] | None = None
     if prior_campaign:
@@ -553,6 +649,7 @@ def build_payload(
     return {
         "generated_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "campaign": campaign,
+        "campaignSlug": campaign_slug,
         "asOf": today.isoformat(),
         "appealStart": appeal_start.isoformat() if appeal_start else None,
         "campaignStart": appeal_start.isoformat() if appeal_start else None,
@@ -566,6 +663,9 @@ def build_payload(
         "geography": build_geography(client, gifts, geo_enabled, geo_max, top_states),
         "timeline": weekly_timeline(gifts, overlays),
         "mailSegments": mail_segments(gifts),
+        "directMail": build_direct_mail(client, gifts, audience_tags or [], page_size, mail_import),
+        "emailImport": email_import,
+        "digitalPerformance": digital_import,
         "emailPerformance": email_performance
         or {"status": "unavailable", "generatedAt": None, "sourceSyncedAt": None, "segments": []},
         "overlays": overlays,
@@ -584,6 +684,13 @@ def handler(event: dict[str, Any] | None = None, context: Any = None) -> dict[st
     page_size = int(os.environ.get("PAGE_SIZE", "1000"))
     geo_enabled = (os.environ.get("FALL_APPEAL_GEO", "1")).strip() not in {"0", "false", "False", ""}
     geo_max = int(os.environ.get("FALL_APPEAL_GEO_MAX", "5000"))
+    campaign_slug = os.environ.get("APPEAL_SLUG", "fall-2026")
+    try:
+        audience_tags = json.loads(os.environ.get("APPEAL_AUDIENCE_TAGS", "[]"))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("APPEAL_AUDIENCE_TAGS must be valid JSON") from exc
+    if not isinstance(audience_tags, list):
+        raise RuntimeError("APPEAL_AUDIENCE_TAGS must be a list")
 
     client = VirtuousClient(api_key, base)
     print(f"Building Fall Appeal report for campaign '{campaign}'...", flush=True)
@@ -596,6 +703,13 @@ def handler(event: dict[str, Any] | None = None, context: Any = None) -> dict[st
         geo_enabled=geo_enabled,
         geo_max=geo_max,
         email_performance=load_email_performance(),
+        campaign_slug=campaign_slug,
+        audience_tags=audience_tags,
+        supplemental_imports={
+            "mail": _load_import("mail", campaign_slug),
+            "email": _load_import("email", campaign_slug),
+            "digital": _load_import("digital", campaign_slug),
+        },
     )
     from common.s3util import put_json
 

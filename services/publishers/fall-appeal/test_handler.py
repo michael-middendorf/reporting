@@ -18,6 +18,7 @@ from handler import (
     _pct_delta,
     _load_overlays,
     build_payload,
+    build_direct_mail,
 )
 
 
@@ -163,6 +164,26 @@ class EmailPerformanceTests(unittest.TestCase):
         payload = build_payload(Client(), "2026 Fall Appeal", "", 1000, dt.date(2026, 9, 19), geo_enabled=False, email_performance=email)
         self.assertEqual(payload["summary"]["totalGifts"], 0)
         self.assertEqual(payload["emailPerformance"], email)
+
+
+class DirectMailTests(unittest.TestCase):
+    def test_uses_tag_audience_for_response_rate_and_keeps_creatives_separate(self):
+        class Client:
+            def get(self, path):
+                tag_id = int(path.split("/ByTag/")[1].split("?")[0])
+                return {"list": [{"id": contact_id} for contact_id in ({48: [1, 2], 47: [2, 3]}[tag_id])], "total": 2}
+
+        direct = build_direct_mail(
+            Client(),
+            [_g(1, 100, dt.date(2026, 3, 24)), _g(3, 50, dt.date(2026, 3, 25))],
+            [{"id": 48, "label": "Brick", "creative": True}, {"id": 47, "label": "Chapel", "creative": True}],
+            1000,
+            {"status": "unavailable", "rows": []},
+        )
+        self.assertEqual(direct["audience"], 3)
+        self.assertEqual(direct["responders"], 2)
+        self.assertEqual(direct["responseRate"], 66.7)
+        self.assertEqual([row["label"] for row in direct["variants"]], ["Brick", "Chapel"])
 
 
 class OverlayTests(unittest.TestCase):

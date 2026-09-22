@@ -1,5 +1,14 @@
 /* Fall Appeal — extends the shared report design tokens in annunciation.css. */
 
+.appeals-controls { display: flex; align-items: center; gap: 0.5rem; }
+.appeals-controls select { min-height: 2.4rem; border: 1px solid var(--ac-line); border-radius: 0.25rem; padding: 0 0.55rem; background: white; color: var(--ac-ink); }
+
+@media print {
+  .ac-refresh, .appeals-controls select, .fa-email-import { display: none !important; }
+  .ac-page { max-width: none; padding: 0; }
+  .ac-analytics { break-inside: avoid; }
+}
+
 .fa-delta-pos { color: #1E7B4B; font-weight: 600; }
 .fa-delta-neg { color: #B23A2E; font-weight: 600; }
 .fa-delta-flat { color: var(--ac-dim); font-weight: 600; }
