@@ -538,8 +538,8 @@ export default $config({
       function: springAppeal,
     });
 
-    // DST-627. The export endpoint is reachable only from the AWS POW soak
-    // host and returns HMAC keys plus aggregates, never plaintext identities.
+    // DST-627. The public POW production export returns HMAC keys plus
+    // aggregates, never plaintext identities.
     new sst.aws.Cron("PursuitOfWisdomRefresh", {
       schedule: "rate(1 day)",
       function: {
