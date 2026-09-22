@@ -163,7 +163,18 @@ export function scoreNote(record) {
     contactId: record.contactId, contactName: contactDisplayName(record),
     noteId: record.id, source: rule.source, conflict: rule.conflict || null,
     assist: !!rule.assist,
+    text: plainNote(record.note),
   };
+}
+
+function plainNote(value) {
+  return String(value || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/** A thank-you logged just after a gift does not claim that gift. */
+export function isThankYouNote(note) {
+  const blob = plainNote(`${note?.text || ""} ${note?.label || ""}`);
+  return /\bty\s*cc\b|\btycc\b|\bthank(?:s| you)\b|(?:^|[\s-])ty(?:[\s-]|$)/i.test(blob);
 }
 
 /**
@@ -429,6 +440,53 @@ export function nearestPossibleNote(giftDate, notesOnContact) {
   return possibleNotesForGift(giftDate, notesOnContact)[0] || null;
 }
 
+const CONTACT_BUCKETS = new Set(["conversation", "dial", "email", "note", "facetoface", "general"]);
+const NOT_A_CONTACT = new Set([
+  "mission advancement call | email inactive",
+  "mission advancement call | invalid number",
+]);
+
+/**
+ * Every qualifying contact on the gift, not only the latest note.
+ * Any voicemail, email, letter, conversation, meeting, or general note
+ * within 45 days before the gift counts. A note up to two days after counts
+ * unless it is a thank-you. One closest note per MA, nearest first.
+ */
+export function attributingContacts(giftDate, notesOnContact) {
+  const before = SETTINGS.giftNoteDaysBefore ?? 45;
+  const grace = SETTINGS.giftNoteGraceDays ?? 2;
+  const bestByOwner = new Map();
+  for (const n of notesOnContact || []) {
+    if (n.assist || n.unmatched) continue;
+    const key = (n.type || "").trim().toLowerCase();
+    if (NOT_A_CONTACT.has(key) || !CONTACT_BUCKETS.has(n.bucket)) continue;
+    const delta = daysFromNoteToGift(n.date, giftDate);
+    if (delta == null || delta > before || delta < -grace) continue;
+    if (delta < 0 && isThankYouNote(n)) continue;
+    if (beforeStart(giftDate, n.owner) || beforeStart(n.date, n.owner)) continue;
+    const cur = bestByOwner.get(n.owner);
+    const nearer = !cur
+      || Math.abs(delta) < Math.abs(cur.days)
+      || (Math.abs(delta) === Math.abs(cur.days) && delta >= 0 && cur.days < 0);
+    if (nearer) bestByOwner.set(n.owner, { note: n, days: delta });
+  }
+  return [...bestByOwner.values()].sort(
+    (a, b) => Math.abs(a.days) - Math.abs(b.days)
+      || (a.days >= 0 ? -1 : 1) - (b.days >= 0 ? -1 : 1)
+      || String(a.note.owner).localeCompare(String(b.note.owner)),
+  );
+}
+
+/** Thank-you notes in the two days after the gift. These are flagged, not counted. */
+export function thankYousJustAfter(giftDate, notesOnContact) {
+  const grace = SETTINGS.giftNoteGraceDays ?? 2;
+  return (notesOnContact || []).filter((n) => {
+    if (!isThankYouNote(n)) return false;
+    const delta = daysFromNoteToGift(n.date, giftDate);
+    return delta != null && delta < 0 && delta >= -grace;
+  });
+}
+
 /** Ticket purchase for a gala. Segment or project must name the gala. */
 export function isGalaGift(record) {
   const blob = `${record?.segment || ""} ${record?.project || ""} ${giftProject(record)}`;
@@ -692,6 +750,41 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
     const notesOnContact = ck ? (activityByContact.get(ck) || []) : [];
     const reviewHint = gDate ? ownerHintForReview(gDate, notesOnContact) : null;
     const giftHint = gDate ? ownerHintForGift(gDate, notesOnContact) : null;
+    const donationInWindow = gDate && notesOnContact.some((n) => {
+      if (n.assist || n.bucket !== "gift") return false;
+      const delta = daysFromNoteToGift(n.date, gDate);
+      const window = SETTINGS.giftNoteDaysBefore ?? 45;
+      return delta != null && Math.abs(delta) <= window;
+    });
+    const assistInWindow = gDate && notesOnContact.some((n) => {
+      if (!n.assist) return false;
+      const delta = daysFromNoteToGift(n.date, gDate);
+      const window = SETTINGS.giftNoteDaysBefore ?? 45;
+      return delta != null && Math.abs(delta) <= window;
+    });
+    const contacts = gDate && !donationInWindow && !assistInWindow && !isAssistGiftId(g.id)
+      ? attributingContacts(gDate, notesOnContact)
+      : [];
+    if (contacts[0]) {
+      const r = scoreGift(g, contacts[0].note.owner, contacts[0].note.owner);
+      if (r) {
+        const credited = {
+          ...r,
+          source: "contact",
+          label: contacts[0].days < 0 ? "Contact within 2 days after the gift" : "Contact before the gift",
+          contactName: r.contactName || contacts[0].note.contactName || "",
+          mgoAssigned: isMgoAttributedGift(g) ? true : undefined,
+        };
+        rows.push(credited);
+        scoredGifts.push(credited);
+        continue;
+      }
+    }
+    if (gDate && !donationInWindow && thankYousJustAfter(gDate, notesOnContact).length) {
+      const ty = thankYousJustAfter(gDate, notesOnContact)[0];
+      const flagged = donationRow(g, ty.owner);
+      if (flagged) rows.push({ ...flagged, needsReview: true, label: "Thank-you after the gift" });
+    }
     if (gDate && isGalaGift(g)) {
       const hits = galaSecuringNotes(gDate, notesOnContact);
       const hit = hits[0];

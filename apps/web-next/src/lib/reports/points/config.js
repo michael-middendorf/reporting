@@ -172,6 +172,7 @@ export const POINTS_MAP = {
   "mission advancement | gift assist":
     { points: 100, bucket: "gift", label: "Gift assist", source: "spreadsheet", assist: true },
 
+  "general":    { points: 10, bucket: "general", label: "General note", source: "assumed" },
   "letter":     { points: 5, bucket: "note", label: "Handwritten note / letter", source: "pdf+spreadsheet" },
   "text message": { points: 2, bucket: "email", label: "Text message", source: "spreadsheet", conflict: "email_sent" },
   "in person":  { points: 25, bucket: "facetoface", label: "Face-to-face (coffee/lunch)", source: "pdf+spreadsheet" },
@@ -326,6 +327,8 @@ export const SETTINGS = {
   monthlyAnnualizeFactor: 12,
   /** Pair a donation note with a posted gift on the same contact within this many days before or after. */
   giftNoteDaysBefore: 45,
+  /** A non-thank-you contact logged this many days after the gift still counts. */
+  giftNoteGraceDays: 2,
   /**
    * If the last Annunciation Circle gift on the contact is older than this
    * many days, the membership lapsed. A new signup is the full monthly
