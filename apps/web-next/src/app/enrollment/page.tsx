@@ -98,7 +98,7 @@ export default function EnrollmentOverviewPage() {
     { label: "Conditionally Accepted", info: DEFS.conditional, cur: c.conditional,    prv: p.conditional,       delta: delta7d("conditional") },
     { label: "Interviews Completed",   info: DEFS.interviewed, cur: c.interviewed,    prv: p.interviewed,       delta: delta7d("interviewed") },
     { label: "Interviewed athletes", info: DEFS.interviewedAthletes, cur: c.interviewedAthletes, prv: p.interviewedAthletes, delta: delta7d("interviewedAthletes") },
-    { label: "Athlete %", info: DEFS.interviewedAthletePct, cur: c.interviewedAthletePct, prv: p.interviewedAthletePct, delta: delta7d("interviewedAthletePct"), pct: true },
+    { label: "Athlete %", info: DEFS.interviewedAthletePct, cur: c.interviewedAthletePct, prv: p.interviewedAthletePct, pct: true },
     { label: "AC Rec 3s", info: DEFS.acRec3, cur: c.acRec3, prv: recPrv?.acRec3 },
     { label: "AC Rec 4s", info: DEFS.acRec4, cur: c.acRec4, prv: recPrv?.acRec4 },
     { label: "AC Rec 3s & 4s", info: DEFS.acRec34, cur: c.acRec34, prv: recPrv?.acRec34 },

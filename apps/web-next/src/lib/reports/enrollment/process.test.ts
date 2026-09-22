@@ -390,6 +390,26 @@ test("7-day interviewed athletes use the interview date and athlete flag", () =>
   assert.equal(stats.chg.interviewedAthletes, 1);
 });
 
+test("7-day athlete percent stays blank when status and date populations differ", () => {
+  const rows = [
+    row({
+      InterviewStatus: "Interviewed",
+      AthleteorNonAthlete: "Athlete",
+    }),
+    row({
+      InterviewStatus: "No Interview",
+      AthleteorNonAthlete: "Athlete",
+      InterviewedDateFA27Apps: "2026-08-01",
+    }),
+  ];
+  const stats = _termStats(rows, 2027, new Date(2026, 7, 20));
+  assert.equal(stats.interviewed, 1);
+  assert.equal(stats.interviewedAthletes, 1);
+  assert.equal(stats.interviewedAthletePct, 100);
+  assert.equal(stats.chg.interviewedAthletePct, null);
+  assert.equal(stats.chg.interviewedAthletes, 0);
+});
+
 test("_procAdm exposes fa27 interviewed athletes", () => {
   const adm = _procAdm(
     [row({ InterviewStatus: "Interviewed", AthleteorNonAthlete: "Athlete" })],

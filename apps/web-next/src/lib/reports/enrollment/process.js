@@ -410,7 +410,8 @@ export function _termStats(rows, termYear, asOf) {
     depositsWithdrawn: chgWd,
     deposits: chgNet,
     acceptRate: (acceptRate != null && asOf7.acceptRate != null) ? acceptRate - asOf7.acceptRate : null,
-    interviewedAthletePct: (interviewedAthletePct != null && asOf7.interviewedAthletePct != null) ? interviewedAthletePct - asOf7.interviewedAthletePct : null,
+    // The 7-day percent is not published because the current rate is Interview Status and the week window is interview date.
+    interviewedAthletePct: null,
     yield: (yieldRate != null && asOf7.yield != null) ? yieldRate - asOf7.yield : null,
   };
 
