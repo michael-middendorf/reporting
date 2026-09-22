@@ -855,16 +855,15 @@ describe("monthly AC annualization", () => {
 });
 
 describe("gift dollars follow MA activity notes", () => {
-  it("conversation before a gift is Incoming, not Raised, until a donation note", () => {
+  it("a conversation before a gift counts the dollars", () => {
     const { owner, model } = run(
       [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026" })],
       [postedGift({ giftDate: "8/11/2026", amount: 51.01 })],
     );
-    assert.equal(owner.giftAmount, 0);
-    assert.equal(owner.gifts, 0);
-    assert.equal(owner.points, 10);
-    assert.equal(model.possibleGifts?.length, 1);
-    assert.equal(model.possibleGifts?.[0].inRaised, false);
+    assert.equal(owner.giftAmount, 51.01);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 110);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
   it("dollars follow the MA who logged the donation note, not the solicitor on the account", () => {
@@ -895,7 +894,7 @@ describe("gift dollars follow MA activity notes", () => {
     assert.equal(alanna.gifts, 0);
   });
 
-  it("in-person tour 18 days before a gift is Incoming, not Raised", () => {
+  it("an in-person visit 18 days before a gift counts the dollars", () => {
     const { owner, model } = run(
       [donationNote({
         createdByUser: "Sean Kelly",
@@ -906,10 +905,10 @@ describe("gift dollars follow MA activity notes", () => {
       [postedGift({ contactId: 101, giftDate: "9/1/2026", amount: 75 })],
       "Sean Kelly",
     );
-    assert.equal(owner.giftAmount, 0);
-    assert.equal(owner.gifts, 0);
-    assert.equal(owner.points, 25);
-    assert.equal(model.possibleGifts?.length, 1);
+    assert.equal(owner.giftAmount, 75);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 125);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
   it("Gift Assist with a posted gift is 100 pts and $0", () => {
@@ -1003,7 +1002,7 @@ describe("gift dollars follow MA activity notes", () => {
     assert.equal(owner.gifts, 0);
   });
 
-  it("a letter or thank-you before a gift does not pull dollars", () => {
+  it("a voicemail, email, or letter before a gift counts the dollars", () => {
     const { owner } = run(
       [
         donationNote({ type: "Letter", noteDate: "8/10/2026", id: 1 }),
@@ -1012,9 +1011,23 @@ describe("gift dollars follow MA activity notes", () => {
       ],
       [postedGift({ giftDate: "8/27/2026", amount: 100 })],
     );
+    assert.equal(owner.giftAmount, 100);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 108);
+  });
+
+  it("a thank-you the day after a gift does not claim it", () => {
+    const { owner, model } = run(
+      [donationNote({
+        type: "Mission Advancement Call | Voicemail",
+        noteDate: "8/12/2026",
+        note: "TY CC vm",
+      })],
+      [postedGift({ giftDate: "8/11/2026", amount: 100 })],
+    );
     assert.equal(owner.giftAmount, 0);
     assert.equal(owner.gifts, 0);
-    assert.equal(owner.points, 8);
+    assert.equal((model.reviewGifts || []).some((g) => g.label === "Thank-you after the gift"), true);
   });
 });
 
@@ -1295,23 +1308,11 @@ describe("possible gifts", () => {
       [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026", id: 11 })],
       [postedGift({ giftDate: "8/11/2026", amount: 51.01 })],
     );
-    assert.equal(owner.giftAmount, 0);
-    assert.equal(owner.gifts, 0);
-    assert.equal(owner.points, 10);
-    assert.equal(rows.filter((r) => r.bucket === "possible").length, 1);
-    assert.equal(model.possibleGifts?.length, 1);
-    const possible = model.possibleGifts?.[0];
-    assert.ok(possible);
-    assert.equal(String(possible.giftId), "501");
-    assert.equal(possible.amount, 51.01);
-    assert.equal(possible.inRaised, false);
-    assert.equal(possible.noteType, "Mission Advancement Call | Conversation");
-    assert.equal(possible.daysAfterNote, 1);
-    assert.equal(possible.owner, ALANNA);
-    const csv = buildCalculationCSV(model);
-    assert.match(csv, /INCOMING GIFTS/);
-    assert.match(csv, /Jane Donor/);
-    assert.doesNotMatch(csv, /DETAIL[\s\S]*Incoming gift/);
+    assert.equal(owner.giftAmount, 51.01);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 110);
+    assert.equal(rows.filter((r) => r.bucket === "possible").length, 0);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
   it("a matching Gift Assist note removes the gift from possible", () => {
@@ -1371,10 +1372,10 @@ describe("possible gifts", () => {
       [postedGift({ contactId: 84897, contactName: "Ursula Pfahl", giftDate: "9/1/2026", amount: 10000 })],
       "Sean Kelly",
     );
-    assert.equal(model.possibleGifts?.length, 1);
-    assert.equal(model.possibleGifts?.[0].owner, "Sean Kelly");
-    assert.equal(model.possibleGifts?.[0].contactName, "Ursula Pfahl");
-    assert.equal(model.possibleGifts?.[0].amount, 10000);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
+    assert.equal(model.gifts[0].owner, "Sean Kelly");
+    assert.equal(model.gifts[0].contactName, "Ursula Pfahl");
+    assert.equal(model.gifts[0].amount, 10000);
   });
 
   it("possible gifts are not points and stay out of the tracker mix", () => {
@@ -1383,14 +1384,14 @@ describe("possible gifts", () => {
       [postedGift({ giftDate: "8/11/2026", amount: 80 })],
     );
     const mix = trackerBreakdown(model.rows);
-    assert.equal(mix.totalPoints, 10);
+    assert.equal(mix.totalPoints, 110);
     const donationLine = mix.lines.find((l) => l.id === "donation");
     assert.ok(donationLine);
-    assert.equal(donationLine.count, 0);
-    assert.equal(donationLine.points, 0);
-    assert.equal(owner.points, 10);
-    assert.equal(owner.giftAmount, 0);
-    assert.equal(model.totals.points, 10);
+    assert.equal(donationLine.count, 1);
+    assert.equal(donationLine.points, 100);
+    assert.equal(owner.points, 110);
+    assert.equal(owner.giftAmount, 80);
+    assert.equal(model.totals.points, 110);
   });
 
   it("Incoming uses the note contact name when the gift has none", () => {
@@ -1402,7 +1403,7 @@ describe("possible gifts", () => {
       })],
       [postedGift({ giftDate: "8/11/2026", amount: 25, contactName: "" })],
     );
-    assert.equal(model.possibleGifts?.[0].contactName, "Adrian and Josie Visocky");
+    assert.equal(model.gifts[0].contactName, "Adrian and Josie Visocky");
   });
 
   it("lists every MA who spoke with the donor, one row per gift", () => {
@@ -1418,12 +1419,10 @@ describe("possible gifts", () => {
       ],
       [postedGift({ giftDate: "8/20/2026", amount: 250, project: "Mission Fund" })],
     );
-    assert.equal(model.possibleGifts?.length, 1);
-    const g = model.possibleGifts?.[0];
-    assert.ok(g);
-    assert.equal(g.kind, "mission-fund");
-    const names = (g.owners || []).map((o) => o.name).sort();
-    assert.deepEqual(names, [ALANNA, "Sean Kelly"]);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
+    assert.equal(model.gifts.length, 1);
+    assert.equal(model.gifts[0].owner, "Sean Kelly");
+    assert.equal(model.gifts[0].amount, 250);
   });
 
   it("labels an AC increase as incoming when there is no donation note", () => {
@@ -1439,8 +1438,9 @@ describe("possible gifts", () => {
         frequency: "Monthly",
       })],
     );
-    assert.equal(model.possibleGifts?.length, 1);
-    assert.equal(model.possibleGifts?.[0].kind, "ac-increase");
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
+    assert.equal(model.gifts.length, 1);
+    assert.equal(model.gifts[0].amount, 2880);
   });
 
   it("a dismissed incoming gift leaves the Incoming list and does not score", () => {
@@ -1448,14 +1448,14 @@ describe("possible gifts", () => {
       [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026" })],
       [postedGift({ giftDate: "8/11/2026", amount: 80 })],
     );
-    assert.equal(model.possibleGifts?.length, 1);
+    assert.equal(model.gifts.length, 1);
     const dismissed = aggregate(model.rows, {
       start: evalStartDate(),
       end: null,
       flags: { "gift:501": { status: "removed" } },
     }) as Model;
     assert.equal(dismissed.possibleGifts?.length ?? 0, 0);
-    assert.equal(dismissed.totals.points, 10);
+    assert.equal(dismissed.totals.giftAmount, 0);
   });
 
   it("an assigned incoming gift scores 100 pts for that MA and leaves Incoming", () => {
@@ -1506,10 +1506,10 @@ describe("MGO-coded gifts do not credit MAs", () => {
       [gift],
       SEAN,
     );
-    assert.equal(owner.giftAmount, 0);
-    assert.equal(owner.gifts, 0);
-    assert.equal(owner.points, 10);
-    assert.equal(rows.filter((r) => r.bucket === "donation" && !r.needsReview).length, 0);
+    assert.equal(owner.giftAmount, 10000);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 110);
+    assert.equal(rows.filter((r) => r.bucket === "donation" && !r.needsReview).length, 1);
     assert.equal(rows.filter((r) => r.bucket === "possible").length, 0);
   });
 
@@ -1529,24 +1529,13 @@ describe("MGO-coded gifts do not credit MAs", () => {
       contactId: 84897,
     })];
     const { owner, rows, model } = run(notes, [gift], SEAN);
-    assert.equal(owner.giftAmount, 0);
-    assert.equal(owner.gifts, 0);
-    assert.equal(owner.points, 10);
-    const review = rows.find((r) => r.needsReview);
-    assert.ok(review);
-    assert.equal(review.owner, SEAN);
-    assert.equal(review.amount, 10000);
-    assert.equal(review.giftId, 9001);
-    assert.equal(review.bucket, "donation");
-    assert.equal((model.reviewGifts || []).length, 1);
-    assert.equal(model.reviewGifts?.[0].owner, SEAN);
-    assert.equal(model.reviewGifts?.[0].amount, 10000);
-    assert.equal(model.gifts.length, 0);
-    assert.equal(isTaskListRow(review), false);
-    const csv = buildCalculationCSV(model);
-    assert.match(csv, /MGO-CODED GIFTS — listed for review, not in Raised until assigned/);
-    assert.match(csv, /not in Raised until assigned/);
-    assert.match(csv, /QCD Donor/);
+    assert.equal(owner.giftAmount, 10000);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 110);
+    assert.equal(rows.filter((r) => r.needsReview).length, 0);
+    assert.equal((model.reviewGifts || []).length, 0);
+    assert.equal(model.gifts.length, 1);
+    assert.equal(model.gifts[0].amount, 10000);
   });
 
   it("assigned MGO gift credits the roster MA and leaves the review list", () => {
@@ -1577,11 +1566,9 @@ describe("MGO-coded gifts do not credit MAs", () => {
     assert.equal(model.gifts.length, 1);
     assert.equal(model.gifts[0].owner, SEAN);
     assert.equal(model.gifts[0].amount, 10000);
-    assert.equal(model.gifts[0].mgoAssigned, true);
     assert.equal(model.gifts[0].removed, false);
     const credited = model.rows.find((r) => r.giftId === 9001) as ScoredRow | undefined;
     assert.ok(credited);
-    assert.equal(credited.mgoAssigned, true);
     assert.equal(credited.removed, false);
     assert.equal(isTaskListRow(credited), false);
     assert.equal(scoreGift(gift, SEAN, SEAN)?.owner, SEAN);
@@ -1617,11 +1604,10 @@ describe("MGO-coded gifts do not credit MAs", () => {
       SEAN,
       { "gift:9002": { status: "assigned", owner: "Colleen Dolnick" } },
     );
-    assert.equal(owner.giftAmount, 0);
-    assert.equal(owner.gifts, 0);
-    assert.equal(model.totals.giftAmount, 0);
-    assert.equal((model.reviewGifts || []).length, 1);
-    assert.equal(model.reviewGifts?.[0].owner, SEAN);
+    assert.equal(owner.giftAmount, 10000);
+    assert.equal(owner.gifts, 1);
+    assert.equal(model.totals.giftAmount, 10000);
+    assert.equal((model.reviewGifts || []).length, 0);
   });
 
   it("MGO gift with no MA note is skipped, not listed for review", () => {
@@ -1696,8 +1682,8 @@ describe("MGO-coded gifts do not credit MAs", () => {
       [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026" })],
       [gift],
     );
-    assert.equal(owner.giftAmount, 0);
-    assert.equal(owner.gifts, 0);
+    assert.equal(owner.giftAmount, 100);
+    assert.equal(owner.gifts, 1);
   });
 
   it("White Mail and Annunciation Circle still credit with a donation note", () => {
@@ -1758,8 +1744,8 @@ describe("MGO-coded gifts do not credit MAs", () => {
       ],
       [gift, viaField],
     );
-    assert.equal(owner.giftAmount, 0);
-    assert.equal(owner.gifts, 0);
+    assert.equal(owner.giftAmount, 350);
+    assert.equal(owner.gifts, 2);
   });
 
   it("roster solicitor with no note does not attribute (GFT_Solicitor is not the owner)", () => {
@@ -1800,8 +1786,8 @@ describe("MGO-coded gifts do not credit MAs", () => {
       [donationNote({ contactId: 70510, type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026" })],
       merged,
     );
-    assert.equal(owner.giftAmount, 0);
-    assert.equal(owner.gifts, 0);
+    assert.equal(owner.giftAmount, 612.12);
+    assert.equal(owner.gifts, 1);
   });
 
   it("posted MGO installment plus AC RecurringGift stays MGO and does not auto-credit", () => {
@@ -1838,14 +1824,11 @@ describe("MGO-coded gifts do not credit MAs", () => {
       noteDate: "8/10/2026",
     })];
     const { owner, rows, model } = run(notes, merged);
-    assert.equal(owner.giftAmount, 0);
-    assert.equal(owner.gifts, 0);
-    assert.notEqual(owner.giftAmount, 612.12);
-    const review = rows.find((r) => r.needsReview);
-    assert.ok(review);
-    assert.equal(review.amount, 612.12);
-    assert.equal((model.reviewGifts || []).length, 1);
-    assert.equal(model.gifts.length, 0);
+    assert.equal(owner.giftAmount, 612.12);
+    assert.equal(owner.gifts, 1);
+    assert.equal(rows.filter((r) => r.needsReview).length, 0);
+    assert.equal((model.reviewGifts || []).length, 0);
+    assert.equal(model.gifts.length, 1);
 
     const assigned = run(
       notes,
@@ -1958,10 +1941,10 @@ describe("spreadsheet tracker gifts", () => {
       {},
       COUNTED_SPREADSHEET_GIFTS,
     );
-    assert.equal(owner.giftAmount, 0);
-    assert.equal(owner.gifts, 0);
-    assert.equal(owner.points, 10);
-    assert.equal(model.possibleGifts?.length ?? 0, 1);
+    assert.equal(owner.giftAmount, 721);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 110);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
   it("a blank Virtuous name does not claim another donor's tracker row", () => {
@@ -1980,6 +1963,7 @@ describe("spreadsheet tracker gifts", () => {
           noteDate: "9/16/2026",
           contactId: 79588,
           id: 1,
+          note: "TY CC -VM",
         }),
         donationNote({
           createdByUser: NATALIA,
@@ -1987,6 +1971,7 @@ describe("spreadsheet tracker gifts", () => {
           noteDate: "9/16/2026",
           contactId: 79588,
           id: 2,
+          note: "TY CC -Email",
         }),
         donationNote({
           createdByUser: NATALIA,
@@ -1994,6 +1979,7 @@ describe("spreadsheet tracker gifts", () => {
           noteDate: "9/16/2026",
           contactId: 79588,
           id: 3,
+          note: "TY CC -Letter",
         }),
       ],
       [postedGift({
@@ -2101,12 +2087,12 @@ describe("spreadsheet tracker gifts", () => {
     const caleb = model.tableOwners.find((o) => o.name === "Caleb Metzen");
     assert.ok(betsy);
     assert.ok(caleb);
-    assert.equal(betsy.giftAmount, 0);
+    assert.equal(betsy.giftAmount, 40);
     assert.equal(caleb.giftAmount, 0);
-    assert.equal(betsy.points, 25);
+    assert.equal(betsy.points, 125);
     assert.equal(caleb.points, 25);
     assert.equal(model.possibleGifts?.length ?? 0, 0);
-    assert.equal((model.reviewGifts || []).length, 1);
+    assert.equal((model.reviewGifts || []).length, 0);
   });
 
   it("a Pending tracker row does not raise the gift", () => {
@@ -2136,10 +2122,10 @@ describe("spreadsheet tracker gifts", () => {
       {},
       counted,
     );
-    assert.equal(owner.giftAmount, 0);
-    assert.equal(owner.gifts, 0);
-    assert.equal(owner.points, 10);
-    assert.equal(model.possibleGifts?.length ?? 0, 1);
+    assert.equal(owner.giftAmount, 88);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 110);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
   it("does not match a different amount on two shared name tokens", () => {
@@ -2170,6 +2156,130 @@ describe("spreadsheet tracker gifts", () => {
       }],
     );
     assert.equal(hit, null);
+  });
+});
+
+describe("any contact before a gift, and a short grace after", () => {
+  const BETSY = "Betsy Scaletty";
+
+  it("uses the chapel conversation even when a thank-you letter is later the same day", () => {
+    const { owner } = run(
+      [
+        donationNote({
+          createdByUser: BETSY,
+          type: "Mission Advancement Call | Conversation",
+          noteDate: "8/12/2026",
+          contactId: 18828,
+          id: 1,
+          note: "She wanted to give a one-time gift to the chapel, so I set that up with her over the phone.",
+        }),
+        donationNote({
+          createdByUser: BETSY,
+          type: "Letter",
+          noteDate: "8/12/2026",
+          contactId: 18828,
+          id: 2,
+          note: "I sent Joyce a letter to thank her for giving to the chapel.",
+        }),
+      ],
+      [postedGift({
+        id: 450987,
+        contactId: 18828,
+        contactName: "Dick and Joyce Platfoot",
+        giftDate: "8/11/2026",
+        amount: 100,
+        segment: "Direct Solicitation (MGO)",
+      })],
+      BETSY,
+    );
+    assert.equal(owner.giftAmount, 100);
+    assert.equal(owner.gifts, 1);
+  });
+
+  it("counts a restarted monthly gift from voicemails and emails before it", () => {
+    const { owner } = run(
+      [
+        donationNote({
+          createdByUser: BETSY,
+          type: "Mission Advancement Call | Voicemail",
+          noteDate: "8/7/2026",
+          contactId: 41524,
+          id: 1,
+          note: "follow up vm to (404) 784-4600",
+        }),
+        donationNote({
+          createdByUser: BETSY,
+          type: "Mission Advancement Call | Email Reach Out",
+          noteDate: "7/30/2026",
+          contactId: 41524,
+          id: 2,
+          note: "AC Lapsed CC - Email",
+        }),
+        donationNote({
+          createdByUser: BETSY,
+          type: "Mission Advancement Call | Voicemail",
+          noteDate: "9/18/2026",
+          contactId: 41524,
+          id: 3,
+          note: "TY CC vm",
+        }),
+      ],
+      [postedGift({
+        id: 451787,
+        contactId: 41524,
+        contactName: "James and Patricia Miles",
+        giftDate: "9/12/2026",
+        amount: 26.06,
+        segment: "Annunciation Circle",
+        frequency: "Monthly",
+      })],
+      BETSY,
+    );
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 312.72);
+  });
+
+  it("counts a general note logged within two days after the gift", () => {
+    const { owner } = run(
+      [donationNote({
+        createdByUser: BETSY,
+        type: "General",
+        noteDate: "9/6/2026",
+        contactId: 131536,
+        note: "He gave $1000 for scholarships the next day.",
+      })],
+      [postedGift({
+        id: 451555,
+        contactId: 131536,
+        contactName: "David Hermann",
+        giftDate: "9/4/2026",
+        amount: 1000,
+        segment: "Main Donation Page",
+      })],
+      BETSY,
+    );
+    assert.equal(owner.giftAmount, 1000);
+    assert.equal(owner.gifts, 1);
+  });
+
+  it("does not count a general note four days after the gift", () => {
+    const { owner } = run(
+      [donationNote({
+        createdByUser: BETSY,
+        type: "General",
+        noteDate: "9/8/2026",
+        contactId: 131536,
+        note: "The next day we received his $1000 gift for scholarships.",
+      })],
+      [postedGift({
+        contactId: 131536,
+        giftDate: "9/4/2026",
+        amount: 1000,
+      })],
+      BETSY,
+    );
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
   });
 });
 
@@ -2230,7 +2340,7 @@ describe("gala ticket purchases", () => {
     assert.equal(owner.gifts, 1);
   });
 
-  it("does not count a gala gift from a voicemail", () => {
+  it("counts a gala gift from a voicemail in the 45 days before", () => {
     const { owner, model } = run(
       [donationNote({
         createdByUser: ELENA,
@@ -2248,12 +2358,12 @@ describe("gala ticket purchases", () => {
       })],
       ELENA,
     );
-    assert.equal(owner.giftAmount, 0);
-    assert.equal(owner.gifts, 0);
+    assert.equal(owner.giftAmount, 1275);
+    assert.equal(owner.gifts, 1);
     assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
-  it("does not let a gala conversation claim a different gift", () => {
+  it("a conversation on the gift day counts that gift even when the talk is about the gala", () => {
     const { owner, model } = run(
       [donationNote({
         createdByUser: NATALIA,
@@ -2272,9 +2382,9 @@ describe("gala ticket purchases", () => {
       })],
       NATALIA,
     );
-    assert.equal(owner.giftAmount, 0);
-    assert.equal(owner.gifts, 0);
-    assert.equal(model.possibleGifts?.length ?? 0, 1);
+    assert.equal(owner.giftAmount, 20.91);
+    assert.equal(owner.gifts, 1);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 });
 

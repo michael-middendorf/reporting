@@ -37,11 +37,11 @@ export default function PointsMethodologyPage() {
               <li><i className="swatch stop" /> Not counted</li>
             </ul>
             <p className="flow-foot">
-              A conversation, a two-way email, an in-person visit, or a meeting is what “spoke” means.
-              A voicemail, a letter, or an email that was only sent does not. A donation note is New
-              Donation or New AC, Annunciation Circle updated, or Update Recurring Gift. Assign does
-              not write a note in Virtuous. If the contacts file has no household name, the row says
-              Unknown donor and the arrow still opens the contact. A tracker row does not assign a gift.
+              Every note on the contact is checked, not only the latest one. A voicemail, email,
+              letter, visit, conversation, or general note within 45 days before the gift counts.
+              Those notes also count up to 2 days after the gift, unless the note is a thank-you.
+              A thank-you just after the gift is flagged and does not count it. Assign does not
+              write a note in Virtuous. A tracker row does not assign a gift.
             </p>
           </section>
 

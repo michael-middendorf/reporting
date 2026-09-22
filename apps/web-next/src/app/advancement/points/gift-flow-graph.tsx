@@ -78,8 +78,6 @@ export function GiftFlowGraph() {
         <FlowEdge d="M400 720 L468 720" label="Yes" lx={418} ly={712} />
         <FlowEdge d="M230 772 L230 838" label="No" lx={240} ly={810} />
         <FlowEdge d="M400 890 L468 890" label="Yes" lx={418} ly={882} />
-        <FlowEdge d="M720 874 L748 874" />
-        <FlowEdge d="M720 914 L748 914" />
         <FlowEdge d="M230 942 L230 978" label="No" lx={240} ly={966} />
 
         <FlowBox x={60} y={16} w={340} h={52} tone="start" title="Gift posts in Virtuous" />
@@ -94,10 +92,8 @@ export function GiftFlowGraph() {
         <FlowBox x={748} y={554} w={200} h={40} tone="stop" title="Remove → not counted" />
         <FlowDiamond cx={230} cy={720} lines={["Donation note within", "45 days before or after?"]} />
         <FlowBox x={468} y={688} w={470} h={64} tone="raised" title="Raised · donation note" lines={["Dollars and 100 points for the MA who logged it."]} />
-        <FlowDiamond cx={230} cy={890} lines={["MA spoke on or before", "the gift, within 45 days?"]} />
-        <FlowBox x={468} y={854} w={252} h={72} tone="review" title="Incoming review" lines={["Zero points until", "someone assigns it."]} />
-        <FlowBox x={748} y={854} w={200} h={40} tone="raised" title="Assign → Raised" />
-        <FlowBox x={748} y={894} w={200} h={40} tone="stop" title="Remove → not counted" />
+        <FlowDiamond cx={230} cy={890} lines={["Any contact 45 days before,", "or a non-thank-you note", "within 2 days after?"]} />
+        <FlowBox x={468} y={858} w={470} h={64} tone="raised" title="Raised · that contact" lines={["Every note is checked, not only the latest."]} />
         <FlowBox x={60} y={978} w={340} h={64} tone="stop" title="Not attributed" lines={["The gift stays off the MA’s Raised total."]} />
       </svg>
     </div>
