@@ -80,6 +80,7 @@ export default function AdmissionsPage() {
     ["Deposit withdrawals", DEFS.depositsWithdrawn, cur.depositsWithdrawn, prv.depositsWithdrawn],
     ["Denied", DEFS.denied, cur.denied, prv.denied],
     ["Interviewed", DEFS.interviewed, cur.interviewed, prv.interviewed],
+    ["Interviewed athletes", DEFS.interviewedAthletes, cur.interviewedAthletes, prv.interviewedAthletes],
     ["AC Rec 3s", DEFS.acRec3, cur.acRec3, recPrv?.acRec3],
     ["AC Rec 4s", DEFS.acRec4, cur.acRec4, recPrv?.acRec4],
     ["AC Rec 3s & 4s", DEFS.acRec34, cur.acRec34, recPrv?.acRec34],
@@ -129,6 +130,8 @@ export default function AdmissionsPage() {
         <Kpi label="Accept Rate" cur={cur.acceptRate} prv={prv.acceptRate} format="pct" highlight info={DEFS.acceptRate} />
       </div>
       <div className="kpi-strip">
+        <Kpi label="Interviewed athletes" cur={cur.interviewedAthletes} prv={prv.interviewedAthletes} info={DEFS.interviewedAthletes} />
+        <Kpi label="Athlete %" cur={cur.interviewedAthletePct} prv={prv.interviewedAthletePct} format="pct" info={DEFS.interviewedAthletePct} />
         <Kpi label="AC Rec 3s" cur={cur.acRec3} prv={recPrv?.acRec3} info={DEFS.acRec3} />
         <Kpi label="AC Rec 4s" cur={cur.acRec4} prv={recPrv?.acRec4} info={DEFS.acRec4} />
         <Kpi label="AC Rec 3s & 4s" cur={cur.acRec34} prv={recPrv?.acRec34} highlight info={DEFS.acRec34} />

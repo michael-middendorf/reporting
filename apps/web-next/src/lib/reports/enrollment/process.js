@@ -140,6 +140,11 @@ function _interviewDate(r, termYear) {
   return r.InterviewedDateFA27Apps || r.InterviewedDateFA26Apps || null;
 }
 
+/** Athlete flag is this field only. Sport and Athletic Decision are not athletes. */
+function _isAthlete(r) {
+  return r.AthleteorNonAthlete === 'Athlete';
+}
+
 /** 25/26 rating_1-4 only. Do not score 24/25 leftover (rating_0-3). */
 const AC_REC_KEYS_26 = [
   'InterviewACRating',
@@ -242,6 +247,7 @@ function _acLabel(ac) {
 function _emptyChg() {
   return {
     created: 0, submitted: 0, accepted: 0, conditional: 0, interviewed: 0,
+    interviewedAthletes: 0, interviewedAthletePct: null,
     depositsGross: 0, depositsWithdrawn: 0, deposits: 0, acceptRate: null, yield: null,
   };
 }
@@ -277,6 +283,9 @@ export function _termStatsAsOf(rows, cutoff, termYear) {
   accRows.forEach(r => { codes[r.AcceptCode] = (codes[r.AcceptCode] || 0) + 1; });
   const acceptRate = submitted ? accepted / submitted * 100 : null;
   const yieldRate = accepted ? depGrossRows.length / accepted * 100 : null;
+  const interviewed = rows.filter(r => _leDate(_interviewDate(r, termYear), cutoff)).length;
+  const interviewedAthletes = rows.filter(r => _leDate(_interviewDate(r, termYear), cutoff) && _isAthlete(r)).length;
+  const interviewedAthletePct = interviewed ? interviewedAthletes / interviewed * 100 : null;
   const byAC = {};
   rows.forEach(r => {
     if (!_leDate(r.CreatedDate, cutoff)) return;
@@ -304,7 +313,9 @@ export function _termStatsAsOf(rows, cutoff, termYear) {
     submitted,
     accepted,
     conditional: rows.filter(r => r.AcceptCode === 'CA' && _leDate(r.AcceptDate, cutoff)).length,
-    interviewed: rows.filter(r => _leDate(_interviewDate(r, termYear), cutoff)).length,
+    interviewed,
+    interviewedAthletes,
+    interviewedAthletePct,
     acRec3: rec.acRec3,
     acRec4: rec.acRec4,
     acRec34: rec.acRec34,
@@ -377,6 +388,9 @@ export function _termStats(rows, termYear, asOf) {
   const chgNet = rows.filter(r => _inLast7(r.DepositDate, asOf) && !_isPresent(r.WithdrawnDate)).length;
   const acceptRate = submitted ? accepted / submitted * 100 : null;
   const yieldRate = accepted ? depGrossRows.length / accepted * 100 : null;
+  const interviewed = rows.filter(r => r.InterviewStatus === 'Interviewed').length;
+  const interviewedAthletes = rows.filter(r => r.InterviewStatus === 'Interviewed' && _isAthlete(r)).length;
+  const interviewedAthletePct = interviewed ? interviewedAthletes / interviewed * 100 : null;
   // 1-4 rec field starts FA26 / 25-26. Do not count person-scoped current recs on FA24/FA25.
   const rec = termYear < 2026
     ? { acRec3: 0, acRec4: 0, acRec34: 0 }
@@ -391,17 +405,22 @@ export function _termStats(rows, termYear, asOf) {
     accepted: rows.filter(r => _inLast7(r.AcceptDate, asOf)).length,
     conditional: rows.filter(r => r.AcceptCode === 'CA' && _inLast7(r.AcceptDate, asOf)).length,
     interviewed: rows.filter(r => _inLast7(_interviewDate(r, termYear), asOf)).length,
+    interviewedAthletes: rows.filter(r => _inLast7(_interviewDate(r, termYear), asOf) && _isAthlete(r)).length,
     depositsGross: chgGross,
     depositsWithdrawn: chgWd,
     deposits: chgNet,
     acceptRate: (acceptRate != null && asOf7.acceptRate != null) ? acceptRate - asOf7.acceptRate : null,
+    // The 7-day percent is not published because the current rate is Interview Status and the week window is interview date.
+    interviewedAthletePct: null,
     yield: (yieldRate != null && asOf7.yield != null) ? yieldRate - asOf7.yield : null,
   };
 
   return _attachDemoAndAid({
     created,
     submitted,
-    interviewed: rows.filter(r => r.InterviewStatus === 'Interviewed').length,
+    interviewed,
+    interviewedAthletes,
+    interviewedAthletePct,
     acRec3: rec.acRec3,
     acRec4: rec.acRec4,
     acRec34: rec.acRec34,
