@@ -22,6 +22,7 @@ members = [
   "services/publishers/fall-appeal",
   "services/publishers/athletics-coaching-fundraising",
   "services/publishers/athletics-giving",
+  "services/publishers/pursuit-of-wisdom",
 ]
 
 [tool.uv]
