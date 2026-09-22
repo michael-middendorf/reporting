@@ -24,14 +24,14 @@ describe("reportNavActive", () => {
     const overview = item(ADVANCEMENT_NAV, "/advancement/overview");
     const mgo = item(ADVANCEMENT_NAV, "/advancement/mgo-top-prospects");
     const ac = item(ADVANCEMENT_NAV, "/annunciation");
-    const fall = item(ADVANCEMENT_NAV, "/advancement/fall-appeal");
+    const fall = item(ADVANCEMENT_NAV, "/advancement/appeals?campaign=fall-2026");
     const points = item(ADVANCEMENT_NAV, "/advancement/points");
     const glass = item(ADVANCEMENT_NAV, "/advancement/stained-glass-windows");
     const athGiving = item(ADVANCEMENT_NAV, "/athletics/master/giving");
     assert.equal(reportNavActive(overview, ADVANCEMENT_NAV, "/advancement/overview"), true);
     assert.equal(reportNavActive(mgo, ADVANCEMENT_NAV, "/advancement/mgo-top-prospects"), true);
     assert.equal(reportNavActive(ac, ADVANCEMENT_NAV, "/annunciation"), true);
-    assert.equal(reportNavActive(fall, ADVANCEMENT_NAV, "/advancement/fall-appeal"), true);
+    assert.equal(reportNavActive(fall, ADVANCEMENT_NAV, "/advancement/appeals"), true);
     assert.equal(reportNavActive(points, ADVANCEMENT_NAV, "/advancement/points"), true);
     assert.equal(reportNavActive(points, ADVANCEMENT_NAV, "/advancement/points/methodology"), true);
     assert.equal(reportNavActive(glass, ADVANCEMENT_NAV, "/advancement/stained-glass-windows"), true);

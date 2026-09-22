@@ -12,6 +12,12 @@ import {
   type SegmentRow,
   type TimelineWeek,
 } from "@/lib/reports/fall-appeal/shape";
+import {
+  APPEAL_CAMPAIGNS,
+  DEFAULT_APPEAL_SLUG,
+  appealCampaign,
+  type AppealSlug,
+} from "@/lib/reports/appeals/config";
 import "@/styles/annunciation.css";
 import "@/styles/fall-appeal.css";
 
@@ -39,6 +45,10 @@ const DEFS = {
   mail: "Appeal revenue by the acquisition segment recorded on each gift (the appeal's individual asks/lists).",
   email:
     "Unique opens and clicks from aggregate Virtuous Analytics email-version records. Segment rates are recipient-weighted across its published sends; they are engagement, not donation conversion rates.",
+  directMail:
+    "Response rate is distinct tagged-mail-audience responders divided by tagged audience. Revenue and gifts remain Virtuous campaign-attributed figures.",
+  digital:
+    "Digital performance is an administrator-imported aggregate. Conversion rate is conversions divided by visits.",
 } as const;
 
 function InfoDot({ text }: { text: string }) {
@@ -56,6 +66,29 @@ function InfoDot({ text }: { text: string }) {
         {text}
       </span>
     </span>
+  );
+}
+
+function ImportControl({
+  label,
+  columns,
+  onFile,
+  status,
+}: {
+  label: string;
+  columns: string;
+  onFile: (file: File | undefined) => void;
+  status: string | null;
+}) {
+  return (
+    <div className="fa-email-import">
+      <label>
+        {label}
+        <input type="file" accept=".csv,text/csv" onChange={(event) => onFile(event.target.files?.[0])} />
+      </label>
+      <span>CSV columns: {columns}.</span>
+      {status && <span>{status}</span>}
+    </div>
   );
 }
 
@@ -241,12 +274,13 @@ export default function FallAppealPage() {
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [canImportEmail, setCanImportEmail] = useState(false);
+  const [canImport, setCanImport] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [campaignSlug, setCampaignSlug] = useState<AppealSlug>(DEFAULT_APPEAL_SLUG);
 
-  function load() {
+  function load(slug = campaignSlug) {
     setLoading(true);
-    apiFetch("/api/fall-appeal-data")
+    apiFetch(`/api/appeals-data?campaign=${encodeURIComponent(slug)}`)
       .then(async (r) => {
         const json = (await r.json()) as Payload;
         if (json.summary) {
@@ -260,25 +294,40 @@ export default function FallAppealPage() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(load, []);
-  useEffect(() => { void fetchMe().then((me) => setCanImportEmail(Boolean(me.admin))); }, []);
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("campaign");
+    const campaign = appealCampaign(requested);
+    const slug = (campaign?.slug ?? DEFAULT_APPEAL_SLUG) as AppealSlug;
+    setCampaignSlug(slug);
+    load(slug);
+  // Initial URL determines the report. Subsequent refreshes use selected state.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => { void fetchMe().then((me) => setCanImport(Boolean(me.admin))); }, []);
 
-  async function importEmailCsv(file: File | undefined) {
+  async function importCsv(dataset: "mail" | "email" | "digital", file: File | undefined) {
     if (!file) return;
     setImportStatus(`Importing ${file.name}…`);
     const headers: Record<string, string> = { "Content-Type": "text/csv" };
     const bearer = getBearer(); if (bearer) headers.Authorization = `Bearer ${bearer}`;
     try {
-      const result = await fetch("/api/fall-appeal-email-import", { method: "POST", credentials: "include", headers, body: file }).then((response) => response.json());
-      setImportStatus(result.ok ? "Saved. Email metrics will appear after the next hourly appeal refresh." : `Import failed: ${result.error || "unknown error"}`);
+      const result = await fetch(`/api/appeals-import?campaign=${campaignSlug}&dataset=${dataset}`, { method: "POST", credentials: "include", headers, body: file }).then((response) => response.json());
+      setImportStatus(result.ok ? "Saved. Metrics will appear after the next hourly appeal refresh." : `Import failed: ${result.error || "unknown error"}`);
     } catch { setImportStatus("Import failed."); }
   }
 
   const segments = useMemo(() => data?.segments ?? [], [data]);
   const constituency = segments.filter((s) => s.group === "constituency");
   const donorType = segments.filter((s) => s.group === "donorType");
-  const campaignStart = data?.campaignStart || data?.appealStart || "2026-08-16";
-  const campaignEnd = data?.campaignEnd || "2027-02-28";
+  const selectedCampaign = appealCampaign(campaignSlug);
+  const campaignStart = data?.campaignStart || data?.appealStart || selectedCampaign?.start || "2026-08-16";
+  const campaignEnd = data?.campaignEnd || selectedCampaign?.end;
+
+  function selectCampaign(nextSlug: AppealSlug) {
+    setCampaignSlug(nextSlug);
+    window.history.replaceState(null, "", `/advancement/appeals?campaign=${nextSlug}`);
+    load(nextSlug);
+  }
 
   return (
     <main className="ac-page">
@@ -286,14 +335,23 @@ export default function FallAppealPage() {
         <div>
           <h1>{data?.campaign || "Fall Appeal"}</h1>
           <div className="ac-sub">
-            Campaign {formatMdDate(campaignStart)} – {formatMdDate(campaignEnd)}
+            Campaign {formatMdDate(campaignStart)}{campaignEnd ? ` – ${formatMdDate(campaignEnd)}` : ""}
             {data?.asOf ? ` · gift data as of ${formatMdDate(data.asOf)}` : ""}
             {data?.generated_at ? ` · updated ${data.generated_at}` : ""}
           </div>
         </div>
-        <button type="button" className="ac-refresh" onClick={load} disabled={loading}>
-          {loading ? "Loading…" : "Refresh"}
-        </button>
+        <div className="appeals-controls">
+          <label>
+            <span className="sr-only">Campaign</span>
+            <select value={campaignSlug} onChange={(event) => selectCampaign(event.target.value as AppealSlug)}>
+              {APPEAL_CAMPAIGNS.map((campaign) => <option key={campaign.slug} value={campaign.slug}>{campaign.label}</option>)}
+            </select>
+          </label>
+          <button type="button" className="ac-refresh" onClick={() => load()} disabled={loading}>
+            {loading ? "Loading…" : "Refresh"}
+          </button>
+          <button type="button" className="ac-refresh" onClick={() => window.print()}>Print / PDF</button>
+        </div>
       </div>
 
       {error && <div className="ac-error">{error}</div>}
@@ -409,6 +467,47 @@ export default function FallAppealPage() {
           )}
 
           <section className="ac-analytics">
+            <h2>Direct Mail Performance <InfoDot text={DEFS.directMail} /></h2>
+            {!data.directMail || data.directMail.status === "unavailable" ? (
+              <div className="ac-note">Direct-mail audience data is not available for this campaign yet.</div>
+            ) : (
+              <>
+                <div className="ac-cards">
+                  <div className="ac-card"><span className="ac-card-num">{num(data.directMail.totalMailed ?? data.directMail.audience)}</span><span className="ac-card-label">Total Mailed</span></div>
+                  <div className="ac-card"><span className="ac-card-num">{data.directMail.responseRate == null ? "—" : pct(data.directMail.responseRate)}</span><span className="ac-card-label">Response Rate</span></div>
+                  <div className="ac-card"><span className="ac-card-num">{num(data.directMail.responders)}</span><span className="ac-card-label">Responders</span></div>
+                </div>
+                {data.directMail.variants.length > 0 && (
+                  <div className="ac-table-wrap"><table className="ac-table" style={{ minWidth: 700 }}><thead><tr><th>Audience / creative</th><th className="ac-num">Audience</th><th className="ac-num">Response rate</th><th className="ac-num">Revenue</th><th className="ac-num">Gifts</th><th className="ac-num">Avg gift</th></tr></thead><tbody>
+                    {data.directMail.variants.map((variant) => <tr key={variant.label}><td>{variant.label}</td><td className="ac-num">{num(variant.audience)}</td><td className="ac-num">{variant.responseRate == null ? "—" : pct(variant.responseRate)}</td><td className="ac-num">{usd(variant.revenue)}</td><td className="ac-num">{num(variant.gifts)}</td><td className="ac-num">{usd(variant.avgGift)}</td></tr>)}
+                  </tbody></table></div>
+                )}
+              </>
+            )}
+            {canImport && <ImportControl label="Update mail drop totals" columns="mailing_id, label, drop_date, creative, total_mailed" onFile={(file) => importCsv("mail", file)} status={importStatus} />}
+          </section>
+
+          <section className="ac-analytics">
+            <h2>Email Performance</h2>
+            {!data.emailImport || data.emailImport.status === "unavailable" ? <div className="ac-note">Standardized email delivery, conversion, unsubscribe, and attributed-revenue data is not available yet.</div> : (
+              <div className="ac-table-wrap"><table className="ac-table" style={{ minWidth: 900 }}><thead><tr><th>Subject line</th><th className="ac-num">Sent</th><th className="ac-num">Delivered</th><th className="ac-num">Open rate</th><th className="ac-num">CTR</th><th className="ac-num">Conversion</th><th className="ac-num">Revenue</th></tr></thead><tbody>
+                {data.emailImport.rows.map((row, index) => <tr key={`${row.emailId ?? "email"}-${index}`}><td>{String(row.subject || row.emailName || "Untitled")}</td><td className="ac-num">{num(Number(row.sent || 0))}</td><td className="ac-num">{num(Number(row.delivered || 0))}</td><td className="ac-num">{row.openRate == null ? "—" : pct(Number(row.openRate))}</td><td className="ac-num">{row.clickRate == null ? "—" : pct(Number(row.clickRate))}</td><td className="ac-num">{row.conversionRate == null ? "—" : pct(Number(row.conversionRate))}</td><td className="ac-num">{usd(Number(row.attributedRevenue || 0))}</td></tr>)}
+              </tbody></table></div>
+            )}
+            {canImport && <ImportControl label="Update email performance" columns="email_id, email_name, subject, sent_at, sent, delivered, unique_opens, unique_clicks, conversions, unsubscribes, attributed_revenue" onFile={(file) => importCsv("email", file)} status={importStatus} />}
+          </section>
+
+          <section className="ac-analytics">
+            <h2>Digital and Landing Page <InfoDot text={DEFS.digital} /></h2>
+            {!data.digitalPerformance || data.digitalPerformance.status === "unavailable" ? <div className="ac-note">Landing-page and traffic-source data is not available yet. Retargeting and ad performance remain a future reporting feature.</div> : (
+              <div className="ac-table-wrap"><table className="ac-table" style={{ minWidth: 760 }}><thead><tr><th>Date</th><th>Landing page</th><th>Source</th><th className="ac-num">Visits</th><th className="ac-num">Conversion</th><th className="ac-num">Revenue</th></tr></thead><tbody>
+                {data.digitalPerformance.rows.map((row, index) => <tr key={`${row.date}-${row.source}-${index}`}><td>{String(row.date)}</td><td>{String(row.landingPage)}</td><td>{String(row.source)}{row.medium ? ` / ${row.medium}` : ""}</td><td className="ac-num">{num(Number(row.visits || 0))}</td><td className="ac-num">{row.conversionRate == null ? "—" : pct(Number(row.conversionRate))}</td><td className="ac-num">{usd(Number(row.attributedRevenue || 0))}</td></tr>)}
+              </tbody></table></div>
+            )}
+            {canImport && <ImportControl label="Update digital performance" columns="date, landing_page, source, medium, visits, conversions, attributed_revenue" onFile={(file) => importCsv("digital", file)} status={importStatus} />}
+          </section>
+
+          <section className="ac-analytics">
             <h2>
               Email Engagement <InfoDot text={DEFS.email} />
             </h2>
@@ -449,16 +548,6 @@ export default function FallAppealPage() {
                   .
                 </p>
               </>
-            )}
-            {canImportEmail && (
-              <div className="fa-email-import">
-                <label>
-                  Update aggregate email metrics
-                  <input type="file" accept=".csv,text/csv" onChange={(event) => void importEmailCsv(event.target.files?.[0])} />
-                </label>
-                <span>CSV columns: email_id, email_name, subject, sent_at, recipients, unique_opens, unique_clicks.</span>
-                {importStatus && <span>{importStatus}</span>}
-              </div>
             )}
           </section>
 

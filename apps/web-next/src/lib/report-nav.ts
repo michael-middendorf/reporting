@@ -15,7 +15,7 @@ export const ADVANCEMENT_NAV: ReportNavItem[] = [
   { href: "/advancement/mgo-top-prospects", label: "MGO Top Prospects", report: "advancement" },
   { href: "/advancement/portfolios", label: "Portfolios", report: "portfolios" },
   { href: "/annunciation", label: "Annunciation Circle", report: "annunciation" },
-  { href: "/advancement/fall-appeal", label: "Fall Appeal", report: "advancement" },
+  { href: "/advancement/appeals?campaign=fall-2026", label: "Appeals", report: "advancement" },
   { href: "/advancement/points", label: "MA Points", report: "points" },
   { href: "/advancement/chapel-naming", label: "Chapel Naming", report: "chapel" },
   { href: "/advancement/stained-glass-windows", label: "Stained Glass", report: "chapel" },
@@ -208,10 +208,11 @@ export function reportNavActive(
   nav: ReportNavItem[],
   pathname: string,
 ): boolean {
-  if (item.exact) return pathname === item.href;
+  const hrefPath = item.href.split("?")[0];
+  if (item.exact) return pathname === hrefPath;
   const hasChild = nav.some(
-    (other) => other.href !== item.href && other.href.startsWith(`${item.href}/`),
+    (other) => other.href !== item.href && other.href.split("?")[0].startsWith(`${hrefPath}/`),
   );
-  if (hasChild) return pathname === item.href;
-  return pathname === item.href || pathname.startsWith(`${item.href}/`);
+  if (hasChild) return pathname === hrefPath;
+  return pathname === hrefPath || pathname.startsWith(`${hrefPath}/`);
 }

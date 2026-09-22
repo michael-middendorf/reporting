@@ -171,8 +171,17 @@ export class ReportingEcsStack extends cdk.Stack {
     }));
     // Housing verification/uploads: staff xlsx + edit state under cache/housing/.
     task.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:PutObject"], resources: [`${dataBucketArn}/cache/housing/*`] }));
-    // Fall Appeal manual import: one validated aggregate email snapshot.
-    task.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:PutObject"], resources: [`${dataBucketArn}/fall-appeal/email-performance.json`] }));
+    // Appeals imports are aggregate-only and intentionally limited to the two
+    // reviewed campaigns and three datasets. Adding a campaign requires a PR.
+    task.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:PutObject"], resources: [
+      `${dataBucketArn}/fall-appeal/email-performance.json`,
+      `${dataBucketArn}/appeals/fall-2026/imports/mail.json`,
+      `${dataBucketArn}/appeals/fall-2026/imports/email.json`,
+      `${dataBucketArn}/appeals/fall-2026/imports/digital.json`,
+      `${dataBucketArn}/appeals/spring-2026/imports/mail.json`,
+      `${dataBucketArn}/appeals/spring-2026/imports/email.json`,
+      `${dataBucketArn}/appeals/spring-2026/imports/digital.json`,
+    ] }));
     // Office-hours below-A/B ledger: persist firstSeen so coaches see duration, not today.
     task.addToTaskRolePolicy(
       new iam.PolicyStatement({

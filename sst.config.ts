@@ -283,8 +283,33 @@ export default $config({
         // names a different comparison set.
         FALL_APPEAL_PRIOR_CAMPAIGN: "2025 End of Calendar Year",
         FALL_APPEAL_PRIOR_START: "2025-11-01",
-        FALL_APPEAL_CACHE_KEY: "fall-appeal/latest.json",
+        FALL_APPEAL_CACHE_KEY: "appeals/fall-2026/latest.json",
         FALL_APPEAL_EMAIL_PERFORMANCE_KEY: "fall-appeal/email-performance.json",
+        APPEAL_SLUG: "fall-2026",
+        APPEAL_AUDIENCE_TAGS: '[{"id":93,"label":"Direct Mail Audience"}]',
+      },
+      permissions: reportDataPerms,
+    });
+
+    const springAppeal = new sst.aws.Function("SpringAppealData", {
+      handler: "services/publishers/fall-appeal/handler.handler",
+      runtime: "python3.12",
+      timeout: "15 minutes",
+      memory: "1024 MB",
+      link: [data],
+      python: { uv: true },
+      copyFiles: commonFiles,
+      environment: {
+        DATA_BUCKET: data.name,
+        API_KEY: virtuousApiKey.value,
+        VIRTUOUS_API_KEY: virtuousApiKey.value,
+        FALL_APPEAL_CAMPAIGN: "2026 Spring Appeal",
+        FALL_APPEAL_START: "2026-03-24",
+        APPEAL_ALLOW_OPEN_END: "1",
+        FALL_APPEAL_CACHE_KEY: "appeals/spring-2026/latest.json",
+        FALL_APPEAL_EMAIL_PERFORMANCE_KEY: "appeals/spring-2026/imports/legacy-email.json",
+        APPEAL_SLUG: "spring-2026",
+        APPEAL_AUDIENCE_TAGS: '[{"id":48,"label":"Brick","creative":true},{"id":47,"label":"Chapel","creative":true},{"id":49,"label":"Vocations","creative":true}]',
       },
       permissions: reportDataPerms,
     });
@@ -507,6 +532,11 @@ export default $config({
       function: fallAppeal,
     });
 
+    new sst.aws.Cron("SpringAppealRefresh", {
+      schedule: "rate(1 hour)",
+      function: springAppeal,
+    });
+
     return {
       url: reportingUrl,
       dataBucket: data.name,
@@ -520,6 +550,7 @@ export default $config({
       portfolios: portfolios.name,
       stainedGlassWindows: stainedGlassWindows.name,
       fallAppeal: fallAppeal.name,
+      springAppeal: springAppeal.name,
       athleticsCoachingFundraising: athleticsCoachingFundraising.name,
       athleticsGiving: athleticsGiving.name,
     };

@@ -37,8 +37,8 @@ const REPORTS: {
     report: "portfolios",
   },
   {
-    href: "/advancement/fall-appeal",
-    title: "Fall Appeal",
+    href: "/advancement/appeals?campaign=fall-2026",
+    title: "Appeals",
     desc: "Fall 2026 Appeal revenue, segmentation, and year-over-year pace from Virtuous.",
     report: "advancement",
   },
