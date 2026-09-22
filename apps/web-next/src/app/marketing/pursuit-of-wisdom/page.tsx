@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import styles from "../../../home.module.css";
+import styles from "../../home.module.css";
 
 type Dashboard = { generatedAt?: string; website?: { sessions: number; uniqueVisitors: number; returningVisits: number; activeSeconds: number; pageViews: number; topCountries?: Array<{ country: string; sessions: number }> }; courses?: Array<{ title: string; starts: number; completions: number; completionRate: number; watchHours: number; videosWatched: number }>; sharedCourses?: Array<{ title: string; shares: number }>; youtube?: { available: boolean; totalViews?: number; subscribers?: number; videos?: Array<{ title: string; views: number; likes?: number; comments?: number }> }; notes?: string[]; status?: string; message?: string };
 const number = new Intl.NumberFormat("en-US");
