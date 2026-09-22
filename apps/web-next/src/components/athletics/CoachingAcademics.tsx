@@ -308,13 +308,13 @@ export function AcademicsPage({ sportKey }: { sportKey: string }) {
                           <tr className="ath-coach-courses">
                             <td colSpan={4}>
                               {athlete.courses.length ? (
-                                <table className="ath-table">
+                                <table className="ath-coach-course-table">
                                   <thead>
                                     <tr>
                                       <th>Course</th>
                                       <th>Grade</th>
                                       <th>Missing assignments</th>
-                                      <th>Absences</th>
+                                      <th>Classes missed</th>
                                       <th>Last access</th>
                                     </tr>
                                   </thead>
@@ -324,7 +324,9 @@ export function AcademicsPage({ sportKey }: { sportKey: string }) {
                                         <td>{course.course}</td>
                                         <td>{formatGrade(course.grade)}</td>
                                         <td>{course.missing ?? "—"}</td>
-                                        <td>{course.timesAbsent ?? "n/a"}</td>
+                                        <td title={course.timesAbsent === null ? "No roll-call for this course" : undefined}>
+                                          {course.timesAbsent ?? "n/a"}
+                                        </td>
                                         <td>{formatWhen(course.lastAccess)}</td>
                                       </tr>
                                     ))}
