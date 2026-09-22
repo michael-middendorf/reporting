@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   const denied = requireReportAccess(request, "marketing");
   if (denied) return denied;
   try {
-    const response = await s3.send(new GetObjectCommand({ Bucket: dataBucket(), Key: KEY }));
+    const response = await s3().send(new GetObjectCommand({ Bucket: dataBucket(), Key: KEY }));
     return new Response(await response.Body?.transformToString(), { headers: { "content-type": "application/json", "cache-control": "no-store" } });
   } catch (error: unknown) {
     const code = (error as { name?: string }).name;
