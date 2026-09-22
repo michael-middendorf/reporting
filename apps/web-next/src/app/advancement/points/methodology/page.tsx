@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { PointsSubnav } from "@/components/PointsSubnav";
 import { CONFLICTS, DAY_TARGETS, DEFINITIONS, POINTS_MAP, TIERS, TRACKING_CHART } from "@/lib/reports/points/scoring";
 import "@/styles/points.css";
-import { GiftFlowGraph } from "./gift-flow-graph";
+import { GiftFlowGraph } from "../gift-flow-graph";
 
 export default function PointsMethodologyPage() {
   const rules = Object.entries(POINTS_MAP as Record<string, { points: number; label: string; source?: string; bucket?: string }>);
