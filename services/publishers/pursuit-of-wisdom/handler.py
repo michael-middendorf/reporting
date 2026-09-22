@@ -5,9 +5,9 @@ writes account-level data to S3, only per-course and website aggregates.
 """
 from __future__ import annotations
 
-import json
 import os
 import urllib.request
+import json
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any
@@ -39,14 +39,22 @@ def summarize(source: dict[str, Any]) -> dict[str, Any]:
         seconds = row.pop("watchSeconds")
         course_rows.append({**row, "starts": starts, "completions": completions, "completionRate": completions / starts if starts else 0, "watchHours": round(seconds / 3600, 2)})
     course_rows.sort(key=lambda row: (-row["starts"], row["title"]))
+    shares: dict[str, dict[str, Any]] = {}
+    for item in source.get("shares") or []:
+        row = shares.setdefault(item.get("title") or "Unknown course", {"title": item.get("title") or "Unknown course", "shares": 0, "byChannel": {}})
+        count = int(item.get("count") or 0)
+        row["shares"] += count
+        row["byChannel"][str(item.get("channel") or "unknown")] = count
+    shared_courses = sorted(shares.values(), key=lambda row: (-row["shares"], row["title"]))
     return {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "website": source.get("website") or {},
         "courses": course_rows,
+        "sharedCourses": shared_courses,
         "youtube": {"available": False},
         "notes": [
             "Course consumption is based on consented first-party events and logged-in course progress.",
-            "Audience matching and donor conversion require the next institutional-source enrichment phase; no individual data is included in this snapshot.",
+            "Institutional audience matching and donor conversion are awaiting approved Virtuous and institutional-source ingestion; no individual data is included in this snapshot.",
             "YouTube public basics require a restricted YouTube Data API key. Owner-only Analytics API metrics are unavailable by design.",
         ],
     }
