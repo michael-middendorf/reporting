@@ -310,7 +310,8 @@ export default function PointsPage() {
 
 function PointsPageInner() {
   const searchParams = useSearchParams();
-  const tab = searchParams.get("tab") === "incoming" ? "incoming" : "points";
+  const rawTab = searchParams.get("tab");
+  const tab = rawTab === "incoming" ? "incoming" : rawTab === "events" ? "events" : "points";
   const [raw, setRaw] = useState<{ notes: unknown[]; gifts: unknown[]; meta: Record<string, unknown> } | null>(null);
   const [rows, setRows] = useState<Array<Record<string, unknown>> | null>(null);
   const [meta, setMeta] = useState<Record<string, unknown>>({});
@@ -505,6 +506,37 @@ function PointsPageInner() {
       .filter((g) => giftOwner === "all" || g.owner === giftOwner)
       .sort((a, b) => (b.day || "").localeCompare(a.day || ""));
   }, [model.gifts, giftOwner]);
+  const giftSources = useMemo(() => {
+    const map = new Map<string, { count: number; amount: number }>();
+    for (const g of model.gifts || []) {
+      const key = g.project || (g.annualized ? "Recurring" : "") || g.giftType || "Other";
+      const rec = map.get(key) || { count: 0, amount: 0 };
+      rec.count += 1;
+      rec.amount += g.amount || 0;
+      map.set(key, rec);
+    }
+    return [...map.entries()].sort((a, b) => b[1].amount - a[1].amount);
+  }, [model.gifts]);
+  const followUps = useMemo(() => {
+    return (rows || [])
+      .filter((r) => /verbal|commitment|\bpledged\b|will give|promised to give/i.test(String(r.text || "")))
+      .map((r) => {
+        const day = String(r.day || "");
+        const due = day ? (() => {
+          const d = parseDay(day);
+          d.setDate(d.getDate() + 2);
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        })() : "";
+        return {
+          id: String(r.noteId || r.day),
+          owner: String(r.owner || ""),
+          contact: String(r.contactName || ""),
+          day,
+          due,
+          label: String(r.label || r.type || ""),
+        };
+      });
+  }, [rows]);
   function incomingOwners(g: PossibleGiftRow): IncomingOwner[] {
     if (g.owners?.length) return g.owners;
     return g.owner ? [{ name: g.owner, noteType: g.noteType, noteLabel: g.noteLabel, noteDay: g.noteDay, daysAfterNote: g.daysAfterNote }] : [];
@@ -567,15 +599,18 @@ function PointsPageInner() {
 
   const listedTracked = useMemo(() => {
     const { start, end } = bounds(range, selectedWeek || null);
-    return trackedEvents.filter((e) => {
-      if (!e.day) return false;
-      const d = parseDay(e.day);
-      if (Number.isNaN(+d)) return false;
-      if (start && d < start) return false;
-      if (end && d > end) return false;
-      return true;
-    });
-  }, [trackedEvents, range, selectedWeek]);
+    const includePast = tab === "events" && range === "all";
+    return trackedEvents
+      .filter((e) => {
+        if (!e.day) return false;
+        const d = parseDay(e.day);
+        if (Number.isNaN(+d)) return false;
+        if (!includePast && start && d < start) return false;
+        if (end && d > end) return false;
+        return true;
+      })
+      .sort((a, b) => (b.day || "").localeCompare(a.day || ""));
+  }, [trackedEvents, range, selectedWeek, tab]);
 
   function clearUndoTimer() {
     if (undoTimer.current) {
@@ -893,7 +928,7 @@ function PointsPageInner() {
         <main className="wrap dash">
           <div className="points-toolbar">
             <PointsSubnav count={todoAllCount} />
-            {tab === "points" ? (
+            {tab === "points" || tab === "events" ? (
               <>
             <div className="seg" role="group" aria-label="Preset range">
               {RANGE_KEYS.map((key) => {
@@ -1183,6 +1218,8 @@ function PointsPageInner() {
             </div>
           </section>
           ) : (
+          <>
+          {tab === "points" ? (
           <>
           <RaisedTrendChart weeks={weeklyRaised} incomingAmount={todoAllAmount} />
 
@@ -1537,11 +1574,14 @@ function PointsPageInner() {
               </table>
             </div>
           </details>
+          </>
+          ) : null}
 
+          {tab === "events" ? (
           <section className="section">
             <h2>
               Events{" "}
-              <span className="section-hint">{EVENT_POINTS_PER_HOUR} pts/hour</span>
+              <span className="section-hint">{EVENT_POINTS_PER_HOUR} pts/hour · includes past events</span>
             </h2>
             <div className="panel">
               <form
@@ -1628,7 +1668,7 @@ function PointsPageInner() {
                 </div>
               </form>
               {listedTracked.length === 0 ? (
-                <p className="footnote">No events added in this range.</p>
+                <p className="footnote">No events yet. Add one above. All is every event logged on this dashboard, including past dates.</p>
               ) : (
                 <table className="grid">
                   <thead>
@@ -1668,12 +1708,38 @@ function PointsPageInner() {
               )}
             </div>
           </section>
+          ) : null}
 
+          {tab === "points" ? (
+          <>
           <section className="section">
             <h2>
               Gifts{" "}
+              <span className="section-hint">where the dollars came from</span>
             </h2>
             <div className="panel">
+                  <table className="grid" style={{ marginBottom: 18 }}>
+                    <thead>
+                      <tr>
+                        <th>Source</th>
+                        <th>Gifts</th>
+                        <th>Raised</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {giftSources.length === 0 ? (
+                        <tr>
+                          <td colSpan={3}>No counted gifts in this range.</td>
+                        </tr>
+                      ) : giftSources.map(([source, rec]) => (
+                        <tr key={source}>
+                          <td>{source}</td>
+                          <td className="tabular">{rec.count}</td>
+                          <td className="pts tabular">{money(rec.amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                   <table className="grid" style={{ marginBottom: 18 }}>
                     <thead>
                       <tr>
@@ -1783,6 +1849,35 @@ function PointsPageInner() {
               ))}
             </div>
           </section>
+          {followUps.length > 0 ? (
+            <section className="section">
+              <h2>Verbal commitments <span className="section-hint">follow up two days later</span></h2>
+              <div className="panel">
+                <table className="grid">
+                  <thead>
+                    <tr>
+                      <th>Note</th>
+                      <th>MA</th>
+                      <th>Donor</th>
+                      <th>Follow up</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {followUps.map((f) => (
+                      <tr key={f.id}>
+                        <td>{formatDay(f.day)} · {f.label}</td>
+                        <td>{f.owner}</td>
+                        <td>{f.contact || "—"}</td>
+                        <td>{f.due ? formatDay(f.due) : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ) : null}
+          </>
+          ) : null}
           </>
           )}
 
