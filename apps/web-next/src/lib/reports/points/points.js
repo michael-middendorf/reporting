@@ -449,42 +449,25 @@ const NOT_A_CONTACT = new Set([
 /**
  * Every qualifying contact on the gift, not only the latest note.
  * Any voicemail, email, letter, conversation, meeting, or general note
- * within 45 days before the gift counts. A note up to two days after counts
- * unless it is a thank-you. One closest note per MA, nearest first.
+ * on or before the gift, within 45 days, counts. A note after the gift
+ * date does not. One closest note per MA, nearest first.
  */
 export function attributingContacts(giftDate, notesOnContact) {
   const before = SETTINGS.giftNoteDaysBefore ?? 45;
-  const grace = SETTINGS.giftNoteGraceDays ?? 2;
   const bestByOwner = new Map();
   for (const n of notesOnContact || []) {
     if (n.assist || n.unmatched) continue;
     const key = (n.type || "").trim().toLowerCase();
     if (NOT_A_CONTACT.has(key) || !CONTACT_BUCKETS.has(n.bucket)) continue;
     const delta = daysFromNoteToGift(n.date, giftDate);
-    if (delta == null || delta > before || delta < -grace) continue;
-    if (delta < 0 && isThankYouNote(n)) continue;
+    if (delta == null || delta < 0 || delta > before) continue;
     if (beforeStart(giftDate, n.owner) || beforeStart(n.date, n.owner)) continue;
     const cur = bestByOwner.get(n.owner);
-    const nearer = !cur
-      || Math.abs(delta) < Math.abs(cur.days)
-      || (Math.abs(delta) === Math.abs(cur.days) && delta >= 0 && cur.days < 0);
-    if (nearer) bestByOwner.set(n.owner, { note: n, days: delta });
+    if (!cur || delta < cur.days) bestByOwner.set(n.owner, { note: n, days: delta });
   }
   return [...bestByOwner.values()].sort(
-    (a, b) => Math.abs(a.days) - Math.abs(b.days)
-      || (a.days >= 0 ? -1 : 1) - (b.days >= 0 ? -1 : 1)
-      || String(a.note.owner).localeCompare(String(b.note.owner)),
+    (a, b) => a.days - b.days || String(a.note.owner).localeCompare(String(b.note.owner)),
   );
-}
-
-/** Thank-you notes in the two days after the gift. These are flagged, not counted. */
-export function thankYousJustAfter(giftDate, notesOnContact) {
-  const grace = SETTINGS.giftNoteGraceDays ?? 2;
-  return (notesOnContact || []).filter((n) => {
-    if (!isThankYouNote(n)) return false;
-    const delta = daysFromNoteToGift(n.date, giftDate);
-    return delta != null && delta < 0 && delta >= -grace;
-  });
 }
 
 /** Ticket purchase for a gala. Segment or project must name the gala. */
@@ -506,7 +489,7 @@ export function galaSecuringNotes(giftDate, notesOnContact) {
     if (!POSSIBLE_GIFT_TYPES.has(key)) continue;
     if (n.assist) continue;
     const delta = daysFromNoteToGift(n.date, giftDate);
-    if (delta == null || Math.abs(delta) > window) continue;
+    if (delta == null || delta < 0 || delta > window) continue;
     if (beforeStart(giftDate, n.owner) || beforeStart(n.date, n.owner)) continue;
     const cur = bestByOwner.get(n.owner);
     const nearer = !cur || Math.abs(delta) < Math.abs(cur.days) || (Math.abs(delta) === Math.abs(cur.days) && delta >= 0 && cur.days < 0);
@@ -771,19 +754,20 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
         const credited = {
           ...r,
           source: "contact",
-          label: contacts[0].days < 0 ? "Contact within 2 days after the gift" : "Contact before the gift",
+          label: "Contact before the gift",
           contactName: r.contactName || contacts[0].note.contactName || "",
           mgoAssigned: isMgoAttributedGift(g) ? true : undefined,
         };
+        const flagId = g.id != null && g.id !== "" ? `gift:${g.id}` : "";
+        const assignedFlag = flagId && flags[flagId]?.status === "assigned";
+        if (isMonthlyRecurring(g) && !g.acIncrease && !assignedFlag) {
+          rows.push({ ...credited, needsReview: true, points: 0, label: "Recurring — needs review" });
+          continue;
+        }
         rows.push(credited);
         scoredGifts.push(credited);
         continue;
       }
-    }
-    if (gDate && !donationInWindow && thankYousJustAfter(gDate, notesOnContact).length) {
-      const ty = thankYousJustAfter(gDate, notesOnContact)[0];
-      const flagged = donationRow(g, ty.owner);
-      if (flagged) rows.push({ ...flagged, needsReview: true, label: "Thank-you after the gift" });
     }
     if (gDate && isGalaGift(g)) {
       const hits = galaSecuringNotes(gDate, notesOnContact);

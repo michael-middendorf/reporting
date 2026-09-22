@@ -92,8 +92,8 @@ export function GiftFlowGraph() {
         <FlowBox x={748} y={554} w={200} h={40} tone="stop" title="Remove → not counted" />
         <FlowDiamond cx={230} cy={720} lines={["Donation note within", "45 days before or after?"]} />
         <FlowBox x={468} y={688} w={470} h={64} tone="raised" title="Raised · donation note" lines={["Dollars and 100 points for the MA who logged it."]} />
-        <FlowDiamond cx={230} cy={890} lines={["Any contact 45 days before,", "or a non-thank-you note", "within 2 days after?"]} />
-        <FlowBox x={468} y={858} w={470} h={64} tone="raised" title="Raised · that contact" lines={["Every note is checked, not only the latest."]} />
+        <FlowDiamond cx={230} cy={890} lines={["Any contact on or before", "the gift, within 45 days?"]} />
+        <FlowBox x={468} y={858} w={470} h={64} tone="raised" title="Raised · that contact" lines={["A note after the gift date does not count."]} />
         <FlowBox x={60} y={978} w={340} h={64} tone="stop" title="Not attributed" lines={["The gift stays off the MA’s Raised total."]} />
       </svg>
     </div>

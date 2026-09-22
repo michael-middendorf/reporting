@@ -38,10 +38,10 @@ export default function PointsMethodologyPage() {
             </ul>
             <p className="flow-foot">
               Every note on the contact is checked, not only the latest one. A voicemail, email,
-              letter, visit, conversation, or general note within 45 days before the gift counts.
-              Those notes also count up to 2 days after the gift, unless the note is a thank-you.
-              A thank-you just after the gift is flagged and does not count it. Assign does not
-              write a note in Virtuous. A tracker row does not assign a gift.
+              letter, visit, conversation, or general note counts only when it is on or before
+              the gift, within 45 days. A note after the gift date does not count. A monthly
+              gift with that contact waits on review instead of going straight to Raised.
+              Assign does not write a note in Virtuous. A tracker row does not assign a gift.
             </p>
           </section>
 

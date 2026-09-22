@@ -1027,7 +1027,7 @@ describe("gift dollars follow MA activity notes", () => {
     );
     assert.equal(owner.giftAmount, 0);
     assert.equal(owner.gifts, 0);
-    assert.equal((model.reviewGifts || []).some((g) => g.label === "Thank-you after the gift"), true);
+    assert.equal(model.gifts.length, 0);
   });
 });
 
@@ -1782,12 +1782,13 @@ describe("MGO-coded gifts do not credit MAs", () => {
     );
     assert.equal(merged.length, 1);
     assert.equal(isMgoAttributedGift(merged[0]), true);
-    const { owner } = run(
+    const { owner, model } = run(
       [donationNote({ contactId: 70510, type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026" })],
       merged,
     );
-    assert.equal(owner.giftAmount, 612.12);
-    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+    assert.equal(model.reviewGifts?.[0]?.label, "Recurring — needs review");
   });
 
   it("posted MGO installment plus AC RecurringGift stays MGO and does not auto-credit", () => {
@@ -1824,11 +1825,11 @@ describe("MGO-coded gifts do not credit MAs", () => {
       noteDate: "8/10/2026",
     })];
     const { owner, rows, model } = run(notes, merged);
-    assert.equal(owner.giftAmount, 612.12);
-    assert.equal(owner.gifts, 1);
-    assert.equal(rows.filter((r) => r.needsReview).length, 0);
-    assert.equal((model.reviewGifts || []).length, 0);
-    assert.equal(model.gifts.length, 1);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+    assert.equal(rows.filter((r) => r.needsReview).length, 1);
+    assert.equal((model.reviewGifts || []).length, 1);
+    assert.equal(model.gifts.length, 0);
 
     const assigned = run(
       notes,
@@ -2192,12 +2193,12 @@ describe("any contact before a gift, and a short grace after", () => {
       })],
       BETSY,
     );
-    assert.equal(owner.giftAmount, 100);
-    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
   });
 
-  it("counts a restarted monthly gift from voicemails and emails before it", () => {
-    const { owner } = run(
+  it("a restarted monthly gift from voicemails before it waits for review", () => {
+    const { owner, model } = run(
       [
         donationNote({
           createdByUser: BETSY,
@@ -2235,11 +2236,14 @@ describe("any contact before a gift, and a short grace after", () => {
       })],
       BETSY,
     );
-    assert.equal(owner.gifts, 1);
-    assert.equal(owner.giftAmount, 312.72);
+    assert.equal(owner.gifts, 0);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(model.reviewGifts?.length ?? 0, 1);
+    assert.equal(model.reviewGifts?.[0].label, "Recurring — needs review");
+    assert.equal(model.reviewGifts?.[0].amount, 312.72);
   });
 
-  it("counts a general note logged within two days after the gift", () => {
+  it("does not count a general note logged after the gift", () => {
     const { owner } = run(
       [donationNote({
         createdByUser: BETSY,
@@ -2258,8 +2262,8 @@ describe("any contact before a gift, and a short grace after", () => {
       })],
       BETSY,
     );
-    assert.equal(owner.giftAmount, 1000);
-    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
   });
 
   it("does not count a general note four days after the gift", () => {
@@ -2318,7 +2322,7 @@ describe("gala ticket purchases", () => {
     assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
-  it("counts the ticket purchase when the conversation is logged after the gift posts", () => {
+  it("does not count a gala conversation logged after the gift posts", () => {
     const { owner } = run(
       [donationNote({
         createdByUser: ELENA,
@@ -2336,8 +2340,8 @@ describe("gala ticket purchases", () => {
       })],
       ELENA,
     );
-    assert.equal(owner.giftAmount, 1275);
-    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
   });
 
   it("counts a gala gift from a voicemail in the 45 days before", () => {

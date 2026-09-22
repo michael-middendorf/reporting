@@ -303,6 +303,9 @@ export const EVENT_RULES = [];
 export const EVENT_POINTS_PER_HOUR = 25;
 
 export const TRACKED_EVENT_TYPES = [
+  { id: "community", label: "Community Event", type: "Community Event" },
+  { id: "tours", label: "Tours", type: "Tours" },
+  { id: "amu", label: "AMU Event", type: "AMU Event" },
   { id: "event", label: "Event", type: "Mission Advancement | Event" },
   { id: "marketing", label: "Marketing Event", type: "Mission Advancement | Marketing Event" },
 ];
@@ -325,10 +328,8 @@ export const SETTINGS = {
   invalidNumberScores: true,
   /** Tracker credits a new monthly AC as 12 months of the monthly amount. */
   monthlyAnnualizeFactor: 12,
-  /** Pair a donation note with a posted gift on the same contact within this many days before or after. */
+  /** A contact note counts only on or before the gift, within this many days. Notes after the gift date do not count. */
   giftNoteDaysBefore: 45,
-  /** A non-thank-you contact logged this many days after the gift still counts. */
-  giftNoteGraceDays: 2,
   /**
    * If the last Annunciation Circle gift on the contact is older than this
    * many days, the membership lapsed. A new signup is the full monthly
