@@ -552,7 +552,7 @@ export default $config({
         copyFiles: commonFiles,
         environment: {
           DATA_BUCKET: data.name,
-          POW_REPORTING_EXPORT_URL: "https://aws-pursuit.avemaria.edu/api/internal/reporting/pursuit-of-wisdom",
+          POW_REPORTING_EXPORT_URL: "https://thepursuitofwisdom.org/api/internal/reporting/pursuit-of-wisdom",
           POW_REPORTING_EXPORT_TOKEN: pursuitWisdomExportToken.value,
         },
         permissions: reportDataPerms,
