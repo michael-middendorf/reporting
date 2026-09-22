@@ -50,6 +50,12 @@ const REPORTS: {
     desc: "Giving, donor, and MA points reports for University Advancement.",
   },
   {
+    id: "marketing",
+    href: "/marketing",
+    title: "Marketing",
+    desc: "Audience, course engagement, and Pursuit of Wisdom formation reporting.",
+  },
+  {
     id: "aspiredu",
     href: "/aspiredu",
     title: "Academic Affairs",
