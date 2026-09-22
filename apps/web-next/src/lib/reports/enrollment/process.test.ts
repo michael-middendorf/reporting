@@ -5,7 +5,7 @@ import {
   emptyAcFunnel,
   isActivityCounselorKey,
 } from "./counselors";
-import { _acRecScore, _procAdm, _procAME, _procPSW, _termStats } from "./process.js";
+import { _acRecScore, _procAdm, _procAME, _procPSW, _termStats, _termStatsAsOf } from "./process.js";
 
 function row(partial: Record<string, unknown> = {}) {
   return {
@@ -304,6 +304,98 @@ test("AC rec as-of requires interview date on or before last-year cutoff", () =>
   assert.equal(adm.fa26Yoy.acRec3, 1);
   assert.equal(adm.fa26Yoy.acRec4, 1);
   assert.equal(adm.fa26Yoy.acRec34, 2);
+});
+
+test("interviewed athletes require Athlete or Non-Athlete = Athlete", () => {
+  const rows = [
+    row({
+      InterviewStatus: "Interviewed",
+      AthleteorNonAthlete: "Athlete",
+    }),
+    row({
+      InterviewStatus: "Interviewed",
+      AthleteorNonAthlete: "Non-Athlete",
+      Sport: "Football",
+    }),
+    row({
+      InterviewStatus: "Interviewed",
+      AthleteorNonAthlete: "Non-Athlete",
+      AthleticDecision: "Athlete",
+    }),
+    row({
+      ApplicationStudentType: "Graduate",
+      InterviewStatus: "Interviewed",
+      AthleteorNonAthlete: "Athlete",
+    }),
+    row({
+      ApplicationTerm: "Fall 2026",
+      InterviewStatus: "Interviewed",
+      AthleteorNonAthlete: "Athlete",
+    }),
+  ];
+  const adm = _procAdm(rows, "2026-08-20");
+  assert.equal(adm.fa27.interviewed, 3);
+  assert.equal(adm.fa27.interviewedAthletes, 1);
+  assert.equal(adm.fa27.interviewedAthletePct, (1 / 3) * 100);
+});
+
+test("zero interviewed leaves athlete count at 0 and percent null", () => {
+  const stats = _termStats([row({ CreatedDate: "2026-08-01" })], 2027, new Date(2026, 7, 20));
+  assert.equal(stats.interviewed, 0);
+  assert.equal(stats.interviewedAthletes, 0);
+  assert.equal(stats.interviewedAthletePct, null);
+});
+
+test("prior Fall 2026 athlete interviews use the interview date cutoff", () => {
+  const rows = [
+    row({
+      ApplicationTerm: "Fall 2026",
+      AthleteorNonAthlete: "Athlete",
+      InterviewedDateFA26Apps: "2025-09-01",
+    }),
+    row({
+      ApplicationTerm: "Fall 2026",
+      AthleteorNonAthlete: "Non-Athlete",
+      InterviewedDateFA26Apps: "2025-09-07",
+    }),
+    row({
+      ApplicationTerm: "Fall 2026",
+      AthleteorNonAthlete: "Athlete",
+      InterviewedDateFA26Apps: "2025-09-08",
+    }),
+  ];
+  const stats = _termStatsAsOf(rows, new Date(2025, 8, 7), 2026);
+  assert.equal(stats.interviewed, 2);
+  assert.equal(stats.interviewedAthletes, 1);
+  assert.equal(stats.chg.interviewedAthletes, 0);
+  assert.equal(stats.chg.interviewedAthletePct, null);
+});
+
+test("7-day interviewed athletes use the interview date and athlete flag", () => {
+  const rows = [
+    row({
+      AthleteorNonAthlete: "Athlete",
+      InterviewedDateFA27Apps: "2026-08-18",
+    }),
+    row({
+      AthleteorNonAthlete: "Athlete",
+      InterviewedDateFA27Apps: "2026-08-01",
+    }),
+    row({
+      AthleteorNonAthlete: "Non-Athlete",
+      InterviewedDateFA27Apps: "2026-08-19",
+    }),
+  ];
+  const stats = _termStats(rows, 2027, new Date(2026, 7, 20));
+  assert.equal(stats.chg.interviewedAthletes, 1);
+});
+
+test("_procAdm exposes fa27 interviewed athletes", () => {
+  const adm = _procAdm(
+    [row({ InterviewStatus: "Interviewed", AthleteorNonAthlete: "Athlete" })],
+    "2026-08-20",
+  );
+  assert.equal(adm.fa27.interviewedAthletes, 1);
 });
 
 test("missing AC rec field is 0 and existing created/accepted still hold", () => {

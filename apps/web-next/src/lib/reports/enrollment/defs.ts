@@ -14,6 +14,10 @@ export const DEFS = {
   conditional: "Accepted apps whose Accept Code is CA (Conditional Accept).",
   interviewed:
     "Apps with Interview Status = Interviewed. Prior cycle uses that term's interview date on or before this date last year.",
+  interviewedAthletes:
+    "Undergraduate apps with Interview Status = Interviewed and Athlete or Non-Athlete = Athlete. A sport on the application, or Athletic Decision = Athlete, does not count unless Athlete or Non-Athlete is Athlete. Prior cycle uses the same interview date rule as Interviews, and Athlete or Non-Athlete = Athlete.",
+  interviewedAthletePct:
+    "Interviewed athletes divided by Interviews. The 7-day column is how many percentage points the rate moved, same as Acceptance %.",
   acRec3:
     "UG apps with AC interview rec 3 on the 1-4 scale (Slate Interview AC Rec 25/26). Counts start FA26. FA25 and earlier used a 0-3 rec and are not included. Current cycle: the rating is present. Prior cycle (FA27 vs FA26 only): rating is 3 and that term's interview date is on or before this date last year.",
   acRec4:
