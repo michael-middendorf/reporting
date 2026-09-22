@@ -2,7 +2,7 @@ import { canAccessReport } from "../../access";
 import { eligibleIncomingSigned } from "../athletics/normalize";
 import type { AthleticsRecord, SlateRow } from "../athletics/types";
 import { canAccessSport } from "./access";
-import { isSportKey, resolveSportKey, sportByKey } from "./sports";
+import { isSportKey, resolveGenderedSportKey, sportByKey } from "./sports";
 
 export const ROSTER_UNAVAILABLE_REASON = "awaiting_roster_secret" as const;
 
@@ -71,8 +71,27 @@ function field(row: SlateRow, ...keys: string[]): string {
 }
 
 export function normalizeRosterRow(row: SlateRow): NormalizedRosterRow {
-  const currentSport = field(row, "currentsport", "currentSport", "CurrentSport", "PersonSport");
-  const secondSport = field(row, "_2ndsport", "2ndsport", "secondsport", "secondSport");
+  const currentSport = field(
+    row,
+    "currentsport",
+    "currentSport",
+    "CurrentSport",
+    "PersonSport",
+    "Sport",
+    "AthletePrimaryTeam",
+  );
+  const secondSport = field(
+    row,
+    "_2ndsport",
+    "2ndsport",
+    "secondsport",
+    "secondSport",
+    "Sport2",
+    "SecondarySport",
+    "CurrentSport2",
+    "PersonSport2",
+  );
+  const gender = field(row, "gender", "Gender", "PersonGender", "Sex");
   return {
     email: field(row, "email", "amuemail", "Email", "PersonEmail"),
     pcid: field(row, "pcid", "PCID", "PcId"),
@@ -92,8 +111,8 @@ export function normalizeRosterRow(row: SlateRow): NormalizedRosterRow {
       "classyr",
       "expectedgradyear",
     ),
-    sportKey: resolveSportKey(currentSport),
-    secondSportKey: resolveSportKey(secondSport),
+    sportKey: resolveGenderedSportKey(currentSport, gender),
+    secondSportKey: resolveGenderedSportKey(secondSport, gender),
   };
 }
 
@@ -102,7 +121,7 @@ export function rosterMatchesSport(row: NormalizedRosterRow, sportKey: string): 
 }
 
 export function applicationMatchesSport(record: AthleticsRecord, sportKey: string): boolean {
-  return resolveSportKey(record.sport) === sportKey;
+  return resolveGenderedSportKey(record.sport, record.gender) === sportKey;
 }
 
 function rosterIdentity(row: NormalizedRosterRow, index: number): string {

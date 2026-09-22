@@ -1,6 +1,6 @@
 import { eligibleIncomingSigned } from "./normalize";
 import type { AthleticsRecord } from "./types";
-import { resolveSportKey } from "../athletics-coaching/sports";
+import { resolveGenderedSportKey } from "../athletics-coaching/sports";
 
 export type RecruitingOverviewStats = {
   applications: number;
@@ -14,37 +14,9 @@ export type RecruitingOverviewStats = {
   avgScholarshipAll: number | null;
 };
 
-function genderToken(value: string): "M" | "F" | null {
-  const folded = value.trim().toLowerCase();
-  if (folded === "m" || folded === "male" || folded === "man" || folded === "men") return "M";
-  if (folded === "f" || folded === "female" || folded === "w" || folded === "woman" || folded === "women") {
-    return "F";
-  }
-  return null;
-}
-
 /** Map a Slate application/prospect row onto a coaching sport key. */
 export function coachingSportKeyForRecord(record: Pick<AthleticsRecord, "sport" | "gender">): string | null {
-  const direct = resolveSportKey(record.sport);
-  if (direct) return direct;
-  const folded = record.sport.trim().toLowerCase();
-  const gender = genderToken(record.gender);
-  if (folded === "basketball") {
-    if (gender === "F") return "womens-basketball";
-    if (gender === "M") return "mens-basketball";
-    return null;
-  }
-  if (folded === "soccer") {
-    if (gender === "F") return "womens-soccer";
-    if (gender === "M") return "mens-soccer";
-    return null;
-  }
-  if (folded === "golf") {
-    if (gender === "F") return "womens-golf";
-    if (gender === "M") return "mens-golf";
-    return null;
-  }
-  return null;
+  return resolveGenderedSportKey(record.sport, record.gender);
 }
 
 export function recordMatchesCoachingSport(record: AthleticsRecord, sportKey: string): boolean {

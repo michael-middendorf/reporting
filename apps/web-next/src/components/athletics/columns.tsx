@@ -12,7 +12,8 @@ const safeSlateUrl = (input: string) => {
 };
 
 export const APPLICATION_COLUMNS: AthleticsColumn[] = [
-  { key: "riskRating", label: "Risk Factor" },
+  { key: "riskRating", label: "Risk Rating", render: (row) => row.riskRating || "—" },
+  { key: "recruitRating", label: "Recruit Rating", render: (row) => row.recruitRating || "—" },
   { key: "firstName", label: "First" },
   { key: "lastName", label: "Last" },
   { key: "sport", label: "Sport" },
@@ -22,7 +23,6 @@ export const APPLICATION_COLUMNS: AthleticsColumn[] = [
     const color = row.stage in STAGE_COLORS ? STAGE_COLORS[row.stage as keyof typeof STAGE_COLORS] : "#edf1f4";
     return <span className="ath-stage-pill" style={{ background: color }}>{row.stage}</span>;
   } },
-  { key: "applicationStatus", label: "Application Status" },
   { key: "workflowBin", label: "Workflow / Stage" },
   { key: "offered", label: "Offered" },
   { key: "loiStatus", label: "LOI Status" },
@@ -69,6 +69,7 @@ export const PROSPECT_COLUMNS: AthleticsColumn[] = [
   { key: "term", label: "Entry Term" },
   { key: "sport", label: "Sport" },
   { key: "position", label: "Position" },
+  { key: "recruitRating", label: "Recruit Rating", render: (row) => row.recruitRating || "—" },
   { key: "city", label: "City" },
   { key: "state", label: "State" },
   { key: "studentType", label: "Student Type" },

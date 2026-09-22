@@ -16,6 +16,12 @@ const nextConfig: NextConfig = {
       { source: "/athletics/applications", destination: "/athletics/master/recruiting/applications", permanent: true },
       { source: "/athletics/prospects", destination: "/athletics/master/recruiting/prospects", permanent: true },
       { source: "/athletics/rosters", destination: "/athletics/master/recruiting", permanent: true },
+      { source: "/athletics/coaching/cross-country", destination: "/athletics/coaching", permanent: false },
+      {
+        source: "/athletics/coaching/cross-country/:path*",
+        destination: "/athletics/coaching",
+        permanent: false,
+      },
       {
         source: "/music",
         destination: "https://hub.avemaria.edu/music",

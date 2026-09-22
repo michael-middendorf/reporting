@@ -1,6 +1,6 @@
 import { ADMIN_EMAILS, isAdmin, parseEmailCsv } from "../../access";
 import { normalizeEmail } from "../../auth";
-import { resolveSportKey, SPORTS, sportByKey, type SportDef } from "./sports";
+import { ambiguousSportKeys, resolveSportKey, SPORTS, sportByKey, type SportDef } from "./sports";
 
 const HARDCODED_LEADERSHIP = [
   "eric.vanheusen@avemaria.edu",
@@ -13,6 +13,7 @@ const HARDCODED_LEADERSHIP = [
  * Head coaches → coaching dashboard sport keys only. Not Master.
  * Do not add Michael Middendorf (Ultimate Frisbee HC is a hub admin).
  * Ty Kaufman (interim golf) has no public email and is omitted.
+ * "cross-country" expands to men's and women's Cross Country.
  */
 const HARDCODED_COACHES: Record<string, string[]> = {
   "robert.cooper@avemaria.edu": ["mens-baseball"],
@@ -45,10 +46,14 @@ function normalizeSportKeys(raw: unknown): string[] {
   const keys: string[] = [];
   const seen = new Set<string>();
   for (const item of raw) {
-    const resolved = resolveSportKey(String(item || ""));
-    if (!resolved || seen.has(resolved)) continue;
-    seen.add(resolved);
-    keys.push(resolved);
+    const text = String(item || "");
+    const expanded = ambiguousSportKeys(text);
+    const resolved = expanded ?? [resolveSportKey(text)].filter((key): key is string => Boolean(key));
+    for (const key of resolved) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+      keys.push(key);
+    }
   }
   return keys;
 }

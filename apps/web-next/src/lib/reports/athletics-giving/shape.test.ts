@@ -101,7 +101,8 @@ describe("athletics giving shape", () => {
   it("maps Virtuous project codes to sports", () => {
     assert.equal(sportForGift(SAMPLE.gifts[0]!).key, "ultimate-frisbee");
     assert.equal(sportForGift(SAMPLE.gifts[1]!).key, "football");
-    assert.equal(sportForGift({ project: "Men's XC", projectCode: "6578MXC", isFee: false }).key, "cross-country");
+    assert.equal(sportForGift({ project: "Men's XC", projectCode: "6578MXC", isFee: false }).key, "mens-cross-country");
+    assert.equal(sportForGift({ project: "Women's XC", projectCode: "6580WXC", isFee: false }).key, "womens-cross-country");
     assert.equal(sportForGift({ project: "Donor Paid Costs", projectCode: "CREDITCARDCOSTS", isFee: true }).label, "Processing fees");
   });
 

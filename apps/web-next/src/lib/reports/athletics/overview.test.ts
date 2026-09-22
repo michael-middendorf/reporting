@@ -31,6 +31,7 @@ function app(partial: Partial<AthleticsRecord>): AthleticsRecord {
     withdrawn: "",
     purchasedList: "",
     riskRating: "",
+    recruitRating: "",
     loiStatus: "",
     offered: "",
     readyToOffer: "",

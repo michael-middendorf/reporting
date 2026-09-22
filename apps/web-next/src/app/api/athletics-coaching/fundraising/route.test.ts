@@ -26,8 +26,8 @@ const SAMPLE_CACHE: FundraisingCache = {
       allTimeGiftCount: 9,
       asOf: "2026-09-03T12:00:00Z",
     },
-    "cross-country": {
-      key: "cross-country",
+    "womens-golf": {
+      key: "womens-golf",
       projectCode: null,
       mapped: false,
       fytdAmount: null,
@@ -82,7 +82,7 @@ describe("GET /api/athletics-coaching/fundraising cache", () => {
   const originalRead = fundraisingCache.read;
 
   it("returns 200 for an assigned sport and 503 when the cache is missing", async () => {
-    process.env.ATHLETICS_COACHING_COACHES = JSON.stringify({ [COACH]: ["football", "cross-country"] });
+    process.env.ATHLETICS_COACHING_COACHES = JSON.stringify({ [COACH]: ["football", "womens-golf"] });
     try {
       fundraisingCache.read = async () => SAMPLE_CACHE;
       const ok = await GET(authRequest(COACH, "football"));
@@ -95,7 +95,7 @@ describe("GET /api/athletics-coaching/fundraising cache", () => {
       assert.equal(body.fiscalYearLabel, "FY 2026-27");
       assert.deepEqual(body.gifts, []);
 
-      const unmapped = await GET(authRequest(COACH, "cross-country"));
+      const unmapped = await GET(authRequest(COACH, "womens-golf"));
       assert.equal(unmapped.status, 200);
       const empty = await unmapped.json();
       assert.equal(empty.mapped, false);
