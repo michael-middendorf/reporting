@@ -40,6 +40,7 @@ export default $config({
     const slateDepositsUrl = new sst.Secret("SlateDepositsUrl");
     const instituteSlateQueries = new sst.Secret("InstituteSlateQueries");
     const athleticsSlateQueries = new sst.Secret("AthleticsSlateQueries");
+    const pursuitWisdomExportToken = new sst.Secret("PursuitWisdomExportToken");
     new sst.Secret("AllowedEmails");
 
     const data = new sst.aws.Bucket("ReportData");
@@ -535,6 +536,27 @@ export default $config({
     new sst.aws.Cron("SpringAppealRefresh", {
       schedule: "rate(1 hour)",
       function: springAppeal,
+    });
+
+    // DST-627. The export endpoint is reachable only from the AWS POW soak
+    // host and returns HMAC keys plus aggregates, never plaintext identities.
+    new sst.aws.Cron("PursuitOfWisdomRefresh", {
+      schedule: "rate(1 day)",
+      function: {
+        handler: "services/publishers/pursuit-of-wisdom/handler.handler",
+        runtime: "python3.12",
+        timeout: "5 minutes",
+        memory: "1024 MB",
+        link: [data],
+        python: { uv: true },
+        copyFiles: commonFiles,
+        environment: {
+          DATA_BUCKET: data.name,
+          POW_REPORTING_EXPORT_URL: "https://aws-pursuit.avemaria.edu/api/internal/reporting/pursuit-of-wisdom",
+          POW_REPORTING_EXPORT_TOKEN: pursuitWisdomExportToken.value,
+        },
+        permissions: reportDataPerms,
+      },
     });
 
     return {

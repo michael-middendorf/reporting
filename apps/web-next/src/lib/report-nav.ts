@@ -73,6 +73,10 @@ export const ASPIREDU_NAV: ReportNavItem[] = [
   { href: "/aspiredu/students", label: "Student follow-up" },
 ];
 
+export const MARKETING_NAV: ReportNavItem[] = [
+  { href: "/marketing/pursuit-of-wisdom", label: "Pursuit of Wisdom", report: "marketing" },
+];
+
 export function navForReports(nav: ReportNavItem[], reports: ReportId[]): ReportNavItem[] {
   return nav.filter((item) => !item.report || reports.includes(item.report));
 }
@@ -116,6 +120,7 @@ export const REPORT_FOLDERS: ReportFolder[] = [
   { href: "/institute", label: "The Institute", match: ["/institute"] },
   { href: "/housing", label: "Housing", match: ["/housing"] },
   { href: "/census", label: "Census", match: ["/census"] },
+  { href: "/marketing", label: "Marketing", match: ["/marketing"], nav: MARKETING_NAV },
 ];
 
 const EXTRA_LEAVES: Crumb[] = [
