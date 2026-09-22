@@ -429,7 +429,49 @@ a.ath-coach-scorecard:hover {
   color: #43596c;
   font: 800 11px/1.2 system-ui, sans-serif;
 }
-.ath-coach-courses td { white-space: normal; background: #f8fafb; }
+.ath-coach-academics .ath-coach-courses > td {
+  max-width: none;
+  overflow: visible;
+  white-space: normal;
+  background: #f8fafb;
+}
+.ath-coach-courses .ath-coach-course-table {
+  width: 100%;
+  max-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  color: #334b60;
+  font-size: 12px;
+  white-space: normal;
+}
+.ath-coach-courses .ath-coach-course-table th {
+  position: static;
+  top: auto;
+  z-index: auto;
+}
+.ath-coach-courses .ath-coach-course-table td {
+  max-width: none;
+  overflow: visible;
+  text-overflow: unset;
+  white-space: normal;
+  background: #f8fafb;
+  vertical-align: top;
+}
+.ath-coach-courses .ath-coach-course-table th:first-child,
+.ath-coach-courses .ath-coach-course-table td:first-child {
+  width: auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.ath-coach-courses .ath-coach-course-table th:nth-child(2),
+.ath-coach-courses .ath-coach-course-table td:nth-child(2) { width: 6.5rem; }
+.ath-coach-courses .ath-coach-course-table th:nth-child(3),
+.ath-coach-courses .ath-coach-course-table td:nth-child(3) { width: 9.25rem; }
+.ath-coach-courses .ath-coach-course-table th:nth-child(4),
+.ath-coach-courses .ath-coach-course-table td:nth-child(4) { width: 7.25rem; }
+.ath-coach-courses .ath-coach-course-table th:nth-child(5),
+.ath-coach-courses .ath-coach-course-table td:nth-child(5) { width: 7.5rem; }
 .ath-badge {
   display: inline-flex;
   align-items: center;
