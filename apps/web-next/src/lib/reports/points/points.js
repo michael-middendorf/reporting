@@ -74,6 +74,8 @@ const DONATION_TYPE_ALIASES = {
   "update recurring gift": "mission advancement | update recurring gift",
   "updated recurring gift": "mission advancement | update recurring gift",
   "gift assist": "mission advancement | gift assist",
+  "verbal gift commitment": "mission advancement | verbal gift commitment",
+  "verbal commitment": "mission advancement | verbal gift commitment",
 };
 
 function mapNoteType(type) {
@@ -433,6 +435,33 @@ export function possibleNotesForGift(giftDate, notesOnContact) {
   return [...bestByOwner.values()].sort(
     (a, b) => a.days - b.days || String(a.note.owner).localeCompare(String(b.note.owner)),
   );
+}
+
+/**
+ * Outreach by this MA on or before the gift, within 45 days.
+ * The donation note that logs the gift is not a contact. Obituaries,
+ * address updates, and bad numbers are not contacts either.
+ * `touchLabel` is the closest one. `touchCount` is how many there were.
+ */
+export function outreachBeforeGift(giftDate, notesOnContact, owner) {
+  const before = SETTINGS.giftNoteDaysBefore ?? 45;
+  const hits = [];
+  for (const n of notesOnContact || []) {
+    if (owner && n.owner !== owner) continue;
+    if (n.assist || n.unmatched) continue;
+    if (n.bucket === "gift" || n.bucket === "obituary" || n.bucket === "address" || n.bucket === "event" || n.bucket === "failed") continue;
+    const key = (n.type || "").trim().toLowerCase();
+    if (NOT_A_CONTACT.has(key)) continue;
+    if (!CONTACT_BUCKETS.has(n.bucket) && n.bucket !== "commitment") continue;
+    const delta = daysFromNoteToGift(n.date, giftDate);
+    if (delta == null || delta < 0 || delta > before) continue;
+    hits.push({ note: n, days: delta });
+  }
+  hits.sort((a, b) => a.days - b.days || String(a.note.noteId ?? "").localeCompare(String(b.note.noteId ?? "")));
+  return {
+    touchCount: hits.length,
+    touchLabel: hits[0]?.note.label || "No contact logged",
+  };
 }
 
 /** Closest conversation/meeting on or before the gift, within the 45-day window. */
@@ -896,6 +925,10 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
     if (row.bucket !== "donation" || row.assist || row.needsReview) continue;
     if ((row.amount || 0) <= 0 || row.giftId == null) continue;
     row.points = 100;
+    const ck = contactKey(row.contactId);
+    const touch = outreachBeforeGift(row.date, ck ? (activityByContact.get(ck) || []) : [], row.owner);
+    row.touchCount = touch.touchCount;
+    row.touchLabel = touch.touchLabel;
     raisedByKey.set(`${row.giftId}:${row.owner}`, row);
     securedIds.add(String(row.giftId));
   }

@@ -99,6 +99,8 @@ type GiftRow = {
   annualized?: boolean;
   label?: string;
   giftId?: string | number | null;
+  touchCount?: number;
+  touchLabel?: string;
   needsReview?: boolean;
   mgoAssigned?: boolean;
 };
@@ -265,6 +267,7 @@ type Row = {
   contactId?: string | number | null;
   contactName?: string | null;
   noteId?: string | number | null;
+  text?: string | null;
   giftId?: string | number | null;
   giftAmount?: number | null;
   amount?: number | null;
@@ -507,20 +510,25 @@ function PointsPageInner() {
       .filter((g) => giftOwner === "all" || g.owner === giftOwner)
       .sort((a, b) => (b.day || "").localeCompare(a.day || ""));
   }, [model.gifts, giftOwner]);
-  const giftSources = useMemo(() => {
-    const map = new Map<string, { count: number; amount: number }>();
+  const giftTouches = useMemo(() => {
+    const map = new Map<string, { count: number; amount: number; touches: number }>();
     for (const g of model.gifts || []) {
-      const key = g.project || (g.annualized ? "Recurring" : "") || g.giftType || "Other";
-      const rec = map.get(key) || { count: 0, amount: 0 };
+      const key = g.touchLabel || "No contact logged";
+      const rec = map.get(key) || { count: 0, amount: 0, touches: 0 };
       rec.count += 1;
       rec.amount += g.amount || 0;
+      rec.touches += g.touchCount || 0;
       map.set(key, rec);
     }
     return [...map.entries()].sort((a, b) => b[1].amount - a[1].amount);
   }, [model.gifts]);
   const followUps = useMemo(() => {
+    const nameByContact = new Map<string, string>();
+    for (const r of rows || []) {
+      if (r.contactId != null && r.contactName) nameByContact.set(String(r.contactId), String(r.contactName));
+    }
     return (rows || [])
-      .filter((r) => /verbal|commitment|\bpledged\b|will give|promised to give/i.test(String(r.text || "")))
+      .filter((r) => String(r.type || "").trim().toLowerCase() === "mission advancement | verbal gift commitment")
       .map((r) => {
         const day = String(r.day || "");
         const due = day ? (() => {
@@ -528,15 +536,19 @@ function PointsPageInner() {
           d.setDate(d.getDate() + 2);
           return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
         })() : "";
+        const text = String(r.text || "").replace(/\s+/g, " ").trim();
         return {
           id: String(r.noteId || r.day),
           owner: String(r.owner || ""),
-          contact: String(r.contactName || ""),
+          contact: String(r.contactName || (r.contactId != null ? nameByContact.get(String(r.contactId)) : "") || ""),
+          contactId: r.contactId,
           day,
           due,
-          label: String(r.label || r.type || ""),
+          label: "Verbal commitment",
+          text: text.length > 90 ? `${text.slice(0, 87)}…` : text,
         };
-      });
+      })
+      .sort((a, b) => b.day.localeCompare(a.day));
   }, [rows]);
   function incomingOwners(g: PossibleGiftRow): IncomingOwner[] {
     if (g.owners?.length) return g.owners;
@@ -1718,27 +1730,31 @@ function PointsPageInner() {
           <section className="section">
             <h2>
               Gifts{" "}
-              <span className="section-hint">where the dollars came from</span>
+              <span className="section-hint">contacts before they gave</span>
             </h2>
             <div className="panel">
                   <table className="grid" style={{ marginBottom: 18 }}>
                     <thead>
                       <tr>
-                        <th>Source</th>
+                        <th>Reached by</th>
                         <th>Gifts</th>
                         <th>Raised</th>
+                        <th>Avg contacts</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {giftSources.length === 0 ? (
+                      {giftTouches.length === 0 ? (
                         <tr>
-                          <td colSpan={3}>No counted gifts in this range.</td>
+                          <td colSpan={4}>No counted gifts in this range.</td>
                         </tr>
-                      ) : giftSources.map(([source, rec]) => (
+                      ) : giftTouches.map(([source, rec]) => (
                         <tr key={source}>
                           <td>{source}</td>
                           <td className="tabular">{rec.count}</td>
                           <td className="pts tabular">{money(rec.amount)}</td>
+                          <td className="tabular">
+                            {rec.count ? (Number.isInteger(rec.touches / rec.count) ? String(rec.touches / rec.count) : (rec.touches / rec.count).toFixed(1)) : "—"}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1854,7 +1870,7 @@ function PointsPageInner() {
           </section>
           {followUps.length > 0 ? (
             <section className="section">
-              <h2>Verbal commitments <span className="section-hint">follow up two days later</span></h2>
+              <h2>Verbal commitments <span className="section-hint">Mission Advancement | Verbal Gift Commitment · follow up two days later</span></h2>
               <div className="panel">
                 <table className="grid">
                   <thead>
@@ -1868,9 +1884,20 @@ function PointsPageInner() {
                   <tbody>
                     {followUps.map((f) => (
                       <tr key={f.id}>
-                        <td>{formatDay(f.day)} · {f.label}</td>
+                        <td>
+                          {formatDay(f.day)} · {f.label}
+                          {f.text ? <div style={{ color: "var(--slate-400)" }}>{f.text}</div> : null}
+                        </td>
                         <td>{f.owner}</td>
-                        <td>{f.contact || "—"}</td>
+                        <td>
+                          {f.contactId ? (
+                            <a href={virtuousContactUrl(f.contactId)} target="_blank" rel="noopener noreferrer">
+                              {f.contact || "Contact"} ↗
+                            </a>
+                          ) : (
+                            f.contact || "—"
+                          )}
+                        </td>
                         <td>{f.due ? formatDay(f.due) : "—"}</td>
                       </tr>
                     ))}
