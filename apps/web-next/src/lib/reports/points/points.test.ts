@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MA_NAMES, SETTINGS, evalStartDate } from "./config.js";
-import { assignedNotesFromFlags, contactDisplayName, eventPointsForHours, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, parseDate, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
+import { assignedNotesFromFlags, contactDisplayName, eventPointsForHours, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, outreachBeforeGift, parseDate, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "./counted-gifts.js";
 import { aggregate, daysOfWeek, isTaskListRow, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
 import { buildCalculationCSV, statusOf, virtuousGiftUrl } from "./report.js";
@@ -63,6 +63,8 @@ type ScoredRow = {
   source?: string;
   label?: string;
   type?: string;
+  touchCount?: number;
+  touchLabel?: string;
   noteId?: string | number;
   giftId?: string | number;
   removed?: boolean;
@@ -1144,6 +1146,57 @@ describe("tracker category layout", () => {
     assert.equal(byId.email_sent.points, 2);
     assert.equal(byId.email_response.points, 3);
     assert.equal(mix.totalPoints, 50);
+  });
+
+  it("counts contacts before the gift and names the closest one", () => {
+    const { rows, owner } = run(
+      [
+        donationNote({ type: "Mission Advancement Call | Voicemail", noteDate: "7/20/2026", id: 1 }),
+        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/1/2026", id: 2 }),
+        donationNote({ type: "Mission Advancement | New Donation or New AC", noteDate: "8/4/2026", id: 3 }),
+      ],
+      [postedGift({ giftDate: "8/4/2026", amount: 75 })],
+    );
+    const gift = rows.find((r) => r.bucket === "donation");
+    assert.ok(gift);
+    assert.equal(gift.touchCount, 2);
+    assert.equal(gift.touchLabel, "Phone conversation");
+    assert.equal(owner.points, 111);
+    assert.equal(owner.gifts, 1);
+  });
+
+  it("a verbal gift commitment is a follow-up, not points", () => {
+    const { rows, model, owner } = run(
+      [donationNote({
+        type: "Mission Advancement | Verbal Gift Commitment",
+        noteDate: "8/4/2026",
+        id: 9,
+        note: "She said she will send $500 next week",
+      })],
+      [],
+    );
+    const note = rows.find((r) => r.bucket === "commitment");
+    assert.ok(note);
+    assert.equal(note.points, 0);
+    assert.equal(note.label, "Verbal commitment");
+    assert.equal(owner.points, 0);
+    assert.equal(owner.gifts, 0);
+    assert.equal(model.rows.filter((r) => r.bucket === "commitment").length, 0);
+    assert.equal(isTaskListRow(note), false);
+  });
+
+  it("an obituary that says commitment is not a verbal commitment", () => {
+    const notes = [{
+      owner: ALANNA,
+      type: "Obituary",
+      bucket: "obituary",
+      label: "Obituary",
+      date: parseDate("8/4/2026"),
+      text: "His unwavering commitment to his family",
+    }];
+    const touch = outreachBeforeGift(parseDate("8/11/2026"), notes, ALANNA);
+    assert.equal(touch.touchCount, 0);
+    assert.equal(touch.touchLabel, "No contact logged");
   });
 
   it("Gift chart counts one row per posted gift, with the 100 pts on that row", () => {

@@ -171,6 +171,8 @@ export const POINTS_MAP = {
     { points: 100, bucket: "gift", label: "Increased recurring gift", source: "assumed" },
   "mission advancement | gift assist":
     { points: 100, bucket: "gift", label: "Gift assist", source: "spreadsheet", assist: true },
+  "mission advancement | verbal gift commitment":
+    { points: 0, bucket: "commitment", label: "Verbal commitment", source: "note" },
 
   "general":    { points: 10, bucket: "general", label: "General note", source: "assumed" },
   "letter":     { points: 5, bucket: "note", label: "Handwritten note / letter", source: "pdf+spreadsheet" },
