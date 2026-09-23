@@ -174,7 +174,7 @@ export const POINTS_MAP = {
   "mission advancement | verbal gift commitment":
     { points: 0, bucket: "commitment", label: "Verbal commitment", source: "note" },
 
-  "general":    { points: 10, bucket: "general", label: "General note", source: "assumed" },
+  "general":    { points: 0, bucket: "general", label: "General note", source: "assumed" },
   "letter":     { points: 5, bucket: "note", label: "Handwritten note / letter", source: "pdf+spreadsheet" },
   "text message": { points: 2, bucket: "email", label: "Text message", source: "spreadsheet", conflict: "email_sent" },
   "in person":  { points: 25, bucket: "facetoface", label: "Face-to-face (coffee/lunch)", source: "pdf+spreadsheet" },

@@ -57,7 +57,7 @@ export function GiftFlowGraph() {
       <svg className="gift-graph" viewBox="0 0 980 1060" role="img" aria-labelledby="gift-flow-title gift-flow-desc">
         <title id="gift-flow-title">How a posted gift is recorded</title>
         <desc id="gift-flow-desc">
-          A gift follows five checks. Same monthly amount stops. A gala ticket purchase with a conversation is Raised. MGO gifts wait for review. A donation note is Raised. A conversation before the gift waits on Incoming. Otherwise the gift is not attributed.
+          A gift follows five checks. Same monthly amount stops. A gala ticket purchase with a conversation on or before the gift is Raised. MGO gifts wait for review. A New Donation note within 45 days is Raised, including a note logged after the gift posts. Any other contact counts only on or before the gift. Otherwise the gift is not attributed.
         </desc>
         <defs>
           <marker id="flow-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
@@ -90,7 +90,7 @@ export function GiftFlowGraph() {
         <FlowBox x={468} y={514} w={252} h={72} tone="review" title="MGO-coded review" lines={["Listed only if an MA", "has a note in 45 days."]} />
         <FlowBox x={748} y={514} w={200} h={40} tone="raised" title="Assign → Raised" />
         <FlowBox x={748} y={554} w={200} h={40} tone="stop" title="Remove → not counted" />
-        <FlowDiamond cx={230} cy={720} lines={["Donation note within", "45 days before or after?"]} />
+        <FlowDiamond cx={230} cy={720} lines={["New Donation note within", "45 days, even if logged", "after the gift posted?"]} />
         <FlowBox x={468} y={688} w={470} h={64} tone="raised" title="Raised · donation note" lines={["Dollars and 100 points for the MA who logged it."]} />
         <FlowDiamond cx={230} cy={890} lines={["Any contact on or before", "the gift, within 45 days?"]} />
         <FlowBox x={468} y={858} w={470} h={64} tone="raised" title="Raised · that contact" lines={["A note after the gift date does not count."]} />

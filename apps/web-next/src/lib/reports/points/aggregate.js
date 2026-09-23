@@ -23,7 +23,7 @@ export function rowId(r) {
 export function isTaskListRow(r) {
   if (r == null) return false;
   if (r.mgoAssigned || r.needsReview) return false;
-  if (r.bucket === "possible" || r.bucket === "commitment") return false;
+  if (r.bucket === "possible" || r.bucket === "commitment" || r.bucket === "general") return false;
   return true;
 }
 
@@ -223,7 +223,7 @@ export function aggregate(rows, { start, end, flags } = {}) {
   }).map((r) => ({ ...r, removed: rowRemoved(r, flags) }));
 
   const reviewGifts = inRange.filter((r) => r.needsReview && !r.removed);
-  const scored = inRange.filter((r) => !r.needsReview && r.bucket !== "commitment");
+  const scored = inRange.filter((r) => !r.needsReview && r.bucket !== "commitment" && r.bucket !== "general");
 
   const byOwner = new Map(MA_ROSTER.map((m) => [m.name, blankOwner(m)]));
   const days = new Set();
