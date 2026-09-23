@@ -39,9 +39,11 @@ export default function PointsMethodologyPage() {
             <p className="flow-foot">
               Every note on the contact is checked, not only the latest one. A New Donation
               note can be logged after the gift posts, within 45 days. A voicemail, email,
-              letter, visit, conversation, or general note counts only when it is on or before
-              the gift, within 45 days. A monthly
-              gift with that contact waits on review instead of going straight to Raised.
+              letter, visit, conversation, or general note on or before the gift assigns it
+              within 45 days. The same note from 46 through 90 days before the gift puts it
+              on Incoming for review, with no points until Assign. A note after the gift does
+              not count. A monthly
+              gift with a contact inside 45 days waits on review instead of going straight to Raised.
               Assign does not write a note in Virtuous. A tracker row does not assign a gift.
               A Verbal Gift Commitment is a two-day follow-up and adds no points. Event hours
               are logged on the Events tab, 25 points per hour, and are not a Virtuous note.
