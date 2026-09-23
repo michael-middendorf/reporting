@@ -84,7 +84,7 @@ type Owner = {
     gifts?: number;
     giftAmount?: number;
   }[];
-  tier?: { id: string; label: string; color?: string; min: number };
+  tier?: { id: string; label: string; meaning?: string; color?: string; min: number };
 };
 
 type GiftRow = {
@@ -1282,7 +1282,7 @@ function PointsPageInner() {
                         <td className="tabular">{Math.round(o.avgPerWeekday || 0)}</td>
                         <td>
                           <span className="tier" style={{ background: tier.color }}>
-                            {tier.label.split(" ")[0]}
+                            {tier.label}
                           </span>
                         </td>
                         <td className="tabular">{o.conversations ?? 0}</td>
@@ -1304,7 +1304,7 @@ function PointsPageInner() {
                         <td className="tabular">{t.weekdays ? Math.round(teamAvg) : "—"}</td>
                         <td>
                           <span className="tier" style={{ background: teamTier.color }}>
-                            {teamTier.label.split(" ")[0]}
+                            {teamTier.label}
                           </span>
                         </td>
                         <td className="tabular">{t.conversations ?? 0}</td>
@@ -1325,7 +1325,7 @@ function PointsPageInner() {
               <h2>
                 {selectedOwner.name}{" "}
                 <span className="section-hint">
-                  {selectedOwner.tier?.label} · {Math.round(selectedOwner.avgPerWeekday || 0)} pts/weekday · {money(selectedOwner.giftAmount)} raised
+                  {selectedOwner.tier?.label}{selectedOwner.tier?.meaning ? ` · ${selectedOwner.tier.meaning}` : ""} · {Math.round(selectedOwner.avgPerWeekday || 0)} pts/weekday · {money(selectedOwner.giftAmount)} raised
                 </span>
               </h2>
               <table className="grid">
@@ -1867,7 +1867,7 @@ function PointsPageInner() {
               {TIERS.map((t) => (
                 <span key={t.id} className="k">
                   <span className="dot" style={{ background: t.color }} />
-                  {t.label} — {t.min ? `≥${t.min}` : "<100"} pts/wkdy
+                  {t.label} — {t.meaning} — {t.min ? `≥${t.min}` : "<100"} pts/wkdy
                   {t.payout != null ? ` · $${t.payout.toLocaleString()}` : ""}
                 </span>
               ))}
