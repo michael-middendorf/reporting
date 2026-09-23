@@ -16,6 +16,7 @@ from handler import (
     weekly_timeline,
     _parse_md,
     _parse_money,
+    _pathway_key,
     _pct_delta,
     _load_overlays,
     build_payload,
@@ -190,6 +191,27 @@ class GivingPathwayTests(unittest.TestCase):
         summary = summarize(gifts)
         self.assertEqual(round(sum(row["revenue"] for row in pathways), 2), summary["totalRevenue"])
         self.assertEqual(sum(row["gifts"] for row in pathways), summary["totalGifts"])
+
+    def test_spring_batches_use_the_same_pathway_rule(self):
+        day = dt.date(2026, 3, 1)
+        chapel = _g(
+            1,
+            50,
+            day,
+            "FYE26 Spring Appeal Chapel Direct Mail",
+            batch="RaiseDonors 2026-03-01",
+        )
+        bricks = _g(
+            2,
+            25,
+            day,
+            "FYE26 Spring Appeal Bricks Direct Mail",
+            batch="2026-04-01 New Gifts and Pledges",
+        )
+        blank = _g(3, 10, day, "FYE26 Spring Appeal Chapel Direct Mail", batch="")
+        self.assertEqual(_pathway_key(chapel), "landing")
+        self.assertEqual(_pathway_key(bricks), "direct_mail")
+        self.assertEqual(_pathway_key(blank), "direct_mail")
 
     def test_empty_pathways_have_no_segments(self):
         pathways = giving_pathways([])

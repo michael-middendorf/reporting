@@ -306,10 +306,12 @@ def _gift_batch(gift: dict[str, Any]) -> str:
 
 
 def _pathway_key(gift: dict[str, Any]) -> str:
-    """One pathway per gift: email segment, else online batch, else direct mail.
+    """One pathway per gift. Fall and Spring share this rule on purpose.
 
-    A segment that contains both "email" and "direct mail" is not an email
-    pathway. Batch names are prefixes, not a search of the whole string.
+    Email is a segment that contains "email" and not "direct mail".
+    Online-form batches are the Stripe-Giving and RaiseDonors prefixes.
+    Everything else, including a blank batch, is direct mail.
+    Batch names are prefixes, not a search of the whole string.
     """
     segment = str(gift.get("segment") or "").lower()
     if "email" in segment and "direct mail" not in segment:
