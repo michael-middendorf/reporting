@@ -2,17 +2,15 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { startAuthentication, type PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
+import { AuthenticatorSetup } from "@/components/AuthenticatorQr";
 import { apiFetch, setBearer } from "@/lib/api";
 import styles from "../../auth.module.css";
-
-function groupedSecret(secret: string) {
-  return secret.replace(/(.{4})/g, "$1 ").trim();
-}
 
 export default function AuthMfaPage() {
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
   const [hasPasskey, setHasPasskey] = useState(false);
   const [secret, setSecret] = useState("");
+  const [otpauth, setOtpauth] = useState("");
   const [code, setCode] = useState("");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
@@ -23,9 +21,10 @@ export default function AuthMfaPage() {
     setError("");
     try {
       const response = await apiFetch("/api/auth/mfa/enroll", { method: "POST" });
-      const body = (await response.json()) as { secret?: string; error?: string };
+      const body = (await response.json()) as { secret?: string; otpauth?: string; error?: string };
       if (!response.ok) throw new Error(body.error || "Could not start authenticator setup");
       setSecret(body.secret || "");
+      setOtpauth(body.otpauth || "");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not start authenticator setup");
     } finally {
@@ -122,15 +121,30 @@ export default function AuthMfaPage() {
       {secret ? (
         <>
           <p className={styles.copy}>
-            Add this key in Google Authenticator, Authy, or 1Password. After you sign in, you can add a
-            passkey on Security so the next sign-in can skip the 6-digit code.
+            {otpauth ? (
+              <>
+                Scan this code in Google Authenticator, Authy, or 1Password. If you cannot scan, type the
+                key below. After you sign in, you can add a passkey on Security so the next sign-in can
+                skip the 6-digit code.
+              </>
+            ) : (
+              <>
+                Add this key in Google Authenticator, Authy, or 1Password. After you sign in, you can add a
+                passkey on Security so the next sign-in can skip the 6-digit code.
+              </>
+            )}
           </p>
           <div className={styles.keyBox}>
-            <p className={styles.keyLabel}>Authenticator key</p>
-            <p className={styles.keyValue}>{groupedSecret(secret)}</p>
-            <button className={styles.secondary} type="button" onClick={() => void copyKey()}>
-              {copied ? "Copied" : "Copy key"}
-            </button>
+            <AuthenticatorSetup
+              secret={secret}
+              otpauth={otpauth}
+              label="Authenticator key"
+              labelClassName={styles.keyLabel}
+              secretClassName={styles.keyValue}
+              buttonClassName={styles.secondary}
+              copied={copied}
+              onCopy={() => void copyKey()}
+            />
           </div>
         </>
       ) : enrolled ? (

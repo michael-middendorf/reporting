@@ -2,11 +2,8 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AccessGate } from "@/components/AccessGate";
+import { AuthenticatorSetup } from "@/components/AuthenticatorQr";
 import { apiFetch } from "@/lib/api";
-
-function groupedSecret(secret: string) {
-  return secret.replace(/(.{4})/g, "$1 ").trim();
-}
 
 function safeCoachingNext(raw: string | null | undefined): string {
   const value = (raw || "").trim();
@@ -22,6 +19,7 @@ export default function CoachingMfaPage() {
   }, []);
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
   const [secret, setSecret] = useState("");
+  const [otpauth, setOtpauth] = useState("");
   const [code, setCode] = useState("");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
@@ -32,9 +30,10 @@ export default function CoachingMfaPage() {
     setError("");
     try {
       const response = await apiFetch("/api/athletics-coaching/mfa/enroll", { method: "POST" });
-      const body = (await response.json()) as { secret?: string; error?: string };
+      const body = (await response.json()) as { secret?: string; otpauth?: string; error?: string };
       if (!response.ok) throw new Error(body.error || "Could not start authenticator setup");
       setSecret(body.secret || "");
+      setOtpauth(body.otpauth || "");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not start authenticator setup");
     } finally {
@@ -96,11 +95,19 @@ export default function CoachingMfaPage() {
           </p>
           {secret ? (
             <div className="ath-mfa-key">
-              <p>Add this key in Google Authenticator, Authy, or 1Password</p>
-              <p className="ath-mfa-secret">{groupedSecret(secret)}</p>
-              <button className="ath-text-btn" type="button" onClick={() => void copyKey()}>
-                {copied ? "Copied" : "Copy key"}
-              </button>
+              <p>
+                {otpauth
+                  ? "Scan this code in Google Authenticator, Authy, or 1Password. If you cannot scan, type the key below."
+                  : "Add this key in Google Authenticator, Authy, or 1Password."}
+              </p>
+              <AuthenticatorSetup
+                secret={secret}
+                otpauth={otpauth}
+                secretClassName="ath-mfa-secret"
+                buttonClassName="ath-text-btn"
+                copied={copied}
+                onCopy={() => void copyKey()}
+              />
             </div>
           ) : null}
           {(enrolled || secret) && (
