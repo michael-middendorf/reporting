@@ -37,11 +37,16 @@ export default function PointsMethodologyPage() {
               <li><i className="swatch stop" /> Not counted</li>
             </ul>
             <p className="flow-foot">
-              Every note on the contact is checked, not only the latest one. A voicemail, email,
+              Every note on the contact is checked, not only the latest one. A New Donation
+              note can be logged after the gift posts, within 45 days. A voicemail, email,
               letter, visit, conversation, or general note counts only when it is on or before
-              the gift, within 45 days. A note after the gift date does not count. A monthly
+              the gift, within 45 days. A monthly
               gift with that contact waits on review instead of going straight to Raised.
               Assign does not write a note in Virtuous. A tracker row does not assign a gift.
+              A Verbal Gift Commitment is a two-day follow-up and adds no points. Event hours
+              are logged on the Events tab, 25 points per hour, and are not a Virtuous note.
+              Biographical notes, a plain Email note, and hours dialing are not points. A General
+              note does not add its own points. It can still tie a gift when it is on or before the gift.
             </p>
           </section>
 

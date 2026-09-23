@@ -2308,6 +2308,35 @@ describe("any contact before a gift, and a short grace after", () => {
     assert.equal(model.reviewGifts?.[0].amount, 312.72);
   });
 
+  it("a general note before the gift can tie the dollars and adds no points of its own", () => {
+    const { rows, owner } = run(
+      [donationNote({
+        createdByUser: BETSY,
+        type: "General",
+        noteDate: "9/1/2026",
+        contactId: 131536,
+        id: 8,
+        note: "Spoke about a scholarship gift",
+      })],
+      [postedGift({
+        id: 451555,
+        contactId: 131536,
+        contactName: "David Hermann",
+        giftDate: "9/4/2026",
+        amount: 1000,
+        segment: "Main Donation Page",
+      })],
+      BETSY,
+    );
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 1000);
+    assert.equal(owner.points, 100);
+    const note = rows.find((r) => r.bucket === "general");
+    assert.ok(note);
+    assert.equal(note.points, 0);
+    assert.equal(isTaskListRow(note), false);
+  });
+
   it("does not count a general note logged after the gift", () => {
     const { owner } = run(
       [donationNote({
