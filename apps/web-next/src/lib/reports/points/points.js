@@ -476,20 +476,17 @@ const NOT_A_CONTACT = new Set([
 ]);
 
 /**
- * Every qualifying contact on the gift, not only the latest note.
- * Any voicemail, email, letter, conversation, meeting, or general note
- * on or before the gift, within 45 days, counts. A note after the gift
- * date does not. One closest note per MA, nearest first.
+ * Qualifying contacts on or before the gift, one closest note per MA.
+ * `minDays` and `maxDays` are inclusive. A note after the gift does not count.
  */
-export function attributingContacts(giftDate, notesOnContact) {
-  const before = SETTINGS.giftNoteDaysBefore ?? 45;
+function contactsOnOrBefore(giftDate, notesOnContact, minDays, maxDays) {
   const bestByOwner = new Map();
   for (const n of notesOnContact || []) {
     if (n.assist || n.unmatched) continue;
     const key = (n.type || "").trim().toLowerCase();
     if (NOT_A_CONTACT.has(key) || !CONTACT_BUCKETS.has(n.bucket)) continue;
     const delta = daysFromNoteToGift(n.date, giftDate);
-    if (delta == null || delta < 0 || delta > before) continue;
+    if (delta == null || delta < minDays || delta > maxDays) continue;
     if (beforeStart(giftDate, n.owner) || beforeStart(n.date, n.owner)) continue;
     const cur = bestByOwner.get(n.owner);
     if (!cur || delta < cur.days) bestByOwner.set(n.owner, { note: n, days: delta });
@@ -497,6 +494,29 @@ export function attributingContacts(giftDate, notesOnContact) {
   return [...bestByOwner.values()].sort(
     (a, b) => a.days - b.days || String(a.note.owner).localeCompare(String(b.note.owner)),
   );
+}
+
+/**
+ * Every qualifying contact on the gift, not only the latest note.
+ * Any voicemail, email, letter, conversation, meeting, or general note
+ * on or before the gift, within 45 days, assigns it. A note after the gift
+ * date does not. One closest note per MA, nearest first.
+ */
+export function attributingContacts(giftDate, notesOnContact) {
+  const before = SETTINGS.giftNoteDaysBefore ?? 45;
+  return contactsOnOrBefore(giftDate, notesOnContact, 0, before);
+}
+
+/**
+ * Same contacts as attributingContacts, from the day after the auto window
+ * through 90 days before the gift. These are listed for review and do not
+ * assign the gift.
+ */
+export function reviewContacts(giftDate, notesOnContact) {
+  const auto = SETTINGS.giftNoteDaysBefore ?? 45;
+  const review = SETTINGS.giftReviewDaysBefore ?? 90;
+  if (review <= auto) return [];
+  return contactsOnOrBefore(giftDate, notesOnContact, auto + 1, review);
 }
 
 /** Ticket purchase for a gala. Segment or project must name the gala. */
@@ -830,6 +850,12 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
       } else if (reviewHint && rosterSet.has(reviewHint)) {
         const r = donationRow(g, reviewHint);
         if (r) rows.push({ ...r, needsReview: true });
+      } else if (gDate) {
+        const older = reviewContacts(gDate, notesOnContact)[0];
+        if (older && rosterSet.has(older.note.owner)) {
+          const r = donationRow(g, older.note.owner);
+          if (r) rows.push({ ...r, needsReview: true, label: "Review — older contact" });
+        }
       }
       continue;
     }
@@ -963,8 +989,11 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
       return delta != null && Math.abs(delta) <= window;
     });
     if (donationOnContact) continue;
-    const hits = possibleNotesForGift(gDate, notesOnContact);
+    const autoHits = possibleNotesForGift(gDate, notesOnContact);
+    const olderHits = autoHits.length ? [] : reviewContacts(gDate, notesOnContact);
+    const hits = autoHits.length ? autoHits : olderHits;
     if (!hits.length) continue;
+    const reviewWindow = olderHits.length > 0;
     const hit = hits[0];
     const monthly = isMonthlyRecurring(g);
     const factor = SETTINGS.monthlyAnnualizeFactor || 12;
@@ -991,7 +1020,8 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
       kind,
       kindLabel: giftKindLabel(kind, annualized),
       bucket: "possible",
-      label: "Incoming gift",
+      label: reviewWindow ? "Review — older contact" : "Incoming gift",
+      reviewWindow,
       day: isoDay(gDate),
       date: gDate,
       weekday: isWeekday(gDate),

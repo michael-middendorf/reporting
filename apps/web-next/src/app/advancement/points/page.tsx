@@ -1094,7 +1094,12 @@ function PointsPageInner() {
                           {owners.map((o, idx) => (
                             <div key={`${o.name}-${idx}`}>
                               {o.name.split(" ")[0]}
-                              {o.daysAfterNote != null ? <span className="todo-muted"> · {o.daysAfterNote}d</span> : null}
+                              {o.daysAfterNote != null ? (
+                                <span className="todo-muted">
+                                  {" "}· {o.daysAfterNote}d
+                                  {o.daysAfterNote > (SETTINGS.giftNoteDaysBefore ?? 45) ? " · review" : ""}
+                                </span>
+                              ) : null}
                             </div>
                           ))}
                         </td>
