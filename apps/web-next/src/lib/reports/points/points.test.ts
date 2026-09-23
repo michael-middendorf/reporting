@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { MA_NAMES, SETTINGS, evalStartDate } from "./config.js";
+import { MA_NAMES, SETTINGS, evalStartDate, tierFor } from "./config.js";
 import { assignedNotesFromFlags, contactDisplayName, eventPointsForHours, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, outreachBeforeGift, parseDate, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "./counted-gifts.js";
 import { aggregate, daysOfWeek, isTaskListRow, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
@@ -1245,6 +1245,17 @@ describe("tracker category layout", () => {
       "2026-09-05",
       "2026-09-06",
     ]);
+  });
+});
+
+describe("sheet tier names", () => {
+  it("uses Tier 1 for far exceeds, Tier 2 for exceeds, and Tier 3 for meets", () => {
+    assert.equal(tierFor(200).label, "Tier 1");
+    assert.equal(tierFor(200).meaning, "Far Exceeds Expectation");
+    assert.equal(tierFor(100).label, "Tier 2");
+    assert.equal(tierFor(100).meaning, "Exceeds Expectation");
+    assert.equal(tierFor(99).label, "Tier 3");
+    assert.equal(tierFor(0).meaning, "Meets Expectation");
   });
 });
 

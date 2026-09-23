@@ -49,9 +49,9 @@ export function noteTypeForIncoming(kind, assist = false) {
 /* ---- Performance tiers (from MAS Points.pdf) ----------------------------
  * Evaluated on AVERAGE POINTS PER WEEKDAY over the evaluation period. */
 export const TIERS = [
-  { id: "far_exceeds", label: "Far Exceeds Expectation", min: 200, annual: 10000, payout: 5000,   color: "var(--gold)" },
-  { id: "exceeds",     label: "Exceeds Expectation",     min: 100, annual: 7500,  payout: 3750,   color: "#3f7d54" },
-  { id: "meets",       label: "Meets Expectation",       min: 0,   annual: 5000,  payout: 2500,   color: "var(--navy)" },
+  { id: "far_exceeds", label: "Tier 1", meaning: "Far Exceeds Expectation", min: 200, annual: 10000, payout: 5000, color: "var(--gold)" },
+  { id: "exceeds",     label: "Tier 2", meaning: "Exceeds Expectation",     min: 100, annual: 7500,  payout: 3750, color: "#3f7d54" },
+  { id: "meets",       label: "Tier 3", meaning: "Meets Expectation",       min: 0,   annual: 5000,  payout: 2500, color: "var(--navy)" },
 ];
 
 /** Return the tier object for a given average-points-per-weekday value. */

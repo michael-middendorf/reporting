@@ -113,7 +113,7 @@ export default function PointsMethodologyPage() {
             <ul>
               {TIERS.map((t) => (
                 <li key={t.id}>
-                  <strong>{t.label}</strong> — avg ≥ {t.min}/weekday · payout $
+                  <strong>{t.label}</strong> — {t.meaning} — avg ≥ {t.min}/weekday · payout $
                   {(t.payout ?? 0).toLocaleString()}
                   {DAY_TARGETS[t.id] && (
                     <div style={{ opacity: 0.75, fontSize: 13 }}>

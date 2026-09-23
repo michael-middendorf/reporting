@@ -57,8 +57,8 @@ const reportMod = require("./report.js") as {
 };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const config = require("./config.js") as {
-  TIERS: Array<{ id: string; label: string; min: number; payout?: number; color?: string }>;
-  tierFor: (avg: number) => { id: string; label: string; min: number; color?: string };
+  TIERS: Array<{ id: string; label: string; meaning?: string; min: number; payout?: number; color?: string }>;
+  tierFor: (avg: number) => { id: string; label: string; meaning?: string; min: number; color?: string };
   POINTS_MAP: Record<string, unknown>;
   CONFLICTS: Record<string, unknown>;
   DAY_TARGETS: Record<string, { points: number; blurb: string }>;
