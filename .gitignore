@@ -42,6 +42,8 @@ infra/cdk.out/
 # Report data / PII
 apps/web-next/src/lib/reports/census/data/*.json
 **/data/**/*.json
+# Public YouTube Studio trailer counts for the Pursuit of Wisdom dashboard. Not PII.
+!apps/web-next/src/data/pursuit-of-wisdom-youtube.json
 **/data/**/*.csv
 **/data/**/*.jsonl
 **/data/**/*.gz
