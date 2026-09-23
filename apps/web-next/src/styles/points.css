@@ -250,6 +250,14 @@ main.wrap.dash.points-method { max-width: 1080px; }
   background-position: right 10px center;
   cursor: pointer;
 }
+.daterange input[type="date"] {
+  appearance: auto;
+  -webkit-appearance: auto;
+  min-width: 9.6rem;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
 .daterange input[type="date"]:focus,
 .daterange select:focus {
   outline: none;
