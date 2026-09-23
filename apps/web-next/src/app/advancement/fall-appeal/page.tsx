@@ -43,6 +43,8 @@ const DEFS = {
   geography: "Appeal revenue by the donor's state of record (top states shown).",
   timeline: "Cumulative appeal revenue by week, with campaign touch dates overlaid.",
   mail: "Appeal revenue by the acquisition segment recorded on each gift (the appeal's individual asks/lists).",
+  givingPathways:
+    "Same campaign gifts, split by how they were received. Direct mail is gifts entered from the mailed piece. Landing pages are gifts from the online appeal forms. Email is gifts coded to an email segment. A gift that starts from an email and is completed on an appeal page is counted under Landing pages, because those pages use the direct-mail segment code.",
   email:
     "Unique opens and clicks from aggregate Virtuous Analytics email-version records. Segment rates are recipient-weighted across its published sends; they are engagement, not donation conversion rates.",
   directMail:
@@ -681,6 +683,63 @@ export default function FallAppealPage() {
               <TimelineOverlays weeks={data.timeline} />
             </section>
           )}
+
+          <section className="ac-analytics">
+            <h2>
+              Giving Pathways <InfoDot text={DEFS.givingPathways} />
+            </h2>
+            {!data.givingPathways ? (
+              <div className="ac-note">Giving pathways will appear after the next data refresh.</div>
+            ) : (
+              <>
+                <div className="ac-cards">
+                  {data.givingPathways.map((pathway) => (
+                    <div className="ac-card" key={pathway.key}>
+                      <span className="ac-card-num">{usd(pathway.revenue)}</span>
+                      <span className="ac-card-label">{pathway.label}</span>
+                      <span className="fa-card-sub">{num(pathway.gifts)} gifts</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="ac-table-wrap">
+                  <table className="ac-table" style={{ minWidth: 640 }}>
+                    <thead>
+                      <tr>
+                        <th>Pathway</th>
+                        <th>Segment</th>
+                        <th className="ac-num">Revenue</th>
+                        <th className="ac-num">Gifts</th>
+                        <th className="ac-num">Avg gift</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.givingPathways.map((pathway) =>
+                        pathway.segments.length === 0 ? (
+                          <tr key={pathway.key}>
+                            <td>{pathway.label}</td>
+                            <td>None in Virtuous yet</td>
+                            <td className="ac-num">{usd(0)}</td>
+                            <td className="ac-num">{num(0)}</td>
+                            <td className="ac-num">{usd(0)}</td>
+                          </tr>
+                        ) : (
+                          pathway.segments.map((row) => (
+                            <tr key={`${pathway.key}-${row.segment}`}>
+                              <td>{pathway.label}</td>
+                              <td>{row.segment}</td>
+                              <td className="ac-num">{usd(row.revenue)}</td>
+                              <td className="ac-num">{num(row.gifts)}</td>
+                              <td className="ac-num">{usd(row.avgGift)}</td>
+                            </tr>
+                          ))
+                        ),
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </section>
 
           {data.mailSegments.length > 0 && (
             <section className="ac-analytics">
