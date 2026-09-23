@@ -44,7 +44,7 @@ const DEFS = {
   timeline: "Cumulative appeal revenue by week, with campaign touch dates overlaid.",
   mail: "Appeal revenue by the acquisition segment recorded on each gift (the appeal's individual asks/lists).",
   givingPathways:
-    "Same campaign gifts, split by how they posted. Landing pages are gifts from an online-form batch. Email is gifts coded to an email segment. Direct mail is every other gift. On these appeals that remainder is the staff-entered response, not a separate mailed-piece flag. A gift completed on an appeal page is counted under Landing pages even when the segment name says direct mail.",
+    "Landing pages are gifts whose batch name starts with Stripe-Giving or RaiseDonors. Email is gifts whose segment contains email and does not also say direct mail. Direct mail is every other gift, including a blank batch. A batch that only mentions an online form later in the name stays in direct mail. A segment that says both email and direct mail stays in direct mail.",
   email:
     "Unique opens and clicks from aggregate Virtuous Analytics email-version records. Segment rates are recipient-weighted across its published sends; they are engagement, not donation conversion rates.",
   directMail:
