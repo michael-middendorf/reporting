@@ -1464,7 +1464,7 @@ function PointsPageInner() {
                               <span style={{ color: "var(--slate-400)" }}> · dashboard</span>
                             ) : null}
                             {r.contactName ? <span style={{ color: "var(--slate-400)" }}> · {r.contactName}</span> : null}
-                            {r.bucket === "donation" && (r.amount || 0) > 0 ? (
+                            {r.bucket === "donation" && r.amount != null && r.amount > 0 ? (
                               <span style={{ color: "var(--slate-400)" }}> · {money(r.amount)}</span>
                             ) : r.giftId && r.giftAmount != null ? (
                               <span style={{ color: "var(--slate-400)" }}>
