@@ -77,6 +77,7 @@ const config = require("./config.js") as {
   maForEmail: (email?: string) => { name: string; short?: string; email?: string } | null;
   EVENT_POINTS_PER_HOUR: number;
   TRACKED_EVENT_TYPES: Array<{ id: string; label: string; type: string }>;
+  RETIRED_TRACKED_EVENT_TYPES: Array<{ id: string; label: string; type: string }>;
 };
 
 export const scoreAll = points.scoreAll;
@@ -118,4 +119,5 @@ export const noteTypeForIncoming = config.noteTypeForIncoming;
 export const maForEmail = config.maForEmail;
 export const EVENT_POINTS_PER_HOUR = config.EVENT_POINTS_PER_HOUR;
 export const TRACKED_EVENT_TYPES = config.TRACKED_EVENT_TYPES;
+export const RETIRED_TRACKED_EVENT_TYPES = config.RETIRED_TRACKED_EVENT_TYPES;
 export const contactDisplayName = points.contactDisplayName;

@@ -303,6 +303,12 @@ export const TRACKED_EVENT_TYPES = [
   { id: "community", label: "Community Event", type: "Community Event" },
   { id: "tours", label: "Tours", type: "Tours" },
   { id: "amu", label: "AMU Event", type: "AMU Event" },
+  { id: "projects", label: "Projects", type: "Projects" },
+  { id: "meetings", label: "Meetings", type: "Meetings" },
+];
+
+/** Older dashboard rows. Not offered on the form. Still scored if already saved. */
+export const RETIRED_TRACKED_EVENT_TYPES = [
   { id: "event", label: "Event", type: "Mission Advancement | Event" },
   { id: "marketing", label: "Marketing Event", type: "Mission Advancement | Marketing Event" },
 ];

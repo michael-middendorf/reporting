@@ -2660,17 +2660,29 @@ describe("dashboard-tracked event hours", () => {
     assert.equal(events.points, 100);
   });
 
-  it("Marketing Event hours also score 25 per hour", () => {
+  it("Projects and Meetings hours score 25 per hour", () => {
+    const rows = scoreTrackedEvents([
+      { id: "p1", owner: SEAN, day: "2026-08-13", eventType: "projects", hours: 2 },
+      { id: "mtg", owner: SEAN, day: "2026-08-13", eventType: "meetings", hours: 1 },
+    ]) as ScoredRow[];
+    assert.equal(rows.length, 2);
+    assert.equal(rows[0].points, 50);
+    assert.equal(rows[0].type, "Projects");
+    assert.equal(rows[1].points, 25);
+    assert.equal(rows[1].type, "Meetings");
+    const model = aggregate(rows, {}) as Model;
+    const owner = model.tableOwners.find((o) => o.name === SEAN);
+    assert.ok(owner);
+    assert.equal(owner.points, 75);
+  });
+
+  it("a saved Marketing Event row still scores after that type left the form", () => {
     const rows = scoreTrackedEvents([
       { id: "m1", owner: SEAN, day: "2026-08-13", eventType: "marketing", hours: 2 },
     ]) as ScoredRow[];
     assert.equal(rows.length, 1);
     assert.equal(rows[0].points, 50);
     assert.equal(rows[0].type, "Mission Advancement | Marketing Event");
-    const model = aggregate(rows, {}) as Model;
-    const owner = model.tableOwners.find((o) => o.name === SEAN);
-    assert.ok(owner);
-    assert.equal(owner.points, 50);
   });
 
   it("one-on-one Event notes on a contact still score 25", () => {

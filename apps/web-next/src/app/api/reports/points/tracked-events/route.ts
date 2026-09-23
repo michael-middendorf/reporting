@@ -10,7 +10,7 @@
 import { NextResponse } from "next/server";
 import { requireReportAccess } from "@/lib/s3-proxy";
 import { currentUserEmail } from "@/lib/auth";
-import { MA_ROSTER, TRACKED_EVENT_TYPES } from "@/lib/reports/points/config.js";
+import { MA_ROSTER, RETIRED_TRACKED_EVENT_TYPES, TRACKED_EVENT_TYPES } from "@/lib/reports/points/config.js";
 import {
   readTrackedEvents,
   removeTrackedEvent,
@@ -18,8 +18,11 @@ import {
 } from "@/lib/reports/points/tracked-events-store";
 import type { TrackedEventInput } from "@/lib/reports/points/tracked-events";
 
-const ALLOWED_TYPES = new Set(TRACKED_EVENT_TYPES.map((t: { id: string; type: string }) => t.id));
-for (const t of TRACKED_EVENT_TYPES) ALLOWED_TYPES.add(t.type);
+const ALLOWED_TYPES = new Set(
+  [...TRACKED_EVENT_TYPES, ...RETIRED_TRACKED_EVENT_TYPES].flatMap(
+    (t: { id: string; type: string }) => [t.id, t.type],
+  ),
+);
 
 function parseHours(value: unknown): number | null {
   const n = typeof value === "number" ? value : Number(value);
@@ -64,7 +67,8 @@ export async function POST(req: Request) {
 
   const eventType = String(body?.eventType || "").trim();
   if (!eventType || !ALLOWED_TYPES.has(eventType)) {
-    return NextResponse.json({ error: "eventType must be Event or Marketing Event" }, { status: 400 });
+    const names = TRACKED_EVENT_TYPES.map((t: { label: string }) => t.label).join(", ");
+    return NextResponse.json({ error: `eventType must be one of: ${names}` }, { status: 400 });
   }
 
   const hours = parseHours(body?.hours);

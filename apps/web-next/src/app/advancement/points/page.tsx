@@ -30,6 +30,7 @@ import {
   weekLabel,
   MA_ROSTER,
   TRACKED_EVENT_TYPES,
+  RETIRED_TRACKED_EVENT_TYPES,
   EVENT_POINTS_PER_HOUR,
 } from "@/lib/reports/points/scoring";
 import type { FlagInput, ReviewFlag } from "@/lib/reports/points/flags";
@@ -157,7 +158,8 @@ function isoToday() {
 }
 
 function eventTypeLabel(id: string) {
-  return TRACKED_EVENT_TYPES.find((t) => t.id === id || t.type === id)?.label || id;
+  const types = [...TRACKED_EVENT_TYPES, ...RETIRED_TRACKED_EVENT_TYPES];
+  return types.find((t) => t.id === id || t.type === id)?.label || id;
 }
 
 function formatDay(iso: string) {
