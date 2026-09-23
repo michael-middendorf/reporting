@@ -720,7 +720,7 @@ export default function FallAppealPage() {
                             <td>None in Virtuous yet</td>
                             <td className="ac-num">{usd(0)}</td>
                             <td className="ac-num">{num(0)}</td>
-                            <td className="ac-num">{usd(0)}</td>
+                            <td className="ac-num">{usd2(0)}</td>
                           </tr>
                         ) : (
                           pathway.segments.map((row) => (
@@ -729,7 +729,7 @@ export default function FallAppealPage() {
                               <td>{row.segment}</td>
                               <td className="ac-num">{usd(row.revenue)}</td>
                               <td className="ac-num">{num(row.gifts)}</td>
-                              <td className="ac-num">{usd(row.avgGift)}</td>
+                              <td className="ac-num">{usd2(row.avgGift)}</td>
                             </tr>
                           ))
                         ),
