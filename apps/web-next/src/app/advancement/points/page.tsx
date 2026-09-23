@@ -37,7 +37,7 @@ import type { FlagInput, ReviewFlag } from "@/lib/reports/points/flags";
 import type { TrackedEvent } from "@/lib/reports/points/tracked-events";
 import "@/styles/points.css";
 
-type RangeKey = "week" | "all" | "custom";
+type RangeKey = "week" | "all" | "custom" | "dates";
 
 const RANGES: Record<string, { label: string }> = {
   week: { label: "This week" },
@@ -61,6 +61,14 @@ function thisMonday(): Date {
 
 function sundayOf(monday: Date): Date {
   return new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+}
+
+function endOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+}
+
+function formatRangeDate(iso: string): string {
+  return parseDay(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 type Owner = {
@@ -283,9 +291,19 @@ type Row = {
   tracked?: boolean;
 };
 
-/** Inclusive Monday–Sunday bounds for one week, or All from the eval start. */
-function bounds(key: RangeKey, selectedWeek: string | null) {
-  if (key === "all") return { start: evalStartDate(), end: null };
+/** Inclusive Monday–Sunday bounds for one week, All from the eval start, or a chosen calendar range. */
+function bounds(key: RangeKey, selectedWeek: string | null, dateFrom = "", dateTo = "") {
+  if (key === "dates") {
+    let from = dateFrom ? parseDay(dateFrom) : evalStartDate();
+    let to = dateTo ? parseDay(dateTo) : null;
+    if (to && from > to) {
+      const swap = from;
+      from = to;
+      to = swap;
+    }
+    return { start: from, end: to ? endOfDay(to) : null };
+  }
+  if (key === "all") return { start: evalStartDate(), end: null as Date | null };
   const monday = key === "custom" && selectedWeek ? parseDay(selectedWeek) : thisMonday();
   return { start: monday, end: sundayOf(monday) };
 }
@@ -323,6 +341,8 @@ function PointsPageInner() {
   const [meta, setMeta] = useState<Record<string, unknown>>({});
   const [range, setRange] = useState<RangeKey>("all");
   const [selectedWeek, setSelectedWeek] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [pickedWeek, setPickedWeek] = useState<string | null>(null);
   const [pickedDay, setPickedDay] = useState<string | null>(null);
@@ -425,7 +445,7 @@ function PointsPageInner() {
   }, [rows]);
 
   const model = useMemo(() => {
-    const { start, end } = bounds(range, selectedWeek || null);
+    const { start, end } = bounds(range, selectedWeek || null, dateFrom, dateTo);
     return aggregate(rows || [], { start, end, flags }) as {
       totals: {
         points?: number;
@@ -447,16 +467,26 @@ function PointsPageInner() {
       weekGrid: WeekGridRow[];
       bests: Bests;
     };
-  }, [rows, range, selectedWeek, flags]);
+  }, [rows, range, selectedWeek, dateFrom, dateTo, flags]);
 
   const selectedOwner = model.owners.find((o) => o.name === selected);
 
-  const boundWindow = bounds(range, selectedWeek || null);
-  const selectWeek = range === "all" ? "" : boundWindow.start ? weekKey(boundWindow.start) : "";
+  const boundWindow = bounds(range, selectedWeek || null, dateFrom, dateTo);
+  const selectWeek = range === "custom" || range === "week"
+    ? (boundWindow.start ? weekKey(boundWindow.start) : "")
+    : "";
+  const orderedFrom = dateFrom && dateTo && dateFrom > dateTo ? dateTo : dateFrom;
+  const orderedTo = dateFrom && dateTo && dateFrom > dateTo ? dateFrom : dateTo;
   const rangeLabel =
-    range === "all"
-      ? `All (from week of ${weekLabel(SETTINGS.evalStart)})`
-      : `Week of ${weekLabel(selectWeek || weekKey(thisMonday()))}`;
+    range === "dates"
+      ? orderedFrom && orderedTo
+        ? `${formatRangeDate(orderedFrom)} to ${formatRangeDate(orderedTo)}`
+        : orderedFrom
+          ? `from ${formatRangeDate(orderedFrom)}`
+          : `through ${formatRangeDate(orderedTo)}`
+      : range === "all"
+        ? `All (from week of ${weekLabel(SETTINGS.evalStart)})`
+        : `Week of ${weekLabel(selectWeek || weekKey(thisMonday()))}`;
 
   const ownerRows = useMemo(() => {
     if (!selectedOwner) return [] as Row[];
@@ -613,7 +643,7 @@ function PointsPageInner() {
   }, [range, model, rows, flags, weekOptions]);
 
   const listedTracked = useMemo(() => {
-    const { start, end } = bounds(range, selectedWeek || null);
+    const { start, end } = bounds(range, selectedWeek || null, dateFrom, dateTo);
     const includePast = tab === "events" && range === "all";
     return trackedEvents
       .filter((e) => {
@@ -625,7 +655,7 @@ function PointsPageInner() {
         return true;
       })
       .sort((a, b) => (b.day || "").localeCompare(a.day || ""));
-  }, [trackedEvents, range, selectedWeek, tab]);
+  }, [trackedEvents, range, selectedWeek, dateFrom, dateTo, tab]);
 
   function clearUndoTimer() {
     if (undoTimer.current) {
@@ -958,6 +988,8 @@ function PointsPageInner() {
                     onClick={() => {
                       setRange(key);
                       setSelectedWeek(key === "week" ? weekKey(thisMonday()) : "");
+                      setDateFrom("");
+                      setDateTo("");
                       setPickedWeek(key === "week" ? weekKey(thisMonday()) : null);
                       setPickedDay(null);
                       setCategoryFilter(null);
@@ -968,7 +1000,7 @@ function PointsPageInner() {
                 );
               })}
             </div>
-            <div className={`daterange${range === "custom" ? " active" : ""}`}>
+            <div className={`daterange${range === "custom" || range === "dates" ? " active" : ""}`}>
               <label>
                 Week
                 <select
@@ -977,19 +1009,59 @@ function PointsPageInner() {
                   onChange={(e) => {
                     const v = e.target.value;
                     setSelectedWeek(v);
+                    setDateFrom("");
+                    setDateTo("");
                     setRange(v ? "custom" : "all");
                     setPickedWeek(v || null);
                     setPickedDay(null);
                     setCategoryFilter(null);
                   }}
                 >
-                  <option value="">All weeks (from {weekLabel(SETTINGS.evalStart)})</option>
+                  <option value="">{range === "dates" ? "Custom dates" : `All weeks (from ${weekLabel(SETTINGS.evalStart)})`}</option>
                   {weekOptions.map((k) => (
                     <option key={k} value={k}>
                       Week of {weekLabel(k)}
                     </option>
                   ))}
                 </select>
+              </label>
+              <span className="daterange-sep" aria-hidden="true">|</span>
+              <label>
+                From
+                <input
+                  type="date"
+                  aria-label="From date"
+                  value={dateFrom}
+                  min={SETTINGS.evalStart}
+                  max={dateTo || undefined}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setDateFrom(v);
+                    setSelectedWeek("");
+                    setPickedWeek(null);
+                    setPickedDay(null);
+                    setCategoryFilter(null);
+                    setRange(v || dateTo ? "dates" : "all");
+                  }}
+                />
+              </label>
+              <label>
+                To
+                <input
+                  type="date"
+                  aria-label="To date"
+                  value={dateTo}
+                  min={dateFrom || SETTINGS.evalStart}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setDateTo(v);
+                    setSelectedWeek("");
+                    setPickedWeek(null);
+                    setPickedDay(null);
+                    setCategoryFilter(null);
+                    setRange(dateFrom || v ? "dates" : "all");
+                  }}
+                />
               </label>
             </div>
               </>
@@ -1247,7 +1319,11 @@ function PointsPageInner() {
             <h2>
               All Mission Advancement{" "}
               <span className="section-hint">
-                {range === "all" ? `from ${weekLabel(SETTINGS.evalStart)}` : null}
+                {range === "all"
+                  ? `from ${weekLabel(SETTINGS.evalStart)}`
+                  : range === "dates"
+                    ? rangeLabel
+                    : null}
               </span>
             </h2>
             <div className="panel">
@@ -1603,7 +1679,10 @@ function PointsPageInner() {
           <section className="section">
             <h2>
               Events{" "}
-              <span className="section-hint">{EVENT_POINTS_PER_HOUR} pts/hour · includes past events</span>
+              <span className="section-hint">
+                {EVENT_POINTS_PER_HOUR} pts/hour
+                {range === "dates" ? ` · ${rangeLabel}` : " · includes past events"}
+              </span>
             </h2>
             <div className="panel">
               <form
