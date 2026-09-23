@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from handler import (
     gift_breakdown,
+    giving_pathways,
     mail_segments,
     normalize_gifts,
     pace_series,
@@ -15,6 +16,7 @@ from handler import (
     weekly_timeline,
     _parse_md,
     _parse_money,
+    _pathway_key,
     _pct_delta,
     _load_overlays,
     build_payload,
@@ -22,8 +24,17 @@ from handler import (
 )
 
 
-def _g(contact_id: int, amount: float, day: dt.date, segment: str | None = "Active DM") -> dict:
-    return {"contactId": contact_id, "amount": amount, "date": day, "segment": segment}
+def _g(
+    contact_id: int,
+    amount: float,
+    day: dt.date,
+    segment: str | None = "Active DM",
+    batch: str | None = None,
+) -> dict:
+    gift = {"contactId": contact_id, "amount": amount, "date": day, "segment": segment}
+    if batch is not None:
+        gift["batch"] = batch
+    return gift
 
 
 class ParseTests(unittest.TestCase):
@@ -50,6 +61,17 @@ class NormalizeTests(unittest.TestCase):
         self.assertEqual(len(out), 1)
         self.assertEqual(out[0]["amount"], 100.0)
         self.assertEqual(out[0]["date"], dt.date(2026, 8, 16))
+        self.assertEqual(out[0]["batch"], "")
+
+    def test_copies_batch_as_string(self):
+        rows = [
+            {"contactId": 1, "amount": "25.00", "giftDate": "9/1/2026", "segment": "A", "batch": "Stripe-Giving 2026-09-01"},
+            {"contactId": 2, "amount": "10.00", "giftDate": "9/1/2026", "segment": "B", "batch": None},
+        ]
+        out = normalize_gifts(rows)
+        self.assertEqual(out[0]["batch"], "Stripe-Giving 2026-09-01")
+        self.assertEqual(out[1]["batch"], "")
+        self.assertEqual(len(out), 2)
 
 
 class SummaryTests(unittest.TestCase):
@@ -109,6 +131,125 @@ class MailSegmentTests(unittest.TestCase):
         self.assertEqual([r["segment"] for r in rows], ["Lapsed DM", "Active DM", "Unattributed"])
         self.assertEqual(rows[1]["gifts"], 2)
         self.assertEqual(rows[1]["revenue"], 125.0)
+
+
+class GivingPathwayTests(unittest.TestCase):
+    def test_classifies_each_gift_once_and_reconciles(self):
+        day = dt.date(2026, 9, 21)
+        active = "FYE27 Fall 2026 Appeal Active Direct Mail 1"
+        gifts = [
+            _g(1, 100, day, "FYE27 Fall 2026 Appeal Lapsed 24-48 Direct Mail 1", batch="Staff checks 9/18"),
+            _g(2, 40, day, active, batch=""),
+            _g(3, 10, day, None),
+            _g(4, 75, day, active, batch="Stripe-Giving 2026-09-21"),
+            _g(5, 25, day, "FYE27 Fall 2026 Appeal Lapsed 12-24 Direct Mail 1", batch="RaiseDonors 4412"),
+            _g(6, 60, day, "FYE27 Fall Appeal Email 1", batch="Staff checks 9/20"),
+            _g(7, 15, day, active, batch="Posted RaiseDonors"),
+            _g(8, 5, day, "FYE27 EMAIL Direct Mail 1", batch="Staff checks 9/21"),
+        ]
+        pathways = giving_pathways(gifts)
+        by_key = {row["key"]: row for row in pathways}
+        self.assertEqual([row["key"] for row in pathways], ["direct_mail", "landing", "email"])
+        self.assertEqual([row["label"] for row in pathways], ["Direct mail", "Landing pages", "Email"])
+
+        direct = by_key["direct_mail"]
+        self.assertEqual(direct["revenue"], 170.0)
+        self.assertEqual(direct["gifts"], 5)
+        self.assertEqual(direct["avgGift"], 34.0)
+        self.assertEqual(
+            [row["segment"] for row in direct["segments"]],
+            [
+                "FYE27 Fall 2026 Appeal Lapsed 24-48 Direct Mail 1",
+                active,
+                "Unattributed",
+                "FYE27 EMAIL Direct Mail 1",
+            ],
+        )
+        self.assertEqual(direct["segments"][1]["revenue"], 55.0)
+        self.assertEqual(direct["segments"][1]["gifts"], 2)
+        self.assertEqual(direct["segments"][1]["avgGift"], 27.5)
+
+        landing = by_key["landing"]
+        self.assertEqual(landing["revenue"], 100.0)
+        self.assertEqual(landing["gifts"], 2)
+        self.assertEqual(landing["avgGift"], 50.0)
+        self.assertEqual(
+            [(row["segment"], row["revenue"]) for row in landing["segments"]],
+            [(active, 75.0), ("FYE27 Fall 2026 Appeal Lapsed 12-24 Direct Mail 1", 25.0)],
+        )
+
+        email = by_key["email"]
+        self.assertEqual(email["revenue"], 60.0)
+        self.assertEqual(email["gifts"], 1)
+        self.assertEqual(email["segments"], [{
+            "segment": "FYE27 Fall Appeal Email 1",
+            "revenue": 60.0,
+            "gifts": 1,
+            "avgGift": 60.0,
+        }])
+
+        summary = summarize(gifts)
+        self.assertEqual(round(sum(row["revenue"] for row in pathways), 2), summary["totalRevenue"])
+        self.assertEqual(sum(row["gifts"] for row in pathways), summary["totalGifts"])
+
+    def test_spring_batches_use_the_same_pathway_rule(self):
+        day = dt.date(2026, 3, 1)
+        chapel = _g(
+            1,
+            50,
+            day,
+            "FYE26 Spring Appeal Chapel Direct Mail",
+            batch="RaiseDonors 2026-03-01",
+        )
+        bricks = _g(
+            2,
+            25,
+            day,
+            "FYE26 Spring Appeal Bricks Direct Mail",
+            batch="2026-04-01 New Gifts and Pledges",
+        )
+        blank = _g(3, 10, day, "FYE26 Spring Appeal Chapel Direct Mail", batch="")
+        self.assertEqual(_pathway_key(chapel), "landing")
+        self.assertEqual(_pathway_key(bricks), "direct_mail")
+        self.assertEqual(_pathway_key(blank), "direct_mail")
+
+    def test_empty_pathways_have_no_segments(self):
+        pathways = giving_pathways([])
+        self.assertEqual([row["key"] for row in pathways], ["direct_mail", "landing", "email"])
+        for row in pathways:
+            self.assertEqual(row["revenue"], 0.0)
+            self.assertEqual(row["gifts"], 0)
+            self.assertEqual(row["avgGift"], 0.0)
+            self.assertEqual(row["segments"], [])
+
+    def test_payload_classifies_normalized_batch(self):
+        class Client:
+            def paged_query(self, *_args, **_kwargs):
+                return [{
+                    "contactId": 1,
+                    "amount": "$25.00",
+                    "giftDate": "9/1/2026",
+                    "segment": "FYE27 Fall 2026 Appeal Active Direct Mail 1",
+                    "batch": "Stripe-Giving 2026-09-01",
+                }]
+
+        payload = build_payload(
+            Client(),
+            "2026 Fall Appeal",
+            "",
+            1000,
+            dt.date(2026, 9, 19),
+            geo_enabled=False,
+        )
+        pathways = {row["key"]: row for row in payload["givingPathways"]}
+        self.assertEqual(list(pathways), ["direct_mail", "landing", "email"])
+        self.assertEqual(pathways["landing"]["gifts"], 1)
+        self.assertEqual(pathways["landing"]["revenue"], 25.0)
+        self.assertEqual(pathways["email"]["segments"], [])
+        self.assertEqual(pathways["direct_mail"]["segments"], [])
+        summary = payload["summary"]
+        self.assertEqual(sum(row["revenue"] for row in payload["givingPathways"]), summary["totalRevenue"])
+        self.assertEqual(sum(row["gifts"] for row in payload["givingPathways"]), summary["totalGifts"])
 
 
 class TimelineTests(unittest.TestCase):

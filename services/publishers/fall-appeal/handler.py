@@ -184,18 +184,23 @@ def _campaign_condition(campaign: str) -> dict[str, Any]:
 
 
 def normalize_gifts(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Project raw gift rows to {contactId, amount, date, segment}, dropping rows
-    without a usable amount+date."""
+    """Project raw gift rows to {contactId, amount, date, segment, batch}.
+
+    Rows without a usable date are dropped. A missing batch becomes "" so the
+    gift still counts in pathway classification.
+    """
     out: list[dict[str, Any]] = []
     for r in rows:
         d = _parse_md(r.get("giftDate"))
         if d is None:
             continue
+        batch = r.get("batch")
         out.append({
             "contactId": r.get("contactId"),
             "amount": _parse_money(r.get("amount")),
             "date": d,
             "segment": r.get("segment"),
+            "batch": "" if batch is None else str(batch),
         })
     return out
 
@@ -291,6 +296,83 @@ def mail_segments(gifts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
     out.sort(key=lambda s: s["revenue"], reverse=True)
     return out
+
+
+def _gift_batch(gift: dict[str, Any]) -> str:
+    batch = gift.get("batch")
+    if batch is None:
+        return ""
+    return str(batch)
+
+
+def _pathway_key(gift: dict[str, Any]) -> str:
+    """One pathway per gift. Fall and Spring share this rule on purpose.
+
+    Email is a segment that contains "email" and not "direct mail".
+    Online-form batches are the Stripe-Giving and RaiseDonors prefixes.
+    Everything else, including a blank batch, is direct mail.
+    Batch names are prefixes, not a search of the whole string.
+    """
+    segment = str(gift.get("segment") or "").lower()
+    if "email" in segment and "direct mail" not in segment:
+        return "email"
+    batch = _gift_batch(gift)
+    if batch.startswith("Stripe-Giving") or batch.startswith("RaiseDonors"):
+        return "landing"
+    return "direct_mail"
+
+
+def giving_pathways(gifts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Campaign gifts split into direct mail, landing pages, and email.
+
+    Revenues and gift counts across the three pathways match summarize().
+    A pathway with no gifts has an empty segment list.
+    """
+    grouped: dict[str, list[dict[str, Any]]] = {
+        "direct_mail": [],
+        "landing": [],
+        "email": [],
+    }
+    for gift in gifts:
+        grouped[_pathway_key(gift)].append(gift)
+
+    def segment_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        rev: dict[str, float] = defaultdict(float)
+        cnt: dict[str, int] = defaultdict(int)
+        for gift in rows:
+            segment = gift.get("segment") or "Unattributed"
+            rev[segment] += gift["amount"]
+            cnt[segment] += 1
+        out = [
+            {
+                "segment": segment,
+                "revenue": round(rev[segment], 2),
+                "gifts": cnt[segment],
+                "avgGift": round(rev[segment] / cnt[segment], 2) if cnt[segment] else 0.0,
+            }
+            for segment in rev
+        ]
+        out.sort(key=lambda row: row["revenue"], reverse=True)
+        return out
+
+    pathways: list[dict[str, Any]] = []
+    for key, label in (
+        ("direct_mail", "Direct mail"),
+        ("landing", "Landing pages"),
+        ("email", "Email"),
+    ):
+        rows = grouped[key]
+        total = sum(gift["amount"] for gift in rows)
+        count = len(rows)
+        pathways.append({
+            "key": key,
+            "label": label,
+            "revenue": round(total, 2),
+            "gifts": count,
+            "avgGift": round(total / count, 2) if count else 0.0,
+            "segments": segment_rows(rows) if rows else [],
+        })
+    return pathways
 
 
 def pace_series(
@@ -663,6 +745,7 @@ def build_payload(
         "geography": build_geography(client, gifts, geo_enabled, geo_max, top_states),
         "timeline": weekly_timeline(gifts, overlays),
         "mailSegments": mail_segments(gifts),
+        "givingPathways": giving_pathways(gifts),
         "directMail": build_direct_mail(client, gifts, audience_tags or [], page_size, mail_import),
         "emailImport": email_import,
         "digitalPerformance": digital_import,

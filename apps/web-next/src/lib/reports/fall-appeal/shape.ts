@@ -88,6 +88,15 @@ export type MailSegment = {
   avgGift: number;
 };
 
+export type GivingPathway = {
+  key: string;
+  label: string;
+  revenue: number;
+  gifts: number;
+  avgGift: number;
+  segments: MailSegment[];
+};
+
 export type EmailSend = {
   emailId: number;
   name: string;
@@ -164,6 +173,8 @@ export type FallAppealSnapshot = {
   geography: Geography;
   timeline: TimelineWeek[];
   mailSegments: MailSegment[];
+  /** Same gifts as mailSegments, split by receipt pathway. Absent on older snapshots. */
+  givingPathways?: GivingPathway[];
   emailPerformance?: EmailPerformance;
   emailImport?: AggregateImport;
   digitalPerformance?: AggregateImport;
