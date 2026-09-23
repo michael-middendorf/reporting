@@ -215,7 +215,7 @@ export const BUCKETS = [
 
 /* ---- Tracker category layout (Totals sheet) -----------------------------
  * Same groups the spreadsheet uses. `types` match Virtuous note type
- * (lowercased). Donation is the 100-pt gift credit, not gift dollars. */
+ * (lowercased). Gift is one row per posted gift: the dollars and the 100 pts. */
 export const TRACKER_LAYOUT = [
   {
     id: "dial",
@@ -283,12 +283,7 @@ export const TRACKER_LAYOUT = [
   },
   {
     id: "donation",
-    label: "Donation",
-    types: [
-      "mission advancement | new donation or new ac",
-      "mission advancement | annunciation circle updated",
-      "mission advancement | update recurring gift",
-    ],
+    label: "Gift",
     buckets: ["donation"],
   },
   { id: "assist", label: "Assist", types: ["mission advancement | gift assist"] },

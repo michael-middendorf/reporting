@@ -267,6 +267,7 @@ type Row = {
   noteId?: string | number | null;
   giftId?: string | number | null;
   giftAmount?: number | null;
+  amount?: number | null;
   source?: string | null;
   conflict?: string | null;
   unmatched?: boolean;
@@ -1463,7 +1464,9 @@ function PointsPageInner() {
                               <span style={{ color: "var(--slate-400)" }}> · dashboard</span>
                             ) : null}
                             {r.contactName ? <span style={{ color: "var(--slate-400)" }}> · {r.contactName}</span> : null}
-                            {r.giftId && r.giftAmount != null ? (
+                            {r.bucket === "donation" && (r.amount || 0) > 0 ? (
+                              <span style={{ color: "var(--slate-400)" }}> · {money(r.amount)}</span>
+                            ) : r.giftId && r.giftAmount != null ? (
                               <span style={{ color: "var(--slate-400)" }}>
                                 {" "}
                                 · linked gift {money(r.giftAmount)}

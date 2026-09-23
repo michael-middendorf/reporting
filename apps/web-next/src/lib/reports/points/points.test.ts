@@ -253,9 +253,10 @@ describe("MA points require a posted gift with dollars", () => {
     assert.equal(wk.gifts, 1);
     assert.equal(wk.giftAmount, 75);
     assert.equal(wk.points, 100);
-    const secured = rows.find((r) => r.bucket === "gift" && r.points === 100) as ScoredRow & { giftId?: unknown };
-    assert.ok(secured);
-    assert.equal(String(secured.giftId), "501");
+    const secured = rows.filter((r) => r.bucket === "donation" && r.points === 100);
+    assert.equal(secured.length, 1);
+    assert.equal(String(secured[0].giftId), "501");
+    assert.equal(secured[0].label, "Gift");
     const csv = buildCalculationCSV(model);
     assert.match(csv, /Open gift in Virtuous/);
     assert.match(csv, /Contact\/Gifts\/101/);
@@ -301,7 +302,8 @@ describe("MA points require a posted gift with dollars", () => {
     assert.equal(model.totals.gifts, 1);
     assert.equal(model.totals.giftAmount, 60);
     assert.equal(model.totals.points, 100);
-    assert.equal(rows.filter((r) => r.bucket === "gift" && r.points === 100).length, 1);
+    assert.equal(rows.filter((r) => r.bucket === "donation" && r.points === 100).length, 1);
+    assert.equal(rows.filter((r) => r.bucket === "gift" && r.points === 100).length, 0);
     assert.equal(rows.filter((r) => r.unmatched && r.bucket === "unmatched").length, 1);
   });
 
@@ -650,7 +652,8 @@ describe("monthly AC annualization", () => {
     const giftRow = rows.find((r) => r.bucket === "donation");
     assert.ok(giftRow);
     assert.equal(giftRow.amount, 480);
-    assert.match(String(giftRow.label), /Monthly gift/);
+    assert.match(String(giftRow.label), /Gift \(monthly ×12\)/);
+    assert.equal(giftRow.points, 100);
   });
 
   it("credits only the increase when an active AC is raised", () => {
@@ -1143,16 +1146,25 @@ describe("tracker category layout", () => {
     assert.equal(mix.totalPoints, 50);
   });
 
-  it("Donation counts posted gifts and 100 pts from a matching donation note", () => {
+  it("Gift chart counts one row per posted gift, with the 100 pts on that row", () => {
     const { rows } = run(
       [donationNote({ type: "Mission Advancement | New Donation or New AC", noteDate: "8/4/2026" })],
-      [postedGift({ giftDate: "8/4/2026", amount: 75 })],
+      [postedGift({ giftDate: "8/4/2026", amount: 75, contactName: "Jane Donor" })],
     );
+    const gifts = rows.filter((r) => r.bucket === "donation");
+    assert.equal(gifts.length, 1);
+    assert.equal(gifts[0].label, "Gift");
+    assert.equal(gifts[0].points, 100);
+    assert.equal(gifts[0].amount, 75);
+    assert.equal(rows.filter((r) => r.points === 100).length, 1);
     const mix = trackerBreakdown(rows);
     const donation = mix.lines.find((l) => l.id === "donation");
     assert.ok(donation);
+    assert.equal(donation.label, "Gift");
     assert.equal(donation.count, 1);
     assert.equal(donation.points, 100);
+    const listed = rows.filter((r) => rowMatchesTracker(r, trackerSpec("donation")));
+    assert.equal(listed.length, 1);
   });
 
   it("filters rows to a tracker category", () => {
