@@ -70,7 +70,7 @@ const config = require("./config.js") as {
     gifts: Array<{ label: string; detail: string }>;
     rows: Array<{ tracker: string; type: string; pts: number }>;
   };
-  SETTINGS: { evalStart: string };
+  SETTINGS: { evalStart: string; giftNoteDaysBefore: number; giftReviewDaysBefore: number };
   evalStartDate: () => Date;
   MA_ROSTER: Array<{ name: string; short?: string; email?: string }>;
   noteTypeForIncoming: (kind?: string, assist?: boolean) => string;
