@@ -569,10 +569,10 @@ function donationRow(record, owner) {
   const label = assist
     ? "Assist (dollars not counted)"
     : increase
-      ? `AC increase ($${priorMonthly} → $${newMonthly}/mo, annualized ×12)`
+      ? `Gift · AC increase ($${priorMonthly} → $${newMonthly}/mo, ×12)`
       : monthly
-        ? "Monthly gift (annualized ×12)"
-        : "Donation received";
+        ? "Gift (monthly ×12)"
+        : "Gift";
   return {
     owner, type: "Gift", points: 0, amount: assist ? 0 : amount, postedAmount, annualized: monthly,
     acIncrease: increase, priorMonthly: priorMonthly || null, newMonthly: increase ? newMonthly : null,
@@ -680,14 +680,15 @@ function markAssist(gift) {
 /**
  * Score MA activity notes (and optional gifts) into a flat list of scored rows.
  *
- * Donation notes (bucket "gift") award 100 pts only after they pair with a
- * posted gift of amount > 0 on the same contact within 45 days of the note
- * (before or after — MAs often log the note after the gift posts). Points
- * are moved onto that gift's week. Unmatched donation notes
- * score 0 and leave the gift bucket. Gift Assist is the same 100 pts but does
- * not count dollars. A new monthly Recurring Gift is one gift (annualized
- * dollars) and one 100-pt credit; later installments of that commitment are
- * dropped in prepareGifts. An AC raise credits only (new − prior monthly) × 12.
+ * A received gift is one row: label Gift, the dollars, and 100 points.
+ * A donation note awards those points only after it pairs with a posted gift
+ * of amount > 0 on the same contact within 45 days. Points land on the gift's
+ * week. The note is not listed again. Unmatched donation notes score 0 and
+ * leave the gift bucket. Gift Assist is the same 100 pts but does not count
+ * dollars, and stays on its own row. A new monthly Recurring Gift is one gift
+ * (annualized dollars) and one 100-pt credit; later installments of that
+ * commitment are dropped in prepareGifts. An AC raise credits only
+ * (new − prior monthly) × 12.
  *
  * Posted gifts on a contact with a conversation/meeting in the 45-day window
  * and no matching donation or Gift Assist note become bucket "possible"
@@ -754,7 +755,6 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
         const credited = {
           ...r,
           source: "contact",
-          label: "Contact before the gift",
           contactName: r.contactName || contacts[0].note.contactName || "",
           mgoAssigned: isMgoAttributedGift(g) ? true : undefined,
         };
@@ -780,7 +780,7 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
             kind: "gala",
             kindLabel: "Gala",
             source: "gala",
-            label: "Gala tickets",
+            label: "Gift · Gala",
           };
           rows.push(credited);
           scoredGifts.push(credited);
@@ -889,24 +889,21 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
     securedPts.add(key);
     if (g.giftId != null) securedIds.add(String(g.giftId));
   }
-  for (const g of scoredGifts) {
-    if (g.assist) continue;
-    if ((g.amount || 0) <= 0) continue;
-    const key = `${g.giftId}:${g.owner}`;
-    if (securedPts.has(key)) continue;
-    rows.push({
-      owner: g.owner,
-      type: "Mission Advancement | New Donation or New AC",
-      points: 100,
-      bucket: "gift",
-      label: "Secured gift",
-      day: g.day, date: g.date, weekday: g.weekday,
-      contactId: g.contactId, contactName: g.contactName || "",
-      giftId: g.giftId, giftAmount: g.postedAmount || g.amount || 0,
-      source: "raised-backfill",
-    });
-    securedPts.add(key);
-    if (g.giftId != null) securedIds.add(String(g.giftId));
+  // One activity per received gift. The 100 points sit on that row.
+  // The Virtuous note that secured it is not a second row.
+  const raisedByKey = new Map();
+  for (const row of rows) {
+    if (row.bucket !== "donation" || row.assist || row.needsReview) continue;
+    if ((row.amount || 0) <= 0 || row.giftId == null) continue;
+    row.points = 100;
+    raisedByKey.set(`${row.giftId}:${row.owner}`, row);
+    securedIds.add(String(row.giftId));
+  }
+  for (const note of donationNotes) {
+    if (note.assist || note.unmatched || note.giftId == null) continue;
+    if (!raisedByKey.has(`${note.giftId}:${note.owner}`)) continue;
+    note.points = 0;
+    note.folded = true;
   }
 
   const raisedById = new Map(scoredGifts.map((g) => [String(g.giftId), g]));
@@ -985,7 +982,7 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
     });
   }
 
-  return rows.filter((r) => !(r.bucket === "donation" && (r.amount || 0) <= 0));
+  return rows.filter((r) => !r.folded && !(r.bucket === "donation" && (r.amount || 0) <= 0));
 }
 
 /** Score matched events for the display-only reference table. */

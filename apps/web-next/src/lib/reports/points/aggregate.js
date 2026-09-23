@@ -81,24 +81,18 @@ function matchTrackerLeaf(leaf, rows) {
 }
 
 /**
- * Donation is posted gifts (Raised), not only New Donation notes. Count is
- * those gifts; points are the 100-pt secured-gift notes (not Gift Assist).
+ * Gift is one row per posted gift. Count and points both come from that row
+ * (100 pts on the gift, not a second note row). Gift Assist is separate.
  */
-function matchDonationLeaf(leaf, all, scored) {
-  const gifts = all.filter((r) => r.bucket === "donation" && (r.amount || 0) > 0 && !r.assist);
-  const types = new Set((leaf.types || []).map((t) => String(t).toLowerCase()));
-  const notes = scored.filter((r) => {
-    if (r.assist) return false;
-    const type = (r.type || "").trim().toLowerCase();
-    return types.has(type) && (r.points || 0) > 0;
-  });
+function matchDonationLeaf(leaf, all) {
+  const gifts = all.filter((r) => r.bucket === "donation" && (r.amount || 0) > 0 && !r.assist && !r.needsReview);
   return {
     id: leaf.id,
     label: leaf.label,
     section: false,
     indent: false,
     count: gifts.length,
-    points: notes.reduce((s, r) => s + (r.points || 0), 0),
+    points: gifts.reduce((s, r) => s + (r.points || 0), 0),
   };
 }
 
@@ -130,7 +124,7 @@ export function trackerBreakdown(rows, layout = TRACKER_LAYOUT) {
       totalCount += count;
     } else {
       const rec = group.id === "donation"
-        ? matchDonationLeaf(group, all, scored)
+        ? matchDonationLeaf(group, all)
         : matchTrackerLeaf(group, scored);
       lines.push(rec);
       totalPoints += rec.points;
@@ -417,8 +411,8 @@ export function personalBests(tableOwners, weekGrid) {
 export function dailyTotals(rows) {
   const map = new Map();
   for (const r of rows) {
-    if (r.removed) continue;
-    if (r.bucket === "donation" || r.bucket === "possible") continue;
+    if (r.removed || r.folded) continue;
+    if (r.bucket === "possible") continue;
     const rec = map.get(r.day) || { day: r.day, date: r.date, points: 0 };
     rec.points += r.points || 0;
     map.set(r.day, rec);
