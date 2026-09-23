@@ -2,7 +2,7 @@
  * points.js — the scoring engine. Pure functions, no DOM, no I/O.
  * Turns raw Virtuous records into scored activity rows entirely client-side.
  */
-import { POINTS_MAP, EVENT_POINTS_PER_HOUR, TRACKED_EVENT_TYPES, SETTINGS, MA_NAMES, MA_ROSTER } from "./config.js";
+import { POINTS_MAP, EVENT_POINTS_PER_HOUR, TRACKED_EVENT_TYPES, RETIRED_TRACKED_EVENT_TYPES, SETTINGS, MA_NAMES, MA_ROSTER } from "./config.js";
 
 /** Normalize a Virtuous date string ("8/4/2026" or ISO) to a Date (local). */
 export function parseDate(value) {
@@ -1053,7 +1053,9 @@ export function scoreEventsForDisplay(events = []) {
   return events.map(scoreEvent).filter(Boolean);
 }
 
-const trackedTypeById = new Map(TRACKED_EVENT_TYPES.map((t) => [t.id, t]));
+const trackedTypeById = new Map(
+  [...TRACKED_EVENT_TYPES, ...RETIRED_TRACKED_EVENT_TYPES].map((t) => [t.id, t]),
+);
 
 /** YYYY-MM-DD as a local calendar date (not UTC midnight). */
 function parseLocalDay(value) {
@@ -1093,7 +1095,8 @@ export function scoreTrackedEvent(event) {
   if (!Number.isFinite(hours) || hours <= 0) return null;
   const points = eventPointsForHours(hours);
   if (points <= 0) return null;
-  const preset = trackedTypeById.get(event.eventType) || TRACKED_EVENT_TYPES.find((t) => t.type === event.eventType);
+  const preset = trackedTypeById.get(event.eventType)
+    || [...TRACKED_EVENT_TYPES, ...RETIRED_TRACKED_EVENT_TYPES].find((t) => t.type === event.eventType);
   const type = preset?.type || String(event.eventType || "Mission Advancement | Event").trim();
   const typeLabel = preset?.label || type;
   const name = String(event.name || "").trim();
