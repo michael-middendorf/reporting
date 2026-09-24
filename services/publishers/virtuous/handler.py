@@ -75,6 +75,13 @@ class VirtuousClient:
                     continue
                 detail = exc.read().decode("utf-8", errors="replace")[:500]
                 raise RuntimeError(f"Virtuous {path} → {exc.code}: {detail}") from exc
+            except (TimeoutError, urllib.error.URLError) as exc:
+                # Virtuous read timeouts (RecurringGift/Query ~03:30Z, ~10:30Z)
+                # are transient; retry them like a 5xx.
+                if attempt < 5:
+                    time.sleep(min(30, 2 * (attempt + 1)))
+                    continue
+                raise RuntimeError(f"Virtuous {path} timed out after retries: {exc}") from exc
         raise RuntimeError(f"Virtuous {path} failed after retries")
 
 
