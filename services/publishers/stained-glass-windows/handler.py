@@ -239,12 +239,21 @@ def match_window(
     return None
 
 
-def _gift_payload(gift: dict[str, Any], raw: str | None, specifics: str | None, project: str | None) -> dict[str, Any]:
+def _gift_payload(
+    gift: dict[str, Any],
+    raw: str | None,
+    specifics: str | None,
+    project: str | None,
+    anonymous_ids: frozenset[str] | None,
+) -> dict[str, Any]:
+    from common.anonymous_donors import gift_contact_ids, is_anonymous_donor
+
     cid = gift.get("contactId")
     return {
         "id": gift.get("id"),
         "contactId": cid,
         "donorName": _donor_name(gift),
+        "anonymousDonor": is_anonymous_donor(gift_contact_ids(gift), anonymous_ids),
         "contactUrl": _contact_url(cid),
         "amount": round(_num(gift.get("amount")), 2),
         "giftDate": _gift_date(gift),
@@ -314,7 +323,12 @@ def _group_summary(windows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def build_snapshot(gifts: list[dict[str, Any]], inventory: list[dict[str, Any]]) -> dict[str, Any]:
+def build_snapshot(
+    gifts: list[dict[str, Any]],
+    inventory: list[dict[str, Any]],
+    *,
+    anonymous_ids: frozenset[str] | None = None,
+) -> dict[str, Any]:
     prepared: list[dict[str, Any]] = []
     by_object: dict[str, dict[str, Any]] = {}
     by_fold: dict[str, dict[str, Any]] = {}
@@ -355,7 +369,7 @@ def build_snapshot(gifts: list[dict[str, Any]], inventory: list[dict[str, Any]])
         if matched is None:
             skipped_not_window += 1
             continue
-        payload = _gift_payload(gift, raw, specifics, chapel_des[0].get("project"))
+        payload = _gift_payload(gift, raw, specifics, chapel_des[0].get("project"), anonymous_ids)
         mid = matched["id"]
         if matched.get("extra"):
             extras[mid] = matched
@@ -491,7 +505,9 @@ def handler(event: dict[str, Any] | None = None, context: Any = None) -> dict[st
         page_size=100,
     )
     print(f"  stained glass gifts fetched: {len(gifts)}", flush=True)
-    snapshot = build_snapshot(gifts, load_inventory())
+    from common.anonymous_donors import anonymous_contact_ids
+
+    snapshot = build_snapshot(gifts, load_inventory(), anonymous_ids=anonymous_contact_ids(client))
     from common.s3util import put_json
 
     uri = put_json(CACHE_KEY, snapshot)

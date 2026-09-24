@@ -22,6 +22,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+from common.anonymous_donors import anonymous_contact_ids, gift_contact_ids, is_anonymous_donor
 from common.s3util import data_bucket, put_json
 
 FULL_GIFT_PATH = "/api/Gift/Query/FullGift"
@@ -181,7 +182,12 @@ def load_catalog() -> list[dict[str, Any]]:
     raise FileNotFoundError(f"chapel naming catalog.json not found (tried {tried})")
 
 
-def build_snapshot(gifts: list[dict[str, Any]], catalog: list[dict[str, Any]]) -> dict[str, Any]:
+def build_snapshot(
+    gifts: list[dict[str, Any]],
+    catalog: list[dict[str, Any]],
+    *,
+    anonymous_ids: frozenset[str] | None = None,
+) -> dict[str, Any]:
     by_object: dict[str, list[dict[str, Any]]] = defaultdict(list)
     skipped_project = 0
     skipped_parse = 0
@@ -202,6 +208,7 @@ def build_snapshot(gifts: list[dict[str, Any]], catalog: list[dict[str, Any]]) -
                 "id": gift.get("id"),
                 "contactId": gift.get("contactId"),
                 "donorName": _donor_name(gift),
+                "anonymousDonor": is_anonymous_donor(gift_contact_ids(gift), anonymous_ids),
                 "amount": round(_num(gift.get("amount")), 2),
                 "giftDate": _gift_date(gift),
                 "project": project,
@@ -318,7 +325,7 @@ def handler(event: dict[str, Any] | None = None, context: Any = None) -> dict[st
         page_size=100,
     )
     print(f"  chapel naming gifts fetched: {len(gifts)}", flush=True)
-    snapshot = build_snapshot(gifts, load_catalog())
+    snapshot = build_snapshot(gifts, load_catalog(), anonymous_ids=anonymous_contact_ids(client))
     uri = put_json(CACHE_KEY, snapshot)
     snapshot["cache"] = uri
     return snapshot

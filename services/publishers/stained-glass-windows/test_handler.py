@@ -182,6 +182,18 @@ class SnapshotTests(unittest.TestCase):
         ]
         snap = build_snapshot(gifts, _inventory())
         by_id = {w["id"]: w for w in snap["windows"]}
+        flags = {
+            g["donorName"]: g["anonymousDonor"]
+            for w in snap["windows"] for g in w.get("gifts") or []
+        }
+        self.assertTrue(flags and all(flags.values()))  # tag lookup unknown: fail closed
+        tagged = build_snapshot(gifts, _inventory(), anonymous_ids=frozenset({"10"}))
+        tagged_flags = {
+            str(g["contactId"]): g["anonymousDonor"]
+            for w in tagged["windows"] for g in w.get("gifts") or []
+        }
+        self.assertTrue(tagged_flags.pop("10", True))
+        self.assertTrue(tagged_flags and not any(tagged_flags.values()))
 
         self.assertEqual(snap["summary"]["windowCount"], 39)
         self.assertEqual(snap["summary"]["fullyFunded"], 2)  # Francis + Annunciation

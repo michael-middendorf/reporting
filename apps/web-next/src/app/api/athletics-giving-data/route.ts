@@ -7,6 +7,7 @@ import {
   type AthleticsGivingSnapshot,
 } from "@/lib/reports/athletics-giving/shape";
 import { isMissingSource, readJson } from "@/lib/sources";
+import { redactAnonymousDonors } from "@/lib/reports/anonymous-donors";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,7 @@ export async function GET(req: Request) {
         { status: 503 },
       );
     }
-    return NextResponse.json(cache, {
+    return NextResponse.json(redactAnonymousDonors(cache, email), {
       headers: { "Cache-Control": "private, max-age=60" },
     });
   } catch (error) {
