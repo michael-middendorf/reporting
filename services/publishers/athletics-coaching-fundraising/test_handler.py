@@ -8,6 +8,7 @@ from typing import Any
 from urllib.parse import unquote
 
 from handler import (
+    CONTACT_QUERY_PATH,
     FORBIDDEN_CODES,
     FULL_GIFT_PATH,
     GIFT_DESIGNATION_QUERY_PATH,
@@ -36,6 +37,7 @@ def _des(
     gift_date: str,
     gift_id: int | None = 1,
     contact_name: str | None = None,
+    contact_id: int | None = None,
 ) -> dict[str, Any]:
     row: dict[str, Any] = {
         "projectCode": code,
@@ -46,7 +48,13 @@ def _des(
         row["giftId"] = gift_id
     if contact_name is not None:
         row["contactName"] = contact_name
+    if contact_id is not None:
+        row["contactId"] = contact_id
     return row
+
+
+# A tagged contact that matches no test gift, so the tag lookup succeeds.
+UNRELATED_ANON = frozenset({"424242"})
 
 
 class FakeClient:
@@ -55,10 +63,14 @@ class FakeClient:
         projects: dict[str, dict[str, Any] | None],
         designations: dict[str, list[dict[str, Any]]],
         full_gifts: dict[str, list[dict[str, Any]]] | None = None,
+        anonymous_contacts: list[dict[str, Any]] | Exception | None = None,
     ):
         self.projects = projects
         self.designations = designations
         self.full_gifts = full_gifts or {}
+        self.anonymous_contacts = (
+            [{"id": 424242}] if anonymous_contacts is None else anonymous_contacts
+        )
         self.paths: list[str] = []
 
     def get(self, path: str) -> Any:
@@ -70,6 +82,10 @@ class FakeClient:
     def paged_query(self, path: str, body: dict[str, Any], page_size: int = 1000) -> list[dict]:
         del page_size
         self.paths.append(path)
+        if path == CONTACT_QUERY_PATH:
+            if isinstance(self.anonymous_contacts, Exception):
+                raise self.anonymous_contacts
+            return list(self.anonymous_contacts)
         code = body["groups"][0]["conditions"][0]["value"]
         if path == FULL_GIFT_PATH:
             return list(self.full_gifts.get(code, []))
@@ -419,7 +435,8 @@ class GiftListTests(unittest.TestCase):
             [{"id": 31, "contactName": "Pat Kim", "isAnonymous": True}]
         )
         gifts = gifts_from_designations(
-            "6552FB", rows, name_map, dt.date(2026, 7, 1), dt.date(2027, 6, 30)
+            "6552FB", rows, name_map, dt.date(2026, 7, 1), dt.date(2027, 6, 30),
+            anonymous_ids=UNRELATED_ANON,
         )
         self.assertEqual(gifts[0]["donorName"], "Anonymous")
 
@@ -438,7 +455,8 @@ class GiftListTests(unittest.TestCase):
             [{"id": 41, "giftPassthroughs": [{"contactName": "Riley Chen"}]}]
         )
         gifts = gifts_from_designations(
-            "6552FB", rows, name_map, dt.date(2026, 7, 1), dt.date(2027, 6, 30)
+            "6552FB", rows, name_map, dt.date(2026, 7, 1), dt.date(2027, 6, 30),
+            anonymous_ids=UNRELATED_ANON,
         )
         by_date = {g["giftDate"]: g["donorName"] for g in gifts}
         self.assertEqual(by_date["2026-08-01"], "Riley Chen")
@@ -455,6 +473,7 @@ class GiftListTests(unittest.TestCase):
             names_from_full_gifts([{"id": 51, "contactName": "Casey Ng"}]),
             dt.date(2026, 7, 1),
             dt.date(2027, 6, 30),
+            anonymous_ids=UNRELATED_ANON,
         )
         self.assertEqual(len(gifts), 1)
         self.assertEqual(gifts[0]["amount"], 50.0)
@@ -471,10 +490,56 @@ class GiftListTests(unittest.TestCase):
             names_from_full_gifts([{"id": 61, "contactName": "Morgan Blake"}]),
             dt.date(2026, 7, 1),
             dt.date(2027, 6, 30),
+            anonymous_ids=UNRELATED_ANON,
         )
         self.assertEqual(len(gifts), 1)
         self.assertEqual(gifts[0]["donorName"], "Morgan Blake")
         self.assertEqual(gifts[0]["amount"], 80.0)
+
+
+class AnonymousDonorTagTests(unittest.TestCase):
+    def _snapshot(self, anonymous_contacts):
+        sports = [{"key": "football", "projectCode": "6552FB"}]
+        client = FakeClient(
+            {"6552FB": {"raisedAmount": 70, "giftAmount": 2}},
+            {"6552FB": [
+                _des(code="6552FB", amount=30, gift_date="2026-08-01", gift_id=71,
+                     contact_name="Jordan Tagged", contact_id=7001),
+                _des(code="6552FB", amount=40, gift_date="2026-08-02", gift_id=72,
+                     contact_name="Alex Public", contact_id=7002),
+            ]},
+            {},
+            anonymous_contacts=anonymous_contacts,
+        )
+        snap = collect_snapshot(
+            client, sports, today=dt.date(2026, 9, 3), generated_at="2026-09-03T12:00:00Z"
+        )
+        return {g["giftDate"]: g["donorName"] for g in snap["sports"]["football"]["gifts"]}
+
+    def test_tagged_contact_is_anonymous(self):
+        names = self._snapshot([{"id": 7001}])
+        self.assertEqual(names["2026-08-01"], "Anonymous")
+        self.assertEqual(names["2026-08-02"], "Alex Public")
+
+    def test_tag_lookup_failure_hides_every_name(self):
+        names = self._snapshot(RuntimeError("Virtuous /api/Contact/Query -> 400"))
+        self.assertEqual(set(names.values()), {"Anonymous"})
+
+    def test_empty_tag_lookup_hides_every_name(self):
+        names = self._snapshot([])
+        self.assertEqual(set(names.values()), {"Anonymous"})
+
+    def test_tagged_passthrough_contact_is_anonymous(self):
+        rows = [_des(code="6552FB", amount=10, gift_date="2026-08-01", gift_id=81)]
+        name_map = names_from_full_gifts(
+            [{"id": 81, "contactId": 8001,
+              "giftPassthroughs": [{"contactId": 8002, "contactName": "Riley Chen"}]}]
+        )
+        gifts = gifts_from_designations(
+            "6552FB", rows, name_map, dt.date(2026, 7, 1), dt.date(2027, 6, 30),
+            anonymous_ids=frozenset({"8001"}),
+        )
+        self.assertEqual(gifts[0]["donorName"], "Anonymous")
 
 
 if __name__ == "__main__":
