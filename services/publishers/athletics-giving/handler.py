@@ -357,10 +357,16 @@ def build_snapshot(
     *,
     today: dt.date,
     generated_at: str,
+    anonymous_ids: frozenset[str] | None = None,
 ) -> dict[str, Any]:
     fy, fy_start, fy_end = fiscal_year_window(today)
     since = previous_fiscal_year_start(fy_start)
     rows = [row for row in (normalize_row(raw) for raw in unique_designations(raw_rows)) if row]
+    from common.anonymous_donors import is_anonymous_donor
+
+    for row in rows:
+        contact = {str(row["contactId"])} if row.get("contactId") is not None else set()
+        row["anonymousDonor"] = is_anonymous_donor(contact, anonymous_ids)
     rows = [
         row
         for row in rows
@@ -422,7 +428,14 @@ def handler(event: dict[str, Any] | None = None, context: Any = None) -> dict[st
         flush=True,
     )
     raw = client.paged_query(GIFT_DESIGNATION_QUERY_PATH, designation_query(since))
-    snapshot = build_snapshot(raw, today=today, generated_at=now.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    from common.anonymous_donors import anonymous_contact_ids
+
+    snapshot = build_snapshot(
+        raw,
+        today=today,
+        generated_at=now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        anonymous_ids=anonymous_contact_ids(client),
+    )
     from common.s3util import put_json
 
     uri = put_json(CACHE_KEY, snapshot)

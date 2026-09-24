@@ -238,6 +238,14 @@ class SnapshotTests(unittest.TestCase):
         )
         self.assertEqual(snap["source"], "virtuous")
         self.assertEqual(snap["fiscalYearLabel"], "FY 2026-27")
+        self.assertTrue(all(g["anonymousDonor"] for g in snap["gifts"]))  # unknown: fail closed
+        tagged = build_snapshot(
+            raw,
+            today=dt.date(2026, 9, 14),
+            generated_at="2026-09-14T18:00:00Z",
+            anonymous_ids=frozenset({"10"}),
+        )
+        self.assertTrue(all(g["anonymousDonor"] == (str(g["contactId"]) == "10") for g in tagged["gifts"]))
         self.assertEqual(snap["since"], "2025-07-01")
         self.assertEqual(snap["weekly"]["giftCount"], 2)
         self.assertEqual(snap["weekly"]["amount"], 456.28)

@@ -1,6 +1,8 @@
 import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
+import { currentUserEmail } from "@/lib/auth";
+import { redactAnonymousDonors } from "@/lib/reports/anonymous-donors";
 import { requireReportAccess } from "@/lib/s3-proxy";
 import type { StainedGlassSnapshot } from "@/lib/reports/stained-glass-windows/shape";
 
@@ -52,10 +54,11 @@ async function invokeBuild(): Promise<StainedGlassSnapshot | null> {
 export async function GET(req: Request) {
   const denied = requireReportAccess(req, "chapel");
   if (denied) return denied;
+  const viewer = currentUserEmail(req) ?? "";
 
   const cached = await readCache();
   if (cached?.windows) {
-    return NextResponse.json(cached, {
+    return NextResponse.json(redactAnonymousDonors(cached, viewer), {
       headers: { "Cache-Control": "private, max-age=30" },
     });
   }
@@ -63,7 +66,7 @@ export async function GET(req: Request) {
   try {
     const live = await invokeBuild();
     if (live?.windows) {
-      return NextResponse.json(live, {
+      return NextResponse.json(redactAnonymousDonors(live, viewer), {
         headers: { "Cache-Control": "private, max-age=30" },
       });
     }
