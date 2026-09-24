@@ -41,7 +41,7 @@ export type AcTexting = {
   replies: number;
   sameDayPct: number | null;
   within1DayPct: number | null;
-  medianReplyDays: number | null;
+  avgReplyDays: number | null;
   awaiting: number;
 };
 
@@ -53,7 +53,7 @@ export const EMPTY_AC_TEXTING: AcTexting = {
   replies: 0,
   sameDayPct: null,
   within1DayPct: null,
-  medianReplyDays: null,
+  avgReplyDays: null,
   awaiting: 0,
 };
 

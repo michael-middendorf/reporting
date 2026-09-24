@@ -95,7 +95,9 @@ export default function ActivityPage() {
   }));
   const touchFor = (ac: string): AcTouchpoints => touchByAC?.[ac] ?? EMPTY_AC_TOUCHPOINTS;
   const textFor = (ac: string): AcTexting => texting?.byAC[ac] ?? EMPTY_AC_TEXTING;
-  const textRows: [string, string][] = rows.map(([ac]) => [ac, acShort(ac)]);
+  const textRows: [string, string][] = rows
+    .filter(([ac]) => ac !== "" || textFor(ac).sent > 0 || textFor(ac).received > 0)
+    .map(([ac]) => [ac, acShort(ac)]);
   const shared = texting?.byAC[SHARED_TEXT_LINE];
   if (shared && (shared.sent || shared.received)) textRows.push([SHARED_TEXT_LINE, "Shared line"]);
   const textBars = textRows
@@ -185,7 +187,7 @@ export default function ActivityPage() {
                   <th><MetricLabel label="Student Texts In" info={DEFS.textsReceived} /></th>
                   <th><MetricLabel label="Replied Same Day" info={DEFS.sameDay} /></th>
                   <th><MetricLabel label="Within 1 Day" info={DEFS.within1Day} /></th>
-                  <th><MetricLabel label="Median Reply" info={DEFS.medianReply} /></th>
+                  <th><MetricLabel label="Avg Reply" info={DEFS.avgReply} /></th>
                   <th><MetricLabel label="Awaiting Reply" info={DEFS.awaiting} flip /></th>
                 </tr>
               </thead>
@@ -201,7 +203,7 @@ export default function ActivityPage() {
                       <td>{fmt(t.received)}</td>
                       <td>{pct(t.sameDayPct)}</td>
                       <td>{pct(t.within1DayPct)}</td>
-                      <td>{days(t.medianReplyDays)}</td>
+                      <td>{days(t.avgReplyDays)}</td>
                       <td>{fmt(t.awaiting)}</td>
                     </tr>
                   );

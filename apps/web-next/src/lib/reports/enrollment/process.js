@@ -316,7 +316,7 @@ export function _procTexting(admRows, messageRows) {
       replies: n,
       sameDayPct: n ? a.waits.filter(w => w === 0).length / n * 100 : null,
       within1DayPct: n ? a.waits.filter(w => w <= 1).length / n * 100 : null,
-      medianReplyDays: n ? _median(a.waits) : null,
+      avgReplyDays: n ? _avg(a.waits) : null,
       awaiting: a.awaiting,
     };
   });

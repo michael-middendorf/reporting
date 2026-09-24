@@ -79,7 +79,7 @@ export const DEFS = {
   sameDay:
     "Of student texts that were waiting on a reply, the share the counselor answered the same calendar day. Slate records the date only (no time), so a counselor text later that same day counts as same-day. Several student texts in a row count once, from the first one.",
   within1Day: "Same as Replied same day, but answered on the same day or the next day.",
-  medianReply: "Median days from a student's text to the counselor's next 1:1 text to that student. 0 = same day.",
+  avgReply: "Average days from a student's text to the counselor's next 1:1 text to that student. 0 = same day. Dates have no time of day, so a same-day reply counts as 0.",
   awaiting:
     "Threads where the student texted last and the counselor has not texted that student since. Some are conversation-enders (\"thanks!\") that need no reply.",
   acceptCodes: "Accepted apps in the current cycle, grouped by Accept Code (AT, CA, ADMI, CMRV, CTA, …).",
