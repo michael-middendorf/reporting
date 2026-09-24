@@ -59,6 +59,7 @@ EVENT_NAME_CONTAINS = (
     "Sponsorship",
 )
 # Keep in sync with athletics-coaching sports.ts plus general athletics funds.
+# 6625Cheer is historical giving only. Cheerleading is not a team in the sport catalog.
 ATHLETICS_PROJECT_CODES = (
     "6625Cheer",
     "6596Dance",

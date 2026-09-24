@@ -20,14 +20,6 @@ export type SportDef = {
  */
 export const SPORTS: SportDef[] = [
   {
-    key: "cheerleading",
-    label: "Cheerleading",
-    gender: "mixed",
-    slateNames: ["Cheerleading", "Cheer"],
-    givingSlug: "cheerleading",
-    virtuousProjectCode: "6625Cheer",
-  },
-  {
     key: "mens-cross-country",
     label: "Men's Cross Country",
     gender: "M",
@@ -184,7 +176,15 @@ export const sportByKey: Readonly<Record<string, SportDef>> = Object.fromEntries
   SPORTS.map((sport) => [sport.key, sport]),
 );
 
-const EXCLUDED = new Set(["marching band", "band", "color guard", "pickleball", "ireland"]);
+const EXCLUDED = new Set([
+  "marching band",
+  "band",
+  "color guard",
+  "pickleball",
+  "ireland",
+  "cheer",
+  "cheerleading",
+]);
 
 /** Extra folds for Slate currentsport / PersonSport and informal names. */
 const EXTRA_ALIASES: Record<string, string> = {
@@ -216,7 +216,6 @@ const EXTRA_ALIASES: Record<string, string> = {
   softball: "womens-softball",
   volleyball: "womens-volleyball",
   "w volleyball": "womens-volleyball",
-  cheer: "cheerleading",
   dance: "dance-team",
   "dance team": "dance-team",
   "competitive dance": "dance-team",
@@ -301,7 +300,7 @@ const GENDERED_SPORTS: Record<string, { M: string; F: string }> = {
 export function resolveSportKey(raw: string): string | null {
   const folded = fold(raw);
   if (!folded) return null;
-  if (EXCLUDED.has(folded) || folded.includes("pickleball")) return null;
+  if (EXCLUDED.has(folded) || folded.includes("pickleball") || folded.includes("cheer")) return null;
   if (GENDERED_SPORTS[folded]) return null;
   const key = LOOKUP[folded];
   return key && sportByKey[key] ? key : null;

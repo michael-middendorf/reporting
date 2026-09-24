@@ -68,6 +68,13 @@ describe("athletics eligibility sheet", () => {
           lastname: "Soccer",
           currentsport: "Soccer-Men",
         },
+        {
+          email: "cheer@avemaria.edu",
+          pcid: "P000000003",
+          firstname: "Casey",
+          lastname: "Cheer",
+          currentsport: "Cheerleading",
+        },
       ],
       [census({}), census({ pcid: "P000000002", email: "sam@avemaria.edu", sport: "Soccer", gender: "Male", credits: 12, gpa: 2.9, earnedCredits: 48 })],
       [census({ credits: 16 }), census({ pcid: "P000000002", email: "sam@avemaria.edu", credits: 13 })],

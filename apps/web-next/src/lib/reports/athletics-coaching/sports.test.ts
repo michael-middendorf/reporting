@@ -3,7 +3,6 @@ import { describe, it } from "node:test";
 import { ambiguousSportKeys, resolveGenderedSportKey, resolveSportKey, SPORTS, sportByKey } from "./sports";
 
 const VIRTUOUS_PROJECT_CODES: Record<string, string | null> = {
-  cheerleading: "6625Cheer",
   "mens-cross-country": "6578MXC",
   "womens-cross-country": "6580WXC",
   "dance-team": "6596Dance",
@@ -33,6 +32,7 @@ describe("athletics coaching sport catalog", () => {
       assert.equal(sportByKey[key]?.key, key);
     }
     assert.equal(keys.includes("marching-band"), false);
+    assert.equal(keys.includes("cheerleading"), false);
   });
 
   it("maps proven Virtuous project codes and leaves unresolved sports null", () => {
@@ -74,6 +74,9 @@ describe("athletics coaching sport catalog", () => {
     assert.equal(resolveSportKey("XC"), null);
     assert.equal(resolveSportKey("Marching Band"), null);
     assert.equal(resolveSportKey("Band"), null);
+    assert.equal(resolveSportKey("Cheerleading"), null);
+    assert.equal(resolveSportKey("Cheer"), null);
+    assert.equal(resolveSportKey("Pickleball"), null);
     assert.equal(resolveSportKey(""), null);
   });
 
