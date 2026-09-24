@@ -9,6 +9,7 @@ import {
   coachingLambdaPayload,
   coachingMfaUrl,
   isCoachingActionUnavailable,
+  isAspireduCallerDenied,
   matchedRosterRows,
   mergeOfficeHoursLedger,
   officeHoursLedgerObjectKey,
@@ -120,6 +121,15 @@ export async function GET(req: Request) {
       if (isCoachingActionUnavailable(error)) {
         return NextResponse.json({ error: COACHING_LAMBDA_UNAVAILABLE }, { status: 503, headers });
       }
+      // The AspireDU Lambda keeps its own allowlist; a caller this app admits
+      // can still be refused there. Report that as a denial, not an outage.
+      if (isAspireduCallerDenied(error)) {
+        console.warn("athletics-coaching academics: AspireDU denied caller", { sport: access.sport });
+        return NextResponse.json(
+          { error: "You do not have access to academic snapshots for this team." },
+          { status: 403, headers },
+        );
+      }
       throw error;
     }
     if (isCoachingActionUnavailable(lambdaResult)) {
@@ -172,8 +182,10 @@ export async function GET(req: Request) {
     if (isCoachingActionUnavailable(error)) {
       return NextResponse.json({ error: COACHING_LAMBDA_UNAVAILABLE }, { status: 503, headers });
     }
+    // Never echo the error: Lambda failures carry the raw payload and stack.
+    console.error("athletics-coaching academics failed", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to load academic snapshots" },
+      { error: "Unable to load academic snapshots" },
       { status: 503, headers },
     );
   }

@@ -17,6 +17,7 @@ import {
   firstSeenBelowAB,
   gpaPointsFromPercent,
   isAB,
+  isAspireduCallerDenied,
   isCoachingActionUnavailable,
   letterFromPercent,
   matchedRosterRows,
@@ -580,6 +581,17 @@ describe("coaching Lambda unavailable", () => {
     assert.equal(isCoachingActionUnavailable(new Error("Processor error: unsupported action")), true);
     assert.equal(isCoachingActionUnavailable(new Error('Processor error: {"errorMessage":"unknown action"}')), true);
     assert.equal(isCoachingActionUnavailable({ ok: true, students: [] }), false);
+  });
+});
+
+describe("AspireDU caller denied", () => {
+  it("recognizes the Lambda allowlist refusal and nothing else", () => {
+    const denied = new Error(
+      'Processor error: {"errorType":"Error","errorMessage":"caller is not authorized for AspireDU coaching records"}',
+    );
+    assert.equal(isAspireduCallerDenied(denied), true);
+    assert.equal(isAspireduCallerDenied(new Error("Processor error: timeout")), false);
+    assert.equal(isAspireduCallerDenied("caller is not authorized"), false);
   });
 });
 
