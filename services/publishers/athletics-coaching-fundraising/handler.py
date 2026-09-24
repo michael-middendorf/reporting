@@ -255,7 +255,9 @@ def anonymous_contact_ids(client: Any) -> frozenset[str] | None:
         rows = client.paged_query(
             CONTACT_QUERY_PATH,
             {"groups": [{"conditions": [
-                {"parameter": "Tag", "operator": "Is", "value": ANONYMOUS_DONOR_TAG},
+                # Contact Query needs a values list for Tag (400 otherwise).
+                {"parameter": "Tag", "operator": "Is", "value": ANONYMOUS_DONOR_TAG,
+                 "values": [ANONYMOUS_DONOR_TAG]},
             ]}]},
         )
     except Exception as exc:  # noqa: BLE001
@@ -507,6 +509,15 @@ def designation_query(code: str, fy_start: dt.date | None = None, fy_end: dt.dat
     return {"groups": [{"conditions": conditions}]}
 
 
+def full_gift_query(code: str) -> dict[str, Any]:
+    """FullGift filter. Unlike GiftDesignation, Virtuous rejects a bare
+    ``value`` for Project Code here (400 "Values list must contain at least a
+    single value"), so send it as ``values`` too."""
+    return {"groups": [{"conditions": [
+        {"parameter": "Project Code", "operator": "Is", "value": code, "values": [code]},
+    ]}]}
+
+
 def _assert_allowed_code(code: str) -> None:
     if code in FORBIDDEN_CODES:
         raise RuntimeError(f"refusing forbidden project code {code}")
@@ -565,7 +576,7 @@ def collect_sport(
 
     name_map: dict[Any, dict[str, Any]] = {}
     try:
-        full_gifts = client.paged_query(FULL_GIFT_PATH, designation_query(code))
+        full_gifts = client.paged_query(FULL_GIFT_PATH, full_gift_query(code))
         name_map = names_from_full_gifts(full_gifts)
     except Exception as exc:  # noqa: BLE001
         print(f"  {key} full gift query failed: {type(exc).__name__}: {str(exc)[:200]}", flush=True)
