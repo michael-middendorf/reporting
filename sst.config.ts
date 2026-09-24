@@ -358,7 +358,9 @@ export default $config({
     const athleticsCoachingFundraising = new sst.aws.Function("AthleticsCoachingFundraisingData", {
       handler: "services/publishers/athletics-coaching-fundraising/handler.handler",
       runtime: "python3.12",
-      timeout: "5 minutes",
+      // Normal runs take ~140s; the ~10:20 UTC run hits slow Virtuous and
+      // overran 5 minutes most days. Still under the 15-minute schedule.
+      timeout: "10 minutes",
       memory: "1024 MB",
       link: [data],
       python: { uv: true },
