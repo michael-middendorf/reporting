@@ -27,6 +27,7 @@ export const ENROLLMENT_NAV: ReportNavItem[] = [
   { href: "/enrollment/admissions", label: "Admissions" },
   { href: "/enrollment/events", label: "Events" },
   { href: "/enrollment/withdrawals", label: "Withdrawals" },
+  { href: "/enrollment/activity", label: "Activity" },
 ];
 
 export const POINTS_NAV: ReportNavItem[] = [
@@ -129,7 +130,6 @@ const EXTRA_LEAVES: Crumb[] = [
   { href: "/athletics/coaching/mfa", label: "Authenticator" },
   { href: "/auth/mfa", label: "Authenticator" },
   { href: "/settings/security", label: "Security" },
-  { href: "/enrollment/activity", label: "Activity" },
 ];
 
 function folderForPath(pathname: string): ReportFolder | undefined {

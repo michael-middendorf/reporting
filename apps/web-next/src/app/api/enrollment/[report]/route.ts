@@ -1,8 +1,7 @@
 import { gzipSync } from "zlib";
 import { NextResponse } from "next/server";
-import { TOUCHPOINT_INTERACTION_CODES } from "@/lib/reports/enrollment/process.js";
 import { requireReportAccess } from "@/lib/s3-proxy";
-import { loadSourceRows, loadSourceRowsFiltered } from "@/lib/sources";
+import { loadSourceRows } from "@/lib/sources";
 
 /**
  * Enrollment report rows from sources/slate/{dataset}/_latest.
@@ -19,7 +18,8 @@ const REPORT_KEYS: Record<string, string> = {
   campus_visits: "campus_visits",
   ame: "ame",
   messages: "messages",
-  interactions: "interactions",
+  // Never serve the raw ~3.3M-row feed; the publisher derives this filtered subset.
+  interactions: "interactions_touchpoints",
   islc: "islc",
   slc_students: "slc_students",
 };
@@ -37,19 +37,7 @@ export async function GET(_req: Request, ctx: Ctx) {
   }
 
   try {
-    // The raw Interactions feed is ~3M rows / several hundred MB decompressed —
-    // too large to safely parse in full in this container. Stream + filter to
-    // counselor-touchpoint codes as we read, so the full feed is never held in
-    // memory at once (only the gzip stream and the ~35k matching rows).
-    const { rows, latest } =
-      dataset === "interactions"
-        ? await loadSourceRowsFiltered("slate", dataset, (r) =>
-            Object.prototype.hasOwnProperty.call(
-              TOUCHPOINT_INTERACTION_CODES,
-              (r as { InteractionCode?: string }).InteractionCode ?? "",
-            ),
-          )
-        : await loadSourceRows("slate", dataset);
+    const { rows, latest } = await loadSourceRows("slate", dataset);
     const json = JSON.stringify({ row: rows });
     const gz = gzipSync(Buffer.from(json, "utf-8"));
     return new NextResponse(gz, {
