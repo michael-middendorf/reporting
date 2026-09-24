@@ -41,18 +41,21 @@ export async function loadEnrollmentBundle(): Promise<EnrollmentBundle> {
     return apiFetch(path, init);
   };
 
-  const [admRows, pswRows, slcRows, islcRows, wdRows, campusRows, ameRows] = await Promise.all([
-    _dataFetch("admissions", session, fetchImpl),
-    _dataFetch("psw", session, fetchImpl),
-    _dataFetch("slc", session, fetchImpl),
-    _dataFetch("islc", session, fetchImpl).catch(() => []),
-    _dataFetch("withdrawn", session, fetchImpl),
-    _dataFetch("campus", session, fetchImpl).catch(() => []),
-    _dataFetch("ame", session, fetchImpl).catch(() => []),
-  ]);
+  const [admRows, pswRows, slcRows, islcRows, wdRows, campusRows, ameRows, messageRows, interactionRows] =
+    await Promise.all([
+      _dataFetch("admissions", session, fetchImpl),
+      _dataFetch("psw", session, fetchImpl),
+      _dataFetch("slc", session, fetchImpl),
+      _dataFetch("islc", session, fetchImpl).catch(() => []),
+      _dataFetch("withdrawn", session, fetchImpl),
+      _dataFetch("campus", session, fetchImpl).catch(() => []),
+      _dataFetch("ame", session, fetchImpl).catch(() => []),
+      _dataFetch("messages", session, fetchImpl).catch(() => []),
+      _dataFetch("interactions", session, fetchImpl).catch(() => []),
+    ]);
   return {
     generatedAt: session.generated_at,
-    admissions: _procAdm(admRows, session.generated_at),
+    admissions: _procAdm(admRows, session.generated_at, messageRows, interactionRows),
     psw: _procPSW(pswRows, session.generated_at),
     slc: _procSLC(slcRows, islcRows, session.generated_at),
     withdrawn: processWithdrawals(wdRows, admRows),
