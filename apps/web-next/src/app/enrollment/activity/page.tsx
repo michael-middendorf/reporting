@@ -187,7 +187,7 @@ export default function ActivityPage() {
                   <th><MetricLabel label="Student Texts In" info={DEFS.textsReceived} /></th>
                   <th><MetricLabel label="Replied Same Day" info={DEFS.sameDay} /></th>
                   <th><MetricLabel label="Within 1 Day" info={DEFS.within1Day} /></th>
-                  <th><MetricLabel label="Median Reply" info={DEFS.medianReply} /></th>
+                  <th><MetricLabel label="Avg Reply" info={DEFS.avgReply} /></th>
                   <th><MetricLabel label="Awaiting Reply" info={DEFS.awaiting} flip /></th>
                 </tr>
               </thead>
@@ -203,7 +203,7 @@ export default function ActivityPage() {
                       <td>{fmt(t.received)}</td>
                       <td>{pct(t.sameDayPct)}</td>
                       <td>{pct(t.within1DayPct)}</td>
-                      <td>{days(t.medianReplyDays)}</td>
+                      <td>{days(t.avgReplyDays)}</td>
                       <td>{fmt(t.awaiting)}</td>
                     </tr>
                   );
