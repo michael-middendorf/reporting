@@ -84,13 +84,15 @@ class FakeClient:
         del page_size
         self.paths.append(path)
         if path in (CONTACT_QUERY_PATH, FULL_GIFT_PATH):
-            # Virtuous 400s these two without a values list.
-            assert body["groups"][0]["conditions"][0].get("values"), path
+            # Virtuous 400s these two unless IsAnyOf + a values list.
+            cond = body["groups"][0]["conditions"][0]
+            assert cond.get("operator") == "IsAnyOf" and cond.get("values"), path
         if path == CONTACT_QUERY_PATH:
             if isinstance(self.anonymous_contacts, Exception):
                 raise self.anonymous_contacts
             return list(self.anonymous_contacts)
-        code = body["groups"][0]["conditions"][0]["value"]
+        cond = body["groups"][0]["conditions"][0]
+        code = cond["values"][0] if cond.get("values") else cond["value"]
         if path == FULL_GIFT_PATH:
             return list(self.full_gifts.get(code, []))
         return list(self.designations.get(code, []))
@@ -505,6 +507,7 @@ class FullGiftQueryTests(unittest.TestCase):
     def test_project_code_sent_as_values_list(self):
         cond = full_gift_query("6552FB")["groups"][0]["conditions"][0]
         self.assertEqual(cond["values"], ["6552FB"])
+        self.assertEqual(cond["operator"], "IsAnyOf")
         self.assertEqual(cond["parameter"], "Project Code")
 
 

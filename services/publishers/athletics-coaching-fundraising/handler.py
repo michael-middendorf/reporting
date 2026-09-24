@@ -255,9 +255,8 @@ def anonymous_contact_ids(client: Any) -> frozenset[str] | None:
         rows = client.paged_query(
             CONTACT_QUERY_PATH,
             {"groups": [{"conditions": [
-                # Contact Query needs a values list for Tag (400 otherwise).
-                {"parameter": "Tag", "operator": "Is", "value": ANONYMOUS_DONOR_TAG,
-                 "values": [ANONYMOUS_DONOR_TAG]},
+                # Tag is a list field: IsAnyOf/IsNoneOf only (Contact QueryOptions).
+                {"parameter": "Tag", "operator": "IsAnyOf", "values": [ANONYMOUS_DONOR_TAG]},
             ]}]},
         )
     except Exception as exc:  # noqa: BLE001
@@ -510,11 +509,11 @@ def designation_query(code: str, fy_start: dt.date | None = None, fy_end: dt.dat
 
 
 def full_gift_query(code: str) -> dict[str, Any]:
-    """FullGift filter. Unlike GiftDesignation, Virtuous rejects a bare
-    ``value`` for Project Code here (400 "Values list must contain at least a
-    single value"), so send it as ``values`` too."""
+    """FullGift filter. Unlike GiftDesignation, Gift/Contact queries treat
+    Project Code and Tag as list fields: the only operators are IsAnyOf and
+    IsNoneOf (GET /api/Gift/QueryOptions), with a ``values`` list."""
     return {"groups": [{"conditions": [
-        {"parameter": "Project Code", "operator": "Is", "value": code, "values": [code]},
+        {"parameter": "Project Code", "operator": "IsAnyOf", "values": [code]},
     ]}]}
 
 
