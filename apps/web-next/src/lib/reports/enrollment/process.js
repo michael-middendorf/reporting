@@ -31,8 +31,6 @@ export const TOUCHPOINT_INTERACTION_CODES = {
   video_message_sent: 'video',
   internal_note: 'note',
 };
-const SMS_OUTBOUND_CODES = new Set(['inbox_sms_sent', 'sms_message_sent']);
-const SMS_REPLY_CODE = 'sms_message_replied';
 
 /** Fetch a (possibly gzipped) JSON URL and return parsed object. */
 export async function _fetchJsonMaybeGzip(url, fetchImpl = fetch) {
@@ -174,12 +172,11 @@ export function _isViable(r) {
 }
 
 /**
- * Per-counselor outreach for one term's applicant cohort: SMS volume, whitelisted
- * touchpoints (calls/SMS/video/notes) per applicant, and a day-granularity proxy
- * for time-to-first-SMS-reply. Slate's messages/interactions feeds carry no actor
- * field, so attribution is via each applicant's *current* AC assignment.
+ * Per-counselor touchpoints for one term's applicant cohort (calls/SMS/video/notes
+ * from the interactions feed). The feed has no actor field, so attribution is via
+ * each applicant's current AC assignment.
  */
-function _outreachByAC(termRows, messageRows, interactionRows) {
+function _touchpointsByAC(termRows, interactionRows) {
   const personAc = new Map();
   termRows.forEach(r => {
     const pid = r.PersonReferenceID;
@@ -188,67 +185,143 @@ function _outreachByAC(termRows, messageRows, interactionRows) {
 
   const byAC = {};
   const touchedPersons = {};
-  const ensure = ac => {
-    if (!byAC[ac]) byAC[ac] = { sms: 0, touchpoints: 0, touchpointsPerApp: null, smsReplyDays: null };
-    if (!touchedPersons[ac]) touchedPersons[ac] = new Set();
-    return byAC[ac];
-  };
-
-  (messageRows || []).forEach(m => {
-    if (m.MessageMethod !== 'SMS') return;
-    const pid = m.MessagePersonReferenceID;
-    if (!personAc.has(pid)) return;
-    ensure(personAc.get(pid)).sms++;
-  });
-
-  const sendDates = new Map();
-  const replyDates = new Map();
   (interactionRows || []).forEach(ia => {
     const pid = ia.PersonReferenceID;
     if (!personAc.has(pid)) return;
-    const code = ia.InteractionCode;
-    if (!TOUCHPOINT_INTERACTION_CODES[code]) return;
+    if (!TOUCHPOINT_INTERACTION_CODES[ia.InteractionCode]) return;
     const ac = personAc.get(pid);
-    ensure(ac).touchpoints++;
+    if (!byAC[ac]) byAC[ac] = { touchpoints: 0, touchpointsPerApp: null };
+    if (!touchedPersons[ac]) touchedPersons[ac] = new Set();
+    byAC[ac].touchpoints++;
     touchedPersons[ac].add(pid);
-
-    const d = _parseDate(ia.InteractionDate);
-    if (!d) return;
-    if (SMS_OUTBOUND_CODES.has(code)) {
-      if (!sendDates.has(pid)) sendDates.set(pid, []);
-      sendDates.get(pid).push(d);
-    } else if (code === SMS_REPLY_CODE) {
-      if (!replyDates.has(pid)) replyDates.set(pid, []);
-      replyDates.get(pid).push(d);
-    }
-  });
-
-  const daysByAC = {};
-  replyDates.forEach((replies, pid) => {
-    const sends = (sendDates.get(pid) || []).slice().sort((a, b) => a - b);
-    if (!sends.length) return;
-    const ac = personAc.get(pid);
-    replies.forEach(replyDate => {
-      let prior = null;
-      for (const s of sends) {
-        if (s <= replyDate) prior = s;
-        else break;
-      }
-      if (!prior) return;
-      const days = (replyDate - prior) / 86400000;
-      if (days < 0) return;
-      if (!daysByAC[ac]) daysByAC[ac] = [];
-      daysByAC[ac].push(days);
-    });
   });
 
   Object.keys(byAC).forEach(ac => {
-    const touched = touchedPersons[ac] ? touchedPersons[ac].size : 0;
+    const touched = touchedPersons[ac].size;
     byAC[ac].touchpointsPerApp = touched ? byAC[ac].touchpoints / touched : null;
-    byAC[ac].smsReplyDays = daysByAC[ac] ? _median(daysByAC[ac]) : null;
+  });
+  return byAC;
+}
+
+export const SHARED_TEXT_LINE = '__shared__';
+
+/**
+ * 1:1 SMS conversations per counselor from the Slate messages feed (a rolling
+ * window — the query only returns recent messages). Ad Hoc Message = counselor's
+ * 1:1 text from their Slate number; External Message = inbound student text to
+ * that number. Bulk Deliver campaigns are excluded.
+ *
+ * Each Slate number is attributed to the counselor who is assigned to >=80% of
+ * the students it talks to; lower-concentration numbers are shared office lines.
+ *
+ * Reply time: per (number, student) thread, the clock starts at the first unanswered
+ * student text and stops at the counselor's next 1:1 text. Dates have no time of
+ * day, so a same-day counselor text counts as a same-day reply.
+ */
+export function _procTexting(admRows, messageRows) {
+  const adm = new Map();
+  (admRows || []).forEach(r => {
+    if (r.PersonReferenceID && !adm.has(r.PersonReferenceID)) adm.set(r.PersonReferenceID, r);
   });
 
-  return byAC;
+  const events = [];
+  let from = null;
+  let to = null;
+  (messageRows || []).forEach(m => {
+    if (m.MessageMethod !== 'SMS') return;
+    const d = _parseDate(m.MessageDeliveredDate);
+    const pid = m.MessagePersonReferenceID;
+    if (!d || !pid) return;
+    let line;
+    let out;
+    if (m.MessageType === 'Ad Hoc Message') {
+      line = m.MessageSender;
+      out = true;
+    } else if (m.MessageType === 'External Message') {
+      line = m.MessageRecipient;
+      out = false;
+    } else {
+      return;
+    }
+    if (!line) return;
+    events.push({ line, pid, d, out });
+    if (!from || d < from) from = d;
+    if (!to || d > to) to = d;
+  });
+
+  const tally = new Map();
+  events.forEach(e => {
+    const ac = adm.get(e.pid)?.ApplicationACAssignment || '';
+    if (!tally.has(e.line)) tally.set(e.line, new Map());
+    const t = tally.get(e.line);
+    t.set(ac, (t.get(ac) || 0) + 1);
+  });
+  const owner = new Map();
+  tally.forEach((t, line) => {
+    let total = 0;
+    let top = '';
+    let topN = 0;
+    t.forEach((n, ac) => {
+      total += n;
+      if (n > topN) { top = ac; topN = n; }
+    });
+    owner.set(line, total >= 20 && topN / total >= 0.8 ? top : SHARED_TEXT_LINE);
+  });
+
+  const threads = new Map();
+  events.forEach(e => {
+    const key = `${e.line}\u0000${e.pid}`;
+    if (!threads.has(key)) threads.set(key, { line: e.line, pid: e.pid, items: [] });
+    threads.get(key).items.push(e);
+  });
+
+  const acc = {};
+  const ensure = ac => {
+    if (!acc[ac]) {
+      acc[ac] = { sent: 0, received: 0, students: new Set(), viable: new Set(), waits: [], awaiting: 0 };
+    }
+    return acc[ac];
+  };
+  threads.forEach(({ line, pid, items }) => {
+    const a = ensure(owner.get(line));
+    // Same day: inbound sorts before outbound so a same-day counselor text closes it.
+    items.sort((x, y) => (x.d - y.d) || (x.out - y.out));
+    let clock = null;
+    items.forEach(e => {
+      if (e.out) {
+        a.sent++;
+        a.students.add(pid);
+        const r = adm.get(pid);
+        if (r && _isViable(r)) a.viable.add(pid);
+        if (clock) {
+          a.waits.push(Math.round((e.d - clock) / 86400000));
+          clock = null;
+        }
+      } else {
+        a.received++;
+        if (!clock) clock = e.d;
+      }
+    });
+    if (clock) a.awaiting++;
+  });
+
+  const byAC = {};
+  Object.entries(acc).forEach(([ac, a]) => {
+    const n = a.waits.length;
+    byAC[ac] = {
+      sent: a.sent,
+      studentsTexted: a.students.size,
+      viableTexted: a.viable.size,
+      received: a.received,
+      replies: n,
+      sameDayPct: n ? a.waits.filter(w => w === 0).length / n * 100 : null,
+      within1DayPct: n ? a.waits.filter(w => w <= 1).length / n * 100 : null,
+      medianReplyDays: n ? _median(a.waits) : null,
+      awaiting: a.awaiting,
+    };
+  });
+  const iso = d => (d ? _dateOnly(d).toISOString().slice(0, 10) : null);
+  return { byAC, from: iso(from), to: iso(to) };
 }
 
 /** 25/26 rating_1-4 only. Do not score 24/25 leftover (rating_0-3). */
@@ -569,10 +642,10 @@ function _isUndergraduate(r) {
   return false;
 }
 
-/** Per-AC outreach for one term's UG applicants; loaded separately from the main bundle. */
-export function _procOutreach(admRows, termKey, messageRows, interactionRows) {
+/** Per-AC touchpoints for one term's UG applicants; loaded separately from the main bundle. */
+export function _procTouchpoints(admRows, termKey, interactionRows) {
   const termRows = admRows.filter(r => _isUndergraduate(r) && r.ApplicationTerm === termKey);
-  return _outreachByAC(termRows, messageRows, interactionRows);
+  return _touchpointsByAC(termRows, interactionRows);
 }
 
 export function _procAdm(rows, asOf) {

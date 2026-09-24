@@ -23,22 +23,38 @@ export type AcFunnel = {
   viable: number;
 };
 
-export type AcOutreach = {
-  /** SMS sent, from the Slate messages feed. */
-  sms: number;
+export type AcTouchpoints = {
   /** Whitelisted calls/SMS/video/notes from the Slate interactions feed. */
   touchpoints: number;
   /** Touchpoints divided by distinct applicants touched. */
   touchpointsPerApp: number | null;
-  /** Median days from an outbound SMS to that applicant's next SMS reply — a day-granularity proxy, not true response time. */
-  smsReplyDays: number | null;
 };
 
-export const EMPTY_AC_OUTREACH: AcOutreach = {
-  sms: 0,
-  touchpoints: 0,
-  touchpointsPerApp: null,
-  smsReplyDays: null,
+export const EMPTY_AC_TOUCHPOINTS: AcTouchpoints = { touchpoints: 0, touchpointsPerApp: null };
+
+/** 1:1 SMS for one counselor over the messages feed's rolling window. */
+export type AcTexting = {
+  sent: number;
+  studentsTexted: number;
+  viableTexted: number;
+  received: number;
+  replies: number;
+  sameDayPct: number | null;
+  within1DayPct: number | null;
+  medianReplyDays: number | null;
+  awaiting: number;
+};
+
+export const EMPTY_AC_TEXTING: AcTexting = {
+  sent: 0,
+  studentsTexted: 0,
+  viableTexted: 0,
+  received: 0,
+  replies: 0,
+  sameDayPct: null,
+  within1DayPct: null,
+  medianReplyDays: null,
+  awaiting: 0,
 };
 
 export function emptyAcFunnel(): AcFunnel {

@@ -5,14 +5,27 @@ import { useEnrollment } from "../EnrollmentProvider";
 import { BarChart, MetricLabel, Section, acShort } from "@/components/enrollment/ui";
 import {
   activityByAC,
-  EMPTY_AC_OUTREACH,
+  EMPTY_AC_TEXTING,
+  EMPTY_AC_TOUCHPOINTS,
   type AcFunnel,
-  type AcOutreach,
+  type AcTexting,
+  type AcTouchpoints,
 } from "@/lib/reports/enrollment/counselors";
 import { cycleMeta, pickCurPrv } from "@/lib/reports/enrollment/cycle";
 import { DEFS } from "@/lib/reports/enrollment/defs";
 import { fmt, fmt1, loadOutreach, type OutreachRows } from "@/lib/reports/enrollment/load";
-import { _procOutreach } from "@/lib/reports/enrollment/process.js";
+import {
+  SHARED_TEXT_LINE,
+  _procTexting,
+  _procTouchpoints,
+} from "@/lib/reports/enrollment/process.js";
+
+const pct = (n: number | null) => (n == null ? "—" : `${Math.round(n)}%`);
+const days = (n: number | null) => (n == null ? "—" : n === 0 ? "Same day" : `${fmt1(n)}d`);
+const shortDate = (iso: string | null) =>
+  iso
+    ? new Date(`${iso}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : "";
 
 export default function ActivityPage() {
   const { data, loading, error, cycle } = useEnrollment();
@@ -33,15 +46,23 @@ export default function ActivityPage() {
     };
   }, []);
 
-  const outreachByAC = useMemo(() => {
+  const touchByAC = useMemo(() => {
     if (!data || !outreachRows) return null;
-    return _procOutreach(
+    return _procTouchpoints(
       data.admissions.allRows,
       cycleMeta(cycle).curKey,
-      outreachRows.messageRows,
       outreachRows.interactionRows,
-    ) as Record<string, AcOutreach>;
+    ) as Record<string, AcTouchpoints>;
   }, [data, outreachRows, cycle]);
+
+  const texting = useMemo(() => {
+    if (!data || !outreachRows) return null;
+    return _procTexting(data.admissions.allRows, outreachRows.messageRows) as {
+      byAC: Record<string, AcTexting>;
+      from: string | null;
+      to: string | null;
+    };
+  }, [data, outreachRows]);
 
   if (loading)
     return (
@@ -72,14 +93,18 @@ export default function ActivityPage() {
     value: v.viable,
     tone: "secondary" as const,
   }));
-  const outreachFor = (ac: string): AcOutreach => outreachByAC?.[ac] ?? EMPTY_AC_OUTREACH;
-  const smsBars = rows
-    .map(([ac]) => ({ label: acShort(ac), value: outreachFor(ac).sms, tone: "gold" as const }))
+  const touchFor = (ac: string): AcTouchpoints => touchByAC?.[ac] ?? EMPTY_AC_TOUCHPOINTS;
+  const textFor = (ac: string): AcTexting => texting?.byAC[ac] ?? EMPTY_AC_TEXTING;
+  const textRows: [string, string][] = rows.map(([ac]) => [ac, acShort(ac)]);
+  const shared = texting?.byAC[SHARED_TEXT_LINE];
+  if (shared && (shared.sent || shared.received)) textRows.push([SHARED_TEXT_LINE, "Shared line"]);
+  const textBars = textRows
+    .map(([ac, name]) => ({ label: name, value: textFor(ac).sent, tone: "gold" as const }))
     .filter((r) => r.value > 0);
   const touchpointBars = rows
     .map(([ac]) => ({
       label: acShort(ac),
-      value: outreachFor(ac).touchpoints,
+      value: touchFor(ac).touchpoints,
       tone: "secondary" as const,
     }))
     .filter((r) => r.value > 0);
@@ -136,41 +161,74 @@ export default function ActivityPage() {
 
       {outreachError ? (
         <div className="notice" style={{ marginTop: 16 }}>
-          Outreach data could not be loaded: {outreachError}
+          Texting and touchpoint data could not be loaded: {outreachError}
         </div>
-      ) : !outreachByAC ? (
+      ) : !touchByAC || !texting ? (
         <p className="rpt-sub" style={{ marginTop: 16 }}>
-          Loading SMS and touchpoint data…
+          Loading texting and touchpoint data…
         </p>
       ) : (
         <>
-          <Section label="SMS Sent by Counselor" info={DEFS.smsByAc} />
-          <BarChart rows={smsBars} info={DEFS.smsByAc} />
-
-          <Section label="Touchpoints by Counselor" info={DEFS.touchpointsByAc} />
-          <BarChart rows={touchpointBars} info={DEFS.touchpointsByAc} />
-
           <Section
-            label="Touchpoints per Applicant & Reply Time by Counselor"
-            info={DEFS.touchpointsPerApp}
+            label={`1:1 Texting by Counselor · ${shortDate(texting.from)} – ${shortDate(texting.to)}`}
+            info={DEFS.texting}
           />
-          <div className="panel" style={{ overflowX: "auto" }}>
+          <BarChart rows={textBars} info={DEFS.textsSent} />
+          <div className="panel" style={{ overflowX: "auto", marginTop: 12 }}>
             <table className="data-table">
               <thead>
                 <tr>
                   <th>Counselor</th>
+                  <th><MetricLabel label="Texts Sent" info={DEFS.textsSent} /></th>
+                  <th><MetricLabel label="Students Texted" info={DEFS.studentsTexted} /></th>
+                  <th><MetricLabel label="Viable Texted" info={DEFS.viableTexted} /></th>
+                  <th><MetricLabel label="Student Texts In" info={DEFS.textsReceived} /></th>
+                  <th><MetricLabel label="Replied Same Day" info={DEFS.sameDay} /></th>
+                  <th><MetricLabel label="Within 1 Day" info={DEFS.within1Day} /></th>
+                  <th><MetricLabel label="Median Reply" info={DEFS.medianReply} /></th>
+                  <th><MetricLabel label="Awaiting Reply" info={DEFS.awaiting} flip /></th>
+                </tr>
+              </thead>
+              <tbody>
+                {textRows.map(([ac, name]) => {
+                  const t = textFor(ac);
+                  return (
+                    <tr key={ac || "unassigned"}>
+                      <td>{name}</td>
+                      <td>{fmt(t.sent)}</td>
+                      <td>{fmt(t.studentsTexted)}</td>
+                      <td>{fmt(t.viableTexted)}</td>
+                      <td>{fmt(t.received)}</td>
+                      <td>{pct(t.sameDayPct)}</td>
+                      <td>{pct(t.within1DayPct)}</td>
+                      <td>{days(t.medianReplyDays)}</td>
+                      <td>{fmt(t.awaiting)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <Section label="Touchpoints by Counselor" info={DEFS.touchpointsByAc} />
+          <BarChart rows={touchpointBars} info={DEFS.touchpointsByAc} />
+          <div className="panel" style={{ overflowX: "auto", marginTop: 12 }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Counselor</th>
+                  <th><MetricLabel label="Touchpoints" info={DEFS.touchpointsByAc} /></th>
                   <th><MetricLabel label="Touchpoints / Applicant" info={DEFS.touchpointsPerApp} /></th>
-                  <th><MetricLabel label="Days to First SMS Reply (approx.)" info={DEFS.smsReplyDays} /></th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map(([ac]) => {
-                  const o = outreachFor(ac);
+                  const o = touchFor(ac);
                   return (
                     <tr key={ac || "unassigned"}>
                       <td>{acShort(ac)}</td>
+                      <td>{fmt(o.touchpoints)}</td>
                       <td>{o.touchpointsPerApp == null ? "—" : fmt1(o.touchpointsPerApp)}</td>
-                      <td>{o.smsReplyDays == null ? "—" : `${fmt1(o.smsReplyDays)}d`}</td>
                     </tr>
                   );
                 })}
@@ -179,13 +237,6 @@ export default function ActivityPage() {
           </div>
         </>
       )}
-
-      <div className="notice" style={{ marginTop: 16 }}>
-        SMS, call, video-message, and note touchpoints are now shown above (see the info icons for
-        exactly what&apos;s counted and each metric&apos;s limits). Email outreach is still not
-        available here — it&apos;s pending the Outlook inbox filter fix so only student-sent
-        messages are counted.
-      </div>
     </div>
   );
 }
