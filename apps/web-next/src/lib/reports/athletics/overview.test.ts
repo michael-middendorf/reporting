@@ -97,6 +97,7 @@ describe("athletics master overview", () => {
     const leadership = visibleOverviewSports("elizabeth.feger@avemaria.edu").map((sport) => sport.key);
     assert.ok(leadership.includes("ultimate-frisbee"));
     assert.ok(leadership.includes("football"));
+    assert.equal(leadership.includes("cheerleading"), false);
     assert.equal(canSeeOverviewSport("joseph.patterson@avemaria.edu", "football"), true);
     assert.equal(canSeeOverviewSport("joseph.patterson@avemaria.edu", "mens-soccer"), false);
     assert.equal(canSeeOverviewSport("jamon.copeland@avemaria.edu", "mens-basketball"), true);

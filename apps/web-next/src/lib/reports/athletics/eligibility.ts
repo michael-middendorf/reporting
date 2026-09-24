@@ -6,6 +6,7 @@ import {
   type NormalizedRosterRow,
 } from "../athletics-coaching/enrollment";
 import { sportByKey } from "../athletics-coaching/sports";
+import { isExcludedAthleticsSport } from "./normalize";
 
 export const ELIGIBILITY_CURRENT_TERM = "Fall 2026";
 export const ELIGIBILITY_PRIOR_TERM = "Spring 2026";
@@ -107,11 +108,13 @@ export function buildEligibilityAthletes(
     const now = findCensus(row, current);
     const then = findCensus(row, prior);
     const sportKey = eligibilitySportKey(row, now);
+    const sport = sportByKey[sportKey || ""]?.label || row.currentSport || now?.sport || "";
+    if (!sportKey && isExcludedAthleticsSport(sport)) return;
     athletes.push({
       name: athleteName(row),
       email: row.email,
       pcid: row.pcid,
-      sport: sportByKey[sportKey || ""]?.label || row.currentSport || now?.sport || "",
+      sport,
       sportKey,
       classYear: row.classYear || now?.classLevel || "",
       currentHours: asNumber(now?.credits),
