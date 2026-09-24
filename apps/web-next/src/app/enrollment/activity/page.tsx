@@ -95,7 +95,9 @@ export default function ActivityPage() {
   }));
   const touchFor = (ac: string): AcTouchpoints => touchByAC?.[ac] ?? EMPTY_AC_TOUCHPOINTS;
   const textFor = (ac: string): AcTexting => texting?.byAC[ac] ?? EMPTY_AC_TEXTING;
-  const textRows: [string, string][] = rows.map(([ac]) => [ac, acShort(ac)]);
+  const textRows: [string, string][] = rows
+    .filter(([ac]) => ac !== "" || textFor(ac).sent > 0 || textFor(ac).received > 0)
+    .map(([ac]) => [ac, acShort(ac)]);
   const shared = texting?.byAC[SHARED_TEXT_LINE];
   if (shared && (shared.sent || shared.received)) textRows.push([SHARED_TEXT_LINE, "Shared line"]);
   const textBars = textRows
