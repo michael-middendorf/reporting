@@ -18,6 +18,7 @@ from handler import (
     designation_query,
     fiscal_year_label,
     fiscal_year_window,
+    full_gift_query,
     fytd_from_designations,
     gifts_from_designations,
     load_sports_catalog,
@@ -82,6 +83,9 @@ class FakeClient:
     def paged_query(self, path: str, body: dict[str, Any], page_size: int = 1000) -> list[dict]:
         del page_size
         self.paths.append(path)
+        if path in (CONTACT_QUERY_PATH, FULL_GIFT_PATH):
+            # Virtuous 400s these two without a values list.
+            assert body["groups"][0]["conditions"][0].get("values"), path
         if path == CONTACT_QUERY_PATH:
             if isinstance(self.anonymous_contacts, Exception):
                 raise self.anonymous_contacts
@@ -495,6 +499,13 @@ class GiftListTests(unittest.TestCase):
         self.assertEqual(len(gifts), 1)
         self.assertEqual(gifts[0]["donorName"], "Morgan Blake")
         self.assertEqual(gifts[0]["amount"], 80.0)
+
+
+class FullGiftQueryTests(unittest.TestCase):
+    def test_project_code_sent_as_values_list(self):
+        cond = full_gift_query("6552FB")["groups"][0]["conditions"][0]
+        self.assertEqual(cond["values"], ["6552FB"])
+        self.assertEqual(cond["parameter"], "Project Code")
 
 
 class AnonymousDonorTagTests(unittest.TestCase):
