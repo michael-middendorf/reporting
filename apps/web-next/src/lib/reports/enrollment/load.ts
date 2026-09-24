@@ -41,27 +41,42 @@ export async function loadEnrollmentBundle(): Promise<EnrollmentBundle> {
     return apiFetch(path, init);
   };
 
-  const [admRows, pswRows, slcRows, islcRows, wdRows, campusRows, ameRows, messageRows, interactionRows] =
-    await Promise.all([
-      _dataFetch("admissions", session, fetchImpl),
-      _dataFetch("psw", session, fetchImpl),
-      _dataFetch("slc", session, fetchImpl),
-      _dataFetch("islc", session, fetchImpl).catch(() => []),
-      _dataFetch("withdrawn", session, fetchImpl),
-      _dataFetch("campus", session, fetchImpl).catch(() => []),
-      _dataFetch("ame", session, fetchImpl).catch(() => []),
-      _dataFetch("messages", session, fetchImpl).catch(() => []),
-      _dataFetch("interactions", session, fetchImpl).catch(() => []),
-    ]);
+  const [admRows, pswRows, slcRows, islcRows, wdRows, campusRows, ameRows] = await Promise.all([
+    _dataFetch("admissions", session, fetchImpl),
+    _dataFetch("psw", session, fetchImpl),
+    _dataFetch("slc", session, fetchImpl),
+    _dataFetch("islc", session, fetchImpl).catch(() => []),
+    _dataFetch("withdrawn", session, fetchImpl),
+    _dataFetch("campus", session, fetchImpl).catch(() => []),
+    _dataFetch("ame", session, fetchImpl).catch(() => []),
+  ]);
   return {
     generatedAt: session.generated_at,
-    admissions: _procAdm(admRows, session.generated_at, messageRows, interactionRows),
+    admissions: _procAdm(admRows, session.generated_at),
     psw: _procPSW(pswRows, session.generated_at),
     slc: _procSLC(slcRows, islcRows, session.generated_at),
     withdrawn: processWithdrawals(wdRows, admRows),
     campus: _procCampus(campusRows),
     ame: _procAME(ameRows, session.generated_at),
   };
+}
+
+export type OutreachRows = {
+  messageRows: Record<string, unknown>[];
+  interactionRows: Record<string, unknown>[];
+};
+
+/** Messages + touchpoint interactions, only needed by the Activity page. */
+export async function loadOutreach(): Promise<OutreachRows> {
+  const fetchImpl: typeof fetch = (input, init) => {
+    const path = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    return apiFetch(path, init);
+  };
+  const [messageRows, interactionRows] = await Promise.all([
+    _dataFetch("messages", null, fetchImpl),
+    _dataFetch("interactions", null, fetchImpl),
+  ]);
+  return { messageRows, interactionRows };
 }
 
 export function fmt(n: number | null | undefined) {

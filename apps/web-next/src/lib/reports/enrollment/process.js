@@ -451,7 +451,7 @@ export function _termStatsAsOf(rows, cutoff, termYear) {
  * Qlik current-term funnel: count rows with the field present (not point-in-time).
  * 7-day column is events in the trailing 7 days, not a stock delta.
  */
-export function _termStats(rows, termYear, asOf, messageRows = [], interactionRows = []) {
+export function _termStats(rows, termYear, asOf) {
   const cutoff = _withdrawalCutoff(termYear, asOf);
   const acc = rows.filter(r => _isPresent(r.AcceptCode));
   const depGrossRows = rows.filter(r => _isPresent(r.DepositDate));
@@ -488,13 +488,6 @@ export function _termStats(rows, termYear, asOf, messageRows = [], interactionRo
     if (_isPresent(r.DeniedCode)) byAC[ac].denied++;
     if (r.InterviewStatus === 'Interviewed') byAC[ac].interviewed++;
     if (_isViable(r)) byAC[ac].viable++;
-  });
-  const outreach = _outreachByAC(rows, messageRows, interactionRows);
-  Object.keys(byAC).forEach(ac => {
-    Object.assign(
-      byAC[ac],
-      outreach[ac] || { sms: 0, touchpoints: 0, touchpointsPerApp: null, smsReplyDays: null },
-    );
   });
 
   const chgGross = rows.filter(r => _inLast7(r.DepositDate, asOf)).length;
@@ -576,7 +569,13 @@ function _isUndergraduate(r) {
   return false;
 }
 
-export function _procAdm(rows, asOf, messageRows = [], interactionRows = []) {
+/** Per-AC outreach for one term's UG applicants; loaded separately from the main bundle. */
+export function _procOutreach(admRows, termKey, messageRows, interactionRows) {
+  const termRows = admRows.filter(r => _isUndergraduate(r) && r.ApplicationTerm === termKey);
+  return _outreachByAC(termRows, messageRows, interactionRows);
+}
+
+export function _procAdm(rows, asOf) {
   const asOfDay = _asOfDay(asOf);
   const lastYear = new Date(asOfDay);
   lastYear.setFullYear(lastYear.getFullYear() - 1);
@@ -585,7 +584,7 @@ export function _procAdm(rows, asOf, messageRows = [], interactionRows = []) {
   const ug = rows.filter(_isUndergraduate);
   const byTerm = {};
   ['Fall 2024', 'Fall 2025', 'Fall 2026', 'Fall 2027'].forEach(t => {
-    byTerm[t] = _termStats(ug.filter(r => r.ApplicationTerm === t), _termYear(t), asOfDay, messageRows, interactionRows);
+    byTerm[t] = _termStats(ug.filter(r => r.ApplicationTerm === t), _termYear(t), asOfDay);
   });
   const fa24Rows = ug.filter(r => r.ApplicationTerm === 'Fall 2024');
   const fa25Rows = ug.filter(r => r.ApplicationTerm === 'Fall 2025');

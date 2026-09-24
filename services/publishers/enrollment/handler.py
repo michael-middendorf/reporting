@@ -26,6 +26,23 @@ KEY_ALIASES = {
 # Published after everything else; see _load_links.
 LAST_DATASETS = {"interactions"}
 
+# Counselor-touchpoint codes, published as the small interactions_touchpoints
+# dataset (~35k of ~3.3M rows) so the web app never scans the full feed.
+# Keep in sync with TOUCHPOINT_INTERACTION_CODES in
+# apps/web-next/src/lib/reports/enrollment/process.js.
+TOUCHPOINT_CODES = frozenset(
+    {
+        "contact_out_call",
+        "contact_out_call_parent",
+        "voicemail",
+        "inbox_sms_sent",
+        "sms_message_sent",
+        "sms_message_replied",
+        "video_message_sent",
+        "internal_note",
+    }
+)
+
 USER_AGENT = "amu-reporting-slate-publisher/2.0"
 TIMEOUT = int(os.getenv("FETCH_TIMEOUT_SECONDS", "900"))
 
@@ -78,4 +95,20 @@ def handler(event, context):  # noqa: ANN001, ARG001
         )
         published.append(latest)
         print(f"slate/{dataset}: {latest['record_count']} rows → {latest['prefix']}", flush=True)
+        if dataset == "interactions":
+            touch = [
+                r for r in rows
+                if isinstance(r, dict) and r.get("InteractionCode") in TOUCHPOINT_CODES
+            ]
+            latest = publish_dataset(
+                source="slate",
+                dataset="interactions_touchpoints",
+                rows=touch,
+                provenance={"system": "slate", "derived_from": "interactions"},
+            )
+            published.append(latest)
+            print(
+                f"slate/interactions_touchpoints: {latest['record_count']} rows → {latest['prefix']}",
+                flush=True,
+            )
     return {"ok": True, "source": "slate", "datasets": published}
