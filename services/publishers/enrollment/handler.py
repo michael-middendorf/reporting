@@ -23,6 +23,9 @@ KEY_ALIASES = {
     "ame": "ame",
 }
 
+# Published after everything else; see _load_links.
+LAST_DATASETS = {"interactions"}
+
 USER_AGENT = "amu-reporting-slate-publisher/2.0"
 TIMEOUT = int(os.getenv("FETCH_TIMEOUT_SECONDS", "900"))
 
@@ -49,13 +52,17 @@ def _load_links() -> list[tuple[str, str]]:
         if source_key not in KEY_ALIASES:
             raise RuntimeError(f"Unexpected query key: {source_key}")
         ordered.append((KEY_ALIASES[source_key], url.strip()))
+    # Publish the largest dataset last: if it fails (e.g. out of memory, which
+    # can't be caught), every smaller dataset has already been refreshed.
+    ordered.sort(key=lambda item: item[0] in LAST_DATASETS)
     return ordered
 
 
 def _fetch_json(url: str) -> object:
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+        # json.loads accepts bytes; skipping .decode() avoids a second full copy.
+        return json.loads(resp.read())
 
 
 def handler(event, context):  # noqa: ANN001, ARG001
