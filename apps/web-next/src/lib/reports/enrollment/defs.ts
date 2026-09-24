@@ -47,9 +47,9 @@ export const DEFS = {
   sat: "Average SAT among scores greater than 0.",
   clt: "Average CLT among scores greater than 0.",
   daysSubmitAccept:
-    "Median days from Application Submitted Date to Accept Date, among accepted apps where both dates exist and accept is on or after submit.",
+    "Average days from Application Submitted Date to Accept Date, among accepted apps where both dates exist and accept is on or after submit.",
   daysAcceptDeposit:
-    "Median days from Accept Date to Deposit Date, among net deposits where both dates exist and deposit is on or after accept.",
+    "Average days from Accept Date to Deposit Date, among net deposits where both dates exist and deposit is on or after accept.",
   aidUnfunded: "Average Unfunded Aid among apps in this group with unfunded aid greater than 0.",
   aidFunded: "Average total scholarship minus average unfunded aid, when both averages exist.",
   aidTotal: "Average Scholarship Amount among apps in this group with scholarship greater than 0.",

@@ -185,8 +185,8 @@ export default function AdmissionsPage() {
         <Kpi label="Avg ACT" cur={cur.act} prv={prv.act} format="1" info={DEFS.act} />
         <Kpi label="Avg SAT" cur={cur.sat} prv={prv.sat} format="1" info={DEFS.sat} />
         <Kpi label="Avg CLT" cur={cur.clt} prv={prv.clt} format="1" info={DEFS.clt} />
-        <Kpi label="Submit → Accept" cur={cur.daysSubmitAccept} format="days" info={DEFS.daysSubmitAccept} />
-        <Kpi label="Accept → Deposit" cur={cur.daysAcceptDeposit} format="days" info={DEFS.daysAcceptDeposit} />
+        <Kpi label="Avg Submit → Accept" cur={cur.daysSubmitAccept} format="days" info={DEFS.daysSubmitAccept} />
+        <Kpi label="Avg Accept → Deposit" cur={cur.daysAcceptDeposit} format="days" info={DEFS.daysAcceptDeposit} />
       </div>
 
       <Section label="Historical Trend — Application Funnel" info={DEFS.history} />
