@@ -1,5 +1,6 @@
 import { gzipSync } from "zlib";
 import { NextResponse } from "next/server";
+import { TOUCHPOINT_INTERACTION_CODES } from "@/lib/reports/enrollment/process.js";
 import { requireReportAccess } from "@/lib/s3-proxy";
 import { loadSourceRows } from "@/lib/sources";
 
@@ -37,7 +38,19 @@ export async function GET(_req: Request, ctx: Ctx) {
 
   try {
     const { rows, latest } = await loadSourceRows("slate", dataset);
-    const json = JSON.stringify({ row: rows });
+    // The raw Interactions feed is ~3M rows, ~90% marketing/system noise (SOURCE,
+    // direct mail, vendor imports). Filter to counselor-touchpoint codes here so
+    // the browser never has to fetch/parse the full feed.
+    const outRows =
+      dataset === "interactions"
+        ? rows.filter((r) =>
+            Object.prototype.hasOwnProperty.call(
+              TOUCHPOINT_INTERACTION_CODES,
+              (r as { InteractionCode?: string }).InteractionCode ?? "",
+            ),
+          )
+        : rows;
+    const json = JSON.stringify({ row: outRows });
     const gz = gzipSync(Buffer.from(json, "utf-8"));
     return new NextResponse(gz, {
       status: 200,

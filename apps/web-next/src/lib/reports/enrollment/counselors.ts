@@ -19,6 +19,16 @@ export type AcFunnel = {
   deposited: number;
   denied: number;
   interviewed: number;
+  /** Catholic (incl. Eastern Rite) with a plausible HS GPA above 3.1. */
+  viable: number;
+  /** Outbound SMS sent, from the Slate messages feed. */
+  sms: number;
+  /** Whitelisted calls/SMS/video/notes from the Slate interactions feed. */
+  touchpoints: number;
+  /** Touchpoints divided by distinct applicants touched. */
+  touchpointsPerApp: number | null;
+  /** Median days from an outbound SMS to that applicant's next SMS reply — a day-granularity proxy, not true response time. */
+  smsReplyDays: number | null;
 };
 
 export function emptyAcFunnel(): AcFunnel {
@@ -29,6 +39,11 @@ export function emptyAcFunnel(): AcFunnel {
     deposited: 0,
     denied: 0,
     interviewed: 0,
+    viable: 0,
+    sms: 0,
+    touchpoints: 0,
+    touchpointsPerApp: null,
+    smsReplyDays: null,
   };
 }
 

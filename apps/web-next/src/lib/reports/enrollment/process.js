@@ -3,16 +3,36 @@ export const DATA = {
   api: (typeof window !== 'undefined' && window.AMU_DASHBOARD_API) || '/api/dashboard',
   // Logical hub keys → keys in report_presigned_urls
   reports: {
-    admissions: 'admissions',
-    decisions:  'app_decisions',
-    psw:        'psw',
-    slc:        'slc',
-    islc:       'islc',
-    withdrawn:  'withdrawn',
-    campus:     'campus_visits',
-    ame:        'ame',
+    admissions:  'admissions',
+    decisions:   'app_decisions',
+    psw:         'psw',
+    slc:         'slc',
+    islc:        'islc',
+    withdrawn:   'withdrawn',
+    campus:      'campus_visits',
+    ame:         'ame',
+    messages:    'messages',
+    interactions: 'interactions',
   },
 };
+
+/**
+ * Interaction codes counted as a counselor touchpoint, mapped to a channel.
+ * Excludes system/marketing noise (SOURCE, direct mail, vendor imports) which
+ * make up the bulk of the raw Slate Interactions feed.
+ */
+export const TOUCHPOINT_INTERACTION_CODES = {
+  contact_out_call: 'call',
+  contact_out_call_parent: 'call',
+  voicemail: 'call',
+  inbox_sms_sent: 'sms',
+  sms_message_sent: 'sms',
+  sms_message_replied: 'sms',
+  video_message_sent: 'video',
+  internal_note: 'note',
+};
+const SMS_OUTBOUND_CODES = new Set(['inbox_sms_sent', 'sms_message_sent']);
+const SMS_REPLY_CODE = 'sms_message_replied';
 
 /** Fetch a (possibly gzipped) JSON URL and return parsed object. */
 export async function _fetchJsonMaybeGzip(url, fetchImpl = fetch) {
@@ -143,6 +163,92 @@ function _interviewDate(r, termYear) {
 /** Athlete flag is this field only. Sport and Athletic Decision are not athletes. */
 function _isAthlete(r) {
   return r.AthleteorNonAthlete === 'Athlete';
+}
+
+/** Viable = Catholic (incl. Eastern Rite) with a plausible HS GPA above 3.1. */
+export function _isViable(r) {
+  const catholic = r.Religion === 'Catholic' || r.Religion === 'Eastern Rite Catholic';
+  if (!catholic) return false;
+  const gpa = _parseNum(r['Self-ReportedHSGPA']);
+  return gpa !== null && gpa > 3.1 && gpa <= 5;
+}
+
+/**
+ * Per-counselor outreach for one term's applicant cohort: SMS volume, whitelisted
+ * touchpoints (calls/SMS/video/notes) per applicant, and a day-granularity proxy
+ * for time-to-first-SMS-reply. Slate's messages/interactions feeds carry no actor
+ * field, so attribution is via each applicant's *current* AC assignment.
+ */
+function _outreachByAC(termRows, messageRows, interactionRows) {
+  const personAc = new Map();
+  termRows.forEach(r => {
+    const pid = r.PersonReferenceID;
+    if (pid) personAc.set(pid, r.ApplicationACAssignment || '');
+  });
+
+  const byAC = {};
+  const touchedPersons = {};
+  const ensure = ac => {
+    if (!byAC[ac]) byAC[ac] = { sms: 0, touchpoints: 0, touchpointsPerApp: null, smsReplyDays: null };
+    if (!touchedPersons[ac]) touchedPersons[ac] = new Set();
+    return byAC[ac];
+  };
+
+  (messageRows || []).forEach(m => {
+    if (m.MessageMethod !== 'SMS') return;
+    const pid = m.MessagePersonReferenceID;
+    if (!personAc.has(pid)) return;
+    ensure(personAc.get(pid)).sms++;
+  });
+
+  const sendDates = new Map();
+  const replyDates = new Map();
+  (interactionRows || []).forEach(ia => {
+    const pid = ia.PersonReferenceID;
+    if (!personAc.has(pid)) return;
+    const code = ia.InteractionCode;
+    if (!TOUCHPOINT_INTERACTION_CODES[code]) return;
+    const ac = personAc.get(pid);
+    ensure(ac).touchpoints++;
+    touchedPersons[ac].add(pid);
+
+    const d = _parseDate(ia.InteractionDate);
+    if (!d) return;
+    if (SMS_OUTBOUND_CODES.has(code)) {
+      if (!sendDates.has(pid)) sendDates.set(pid, []);
+      sendDates.get(pid).push(d);
+    } else if (code === SMS_REPLY_CODE) {
+      if (!replyDates.has(pid)) replyDates.set(pid, []);
+      replyDates.get(pid).push(d);
+    }
+  });
+
+  const daysByAC = {};
+  replyDates.forEach((replies, pid) => {
+    const sends = (sendDates.get(pid) || []).slice().sort((a, b) => a - b);
+    if (!sends.length) return;
+    const ac = personAc.get(pid);
+    replies.forEach(replyDate => {
+      let prior = null;
+      for (const s of sends) {
+        if (s <= replyDate) prior = s;
+        else break;
+      }
+      if (!prior) return;
+      const days = (replyDate - prior) / 86400000;
+      if (days < 0) return;
+      if (!daysByAC[ac]) daysByAC[ac] = [];
+      daysByAC[ac].push(days);
+    });
+  });
+
+  Object.keys(byAC).forEach(ac => {
+    const touched = touchedPersons[ac] ? touchedPersons[ac].size : 0;
+    byAC[ac].touchpointsPerApp = touched ? byAC[ac].touchpoints / touched : null;
+    byAC[ac].smsReplyDays = daysByAC[ac] ? _median(daysByAC[ac]) : null;
+  });
+
+  return byAC;
 }
 
 /** 25/26 rating_1-4 only. Do not score 24/25 leftover (rating_0-3). */
@@ -290,7 +396,7 @@ export function _termStatsAsOf(rows, cutoff, termYear) {
   rows.forEach(r => {
     if (!_leDate(r.CreatedDate, cutoff)) return;
     const ac = r.ApplicationACAssignment || '';
-    if (!byAC[ac]) byAC[ac] = { created: 0, submitted: 0, accepted: 0, deposited: 0, denied: 0, interviewed: 0 };
+    if (!byAC[ac]) byAC[ac] = { created: 0, submitted: 0, accepted: 0, deposited: 0, denied: 0, interviewed: 0, viable: 0 };
     byAC[ac].created++;
     if (_leDate(r.ApplicationSubmittedDate, cutoff)) byAC[ac].submitted++;
     if (_isPresent(r.AcceptCode) && _leDate(r.AcceptDate, cutoff)) byAC[ac].accepted++;
@@ -299,6 +405,7 @@ export function _termStatsAsOf(rows, cutoff, termYear) {
     }
     if (_isPresent(r.DeniedCode) && _leDate(r.DeniedDate, cutoff)) byAC[ac].denied++;
     if (r.InterviewStatus === 'Interviewed' && _leDate(_interviewDate(r, termYear), cutoff)) byAC[ac].interviewed++;
+    if (_isViable(r)) byAC[ac].viable++;
   });
   const gpas = rows.map(r => _parseNum(r['Self-ReportedHSGPA'])).filter(v => v !== null && v > 0 && v <= 5);
   const acts = rows.map(r => _parseNum(r.ACT)).filter(v => v !== null && v > 0);
@@ -344,7 +451,7 @@ export function _termStatsAsOf(rows, cutoff, termYear) {
  * Qlik current-term funnel: count rows with the field present (not point-in-time).
  * 7-day column is events in the trailing 7 days, not a stock delta.
  */
-export function _termStats(rows, termYear, asOf) {
+export function _termStats(rows, termYear, asOf, messageRows = [], interactionRows = []) {
   const cutoff = _withdrawalCutoff(termYear, asOf);
   const acc = rows.filter(r => _isPresent(r.AcceptCode));
   const depGrossRows = rows.filter(r => _isPresent(r.DepositDate));
@@ -373,13 +480,21 @@ export function _termStats(rows, termYear, asOf) {
   const byAC = {};
   rows.forEach(r => {
     const ac = r.ApplicationACAssignment || '';
-    if (!byAC[ac]) byAC[ac] = { created: 0, submitted: 0, accepted: 0, deposited: 0, denied: 0, interviewed: 0 };
+    if (!byAC[ac]) byAC[ac] = { created: 0, submitted: 0, accepted: 0, deposited: 0, denied: 0, interviewed: 0, viable: 0 };
     byAC[ac].created++;
     if (_isPresent(r.ApplicationSubmittedDate)) byAC[ac].submitted++;
     if (_isPresent(r.AcceptCode)) byAC[ac].accepted++;
     if (_isPresent(r.DepositDate) && !_isPresent(r.WithdrawnDate)) byAC[ac].deposited++;
     if (_isPresent(r.DeniedCode)) byAC[ac].denied++;
     if (r.InterviewStatus === 'Interviewed') byAC[ac].interviewed++;
+    if (_isViable(r)) byAC[ac].viable++;
+  });
+  const outreach = _outreachByAC(rows, messageRows, interactionRows);
+  Object.keys(byAC).forEach(ac => {
+    Object.assign(
+      byAC[ac],
+      outreach[ac] || { sms: 0, touchpoints: 0, touchpointsPerApp: null, smsReplyDays: null },
+    );
   });
 
   const chgGross = rows.filter(r => _inLast7(r.DepositDate, asOf)).length;
@@ -461,7 +576,7 @@ function _isUndergraduate(r) {
   return false;
 }
 
-export function _procAdm(rows, asOf) {
+export function _procAdm(rows, asOf, messageRows = [], interactionRows = []) {
   const asOfDay = _asOfDay(asOf);
   const lastYear = new Date(asOfDay);
   lastYear.setFullYear(lastYear.getFullYear() - 1);
@@ -470,7 +585,7 @@ export function _procAdm(rows, asOf) {
   const ug = rows.filter(_isUndergraduate);
   const byTerm = {};
   ['Fall 2024', 'Fall 2025', 'Fall 2026', 'Fall 2027'].forEach(t => {
-    byTerm[t] = _termStats(ug.filter(r => r.ApplicationTerm === t), _termYear(t), asOfDay);
+    byTerm[t] = _termStats(ug.filter(r => r.ApplicationTerm === t), _termYear(t), asOfDay, messageRows, interactionRows);
   });
   const fa24Rows = ug.filter(r => r.ApplicationTerm === 'Fall 2024');
   const fa25Rows = ug.filter(r => r.ApplicationTerm === 'Fall 2025');
