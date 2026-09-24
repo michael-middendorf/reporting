@@ -399,12 +399,6 @@ function _termYear(term) {
 export function _avg(vals) {
   return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
 }
-function _median(vals) {
-  if (!vals.length) return null;
-  const s = [...vals].sort((a, b) => a - b);
-  const mid = Math.floor(s.length / 2);
-  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
-}
 function _aidStats(grp) {
   const ua = _avg(grp.map(r => _parseNum(r.UnfundedAid)).filter(v => v !== null && v > 0));
   const tot = _avg(grp.map(r => _parseNum(r.ScholarshipAmount)).filter(v => v !== null && v > 0));
@@ -620,8 +614,8 @@ export function _termStats(rows, termYear, asOf) {
     act: _avg(acts),
     sat: _avg(sats),
     clt: _avg(clts),
-    daysSubmitAccept: _median(subToAcc),
-    daysAcceptDeposit: _median(accToDep),
+    daysSubmitAccept: _avg(subToAcc),
+    daysAcceptDeposit: _avg(accToDep),
     byAC,
     chg,
     withdrawalCutoff: cutoff.toISOString().slice(0, 10),
