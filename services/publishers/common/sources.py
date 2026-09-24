@@ -10,6 +10,7 @@ Layout:
 from __future__ import annotations
 
 import gzip
+import io
 import json
 import os
 from datetime import date, datetime, timezone
@@ -34,12 +35,15 @@ def day_prefix(source: str, dataset: str, dt: str) -> str:
 
 
 def _jsonl_gz(rows: Iterable[Any]) -> bytes:
-    buf = bytearray()
-    for row in rows:
-        line = json.dumps(row, separators=(",", ":"), default=str)
-        buf.extend(line.encode("utf-8"))
-        buf.extend(b"\n")
-    return gzip.compress(bytes(buf))
+    # Compress row by row so the uncompressed JSONL never sits in memory: for
+    # large dumps (slate/interactions, ~3M rows) the old bytearray + bytes()
+    # copy held ~2x the uncompressed size and OOM'd the 3008 MB Lambda.
+    out = io.BytesIO()
+    with gzip.GzipFile(fileobj=out, mode="wb") as gz:
+        for row in rows:
+            gz.write(json.dumps(row, separators=(",", ":"), default=str).encode("utf-8"))
+            gz.write(b"\n")
+    return out.getvalue()
 
 
 def publish_dataset(
