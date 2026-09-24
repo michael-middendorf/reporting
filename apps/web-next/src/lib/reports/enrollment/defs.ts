@@ -65,14 +65,23 @@ export const DEFS = {
   viable:
     "Catholic (including Eastern Rite Catholic) with a Self-Reported HS GPA above 3.1 (values above 0 and at most 5 only).",
   viableByAc: "Viable applications by assigned admissions counselor.",
-  smsByAc:
-    "Outbound SMS sent per counselor's applicants, from the Slate messages feed (Message Method = SMS). The feed has no inbound/outbound flag, so this counts all SMS sent to that counselor's applicants, attributed by current AC assignment.",
   touchpointsByAc:
     "Calls, SMS, video messages, and internal notes logged per counselor's applicants, from the Slate Interactions feed. Counts only these codes: contact_out_call, contact_out_call_parent, voicemail, inbox_sms_sent, sms_message_sent, sms_message_replied, video_message_sent, internal_note — excludes marketing/system noise (SOURCE, direct mail, vendor imports). Only counts what was logged the same day (Slate activity-logging convention), so this understates real contact volume.",
   touchpointsPerApp:
     "Touchpoints divided by the number of distinct applicants who had at least one touchpoint. Applicants with zero logged touchpoints are not in the denominator.",
-  smsReplyDays:
-    "Approximation only: median days between an outbound SMS-type interaction (inbox_sms_sent / sms_message_sent) and that same applicant's next sms_message_replied event. Slate does not timestamp SMS below the day, so this is not a true minutes/hours response time.",
+  texting:
+    "1:1 texts only: Slate Ad Hoc SMS a counselor sent from their Slate number, and the student texts that came back to that number. Bulk Deliver campaigns are excluded. Slate's messages feed only returns recent messages, so this is a rolling window (dates shown) and does not change with the term selector. Each Slate number is credited to the counselor assigned to at least 80% of the students it texts; other numbers are grouped as Shared line.",
+  textsSent: "1:1 texts the counselor sent from their Slate number.",
+  studentsTexted: "Distinct students the counselor sent at least one 1:1 text.",
+  viableTexted:
+    "Students texted who are viable: Catholic (including Eastern Rite) with Self-Reported HS GPA above 3.1, on any application.",
+  textsReceived: "Texts students sent to the counselor's Slate number.",
+  sameDay:
+    "Of student texts that were waiting on a reply, the share the counselor answered the same calendar day. Slate records the date only (no time), so a counselor text later that same day counts as same-day. Several student texts in a row count once, from the first one.",
+  within1Day: "Same as Replied same day, but answered on the same day or the next day.",
+  medianReply: "Median days from a student's text to the counselor's next 1:1 text to that student. 0 = same day.",
+  awaiting:
+    "Threads where the student texted last and the counselor has not texted that student since. Some are conversation-enders (\"thanks!\") that need no reply.",
   acceptCodes: "Accepted apps in the current cycle, grouped by Accept Code (AT, CA, ADMI, CMRV, CTA, …).",
   ameRegistrants:
     "AME form rows with Registration Status Registered or Attended, grouped by event month (Form Start Date). Cancelled and No Show are excluded.",
