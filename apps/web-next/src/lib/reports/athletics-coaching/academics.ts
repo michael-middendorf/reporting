@@ -534,6 +534,11 @@ export function safeCoachingNext(raw: string | null | undefined): string {
   return value;
 }
 
+/** The AspireDU Lambda refused this caller (its allowlist, not this app's). */
+export function isAspireduCallerDenied(error: unknown): boolean {
+  return error instanceof Error && /caller is not authorized/i.test(error.message);
+}
+
 export function isCoachingActionUnavailable(result: unknown): boolean {
   if (result == null) return false;
   const text =

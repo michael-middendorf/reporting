@@ -4,7 +4,9 @@ Writes ``athletics-coaching-fundraising/latest.json`` with FYTD and all-time
 totals per catalog sport plus a ``gifts`` list (donorName, amount, giftDate,
 fytd). Amounts are GiftDesignation ``amountDesignated`` for this sport fund.
 Names come from FullGift (Project Code), else designation contactName, else
-Anonymous. No emails or contact IDs.
+Anonymous. Donors whose contact carries the Virtuous tag "Anonymous Donor" are
+always Anonymous; if that tag lookup fails or comes back empty, every name is
+Anonymous (fail closed). No emails or contact IDs.
 
 Do not read ``sources/virtuous/gifts`` (365-day window, incomplete projectCode).
 Sport codes come from ``apps/web-next/src/lib/reports/athletics-coaching/sports.ts``.
@@ -32,6 +34,10 @@ FORBIDDEN_CODES = frozenset({"6117AthGEN", "6644"})
 GIFT_DESIGNATION_QUERY_PATH = "/api/GiftDesignation/Query"
 FULL_GIFT_PATH = "/api/Gift/Query/FullGift"
 PROJECT_BY_CODE_PATH = "/api/Project/Code"
+CONTACT_QUERY_PATH = "/api/Contact/Query"
+# Virtuous CRM gifts carry no anonymity flag; Advancement marks anonymous
+# donors with this contact tag.
+ANONYMOUS_DONOR_TAG = "Anonymous Donor"
 
 _SPORT_BLOCK = re.compile(
     r'\{\s*key:\s*"([^"]+)"[\s\S]*?virtuousProjectCode:\s*(null|"[^"]+")',
@@ -218,6 +224,14 @@ def _donor_name(gift: dict[str, Any]) -> str | None:
     return _clean_name(gift.get("contactName"))
 
 
+def _contact_ids(record: dict[str, Any]) -> set[str]:
+    ids = {str(record["contactId"])} if record.get("contactId") is not None else set()
+    for passthrough in record.get("giftPassthroughs") or []:
+        if passthrough.get("contactId") is not None:
+            ids.add(str(passthrough["contactId"]))
+    return ids
+
+
 def names_from_full_gifts(gifts: list[dict[str, Any]]) -> dict[Any, dict[str, Any]]:
     mapping: dict[Any, dict[str, Any]] = {}
     for gift in gifts:
@@ -227,13 +241,46 @@ def names_from_full_gifts(gifts: list[dict[str, Any]]) -> dict[Any, dict[str, An
         mapping[gid] = {
             "name": _donor_name(gift),
             "anonymous": _is_anonymous(gift.get("isAnonymous")),
+            "contactIds": _contact_ids(gift),
         }
     return mapping
 
 
-def resolve_donor_name(designation: dict[str, Any], name_map: dict[Any, dict[str, Any]]) -> str:
+def anonymous_contact_ids(client: Any) -> frozenset[str] | None:
+    """Contact IDs tagged ANONYMOUS_DONOR_TAG, or None when unknown.
+
+    The tag is in use, so an empty result is treated as a failed lookup.
+    """
+    try:
+        rows = client.paged_query(
+            CONTACT_QUERY_PATH,
+            {"groups": [{"conditions": [
+                {"parameter": "Tag", "operator": "Is", "value": ANONYMOUS_DONOR_TAG},
+            ]}]},
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"  anonymous donor tag query failed: {type(exc).__name__}: {str(exc)[:200]}", flush=True)
+        return None
+    ids = frozenset(str(r["id"]) for r in rows if r.get("id") is not None)
+    if not ids:
+        print("  anonymous donor tag query returned no contacts", flush=True)
+        return None
+    print(f"  anonymous donor contacts={len(ids)}", flush=True)
+    return ids
+
+
+def resolve_donor_name(
+    designation: dict[str, Any],
+    name_map: dict[Any, dict[str, Any]],
+    anonymous_ids: frozenset[str] | None,
+) -> str:
+    if anonymous_ids is None:
+        return "Anonymous"
     gid = _gift_id(designation)
     info = name_map.get(gid) if gid is not None else None
+    contact_ids = _contact_ids(designation) | set((info or {}).get("contactIds") or ())
+    if contact_ids & anonymous_ids:
+        return "Anonymous"
     if info and info.get("anonymous"):
         return "Anonymous"
     if _is_anonymous(designation.get("isAnonymous")):
@@ -254,6 +301,8 @@ def gifts_from_designations(
     name_map: dict[Any, dict[str, Any]],
     fy_start: dt.date,
     fy_end: dt.date,
+    *,
+    anonymous_ids: frozenset[str] | None,
 ) -> list[dict[str, Any]]:
     """Build cache gift rows from designations joined to FullGift names.
 
@@ -279,7 +328,7 @@ def gifts_from_designations(
             seen.add(key)
         gifts.append(
             {
-                "donorName": resolve_donor_name(row, name_map),
+                "donorName": resolve_donor_name(row, name_map, anonymous_ids),
                 "amount": amount,
                 "giftDate": gift_day.isoformat(),
                 "fytd": fy_start <= gift_day <= fy_end,
@@ -469,6 +518,7 @@ def collect_sport(
     fy_start: dt.date,
     fy_end: dt.date,
     as_of: str,
+    anonymous_ids: frozenset[str] | None,
 ) -> dict[str, Any]:
     key = str(sport["key"])
     code = sport.get("projectCode")
@@ -518,9 +568,11 @@ def collect_sport(
         full_gifts = client.paged_query(FULL_GIFT_PATH, designation_query(code))
         name_map = names_from_full_gifts(full_gifts)
     except Exception as exc:  # noqa: BLE001
-        print(f"  {key} full gift query failed: {type(exc).__name__}", flush=True)
+        print(f"  {key} full gift query failed: {type(exc).__name__}: {str(exc)[:200]}", flush=True)
 
-    gifts = gifts_from_designations(code, all_rows, name_map, fy_start, fy_end)
+    gifts = gifts_from_designations(
+        code, all_rows, name_map, fy_start, fy_end, anonymous_ids=anonymous_ids
+    )
 
     print(
         f"  {key} code={code} fytd={fytd_amount} fytd_gifts={fytd_count} "
@@ -574,9 +626,10 @@ def collect_snapshot(
 ) -> dict[str, Any]:
     fy, fy_start, fy_end = fiscal_year_window(today)
     rows: dict[str, dict[str, Any]] = {}
+    anonymous_ids = anonymous_contact_ids(client)
     for sport in sports:
         key = str(sport["key"])
-        rows[key] = collect_sport(client, sport, fy_start, fy_end, generated_at)
+        rows[key] = collect_sport(client, sport, fy_start, fy_end, generated_at, anonymous_ids)
     return build_snapshot(sports, rows, today=today, generated_at=generated_at)
 
 
