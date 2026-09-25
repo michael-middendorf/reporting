@@ -89,12 +89,18 @@ export default function AspireduStudentsPage() {
     if (appending) setLoadingMore(true);
     else setLoading(true);
     setError("");
-    const params = new URLSearchParams();
-    if (options.query.trim()) params.set("query", options.query.trim());
-    if (options.minRisk !== null) params.set("minRisk", String(options.minRisk));
-    if (options.cursor) params.set("cursor", options.cursor);
+    // POST keeps typed names out of URLs, which CloudFront and the ALB log.
+    const payload = {
+      query: options.query.trim() || undefined,
+      minRisk: options.minRisk ?? undefined,
+      cursor: options.cursor,
+    };
     try {
-      const response = await apiFetch(`/aspiredu/api/students?${params}`, { cache: "no-store" });
+      const response = await apiFetch("/aspiredu/api/students", {
+        method: "POST",
+        cache: "no-store",
+        body: JSON.stringify(payload),
+      });
       const body = (await response.json().catch(() => null)) as ListResponse | null;
       if (id !== requestId.current) return;
       if (!response.ok || !body) {
@@ -120,8 +126,11 @@ export default function AspireduStudentsPage() {
   }, []);
 
   // Search as you type (debounced) and whenever the risk chip changes.
+  // A single character is too broad to be useful, so wait for two (Enter still searches).
   useEffect(() => {
-    const timer = window.setTimeout(() => void load({ query, minRisk }), 300);
+    const trimmed = query.trim();
+    if (trimmed.length === 1) return;
+    const timer = window.setTimeout(() => void load({ query: trimmed, minRisk }), 300);
     return () => window.clearTimeout(timer);
   }, [query, minRisk, load]);
 

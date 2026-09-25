@@ -9,6 +9,7 @@ import { apiFetch } from "@/lib/api";
 import type { AttendancePulse } from "@/lib/reports/athletics-coaching/academics";
 import {
   isYesFlag,
+  sessionBucket,
   type AssociationStatus,
   type StudentProfile,
 } from "@/lib/reports/aspiredu/student-profile";
@@ -62,10 +63,10 @@ function pulseDetail(pulse: AttendancePulse): string {
 }
 
 function sessionClass(status: string): string {
-  const t = status.toLowerCase();
-  if (t.startsWith("present") || t === "p") return s.statusOk;
-  if (t.startsWith("late") || t.startsWith("tardy")) return s.statusWarn;
-  if (t.startsWith("absent") || t === "a") return s.statusBad;
+  const bucket = sessionBucket(status);
+  if (bucket === "present") return s.statusOk;
+  if (bucket === "late") return s.statusWarn;
+  if (bucket === "absent") return s.statusBad;
   return "";
 }
 

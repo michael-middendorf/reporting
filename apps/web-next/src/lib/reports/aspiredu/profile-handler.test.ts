@@ -11,8 +11,8 @@ const LAMBDA_OK = {
   asOf: { courses: "2026-09-24T12:00:00Z" },
   student: { studentKey: KEY, firstName: "Test", lastName: "Student", email: "t.s@avemaria.edu", studentSisId: "123456", risk: 3 },
   courses: [{ course: "THEO 101", grade: 88 }],
-  sessions: [],
-  pulse: null,
+  sessions: [{ classDate: "2026-09-20", course: "THEO 101", status: "Present" }],
+  pulse: { present: 1, absent: 0, late: 0, other: 0, sessionCount: 1, latestClassDate: "2026-09-20" },
   // Free text that mentions "unknown action" must not trip the 503 detector.
   notes: [{ text: "Student hit an unknown action error in 501 lab", datetime: null }],
   alerts: [],
@@ -60,6 +60,7 @@ describe("buildProfileResponse", () => {
       assert.equal(profile.associationStatus.housing, "unavailable");
       assert.equal(profile.associationStatus.census, "unavailable");
       assert.equal(profile.notes.length, 1);
+      assert.equal(profile.pulse?.band, "attending");
     } finally {
       console.warn = warn;
     }

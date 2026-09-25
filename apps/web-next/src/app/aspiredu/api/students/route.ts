@@ -4,11 +4,13 @@ import { aspireduPrivateHeaders } from "@/lib/aspiredu-auth";
 import { currentUserEmail } from "@/lib/auth";
 import { invokeProcessor } from "@/lib/process-invoke";
 import { isAspireduCallerDenied } from "@/lib/reports/athletics-coaching/academics";
-import { parseListFilters } from "@/lib/reports/aspiredu/student-list";
+import { parseListFilters, parseListInput, type ListInput } from "@/lib/reports/aspiredu/student-list";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
+type Parsed = ReturnType<typeof parseListInput>;
+
+async function listStudents(req: Request, parse: () => Promise<Parsed>) {
   const auth = authorizeAcademicAffairsApi(currentUserEmail(req));
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status, headers: aspireduPrivateHeaders });
@@ -20,20 +22,19 @@ export async function GET(req: Request) {
       { status: 503, headers: aspireduPrivateHeaders },
     );
   }
-  const url = new URL(req.url);
-  const filters = parseListFilters(url);
+  const filters = await parse();
   if (!filters.ok) {
     return NextResponse.json({ error: filters.error }, { status: 400, headers: aspireduPrivateHeaders });
   }
-  const query = url.searchParams.get("query")?.trim().slice(0, 200) || undefined;
+  const input: ListInput = filters;
   try {
     const result = await invokeProcessor(functionName, {
       action: "list",
       callerEmail: auth.email,
-      query,
-      minRisk: filters.minRisk,
-      sort: filters.sort,
-      cursor: url.searchParams.get("cursor") || undefined,
+      query: input.query,
+      minRisk: input.minRisk,
+      sort: input.sort,
+      cursor: input.cursor,
     });
     return NextResponse.json(result, { headers: aspireduPrivateHeaders });
   } catch (error) {
@@ -50,4 +51,25 @@ export async function GET(req: Request) {
       { status: 503, headers: aspireduPrivateHeaders },
     );
   }
+}
+
+/** Backward-compatible query-string form. The page uses POST so names stay out of URLs and logs. */
+export async function GET(req: Request) {
+  return listStudents(req, async () => parseListFilters(new URL(req.url)));
+}
+
+/** Preferred: filters in a JSON body { query, minRisk, sort, cursor }. */
+export async function POST(req: Request) {
+  return listStudents(req, async () => {
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return { ok: false, error: "Request body must be JSON" };
+    }
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return { ok: false, error: "Request body must be a JSON object" };
+    }
+    return parseListInput(body as Record<string, unknown>);
+  });
 }

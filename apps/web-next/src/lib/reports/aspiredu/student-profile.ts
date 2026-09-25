@@ -11,6 +11,7 @@
  */
 import type { SlateRow } from "../athletics/types";
 import {
+  attendancePulse,
   gpaPointsFromPercent,
   isAB,
   letterFromPercent,
@@ -316,15 +317,28 @@ export function athleticsAssociation(
   };
 }
 
+/**
+ * residents.json only holds the current term (TARGET_SESSION plus the extra
+ * Ireland session), but one student can have more than one row. Prefer a row
+ * with an actual building, then the latest eRez start date.
+ */
+export function pickCurrentResident(hits: Resident[]): Resident | undefined {
+  const score = (r: Resident) => (r.building && r.building !== "Commuter" ? 1 : 0);
+  const start = (r: Resident) => Date.parse(r.move_in_erez || "") || 0;
+  return [...hits].sort((a, b) => score(b) - score(a) || start(b) - start(a))[0];
+}
+
 export function housingAssociation(
   keys: JoinKeys,
   residents: Resident[],
   asOf: string | null,
 ): HousingAssociation | null {
-  const hit = bestMatches(keys, residents, (resident) => ({
-    pcid: resident.pcid,
-    email: resident.email,
-  }))[0];
+  const hit = pickCurrentResident(
+    bestMatches(keys, residents, (resident) => ({
+      pcid: resident.pcid,
+      email: resident.email,
+    })),
+  );
   if (!hit) return null;
   const code = str(hit.building);
   // Same residency buckets the census uses (On Campus, Commuter, Ireland, Rome...).
@@ -447,20 +461,60 @@ function list<T>(value: unknown, map: (item: unknown) => T | null): T[] {
   return out;
 }
 
-function normalizePulse(value: unknown): AttendancePulse | null {
+/** Same buckets as the Lambda's attendanceStatusBucket(). */
+export function sessionBucket(status: string | null | undefined): "present" | "absent" | "late" | null {
+  const value = (status || "").trim().toLowerCase();
+  if (!value) return null;
+  if (/late|tardy/.test(value)) return "late";
+  if (/absent/.test(value)) return "absent";
+  if (value === "p" || /\bpresent\b/.test(value)) return "present";
+  return null;
+}
+
+/**
+ * The profile Lambda sends pulseFromSessions() counts:
+ * { present, absent, late, other, sessionCount, latestClassDate? }.
+ * Derive the band with the same attendancePulse() the coaching page uses.
+ * `sessions` is newest first. An already-banded pulse is also accepted.
+ */
+export function normalizePulse(
+  value: unknown,
+  sessions: ProfileSession[] = [],
+  now?: Date,
+): AttendancePulse | null {
   const record = asRecord(value);
   if (!record) return null;
   const band = record.band;
-  if (band !== "attending" && band !== "watch" && band !== "inactive") return null;
-  return {
-    band,
-    source: record.source === "last-attended" ? "last-attended" : "session",
-    lastAttended: str(record.lastAttended),
+  if (band === "attending" || band === "watch" || band === "inactive") {
+    return {
+      band,
+      source: record.source === "last-attended" ? "last-attended" : "session",
+      lastAttended: str(record.lastAttended),
+      present: num(record.present),
+      absent: num(record.absent),
+      late: num(record.late),
+      sessionCount: num(record.sessionCount),
+    };
+  }
+  const sessionCount = num(record.sessionCount);
+  if (!sessionCount) return null;
+  // "Last attended" is the newest present/late session. latestClassDate is the
+  // newest class of any status, so it is only a fallback when the Lambda sent
+  // counts without the session list.
+  const attended = sessions.find((session) => {
+    const bucket = sessionBucket(session.status);
+    return bucket === "present" || bucket === "late";
+  });
+  const lastAttended = attended?.classDate ?? (sessions.length ? null : str(record.latestClassDate));
+  return attendancePulse({
     present: num(record.present),
     absent: num(record.absent),
     late: num(record.late),
-    sessionCount: num(record.sessionCount),
-  };
+    sessionCount,
+    latestSession: sessions[0] ? sessionBucket(sessions[0].status) : null,
+    lastAttended,
+    now,
+  });
 }
 
 function sumOrNull(values: (number | null)[]): number | null {
@@ -513,6 +567,8 @@ export function buildStudentProfile(input: {
     if (!r || !classDate) return null;
     return { classDate, course: str(r.course) ?? "", status: str(r.status) ?? "" };
   });
+  // Newest first, regardless of delivery order.
+  sessions.sort((a, b) => (Date.parse(b.classDate) || 0) - (Date.parse(a.classDate) || 0));
   const notes = list<ProfileNote>(record.notes, (item) => {
     const r = asRecord(item);
     const text = str(r?.text);
@@ -578,7 +634,7 @@ export function buildStudentProfile(input: {
     },
     courses,
     sessions,
-    pulse: normalizePulse(record.pulse),
+    pulse: normalizePulse(record.pulse, sessions),
     notes,
     alerts,
     associations: { athletics, housing: housingBlock, census: censusBlock },

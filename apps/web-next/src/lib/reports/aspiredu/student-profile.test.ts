@@ -4,6 +4,9 @@ import type { CensusRawStudent } from "../census/lists-core";
 import type { Resident } from "../housing/types";
 import {
   ALWAYS_MISSING,
+  normalizePulse,
+  pickCurrentResident,
+  sessionBucket,
   buildStudentProfile,
   emailVariants,
   isYesFlag,
@@ -24,8 +27,12 @@ function lambda(student: Record<string, unknown>, extra: Record<string, unknown>
       { course: "MATH 150", grade: 72.5, missing: 3, timesAbsent: 4, percentageAttendance: 70 },
       { course: "HIST 201", grade: null, missing: null, timesAbsent: null },
     ],
-    sessions: [{ classDate: "2026-09-20", course: "THEO 101", status: "Present" }],
-    pulse: { band: "watch", source: "session", lastAttended: null, present: 3, absent: 1, late: 0, sessionCount: 4 },
+    sessions: [
+      { classDate: "2026-09-22", course: "MATH 150", status: "Absent" },
+      { classDate: "2026-09-20", course: "THEO 101", status: "Present" },
+    ],
+    // pulseFromSessions() output from the Lambda, not a banded pulse.
+    pulse: { present: 3, absent: 1, late: 0, other: 0, sessionCount: 4, latestClassDate: "2026-09-22" },
     notes: [{ datetime: "2026-09-10", author: "Prof", course: "MATH 150", text: "Check in", tags: null, alert: null, term: null }],
     alerts: [],
     ...extra,
@@ -222,10 +229,48 @@ describe("buildStudentProfile", () => {
     assert.equal(profile.kpis.totalAbsences, 5);
     assert.equal(profile.kpis.totalMissing, 3);
     assert.equal(profile.kpis.risk, 4);
-    assert.equal(profile.pulse?.band, "watch");
-    assert.equal(profile.sessions.length, 1);
+    // Latest session is Absent, so the band is inactive; last attended is the newest Present.
+    assert.equal(profile.pulse?.band, "inactive");
+    assert.equal(profile.pulse?.source, "session");
+    assert.equal(profile.pulse?.lastAttended, "2026-09-20");
+    assert.equal(profile.pulse?.present, 3);
+    assert.equal(profile.sessions.length, 2);
     assert.equal(profile.notes.length, 1);
     assert.equal(profile.asOf.courses, "2026-09-24T12:00:00Z");
+  });
+
+  it("derives a band from the Lambda pulse counts", () => {
+    const now = new Date("2026-09-25T12:00:00Z");
+    const lambdaPulse = { present: 5, absent: 0, late: 0, other: 1, sessionCount: 6, latestClassDate: "2026-09-24" };
+    const sessions = [{ classDate: "2026-09-24", course: "THEO 101", status: "Present" }];
+    const pulse = normalizePulse(lambdaPulse, sessions, now);
+    assert.equal(pulse?.band, "attending");
+    assert.equal(pulse?.lastAttended, "2026-09-24");
+    assert.equal(pulse?.sessionCount, 6);
+    // Counts only (no session list): band from counts, latestClassDate as the fallback date.
+    assert.equal(normalizePulse({ present: 1, absent: 4, late: 0, other: 0, sessionCount: 5 }, [], now)?.band, "inactive");
+    assert.equal(normalizePulse({ present: 0, absent: 0, late: 0, other: 0, sessionCount: 0 }, [], now), null);
+    // A pre-banded pulse is still accepted.
+    assert.equal(normalizePulse({ band: "watch", present: 1 }, [], now)?.band, "watch");
+    assert.equal(normalizePulse(null), null);
+  });
+
+  it("buckets session statuses like the Lambda", () => {
+    assert.equal(sessionBucket("Present"), "present");
+    assert.equal(sessionBucket("P"), "present");
+    assert.equal(sessionBucket("Excused Absent"), "absent");
+    assert.equal(sessionBucket("Tardy"), "late");
+    assert.equal(sessionBucket("Not recorded"), null);
+  });
+
+  it("prefers a resident row with a building, then the latest eRez start", () => {
+    const rows = [
+      { pcid: "P1", building: "Commuter", move_in_erez: "2026-09-01" },
+      { pcid: "P1", building: "CIARA", move_in_erez: "2026-08-01" },
+      { pcid: "P1", building: "JPII", move_in_erez: "2026-08-15" },
+    ] as Resident[];
+    assert.equal(pickCurrentResident(rows)?.building, "JPII");
+    assert.equal(pickCurrentResident([]), undefined);
   });
 
   it("returns null KPIs when nothing is graded", () => {
