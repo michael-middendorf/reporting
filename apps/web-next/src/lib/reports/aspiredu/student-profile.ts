@@ -89,6 +89,8 @@ export type ProfileAlert = {
 /* ---------- View model ---------- */
 
 export type ProfileCourse = ProfileLambdaCourse & {
+  /** True when percentageAttendance was computed here from session counts. */
+  attendanceDerived: boolean;
   letter: string;
   belowAB: boolean;
 };
@@ -410,6 +412,26 @@ function normalizeStudent(value: unknown, studentKey: string): ProfileLambdaStud
   };
 }
 
+/**
+ * AspireDU's own percentage when it sent one. Otherwise, when the Lambda only
+ * had session counts (no attendance-summary row matched), compute
+ * round((present + late) / (present + late + absent) * 100).
+ */
+export function attendancePercent(record: Record<string, unknown>): {
+  percentageAttendance: number | null;
+  attendanceDerived: boolean;
+} {
+  const delivered = num(record.percentageAttendance);
+  if (delivered !== null) return { percentageAttendance: delivered, attendanceDerived: false };
+  const present = num(record.timesPresent);
+  const absent = num(record.timesAbsent);
+  if (present === null || absent === null) return { percentageAttendance: null, attendanceDerived: false };
+  const attended = present + (num(record.timesLate) ?? 0);
+  const total = attended + absent;
+  if (total <= 0) return { percentageAttendance: null, attendanceDerived: false };
+  return { percentageAttendance: Math.round((attended / total) * 100), attendanceDerived: true };
+}
+
 function normalizeCourse(value: unknown): ProfileCourse | null {
   const record = asRecord(value);
   if (!record) return null;
@@ -432,7 +454,7 @@ function normalizeCourse(value: unknown): ProfileCourse | null {
     latestAttendance: str(record.latestAttendance),
     timesPresent: num(record.timesPresent),
     timesAbsent: num(record.timesAbsent),
-    percentageAttendance: num(record.percentageAttendance),
+    ...attendancePercent(record),
     latestAbsenceDate: str(record.latestAbsenceDate),
     letter,
     // Ungraded courses are not "below A/B"; only a real grade under 80% is.
