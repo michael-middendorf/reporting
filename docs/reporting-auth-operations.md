@@ -2,7 +2,7 @@
 
 The reporting site uses passwordless magic-link authentication. It does not use a password form for hub sign-in.
 
-Academic Affairs users (admins plus the `aspiredu` allowlist, including daniel.davy@avemaria.edu) and athletics coaching users complete a second factor at sign-in: a TOTP authenticator code, or a passkey they set up after the first sign-in. The passkey replaces the 6-digit code at the next sign-in. It does not replace the email magic link.
+Academic Affairs users (admins plus the `aspiredu` allowlist, including daniel.davy@avemaria.edu and maria.t.gomez@avemaria.edu) and athletics coaching users complete a second factor at sign-in: a TOTP authenticator code, or a passkey they set up after the first sign-in. The passkey replaces the 6-digit code at the next sign-in. It does not replace the email magic link.
 
 Enrollment, housing, census, and other users without Academic Affairs or coaching access keep magic-link-only sign-in. There is no second MFA wall on Academic Affairs pages after the hub session exists. Coaching named-athlete academics use that same hub MFA (or a leftover `amu_aspiredu_mfa` cookie on older coaching sessions). Staff do not get a Cognito password. The unused `amu-reporting-aspiredu` Cognito user pool remains in the stack and is not used for this sign-in.
 

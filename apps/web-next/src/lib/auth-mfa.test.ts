@@ -13,6 +13,7 @@ import { authorizeAcademicAffairsApi } from "./aspiredu-api-auth";
 import { maskEmail, pendingAspireduEmail, signedInAspireduEmail } from "./mfa-pending";
 
 const DANIEL = "daniel.davy@avemaria.edu";
+const MARIA = "maria.t.gomez@avemaria.edu";
 const DAN = "dan.donaldson@avemaria.edu";
 const ERIC = "eric.vanheusen@avemaria.edu";
 const COACH = "coach.a@avemaria.edu";
@@ -27,6 +28,12 @@ describe("needsMfaAtSignIn / complete branching", () => {
 
   it("returns mfa_pending for Academic Affairs even when alreadySignedIn", () => {
     assert.equal(sessionDecisionAtComplete(DANIEL, true), "mfa_pending");
+  });
+
+  it("sends Maria Gomez through pending MFA the same as other aspiredu grantees", () => {
+    assert.equal(needsMfaAtSignIn(MARIA), true);
+    assert.equal(sessionDecisionAtComplete(MARIA, false), "mfa_pending");
+    assert.equal(sessionDecisionAtComplete(MARIA, true), "mfa_pending");
   });
 
   it("sends coaching leadership and mapped coaches through hub MFA", () => {
@@ -137,6 +144,8 @@ describe("Academic Affairs API auth is session + ACL, not an MFA cookie", () => 
     });
     assert.deepEqual(authorizeAcademicAffairsApi(DANIEL), { ok: true, email: DANIEL });
     assert.equal("mfa" in authorizeAcademicAffairsApi(DANIEL), false);
+    assert.deepEqual(authorizeAcademicAffairsApi(MARIA), { ok: true, email: MARIA });
+    assert.equal("mfa" in authorizeAcademicAffairsApi(MARIA), false);
   });
 });
 
