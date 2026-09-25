@@ -130,7 +130,7 @@ export function CourseReport({
       } else if (emptyTermStatus(termGroup, result.terms.length > 0, result.courses.length === 0)) {
         setStatus(emptyTermStatus(termGroup, result.terms.length > 0, result.courses.length === 0));
       } else if (result.courses.length === 0) {
-        setStatus("No matching course rows in the latest AspireDU statistics file.");
+        setStatus("No matching classes in the latest AspireDU statistics file.");
       } else {
         setStatus("");
       }

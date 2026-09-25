@@ -17,14 +17,13 @@ import styles from "./aspiredu.module.css";
 type Summary = {
   asOf?: string;
   studentCount?: number;
-  courseCount?: number;
 };
 
 const REPORTS = [
   {
     href: "/aspiredu/provisional/fall",
     title: "Fall Athletic Provisional",
-    desc: "Course-level AspireDU rows whose term looks like 2026 FALL 01 / FALL.",
+    desc: "Fall 2026 classes and grades from the latest AspireDU file.",
   },
   {
     href: "/aspiredu/provisional/athletics",
@@ -34,12 +33,12 @@ const REPORTS = [
   {
     href: "/aspiredu/eot/spring",
     title: "Spring EOT Grade Report",
-    desc: "Spring course rows plus a letter-grade distribution from AspireDU numeric grades.",
+    desc: "Spring classes plus a letter-grade distribution from AspireDU numeric grades.",
   },
   {
     href: "/aspiredu/students",
     title: "Student follow-up",
-    desc: "Student search grouped from the same statistics snapshot.",
+    desc: "Search any student and open a full profile: classes, grades, attendance, alerts, and associations.",
   },
 ];
 
@@ -66,7 +65,7 @@ export default function AcademicAffairsHubPage() {
   }
 
   async function downloadSss() {
-    setDownloadStatus("Loading current AspireDU course rows…");
+    setDownloadStatus("Loading current AspireDU classes…");
     try {
       const result = await loadAllCourses();
       if (result.mfaRequired) {
@@ -103,12 +102,8 @@ export default function AcademicAffairsHubPage() {
             <>
               <div className={styles.kpiGrid}>
                 <div className={styles.metric}>
-                  <span>Students in latest snapshot</span>
+                  <span>Students</span>
                   <strong>{latest.studentCount ?? 0}</strong>
-                </div>
-                <div className={styles.metric}>
-                  <span>Course rows</span>
-                  <strong>{latest.courseCount ?? 0}</strong>
                 </div>
                 {latest.asOf && (
                   <div className={styles.metric}>
