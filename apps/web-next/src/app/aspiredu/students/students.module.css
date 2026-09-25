@@ -32,6 +32,12 @@
   outline-offset: 1px;
 }
 
+.hint {
+  color: var(--t2);
+  font-size: 12px;
+  margin: -8px 0 12px;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;

@@ -9,6 +9,13 @@ import { apiFetch } from "@/lib/api";
 import styles from "../aspiredu.module.css";
 import s from "./students.module.css";
 import { EMPTY, formatDate, formatDateTime } from "./format";
+import {
+  MIN_QUERY_CHARS,
+  autoSearchParams,
+  loadMoreParams,
+  queryTooShort,
+  type SearchParams,
+} from "@/lib/reports/aspiredu/student-search";
 
 type ListStudent = {
   studentKey: string;
@@ -82,8 +89,10 @@ export default function AspireduStudentsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const requestId = useRef(0);
+  // Params of the last first-page load that completed. The cursor belongs to it.
+  const committed = useRef<SearchParams | null>(null);
 
-  const load = useCallback(async (options: { query: string; minRisk: number | null; cursor?: string }) => {
+  const load = useCallback(async (options: SearchParams & { cursor?: string }) => {
     const id = ++requestId.current;
     const appending = Boolean(options.cursor);
     if (appending) setLoadingMore(true);
@@ -105,9 +114,14 @@ export default function AspireduStudentsPage() {
       if (id !== requestId.current) return;
       if (!response.ok || !body) {
         setError(errorMessage(response.status, body));
-        if (!appending) setStudents([]);
+        if (!appending) {
+          setStudents([]);
+          setCursor(null);
+          committed.current = null;
+        }
         return;
       }
+      if (!appending) committed.current = { query: options.query.trim(), minRisk: options.minRisk };
       const page = Array.isArray(body.students) ? body.students : [];
       setStudents((prev) => (appending ? [...prev, ...page] : page));
       setCursor(body.cursor || null);
@@ -126,13 +140,19 @@ export default function AspireduStudentsPage() {
   }, []);
 
   // Search as you type (debounced) and whenever the risk chip changes.
-  // A single character is too broad to be useful, so wait for two (Enter still searches).
+  // A 1-character query waits for a second character (Enter still searches);
+  // a chip change still reloads, keeping the last committed query.
   useEffect(() => {
-    const trimmed = query.trim();
-    if (trimmed.length === 1) return;
-    const timer = window.setTimeout(() => void load({ query: trimmed, minRisk }), 300);
+    const next = autoSearchParams({ query, minRisk }, committed.current);
+    if (!next) return;
+    const timer = window.setTimeout(() => void load(next), 300);
     return () => window.clearTimeout(timer);
   }, [query, minRisk, load]);
+
+  function loadMore() {
+    const next = loadMoreParams(committed.current, cursor);
+    if (next) void load(next);
+  }
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -173,6 +193,9 @@ export default function AspireduStudentsPage() {
               />
               <button className={styles.button} type="submit">Search</button>
             </form>
+            {queryTooShort(query) && (
+              <p className={s.hint}>Type {MIN_QUERY_CHARS} or more characters to search, or press Enter.</p>
+            )}
 
             {riskValues.length > 0 && (
               <div className={s.chips} role="group" aria-label="Filter by overall risk">
@@ -266,8 +289,8 @@ export default function AspireduStudentsPage() {
                 <button
                   className={`${styles.button} ${styles.secondary}`}
                   type="button"
-                  disabled={loadingMore}
-                  onClick={() => void load({ query, minRisk, cursor })}
+                  disabled={loading || loadingMore}
+                  onClick={loadMore}
                 >
                   {loadingMore ? "Loading…" : "Load more"}
                 </button>

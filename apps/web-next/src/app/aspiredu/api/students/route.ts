@@ -53,9 +53,16 @@ async function listStudents(req: Request, parse: () => Promise<Parsed>) {
   }
 }
 
-/** Backward-compatible query-string form. The page uses POST so names stay out of URLs and logs. */
+/** Backward-compatible query-string form for filters only; free-text search must use POST. */
 export async function GET(req: Request) {
-  return listStudents(req, async () => parseListFilters(new URL(req.url)));
+  return listStudents(req, async () => {
+    const url = new URL(req.url);
+    // Names must not land in URLs (CloudFront and ALB log query strings).
+    if (url.searchParams.get("query")?.trim()) {
+      return { ok: false, error: "Send search text with POST, not in the URL" };
+    }
+    return parseListFilters(url);
+  });
 }
 
 /** Preferred: filters in a JSON body { query, minRisk, sort, cursor }. */

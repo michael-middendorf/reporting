@@ -49,12 +49,12 @@ describe("GET /aspiredu/api/students filters", () => {
     return new Request(`https://reporting.avemaria.edu/aspiredu/api/students?${query}`, { headers });
   }
 
-  it("rejects a non-numeric minRisk or unknown sort with 400", async () => {
+  it("rejects bad filters, and any search text, on GET with 400", async () => {
     const prevSecret = process.env.AUTH_SECRET;
     const prevFn = process.env.ASPIREDU_STUDENTS_FUNCTION;
     process.env.ASPIREDU_STUDENTS_FUNCTION = "amu-aspiredu-students";
     try {
-      for (const query of ["minRisk=abc", "minRisk=-1", "minRisk=Infinity", "sort=grade"]) {
+      for (const query of ["minRisk=abc", "minRisk=-1", "minRisk=Infinity", "sort=grade", "query=smith", "query=sm&minRisk=2"]) {
         const response = await GET(listRequest(query));
         assert.equal(response.status, 400, query);
       }
