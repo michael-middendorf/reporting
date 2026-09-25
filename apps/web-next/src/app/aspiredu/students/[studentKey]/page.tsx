@@ -211,7 +211,12 @@ function ProfileView({ profile }: { profile: StudentProfile }) {
                     <td className={s.num} title={course.timesAbsent === null ? "No roll call for this class" : undefined}>
                       {course.timesAbsent ?? EMPTY}
                     </td>
-                    <td className={s.num}>{formatPercent(course.percentageAttendance, 0)}</td>
+                    <td
+                      className={s.num}
+                      title={course.attendanceDerived ? "From recorded class sessions" : undefined}
+                    >
+                      {formatPercent(course.percentageAttendance, 0)}
+                    </td>
                     <td>{formatDate(course.lastAccess)}</td>
                   </tr>
                 ))}
@@ -376,7 +381,11 @@ export default function StudentProfilePage() {
   return (
     <AccessGate report="aspiredu">
       <div className={styles.shell}>
-        <ReportTopBar title="Academic Affairs" nav={ASPIREDU_NAV} />
+        <ReportTopBar
+          title="Academic Affairs"
+          nav={ASPIREDU_NAV}
+          currentLabel={state.kind === "ready" ? state.profile.identity.name : "Student profile"}
+        />
         <main className={styles.content}>
           <Link href="/aspiredu/students" className={s.backLink}>
             ← Back to student search

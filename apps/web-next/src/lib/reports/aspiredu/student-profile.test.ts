@@ -4,6 +4,7 @@ import type { CensusRawStudent } from "../census/lists-core";
 import type { Resident } from "../housing/types";
 import {
   ALWAYS_MISSING,
+  attendancePercent,
   normalizePulse,
   pickCurrentResident,
   sessionBucket,
@@ -291,5 +292,42 @@ describe("buildStudentProfile", () => {
     assert.equal(lambdaProfileStatus({ ok: true, student: null }), "not_found");
     assert.equal(lambdaProfileStatus(lambda({})), "ok");
     assert.equal(buildStudentProfile({ studentKey: KEY, lambdaResult: { ok: true, student: null }, sources: sources({}) }), null);
+  });
+});
+
+describe("attendancePercent", () => {
+  it("keeps AspireDU's percentage when delivered", () => {
+    assert.deepEqual(attendancePercent({ percentageAttendance: 87.5, timesPresent: 1, timesAbsent: 9 }), {
+      percentageAttendance: 87.5,
+      attendanceDerived: false,
+    });
+  });
+
+  it("derives it from session counts when the summary is missing", () => {
+    assert.deepEqual(attendancePercent({ percentageAttendance: null, timesPresent: 7, timesAbsent: 2 }), {
+      percentageAttendance: 78,
+      attendanceDerived: true,
+    });
+    // Late counts as attended.
+    assert.equal(attendancePercent({ timesPresent: 6, timesLate: 2, timesAbsent: 2 }).percentageAttendance, 80);
+    assert.equal(attendancePercent({ timesPresent: 0, timesAbsent: 3 }).percentageAttendance, 0);
+  });
+
+  it("stays null without counts or with zero sessions", () => {
+    assert.equal(attendancePercent({ timesPresent: 3, timesAbsent: null }).percentageAttendance, null);
+    assert.equal(attendancePercent({ timesPresent: 0, timesAbsent: 0 }).percentageAttendance, null);
+    assert.equal(attendancePercent({}).percentageAttendance, null);
+  });
+
+  it("fills the Attended column on a built profile", () => {
+    const profile = buildStudentProfile({
+      studentKey: KEY,
+      lambdaResult: lambda({ studentSisId: "P000123456" }, {
+        courses: [{ course: "MATH 150", grade: 90, timesPresent: 3, timesAbsent: 1, percentageAttendance: null }],
+      }),
+      sources: sources({}),
+    });
+    assert.equal(profile?.courses[0]?.percentageAttendance, 75);
+    assert.equal(profile?.courses[0]?.attendanceDerived, true);
   });
 });

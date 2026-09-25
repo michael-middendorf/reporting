@@ -221,3 +221,9 @@ export function reportNavActive(
   if (hasChild) return pathname === hrefPath;
   return pathname === hrefPath || pathname.startsWith(`${hrefPath}/`);
 }
+
+/** Replace the last crumb label (e.g. a record name instead of an opaque id segment). */
+export function withCurrentLabel<T extends { label: string }>(crumbs: T[], label?: string): T[] {
+  if (!label || !crumbs.length) return crumbs;
+  return [...crumbs.slice(0, -1), { ...crumbs[crumbs.length - 1]!, label }];
+}

@@ -11,6 +11,7 @@ import {
   reportCrumbs,
   reportNavActive,
   type ReportNavItem,
+  withCurrentLabel,
 } from "./report-nav";
 
 function item(nav: ReportNavItem[], href: string): ReportNavItem {
@@ -263,5 +264,18 @@ describe("isDepartmentHub", () => {
     assert.equal(isDepartmentHub("/athletics/master/recruiting"), false);
     assert.equal(isDepartmentHub("/athletics/coaching"), false);
     assert.equal(isDepartmentHub("/athletics/coaching/overview"), false);
+  });
+});
+
+describe("withCurrentLabel", () => {
+  it("replaces only the last crumb label and leaves other pages alone", () => {
+    const crumbs = reportCrumbs("/aspiredu/students/Uz27vGaesOsAbCdEfGhIjKlICN4U");
+    const named = withCurrentLabel(crumbs, "Test Student");
+    assert.equal(named.length, crumbs.length);
+    assert.equal(named.at(-1)?.label, "Test Student");
+    assert.equal(named.at(-1)?.href, crumbs.at(-1)?.href);
+    assert.deepEqual(named.slice(0, -1), crumbs.slice(0, -1));
+    assert.equal(withCurrentLabel(crumbs, undefined), crumbs);
+    assert.equal(withCurrentLabel(crumbs, ""), crumbs);
   });
 });

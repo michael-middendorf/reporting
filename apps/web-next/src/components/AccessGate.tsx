@@ -5,7 +5,13 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import type { ReportId } from "@/lib/access";
 import { apiFetch, fetchMe, setBearer } from "@/lib/api";
-import { isDepartmentHub, reportCrumbs, reportNavActive, type ReportNavItem } from "@/lib/report-nav";
+import {
+  isDepartmentHub,
+  reportCrumbs,
+  reportNavActive,
+  withCurrentLabel,
+  type ReportNavItem,
+} from "@/lib/report-nav";
 
 export function AccessGate({
   report,
@@ -44,15 +50,18 @@ export function ReportTopBar({
   actions,
   navExtra,
   wordmark,
+  currentLabel,
 }: {
   title: string;
   nav: ReportNavItem[];
   actions?: ReactNode;
   navExtra?: ReactNode;
   wordmark?: ReactNode;
+  /** Replaces the last breadcrumb label (e.g. a record name instead of an opaque id segment). */
+  currentLabel?: string;
 }) {
   const pathname = usePathname() || "";
-  const crumbs = reportCrumbs(pathname);
+  const crumbs = withCurrentLabel(reportCrumbs(pathname), currentLabel);
   async function logout() {
     await apiFetch("/api/auth/logout", { method: "POST" });
     setBearer(null);
