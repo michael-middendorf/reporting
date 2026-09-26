@@ -13,8 +13,21 @@ import type { ProfileSources } from "./student-profile";
 
 /** CloudFront gives the origin 30 seconds; stop at 25 with a clean error. */
 export const EXPORT_BUDGET_MS = 25_000;
-/** 10,000 rows per page: 50 pages is far past any real snapshot. */
+/**
+ * Rows per courses page. The full snapshot (about 7,600 rows) is within a few
+ * hundred bytes of Lambda's 6 MiB synchronous response cap, so ask for small
+ * pages. A Lambda that predates `pageSize` ignores it and returns up to 10,000
+ * rows per page; the cursor loop handles both.
+ */
+export const COURSES_PAGE_SIZE = 2000;
+/** 2,000 rows per page: 50 pages is far past any real snapshot. */
 const MAX_PAGES = 50;
+
+/** Lambda's "response payload too large" failure (Function.ResponseSizeTooLarge). */
+export function isLambdaResponseTooLarge(error: unknown): boolean {
+  const text = error instanceof Error ? `${error.name} ${error.message}` : String(error ?? "");
+  return /ResponseSizeTooLarge|response payload size|payload size exceeded|response size limit/i.test(text);
+}
 
 export const XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
@@ -93,13 +106,24 @@ export async function buildExportResponse(input: {
     for (let page = 0; page < MAX_PAGES; page += 1) {
       let result: unknown;
       try {
-        result = await withinBudget(deps.invoke({ action: "courses", callerEmail, cursor }));
+        result = await withinBudget(
+          deps.invoke({ action: "courses", callerEmail, cursor, pageSize: COURSES_PAGE_SIZE }),
+        );
       } catch (error) {
         if (error instanceof BudgetExceeded) throw error;
         if (isAspireduCallerDenied(error)) {
           throw new ExportFailure(403, "You do not have access to student records.");
         }
-        console.error("aspiredu export: Lambda invoke failed", errorName(error));
+        // Fixed reason and error class only: the message embeds the raw payload.
+        console.error(
+          JSON.stringify({
+            event: "aspiredu_export_invoke_failed",
+            actor: callerEmail,
+            reason: isLambdaResponseTooLarge(error) ? "lambda_response_too_large" : "lambda_error",
+            error: errorName(error),
+            page,
+          }),
+        );
         throw new ExportFailure(503, "Student records are unavailable right now.");
       }
       const record = result && typeof result === "object" ? (result as Record<string, unknown>) : null;

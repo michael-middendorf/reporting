@@ -47,8 +47,8 @@ describe("buildExportResponse", () => {
     const logs = (quiet as unknown as { lines: string[] }).lines.join("\n");
     assert.equal(response.status, 200);
     assert.deepEqual(d.calls, [
-      { action: "courses", callerEmail: CALLER, cursor: undefined },
-      { action: "courses", callerEmail: CALLER, cursor: "page-2" },
+      { action: "courses", callerEmail: CALLER, cursor: undefined, pageSize: 2000 },
+      { action: "courses", callerEmail: CALLER, cursor: "page-2", pageSize: 2000 },
     ]);
     assert.equal(response.headers.get("Content-Type"), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     assert.match(response.headers.get("Content-Disposition") || "", /^attachment; filename="academic-affairs-students-\d{4}-\d{2}-\d{2}\.xlsx"$/);
@@ -61,6 +61,77 @@ describe("buildExportResponse", () => {
     // Logs: actor, counts, and ms only. No names, emails of students, or source errors.
     assert.match(logs, /"event":"aspiredu_export","actor":"daniel.davy@avemaria.edu","students":2,"classes":2,"censusMatched":1,"ms":\d+/);
     assert.doesNotMatch(logs, /Alex|Example|alex\.example|exploded|P000000111/);
+  });
+
+  it("loops a multi-page cursor, sending pageSize on every call", async () => {
+    const calls: Record<string, unknown>[] = [];
+    const pages: Record<string, { courses: unknown[]; cursor: string | null }> = {
+      start: { courses: [fakeCourse({ studentHmac: "h1" })], cursor: "c2" },
+      c2: { courses: [fakeCourse({ studentHmac: "h2", course: "B" })], cursor: "c3" },
+      c3: { courses: [fakeCourse({ studentHmac: "h3", course: "C" })], cursor: null },
+    };
+    const response = await quiet(() =>
+      buildExportResponse({
+        callerEmail: CALLER,
+        deps: deps({
+          invoke: async (payload) => {
+            calls.push(payload);
+            return { ok: true, ...pages[(payload.cursor as string | undefined) ?? "start"]! };
+          },
+        }),
+      }),
+    );
+    assert.equal(response.status, 200);
+    assert.deepEqual(
+      calls.map((c) => [c.cursor, c.pageSize]),
+      [
+        [undefined, 2000],
+        ["c2", 2000],
+        ["c3", 2000],
+      ],
+    );
+    const logs = (quiet as unknown as { lines: string[] }).lines.join("\n");
+    assert.match(logs, /"students":3,"classes":3/);
+  });
+
+  it("works with an older Lambda that ignores pageSize and returns one page", async () => {
+    const calls: Record<string, unknown>[] = [];
+    const response = await quiet(() =>
+      buildExportResponse({
+        callerEmail: CALLER,
+        deps: deps({
+          invoke: async (payload) => {
+            calls.push(payload);
+            return { ok: true, courses: [fakeCourse(), fakeCourse({ studentHmac: "h2" })], cursor: null };
+          },
+        }),
+      }),
+    );
+    assert.equal(response.status, 200);
+    assert.equal(calls.length, 1);
+  });
+
+  it("logs a distinct reason when the Lambda response is too large, without data", async () => {
+    const tooLarge = new Error(
+      'Processor error: {"errorMessage":"Response payload size exceeded maximum allowed payload size (6291556 bytes).","errorType":"Function.ResponseSizeTooLarge"}',
+    );
+    const response = await quiet(() =>
+      buildExportResponse({ callerEmail: CALLER, deps: deps({ invoke: async () => Promise.reject(tooLarge) }) }),
+    );
+    const logs = (quiet as unknown as { lines: string[] }).lines.join("\n");
+    assert.equal(response.status, 503);
+    assert.match(logs, /"reason":"lambda_response_too_large"/);
+    assert.doesNotMatch(logs, /errorMessage|6291556/);
+
+    await quiet(() =>
+      buildExportResponse({
+        callerEmail: CALLER,
+        deps: deps({ invoke: async () => Promise.reject(new Error("Processor error: boom")) }),
+      }),
+    );
+    const other = (quiet as unknown as { lines: string[] }).lines.join("\n");
+    assert.match(other, /"reason":"lambda_error"/);
+    assert.doesNotMatch(other, /boom/);
   });
 
   it("returns 403 when the Lambda denies the caller", async () => {
