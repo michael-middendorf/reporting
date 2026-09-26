@@ -161,9 +161,29 @@ function sanitizeSheetName(name: string): string {
   return cleaned || "Sheet";
 }
 
+/** Characters XML 1.0 forbids: C0 controls (except tab, LF, CR) and U+FFFE / U+FFFF. */
+const XML_ILLEGAL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g;
+
+/** Excel's per-cell text limit, in UTF-16 code units. */
+export const EXCEL_CELL_MAX_CHARS = 32_767;
+const TRUNCATION_MARK = "...";
+
+/**
+ * Cell text Excel will open: XML-illegal characters removed, then cut to
+ * 32,767 characters with a trailing "..." (never splitting a surrogate pair).
+ */
+export function excelCellText(value: string): string {
+  const clean = value.replace(XML_ILLEGAL, "");
+  if (clean.length <= EXCEL_CELL_MAX_CHARS) return clean;
+  let cut = EXCEL_CELL_MAX_CHARS - TRUNCATION_MARK.length;
+  const code = clean.charCodeAt(cut - 1);
+  if (code >= 0xd800 && code <= 0xdbff) cut -= 1;
+  return clean.slice(0, cut) + TRUNCATION_MARK;
+}
+
 function xmlEscape(s: string): string {
   return s
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
+    .replace(XML_ILLEGAL, "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -346,7 +366,7 @@ function cellXml(row: number, col: number, cell: StoredCell, xf: number): string
   if (typeof cell.value === "number" && Number.isFinite(cell.value)) {
     return `<c r="${ref}"${sAttr}><v>${cell.value}</v></c>`;
   }
-  const t = xmlEscape(String(cell.value));
+  const t = xmlEscape(excelCellText(String(cell.value)));
   return `<c r="${ref}" t="inlineStr"${sAttr}><is><t xml:space="preserve">${t}</t></is></c>`;
 }
 

@@ -119,6 +119,40 @@ function AssociationBlock({
   );
 }
 
+function CensusSections({
+  census,
+  status,
+}: {
+  census: StudentProfile["associations"]["census"];
+  status: AssociationStatus;
+}) {
+  if (status !== "matched" || !census) {
+    return (
+      <p className={s.muted}>
+        {status === "not_found" ? "Not found in the census list." : "The census list is not available right now."}
+      </p>
+    );
+  }
+  return (
+    <div className={s.censusGroups}>
+      <p className={s.asOf}>Census as of {formatDate(census.asOf)}</p>
+      {census.groups.map((group) => (
+        <details key={group.group} className={s.censusGroup} open={group.open}>
+          <summary>
+            {group.group}
+            {!group.open && <small>{group.fields.length} {group.fields.length === 1 ? "field" : "fields"}</small>}
+          </summary>
+          <dl className={s.fields}>
+            {group.fields.map((f) => (
+              <Field key={f.label} label={f.label} value={f.value} />
+            ))}
+          </dl>
+        </details>
+      ))}
+    </div>
+  );
+}
+
 function badgeList(profile: StudentProfile): string[] {
   const { athletics, housing, census } = profile.associations;
   const badges: string[] = [];
@@ -308,26 +342,10 @@ function ProfileView({ profile }: { profile: StudentProfile }) {
             <Field label="Session" value={housing?.session} />
             <Field label="Move-in" value={housing?.moveIn ? formatDate(housing.moveIn) : null} />
           </AssociationBlock>
-          <AssociationBlock title="Census" source="the census list" status={associationStatus.census} asOf={census?.asOf}>
-            <Field label="Class level" value={census?.classLevel} />
-            <Field label="Program" value={census?.majors.length ? census.majors.join(", ") : census?.program} />
-            <Field label="Load" value={census?.fullPart} />
-            <Field label="Residency" value={census?.residency} />
-            <Field label="Household" value={census?.household} />
-            <Field label="Institute" value={census?.institute} />
-            <Field label="Honors" value={census?.honors} />
-            <Field label="FSP" value={census?.fsp} />
-            <Field label="Marines" value={census?.marines} />
-            <Field label="Cumulative GPA" value={formatNumber(census?.cumulativeGpa)} />
-            <Field
-              label="Credits (earned / attempted)"
-              value={census ? `${census.earnedCredits ?? EMPTY} / ${census.credits ?? EMPTY}` : null}
-            />
-          </AssociationBlock>
         </div>
+        <CensusSections census={census} status={associationStatus.census} />
         <p className={s.note}>
-          Household, Institute, honors, and cumulative GPA come from the census list, which is refreshed by hand and can
-          lag behind.
+          Census fields come from the census list, which is refreshed by hand and can lag behind.
         </p>
       </section>
 
@@ -387,8 +405,8 @@ export default function StudentProfilePage() {
           currentLabel={state.kind === "ready" ? state.profile.identity.name : "Student profile"}
         />
         <main className={styles.content}>
-          <Link href="/aspiredu/students" className={s.backLink}>
-            ← Back to student search
+          <Link href="/aspiredu" className={s.backLink}>
+            ← Back to students
           </Link>
           {state.kind === "loading" && <p className={s.stateBox}>Loading student profile…</p>}
           {state.kind === "awaiting" && (

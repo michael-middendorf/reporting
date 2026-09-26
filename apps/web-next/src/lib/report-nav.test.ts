@@ -77,28 +77,16 @@ describe("reportNavActive", () => {
     assert.equal(reportNavActive(overview, ENROLLMENT_NAV, "/enrollment/activity"), false);
   });
 
-  it("does not let parent Points/AspireDU tabs steal child routes", () => {
+  it("does not let parent Points tabs steal child routes", () => {
     const dash = item(POINTS_NAV, "/advancement/points");
     const method = item(POINTS_NAV, "/advancement/points/methodology");
-    const summary = item(ASPIREDU_NAV, "/aspiredu");
-    const students = item(ASPIREDU_NAV, "/aspiredu/students");
-    const fall = item(ASPIREDU_NAV, "/aspiredu/provisional/fall");
-    const athletics = item(ASPIREDU_NAV, "/aspiredu/provisional/athletics");
-    const springEot = item(ASPIREDU_NAV, "/aspiredu/eot/spring");
     assert.equal(reportNavActive(dash, POINTS_NAV, "/advancement/points"), true);
     assert.equal(reportNavActive(dash, POINTS_NAV, "/advancement/points/methodology"), false);
     assert.equal(reportNavActive(method, POINTS_NAV, "/advancement/points/methodology"), true);
-    assert.equal(reportNavActive(summary, ASPIREDU_NAV, "/aspiredu"), true);
-    assert.equal(reportNavActive(summary, ASPIREDU_NAV, "/aspiredu/students"), false);
-    assert.equal(reportNavActive(summary, ASPIREDU_NAV, "/aspiredu/provisional/athletics"), false);
-    assert.equal(reportNavActive(students, ASPIREDU_NAV, "/aspiredu/students"), true);
-    assert.equal(reportNavActive(fall, ASPIREDU_NAV, "/aspiredu/provisional/fall"), true);
-    assert.equal(reportNavActive(athletics, ASPIREDU_NAV, "/aspiredu/provisional/athletics"), true);
-    assert.equal(fall.label, "Fall Athletic Provisional");
-    assert.equal(athletics.label, "Athletics Provisional");
-    assert.equal(reportNavActive(springEot, ASPIREDU_NAV, "/aspiredu/eot/spring"), true);
-    assert.equal(reportNavActive(summary, ASPIREDU_NAV, "/aspiredu/eot/spring"), false);
-    assert.equal(springEot.label, "Spring EOT Grade Report");
+  });
+
+  it("gives Academic Affairs no tab strip (one Students page)", () => {
+    assert.deepEqual(ASPIREDU_NAV, []);
   });
 });
 
@@ -137,11 +125,16 @@ describe("reportCrumbs", () => {
       { href: "/enrollment", label: "Enrollment" },
       { href: "/enrollment/admissions", label: "Admissions" },
     ]);
-    assert.deepEqual(reportCrumbs("/aspiredu/students"), [
+    assert.deepEqual(reportCrumbs("/aspiredu"), [
       { href: "/", label: "Reports" },
       { href: "/aspiredu", label: "Academic Affairs" },
-      { href: "/aspiredu/students", label: "Student follow-up" },
     ]);
+    // A profile crumb goes straight back to /aspiredu (the page swaps in the name).
+    assert.deepEqual(reportCrumbs("/aspiredu/students/Uz27vGaesOsAbCdEfGhIjKlICN4U").slice(0, 2), [
+      { href: "/", label: "Reports" },
+      { href: "/aspiredu", label: "Academic Affairs" },
+    ]);
+    assert.equal(reportCrumbs("/aspiredu/students/Uz27vGaesOsAbCdEfGhIjKlICN4U").length, 3);
     assert.deepEqual(reportCrumbs("/aspiredu/mfa"), [
       { href: "/", label: "Reports" },
       { href: "/aspiredu", label: "Academic Affairs" },
@@ -255,7 +248,12 @@ describe("isDepartmentHub", () => {
   it("keeps tabs when the folder URL is itself a report (Enrollment)", () => {
     assert.equal(isDepartmentHub("/enrollment"), false);
     assert.equal(isDepartmentHub("/enrollment/admissions"), false);
-    assert.equal(isDepartmentHub("/aspiredu"), false);
+  });
+
+  it("hides tabs on Academic Affairs, which has no nav", () => {
+    // Only AccessGate reads this; with an empty nav it just means "no tab strip".
+    assert.equal(isDepartmentHub("/aspiredu"), true);
+    assert.equal(isDepartmentHub("/aspiredu/students/Uz27vGaesOsAbCdEfGhIjKlICN4U"), false);
   });
 
   it("hides tabs on the Athletics department hub", () => {

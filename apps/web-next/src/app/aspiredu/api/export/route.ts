@@ -3,7 +3,22 @@ import { authorizeAcademicAffairsApi } from "@/lib/aspiredu-api-auth";
 import { aspireduPrivateHeaders } from "@/lib/aspiredu-auth";
 import { currentUserEmail } from "@/lib/auth";
 import { invokeProcessor } from "@/lib/process-invoke";
+import { buildExportResponse } from "@/lib/reports/aspiredu/export-handler";
+import {
+  loadProfileCensus,
+  loadProfileHousing,
+  loadProfileRoster,
+} from "@/lib/reports/aspiredu/profile-sources";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+/**
+ * Every AspireDU student as one Excel workbook (Students + Classes sheets).
+ * No query parameters, so nothing about a student is ever in the URL. Same
+ * gate as the other /aspiredu/api routes: a signed-in session plus the
+ * aspiredu ACL.
+ */
 export async function GET(req: Request) {
   const auth = authorizeAcademicAffairsApi(currentUserEmail(req));
   if (!auth.ok) {
@@ -16,14 +31,13 @@ export async function GET(req: Request) {
       { status: 503, headers: aspireduPrivateHeaders },
     );
   }
-  const url = new URL(req.url);
-  const result = await invokeProcessor(functionName, {
-    action: "courses",
+  return buildExportResponse({
     callerEmail: auth.email,
-    query: url.searchParams.get("query") || undefined,
-    term: url.searchParams.get("term") || undefined,
-    termGroup: url.searchParams.get("termGroup") || undefined,
-    cursor: url.searchParams.get("cursor") || undefined,
+    deps: {
+      invoke: (payload) => invokeProcessor(functionName, payload),
+      loadRoster: loadProfileRoster,
+      loadHousing: loadProfileHousing,
+      loadCensus: loadProfileCensus,
+    },
   });
-  return NextResponse.json(result, { headers: aspireduPrivateHeaders });
 }
