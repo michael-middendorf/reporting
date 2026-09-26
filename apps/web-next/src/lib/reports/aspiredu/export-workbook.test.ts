@@ -98,6 +98,24 @@ describe("buildExportModel", () => {
     assert.equal(model.counts.censusMatched, 2);
   });
 
+  it("never joins another student's census row by a shared email when PCIDs disagree", () => {
+    const wrong = fakeCensus({ pcid: "P000999999", email: "alex.example@avemaria.edu", dob: "1999-09-09" });
+    const model = buildExportModel([fakeCourse()], { ...NO_SOURCES, census: { students: [wrong], asOf: null } });
+    const row = model.students[0]!;
+    assert.equal(row[col("Census match")], "Not found");
+    assert.equal(row[col("Date of birth")], null);
+    assert.equal(model.counts.censusMatched, 0);
+  });
+
+  it("writes Census PCID in the same P + 9 digit form as the AspireDU id", () => {
+    const model = buildExportModel([fakeCourse()], {
+      ...NO_SOURCES,
+      census: { students: [fakeCensus({ pcid: "111" })], asOf: null },
+    });
+    assert.equal(model.students[0]![col("Census PCID")], "P000000111");
+    assert.equal(model.students[0]![col("PCID or SIS id")], "P000000111");
+  });
+
   it("marks unmatched students when the census loaded", () => {
     const model = buildExportModel([fakeCourse()], { ...NO_SOURCES, census: { students: [], asOf: null } });
     assert.equal(model.students[0]![col("Census match")], "Not found");

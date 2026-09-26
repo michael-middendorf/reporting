@@ -338,7 +338,7 @@ describe("attendancePercent", () => {
 });
 
 describe("census on the profile", () => {
-  it("carries the full census record and grouped sections with blanks hidden", () => {
+  it("sends grouped census values (not the raw row) with blanks hidden", () => {
     const profile = buildStudentProfile({
       studentKey: KEY,
       lambdaResult: lambda({ studentSisId: "P000123456" }),
@@ -351,7 +351,7 @@ describe("census on the profile", () => {
     });
     const block = profile?.associations.census;
     assert.ok(block);
-    assert.equal(block.record.dob, "2006-01-02");
+    assert.equal("record" in block, false, "the raw census row stays on the server");
     assert.equal(block.household, "St. Kateri");
     const names = block.groups.map((g) => g.group);
     assert.deepEqual(names.slice(0, 2), ["Enrollment", "Residency"]);
@@ -387,6 +387,42 @@ describe("census on the profile", () => {
       sources: sources({ census: { students: [grad, ug], asOf: null } }),
     });
     assert.equal(profile?.associations.census?.program, "Theology");
+  });
+});
+
+describe("FERPA guard on email matches", () => {
+  it("rejects an email match when both PCIDs exist and disagree", () => {
+    const other = census({ pcid: "P000999999", email: "test.student@avemaria.edu", household: "Wrong Person" });
+    const profile = buildStudentProfile({
+      studentKey: KEY,
+      lambdaResult: lambda({ studentSisId: "P000123456", email: "test.student@my.avemaria.edu" }),
+      sources: sources({ census: { students: [other], asOf: null } }),
+    });
+    assert.equal(profile?.associations.census, null);
+    assert.equal(profile?.associationStatus.census, "not_found");
+  });
+
+  it("still matches by email when either side has no PCID", () => {
+    const noPcid = census({ pcid: "", email: "test.student@avemaria.edu" });
+    const keys = profileJoinKeys({ studentSisId: "P000123456", email: "test.student@avemaria.edu" });
+    assert.deepEqual(bestMatches(keys, [noPcid], censusCandidate), [noPcid]);
+    const withPcid = census({ pcid: "P000999999", email: "test.student@avemaria.edu" });
+    const keysNoPcid = profileJoinKeys({ studentSisId: null, email: "test.student@avemaria.edu" });
+    assert.deepEqual(bestMatches(keysNoPcid, [withPcid], censusCandidate), [withPcid]);
+    // Same PCID written differently is not a conflict.
+    const samePerson = census({ pcid: "123456", email: "test.student@avemaria.edu" });
+    const keysSis = profileJoinKeys({ studentSisId: "ZZZ", email: "test.student@avemaria.edu" });
+    assert.deepEqual(bestMatches(keysSis, [samePerson], censusCandidate), [samePerson]);
+  });
+
+  it("applies the same guard in the bulk index", () => {
+    const rows = [
+      census({ pcid: "P000999999", email: "test.student@avemaria.edu" }),
+      census({ pcid: "", email: "test.student@avemaria.edu" }),
+    ];
+    const keys = profileJoinKeys({ studentSisId: "P000123456", email: "test.student@avemaria.edu" });
+    assert.deepEqual(buildJoinIndex(rows, censusCandidate).lookup(keys), [rows[1]]);
+    assert.deepEqual(buildJoinIndex(rows, censusCandidate).lookup(keys), bestMatches(keys, rows, censusCandidate));
   });
 });
 

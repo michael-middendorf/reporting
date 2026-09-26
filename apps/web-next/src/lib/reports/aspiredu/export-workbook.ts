@@ -16,9 +16,9 @@ import {
   athleticsFromHits,
   buildJoinIndex,
   censusCandidate,
-  censusFromHits,
   gradeKpis,
   housingFromHits,
+  pickCensusRow,
   profileJoinKeys,
   residentCandidate,
   rosterCandidate,
@@ -242,11 +242,12 @@ export function buildExportModel(rows: unknown[], sources: ProfileSources): Expo
     const keys = profileJoinKeys(student);
     const athletics = rosterIndex ? athleticsFromHits(rosterIndex.lookup(keys), null) : null;
     const housing = housingIndex ? housingFromHits(housingIndex.lookup(keys), null) : null;
-    const census = censusIndex ? censusFromHits(censusIndex.lookup(keys), null) : null;
+    // Same row choice as the profile (primary UNDERG row first).
+    const census = censusIndex ? pickCensusRow(censusIndex.lookup(keys)) ?? null : null;
     if (census) censusMatched += 1;
 
     // PCID when the SIS id is one; otherwise the raw SIS id (kept as text).
-    const id = keys.pcid ?? student.studentSisId ?? (census ? normalizePcid(census.record.pcid || "") : null);
+    const id = keys.pcid ?? student.studentSisId ?? (census ? normalizePcid(census.pcid || "") : null);
     const grades = gradeKpis(student.courses.map((c) => c.grade));
     let lastActivity: string | null = null;
     for (const course of student.courses) {
@@ -274,7 +275,7 @@ export function buildExportModel(rows: unknown[], sources: ProfileSources): Expo
       housing?.hall ?? null,
       housing?.room ?? null,
       housing?.residency ?? null,
-      ...CENSUS_FIELDS.map((f) => (census ? f.get(census.record) : null)),
+      ...CENSUS_FIELDS.map((f) => (census ? f.get(census) : null)),
       sources.census ? (census ? "Matched" : "Not found") : "Census unavailable",
     ]);
 

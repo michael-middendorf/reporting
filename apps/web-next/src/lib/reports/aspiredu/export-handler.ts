@@ -16,8 +16,8 @@ export const EXPORT_BUDGET_MS = 25_000;
 /**
  * Rows per courses page. The full snapshot (about 7,600 rows) is within a few
  * hundred bytes of Lambda's 6 MiB synchronous response cap, so ask for small
- * pages. A Lambda that predates `pageSize` ignores it and returns up to 10,000
- * rows per page; the cursor loop handles both.
+ * pages (the Lambda clamps pageSize to 100..10,000). The loop follows the
+ * cursor until the Lambda stops returning one, whatever page size it used.
  */
 export const COURSES_PAGE_SIZE = 2000;
 /** 2,000 rows per page: 50 pages is far past any real snapshot. */

@@ -7,6 +7,7 @@
  * censusRawRow): residency via displayCensusResidency, athlete via
  * censusRawAthleteFlag.
  */
+import { normalizePcid } from "../athletics-coaching/academics";
 import { censusRawAthleteFlag, type CensusRawStudent } from "../census/lists-core";
 import { displayCensusResidency } from "../census/residency";
 
@@ -71,7 +72,17 @@ function field(
 export const CENSUS_FIELDS: CensusField[] = [
   // Census's own identity columns. The Students sheet leads with AspireDU's
   // name, email, and PCID; these show what the census row itself says.
-  field("Census record", "Census PCID", "pcid", { profile: false }),
+  {
+    group: "Census record",
+    header: "Census PCID",
+    keys: ["pcid"],
+    profile: false,
+    // Same P + 9 digit form as the "PCID or SIS id" column; odd values stay as written.
+    get: (s) => {
+      const raw = text(s.pcid);
+      return raw ? normalizePcid(raw) ?? raw : null;
+    },
+  },
   field("Census record", "Census first name", "first", { profile: false }),
   field("Census record", "Census last name", "last", { profile: false }),
   field("Census record", "Census email", "email", { profile: false }),

@@ -134,9 +134,7 @@ export type CensusAssociation = {
   cumulativeGpa: number | null;
   credits: number | null;
   earnedCredits: number | null;
-  /** The full census row (every field), for this one student only. */
-  record: CensusRawStudent;
-  /** Profile sections from census-fields.ts, blanks already dropped. */
+  /** Every census field for this one student, as grouped display values (census-fields.ts), blanks dropped. */
   groups: CensusProfileGroup[];
   asOf: string | null;
 };
@@ -250,7 +248,18 @@ export function profileJoinKeys(student: {
 
 export type JoinCandidate = { pcid?: string | null; ids?: (string | null | undefined)[]; email?: string | null };
 
-/** 1 = PCID, 2 = SIS id, 3 = email, 0 = no match. Lower is stronger. */
+/**
+ * FERPA guard for the email tier: when both sides carry a PCID and they
+ * disagree, a shared email is a different person (reused or mistyped
+ * address), so the email match is rejected.
+ */
+function pcidConflict(keys: JoinKeys, candidate: JoinCandidate): boolean {
+  if (!keys.pcid || !candidate.pcid) return false;
+  const other = normalizePcid(candidate.pcid);
+  return Boolean(other) && other !== keys.pcid;
+}
+
+/** 1 = PCID, 2 = SIS id, 3 = email (unless the PCIDs conflict), 0 = no match. Lower is stronger. */
 function matchTier(keys: JoinKeys, candidate: JoinCandidate): number {
   if (keys.pcid && candidate.pcid) {
     const pcid = normalizePcid(candidate.pcid);
@@ -263,7 +272,7 @@ function matchTier(keys: JoinKeys, candidate: JoinCandidate): number {
   }
   if (keys.emails.length && candidate.email) {
     const email = candidate.email.trim().toLowerCase();
-    if (email && keys.emails.includes(email)) return 3;
+    if (email && keys.emails.includes(email) && !pcidConflict(keys, candidate)) return 3;
   }
   return 0;
 }
@@ -296,6 +305,7 @@ export function buildJoinIndex<T>(
   const byPcid = new Map<string, number[]>();
   const byId = new Map<string, number[]>();
   const byEmail = new Map<string, number[]>();
+  const candidates: JoinCandidate[] = [];
   const add = (map: Map<string, number[]>, key: string, index: number) => {
     const list = map.get(key);
     if (!list) map.set(key, [index]);
@@ -303,6 +313,7 @@ export function buildJoinIndex<T>(
   };
   items.forEach((item, index) => {
     const candidate = toCandidate(item);
+    candidates.push(candidate);
     const pcid = candidate.pcid ? normalizePcid(candidate.pcid) : null;
     if (pcid) add(byPcid, pcid, index);
     for (const id of [candidate.pcid, ...(candidate.ids || [])]) {
@@ -323,7 +334,9 @@ export function buildJoinIndex<T>(
         const hits = byId.get(keys.sisId);
         if (hits?.length) return pick(hits);
       }
-      const emailHits = keys.emails.flatMap((email) => byEmail.get(email) ?? []);
+      const emailHits = keys.emails
+        .flatMap((email) => byEmail.get(email) ?? [])
+        .filter((i) => !pcidConflict(keys, candidates[i]!));
       return emailHits.length ? pick(emailHits) : [];
     },
   };
@@ -458,7 +471,6 @@ export function censusFromHits(hits: CensusRawStudent[], asOf: string | null): C
     cumulativeGpa: num(hit.gpa),
     credits: num(hit.credits),
     earnedCredits: num(hit.earnedCredits),
-    record: hit,
     groups: censusProfileGroups(hit),
     asOf,
   };
