@@ -1,11 +1,12 @@
 import type { NextConfig } from "next";
+import { ASPIREDU_REDIRECTS } from "./src/lib/aspiredu-redirects";
 
 const nextConfig: NextConfig = {
   output: "standalone",
   serverExternalPackages: ["@simplewebauthn/server"],
   async redirects() {
     return [
-      { source: "/aspiredu/provisional/summer-1", destination: "/aspiredu/provisional/fall", permanent: true },
+      ...ASPIREDU_REDIRECTS,
       { source: "/points", destination: "/advancement/points", permanent: true },
       {
         source: "/points/methodology",

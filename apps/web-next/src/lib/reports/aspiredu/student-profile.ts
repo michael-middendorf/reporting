@@ -19,8 +19,9 @@ import {
   type AttendancePulse,
 } from "../athletics-coaching/academics";
 import { normalizeRosterRow, type NormalizedRosterRow } from "../athletics-coaching/enrollment";
-import type { CensusRawStudent } from "../census/lists-core";
+import { isUgDegreeSeekingRow, type CensusRawStudent } from "../census/lists-core";
 import { censusResidencyOf } from "../census/residency";
+import { censusProfileGroups, type CensusProfileGroup } from "./census-fields";
 import { HALL_REGISTRY } from "../housing/names";
 import type { Resident } from "../housing/types";
 
@@ -133,6 +134,10 @@ export type CensusAssociation = {
   cumulativeGpa: number | null;
   credits: number | null;
   earnedCredits: number | null;
+  /** The full census row (every field), for this one student only. */
+  record: CensusRawStudent;
+  /** Profile sections from census-fields.ts, blanks already dropped. */
+  groups: CensusProfileGroup[];
   asOf: string | null;
 };
 
@@ -243,10 +248,10 @@ export function profileJoinKeys(student: {
   };
 }
 
-type Candidate = { pcid?: string | null; ids?: (string | null | undefined)[]; email?: string | null };
+export type JoinCandidate = { pcid?: string | null; ids?: (string | null | undefined)[]; email?: string | null };
 
 /** 1 = PCID, 2 = SIS id, 3 = email, 0 = no match. Lower is stronger. */
-function matchTier(keys: JoinKeys, candidate: Candidate): number {
+function matchTier(keys: JoinKeys, candidate: JoinCandidate): number {
   if (keys.pcid && candidate.pcid) {
     const pcid = normalizePcid(candidate.pcid);
     if (pcid && pcid === keys.pcid) return 1;
@@ -264,7 +269,7 @@ function matchTier(keys: JoinKeys, candidate: Candidate): number {
 }
 
 /** Every item that matches at the strongest tier any item reaches. */
-export function bestMatches<T>(keys: JoinKeys, items: T[], toCandidate: (item: T) => Candidate): T[] {
+export function bestMatches<T>(keys: JoinKeys, items: T[], toCandidate: (item: T) => JoinCandidate): T[] {
   let best = 0;
   let hits: T[] = [];
   for (const item of items) {
@@ -278,6 +283,50 @@ export function bestMatches<T>(keys: JoinKeys, items: T[], toCandidate: (item: T
     }
   }
   return hits;
+}
+
+/**
+ * Indexed form of bestMatches for bulk joins (the spreadsheet joins every
+ * student). Same tiers and same result order as bestMatches.
+ */
+export function buildJoinIndex<T>(
+  items: T[],
+  toCandidate: (item: T) => JoinCandidate,
+): { lookup: (keys: JoinKeys) => T[] } {
+  const byPcid = new Map<string, number[]>();
+  const byId = new Map<string, number[]>();
+  const byEmail = new Map<string, number[]>();
+  const add = (map: Map<string, number[]>, key: string, index: number) => {
+    const list = map.get(key);
+    if (!list) map.set(key, [index]);
+    else if (list[list.length - 1] !== index) list.push(index);
+  };
+  items.forEach((item, index) => {
+    const candidate = toCandidate(item);
+    const pcid = candidate.pcid ? normalizePcid(candidate.pcid) : null;
+    if (pcid) add(byPcid, pcid, index);
+    for (const id of [candidate.pcid, ...(candidate.ids || [])]) {
+      const raw = rawId(id);
+      if (raw) add(byId, raw, index);
+    }
+    const email = (candidate.email || "").trim().toLowerCase();
+    if (email) add(byEmail, email, index);
+  });
+  const pick = (indexes: number[]) => [...new Set(indexes)].sort((a, b) => a - b).map((i) => items[i]!);
+  return {
+    lookup(keys) {
+      if (keys.pcid) {
+        const hits = byPcid.get(keys.pcid);
+        if (hits?.length) return pick(hits);
+      }
+      if (keys.sisId) {
+        const hits = byId.get(keys.sisId);
+        if (hits?.length) return pick(hits);
+      }
+      const emailHits = keys.emails.flatMap((email) => byEmail.get(email) ?? []);
+      return emailHits.length ? pick(emailHits) : [];
+    },
+  };
 }
 
 /* ---------- association builders ---------- */
@@ -300,11 +349,14 @@ export function athleticsAssociation(
   asOf: string | null,
 ): AthleticsAssociation | null {
   const normalized = rows.map(normalizeRosterRow);
-  const hits = bestMatches<NormalizedRosterRow>(keys, normalized, (row) => ({
-    pcid: row.pcid,
-    ids: [row.personReferenceId],
-    email: row.email,
-  }));
+  return athleticsFromHits(bestMatches<NormalizedRosterRow>(keys, normalized, rosterCandidate), asOf);
+}
+
+export function rosterCandidate(row: NormalizedRosterRow): JoinCandidate {
+  return { pcid: row.pcid, ids: [row.personReferenceId], email: row.email };
+}
+
+export function athleticsFromHits(hits: NormalizedRosterRow[], asOf: string | null): AthleticsAssociation | null {
   if (!hits.length) return null;
   const first = hits[0]!;
   return {
@@ -335,12 +387,15 @@ export function housingAssociation(
   residents: Resident[],
   asOf: string | null,
 ): HousingAssociation | null {
-  const hit = pickCurrentResident(
-    bestMatches(keys, residents, (resident) => ({
-      pcid: resident.pcid,
-      email: resident.email,
-    })),
-  );
+  return housingFromHits(bestMatches(keys, residents, residentCandidate), asOf);
+}
+
+export function residentCandidate(resident: Resident): JoinCandidate {
+  return { pcid: resident.pcid, email: resident.email };
+}
+
+export function housingFromHits(hits: Resident[], asOf: string | null): HousingAssociation | null {
+  const hit = pickCurrentResident(hits);
   if (!hit) return null;
   const code = str(hit.building);
   // Same residency buckets the census uses (On Campus, Commuter, Ireland, Rome...).
@@ -362,10 +417,29 @@ export function censusAssociation(
   students: CensusRawStudent[],
   asOf: string | null,
 ): CensusAssociation | null {
-  const hit = bestMatches(keys, students, (student) => ({
-    pcid: student.pcid,
-    email: student.email,
-  }))[0];
+  return censusFromHits(bestMatches(keys, students, censusCandidate), asOf);
+}
+
+export function censusCandidate(student: CensusRawStudent): JoinCandidate {
+  return { pcid: student.pcid, email: student.email };
+}
+
+/**
+ * A dual UG+GRAD student has two census rows under one PCID. Prefer the
+ * primary undergraduate row (Program UNDERG, degree-seeking), then any UNDERG
+ * row, then the first.
+ */
+export function pickCensusRow(hits: CensusRawStudent[]): CensusRawStudent | undefined {
+  const ug = (s: CensusRawStudent) => (s.program || "").trim().toUpperCase() === "UNDERG";
+  return (
+    hits.find((s) => ug(s) && isUgDegreeSeekingRow(s.program, s.collegeAttend, s.degree)) ??
+    hits.find(ug) ??
+    hits[0]
+  );
+}
+
+export function censusFromHits(hits: CensusRawStudent[], asOf: string | null): CensusAssociation | null {
+  const hit = pickCensusRow(hits);
   if (!hit) return null;
   return {
     pcid: normalizePcid(hit.pcid || ""),
@@ -384,6 +458,8 @@ export function censusAssociation(
     cumulativeGpa: num(hit.gpa),
     credits: num(hit.credits),
     earnedCredits: num(hit.earnedCredits),
+    record: hit,
+    groups: censusProfileGroups(hit),
     asOf,
   };
 }
@@ -544,6 +620,27 @@ function sumOrNull(values: (number | null)[]): number | null {
   return present.length ? present.reduce((a, b) => a + b, 0) : null;
 }
 
+/**
+ * Grade KPIs shared by the profile and the spreadsheet: unweighted GPA
+ * estimate from letter points, average percent, and graded classes under 80%.
+ */
+export function gradeKpis(grades: (number | null)[]): {
+  gpaEstimate: number | null;
+  avgGrade: number | null;
+  gradedCourses: number;
+  belowAbCount: number;
+} {
+  const graded = grades.filter((g): g is number => g !== null && Number.isFinite(g));
+  return {
+    gpaEstimate: graded.length
+      ? round(graded.reduce((sum, g) => sum + gpaPointsFromPercent(g), 0) / graded.length, 2)
+      : null,
+    avgGrade: graded.length ? round(graded.reduce((sum, g) => sum + g, 0) / graded.length, 1) : null,
+    gradedCourses: graded.length,
+    belowAbCount: graded.filter((g) => !isAB(letterFromPercent(g))).length,
+  };
+}
+
 /* ---------- gaps ---------- */
 
 export const ALWAYS_MISSING = [
@@ -620,11 +717,7 @@ export function buildStudentProfile(input: {
   const status = (source: unknown, block: unknown): AssociationStatus =>
     source ? (block ? "matched" : "not_found") : "unavailable";
 
-  const graded = courses.filter((c): c is ProfileCourse & { grade: number } => c.grade !== null);
-  const gpaEstimate = graded.length
-    ? round(graded.reduce((sum, c) => sum + gpaPointsFromPercent(c.grade), 0) / graded.length, 2)
-    : null;
-  const avgGrade = graded.length ? round(graded.reduce((sum, c) => sum + c.grade, 0) / graded.length, 1) : null;
+  const grades = gradeKpis(courses.map((c) => c.grade));
 
   const pcid = keys.pcid ?? censusBlock?.pcid ?? athletics?.pcid ?? null;
 
@@ -643,11 +736,11 @@ export function buildStudentProfile(input: {
     },
     asOf: normalizeAsOf(record.asOf),
     kpis: {
-      gpaEstimate,
-      avgGrade,
-      gradedCourses: graded.length,
+      gpaEstimate: grades.gpaEstimate,
+      avgGrade: grades.avgGrade,
+      gradedCourses: grades.gradedCourses,
       courseCount: courses.length,
-      belowAbCount: courses.filter((c) => c.belowAB).length,
+      belowAbCount: grades.belowAbCount,
       totalAbsences: sumOrNull(courses.map((c) => c.timesAbsent)),
       totalMissing: sumOrNull(courses.map((c) => c.missing)),
       risk: student.risk,

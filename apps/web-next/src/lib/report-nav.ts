@@ -66,13 +66,8 @@ export const ATHLETICS_COACHING_NAV: ReportNavItem[] = [
   { href: "/athletics/coaching/overview", label: "Overview", report: "athletics-coaching" },
 ];
 
-export const ASPIREDU_NAV: ReportNavItem[] = [
-  { href: "/aspiredu", label: "Overview", exact: true },
-  { href: "/aspiredu/provisional/fall", label: "Fall Athletic Provisional" },
-  { href: "/aspiredu/provisional/athletics", label: "Athletics Provisional" },
-  { href: "/aspiredu/eot/spring", label: "Spring EOT Grade Report" },
-  { href: "/aspiredu/students", label: "Student follow-up" },
-];
+/** Academic Affairs is one Students page (/aspiredu) plus profiles: no tab strip. */
+export const ASPIREDU_NAV: ReportNavItem[] = [];
 
 export const MARKETING_NAV: ReportNavItem[] = [
   { href: "/marketing/pursuit-of-wisdom", label: "Pursuit of Wisdom", report: "marketing" },

@@ -5,7 +5,12 @@ import type { Resident } from "../housing/types";
 import {
   ALWAYS_MISSING,
   attendancePercent,
+  bestMatches,
+  buildJoinIndex,
+  censusCandidate,
+  gradeKpis,
   normalizePulse,
+  pickCensusRow,
   pickCurrentResident,
   sessionBucket,
   buildStudentProfile,
@@ -331,3 +336,90 @@ describe("attendancePercent", () => {
     assert.equal(profile?.courses[0]?.attendanceDerived, true);
   });
 });
+
+describe("census on the profile", () => {
+  it("carries the full census record and grouped sections with blanks hidden", () => {
+    const profile = buildStudentProfile({
+      studentKey: KEY,
+      lambdaResult: lambda({ studentSisId: "P000123456" }),
+      sources: sources({
+        census: {
+          students: [census({ pcid: "P000123456", program: "UNDERG", dob: "2006-01-02", acComments: "Strong fit", act: "28" })],
+          asOf: "2026-09-20T00:00:00Z",
+        },
+      }),
+    });
+    const block = profile?.associations.census;
+    assert.ok(block);
+    assert.equal(block.record.dob, "2006-01-02");
+    assert.equal(block.household, "St. Kateri");
+    const names = block.groups.map((g) => g.group);
+    assert.deepEqual(names.slice(0, 2), ["Enrollment", "Residency"]);
+    assert.ok(!names.includes("Census record"), "identity columns are export only");
+    const demographics = block.groups.find((g) => g.group === "Demographics");
+    assert.ok(demographics);
+    assert.equal(demographics.open, false);
+    // gender, ethnicity, religion... are blank in the fixture and must not render.
+    assert.deepEqual(
+      demographics.fields.map((f) => f.label),
+      ["State", "Date of birth"],
+    );
+    const interview = block.groups.find((g) => g.group === "Interview");
+    assert.deepEqual(interview?.fields, [{ label: "AC comments", value: "Strong fit" }]);
+    const admissions = block.groups.find((g) => g.group === "Admissions");
+    assert.deepEqual(admissions?.fields, [{ label: "ACT", value: "28" }]);
+    for (const group of block.groups) {
+      for (const f of group.fields) assert.notEqual(f.value.trim(), "", `${group.group}/${f.label}`);
+    }
+  });
+
+  it("prefers the primary UNDERG row when a PCID has two census rows", () => {
+    const grad = census({ pcid: "P000123456", program: "GRAD", degree: "MARTS", curriculumName: "MA Theology" });
+    const dual = census({ pcid: "P000123456", program: "UNDERG", collegeAttend: "DUAL", curriculumName: "Dual" });
+    const ug = census({ pcid: "P000123456", program: "UNDERG", collegeAttend: "RETURN", curriculumName: "Theology" });
+    assert.equal(pickCensusRow([grad, dual, ug]), ug);
+    assert.equal(pickCensusRow([grad, dual]), dual);
+    assert.equal(pickCensusRow([grad]), grad);
+    assert.equal(pickCensusRow([]), undefined);
+    const profile = buildStudentProfile({
+      studentKey: KEY,
+      lambdaResult: lambda({ studentSisId: "123456" }),
+      sources: sources({ census: { students: [grad, ug], asOf: null } }),
+    });
+    assert.equal(profile?.associations.census?.program, "Theology");
+  });
+});
+
+describe("buildJoinIndex", () => {
+  it("returns exactly what bestMatches returns, in the same order", () => {
+    const rows = [
+      census({ pcid: "P000000001", email: "a@avemaria.edu" }),
+      census({ pcid: "123456", email: "b@avemaria.edu" }),
+      census({ pcid: "P000123456", email: "c@my.avemaria.edu" }),
+      census({ pcid: "", email: "c@avemaria.edu" }),
+      census({ pcid: "X-77", email: "" }),
+    ];
+    const index = buildJoinIndex(rows, censusCandidate);
+    const cases = [
+      { studentSisId: "123456", email: "zzz@avemaria.edu" },
+      { studentSisId: null, email: "c@avemaria.edu" },
+      { studentSisId: "x-77", email: null },
+      { studentSisId: "999", email: "a@my.avemaria.edu" },
+      { studentSisId: null, email: null },
+    ];
+    for (const student of cases) {
+      const keys = profileJoinKeys(student);
+      assert.deepEqual(index.lookup(keys), bestMatches(keys, rows, censusCandidate), JSON.stringify(student));
+    }
+    // PCID beats email even when an earlier row matches by email.
+    assert.deepEqual(index.lookup(profileJoinKeys({ studentSisId: "123456", email: "a@avemaria.edu" })), [rows[1], rows[2]]);
+  });
+});
+
+describe("gradeKpis", () => {
+  it("matches the profile KPI math and ignores ungraded classes", () => {
+    assert.deepEqual(gradeKpis([95, 72.5, null]), { gpaEstimate: 2.85, avgGrade: 83.8, gradedCourses: 2, belowAbCount: 1 });
+    assert.deepEqual(gradeKpis([null]), { gpaEstimate: null, avgGrade: null, gradedCourses: 0, belowAbCount: 0 });
+  });
+});
+

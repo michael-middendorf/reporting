@@ -59,7 +59,7 @@ const REPORTS: {
     id: "aspiredu",
     href: "/aspiredu",
     title: "Academic Affairs",
-    desc: "AspireDU course reports for Academic Affairs.",
+    desc: "Search students or download every student record.",
   },
 ];
 

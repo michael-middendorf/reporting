@@ -5,7 +5,33 @@
 }
 
 .pageHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 20px;
   margin-bottom: 18px;
+}
+
+.pageHeader p {
+  margin: 0;
+}
+
+.downloadBox {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.downloadBox .bannerError {
+  margin: 0;
+}
+
+.downloadBox button:disabled {
+  opacity: 0.7;
+  cursor: progress;
 }
 
 /* ---------- search ---------- */
@@ -473,8 +499,9 @@
 
 .assocGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+  margin-bottom: 14px;
 }
 
 .assocBlock {
@@ -568,3 +595,46 @@
     grid-template-columns: 80px minmax(0, 1fr) auto;
   }
 }
+
+/* ---------- census sections on the profile ---------- */
+
+.censusGroups {
+  display: grid;
+  gap: 10px;
+}
+
+.censusGroup {
+  border: 1px solid var(--bdr);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.censusGroup > summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 700;
+  color: var(--blue);
+  list-style-position: inside;
+}
+
+.censusGroup > summary small {
+  color: var(--t2);
+  font-weight: 400;
+  margin-left: 6px;
+}
+
+.censusGroup[open] > summary {
+  border-bottom: 1px solid var(--bdr);
+}
+
+.censusGroup .fields {
+  padding: 12px 14px;
+  grid-template-columns: repeat(2, minmax(110px, 0.7fr) minmax(0, 1.3fr));
+}
+
+@media (max-width: 800px) {
+  .censusGroup .fields {
+    grid-template-columns: minmax(96px, 42%) 1fr;
+  }
+}
+
