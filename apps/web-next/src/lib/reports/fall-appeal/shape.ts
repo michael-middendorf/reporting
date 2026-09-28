@@ -190,6 +190,23 @@ export function usd(n: number | null | undefined): string {
   return `${sign}$${Math.round(Math.abs(n)).toLocaleString("en-US")}`;
 }
 
+export type GoalProgress = {
+  goal: number;
+  raised: number;
+  pctOfGoal: number;
+  remaining: number;
+  exceeded: boolean;
+};
+
+/** Progress toward a gross dollar goal. Null when no usable goal is set. */
+export function goalProgress(raised: number, goal: number | null | undefined): GoalProgress | null {
+  if (goal == null || !Number.isFinite(goal) || goal <= 0) return null;
+  if (!Number.isFinite(raised)) return null;
+  const pctOfGoal = raised <= 0 ? 0 : Math.round((raised / goal) * 1000) / 10;
+  const remaining = Math.round(Math.max(0, goal - raised) * 100) / 100;
+  return { goal, raised, pctOfGoal, remaining, exceeded: raised >= goal };
+}
+
 /** ISO date (`YYYY-MM-DD`) → `Aug 16, 2026`. Noon local avoids TZ day-shift. */
 export function formatMdDate(iso: string | null | undefined): string {
   if (!iso) return "—";
