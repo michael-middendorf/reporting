@@ -16,7 +16,6 @@ import {
   assignedNotesFromFlags,
   scoreTrackedEvents,
   eventPointsForHours,
-  noteTypeForIncoming,
   tierFor,
   TIERS,
   trackerBreakdown,
@@ -26,7 +25,6 @@ import {
   SETTINGS,
   virtuousContactUrl,
   virtuousGiftUrl,
-  virtuousGiftNoteUrl,
   weekKey,
   weekLabel,
   MA_ROSTER,
@@ -35,6 +33,7 @@ import {
   EVENT_POINTS_PER_HOUR,
 } from "@/lib/reports/points/scoring";
 import type { FlagInput, ReviewFlag } from "@/lib/reports/points/flags";
+import { giftNoteFormUrl } from "@/lib/reports/points/gift-note.js";
 import type { TrackedEvent } from "@/lib/reports/points/tracked-events";
 import "@/styles/points.css";
 
@@ -266,28 +265,39 @@ function formatLastRefresh(iso: string) {
   return `${time}, ${date}`;
 }
 
-/** Virtuous blocks framing, so the note form opens in its own window. One window is reused down the list. */
-function openVirtuousNote(href: string): void {
-  const width = 720;
-  const height = 860;
+/** One window is reused as you move down Possible gifts. */
+function openGiftNote(href: string): void {
+  const width = 460;
+  const height = 640;
   const left = Math.max(0, window.screenX + Math.round((window.outerWidth - width) / 2));
   const top = Math.max(0, window.screenY + Math.round((window.outerHeight - height) / 2));
   const features = `popup=yes,width=${width},height=${height},left=${left},top=${top}`;
-  const popup = window.open(href, "points-virtuous-gift-note", features);
+  const popup = window.open(href, "points-gift-note", features);
   if (popup) popup.focus();
 }
 
-function GiftNoteButton({ contactId, kind }: { contactId?: string | number | null; kind?: string }) {
-  const href = virtuousGiftNoteUrl(contactId);
+function GiftNoteButton({
+  contactId,
+  name,
+  amount,
+  day,
+  project,
+}: {
+  contactId?: string | number | null;
+  name?: string | null;
+  amount?: number;
+  day?: string;
+  project?: string;
+}) {
+  const href = giftNoteFormUrl(contactId, { name, amount, day, project });
   if (!href) return null;
-  const typeName = noteTypeForIncoming(kind);
   return (
     <button
       type="button"
       className="mini-btn"
-      title={`Opens this contact in Virtuous with the note form ready. Choose ${typeName}.`}
-      aria-label={`Add a gift note in Virtuous. Choose ${typeName}.`}
-      onClick={() => openVirtuousNote(href)}
+      title="Opens a gift note for this contact. Type is set to Gift."
+      aria-label={`Add a gift note for ${name || "this contact"}`}
+      onClick={() => openGiftNote(href)}
     >
       Add note
     </button>
@@ -385,7 +395,6 @@ function PointsPageInner() {
   const [flags, setFlags] = useState<Record<string, ReviewFlag>>({});
   const [flagBusy, setFlagBusy] = useState<string | null>(null);
   const [flagError, setFlagError] = useState<string | null>(null);
-  const [assignBusy, setAssignBusy] = useState<string | null>(null);
   const [trackedEvents, setTrackedEvents] = useState<TrackedEvent[]>([]);
   const [eventBusy, setEventBusy] = useState(false);
   const [eventForm, setEventForm] = useState({
@@ -785,45 +794,6 @@ function PointsPageInner() {
     deleteFlag(id);
   }
 
-  async function assignIncoming(g: PossibleGiftRow, owner: string, assist: boolean, opts?: { skipConfirm?: boolean }) {
-    if (g.giftId == null || g.giftId === "" || g.contactId == null || !g.day) return;
-    const kindLabel = assist ? "Gift Assist" : (noteTypeForIncoming(g.kind) || "gift note");
-    if (!opts?.skipConfirm && !window.confirm(`Assign this ${kindLabel} to ${owner}? It scores 100 points and counts in Raised. It does not add a note in Virtuous.`)) return;
-    setAssignBusy(`${g.giftId}:${owner}`);
-    setFlagError(null);
-    try {
-      const res = await apiFetch("/api/reports/points/assign-gift", {
-        method: "POST",
-        body: JSON.stringify({
-          giftId: g.giftId,
-          contactId: g.contactId,
-          contactName: g.contactName,
-          owner,
-          day: g.day,
-          amount: g.amount,
-          kind: g.kind,
-          assist,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || res.statusText);
-      if (data.flag?.noteId) {
-        setFlags((f) => ({ ...f, [data.flag.noteId]: data.flag as ReviewFlag }));
-        const who = g.contactName || "this donor";
-        showUndo(
-          String(data.flag.noteId),
-          assist
-            ? `Assist for ${who} assigned to ${owner}. 100 pts, $0 Raised.`
-            : `Assigned ${money(g.amount)} from ${who} to ${owner}. 100 pts + Raised.`,
-        );
-      }
-    } catch (e) {
-      setFlagError(`Could not assign gift: ${String(e)}`);
-    } finally {
-      setAssignBusy(null);
-    }
-  }
-
   async function dismissIncoming(g: PossibleGiftRow) {
     if (g.giftId == null || g.giftId === "") return;
     const id = `gift:${g.giftId}`;
@@ -840,55 +810,6 @@ function PointsPageInner() {
       reason: "Does not qualify",
     });
     if (ok) showUndo(id, `Removed ${g.contactName || "this gift"}.`);
-  }
-
-  async function assignMgoGift(g: GiftRow) {
-    const id = giftFlagId(g);
-    if (!id || !g.owner) return;
-    const previous = flags[id];
-    const input: FlagInput = {
-      noteId: id,
-      contactId: g.contactId != null ? String(g.contactId) : null,
-      contactName: g.contactName || null,
-      owner: g.owner,
-      day: g.day || null,
-      type: g.giftType || "Gift",
-      label: g.label || "Donation received",
-      points: 0,
-      reason: "mgo-review",
-      status: "assigned",
-    };
-    const optimistic: ReviewFlag = {
-      ...input,
-      reason: "mgo-review",
-      status: "assigned",
-      flaggedBy: "",
-      flaggedAt: new Date().toISOString(),
-    };
-    setFlagBusy(id);
-    setFlagError(null);
-    setFlags((f) => ({ ...f, [id]: optimistic }));
-    try {
-      const res = await apiFetch("/api/reports/points/flags", {
-        method: "POST",
-        body: JSON.stringify(input),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || res.statusText);
-      const flag = data.flag as ReviewFlag;
-      setFlags((f) => ({ ...f, [String(flag.noteId)]: flag }));
-      showUndo(id, `Assigned ${money(g.amount)} from ${g.contactName || "this donor"} to ${g.owner}.`);
-    } catch (e) {
-      setFlags((f) => {
-        const next = { ...f };
-        if (previous) next[id] = previous;
-        else delete next[id];
-        return next;
-      });
-      setFlagError(`Could not save: ${String(e)}`);
-    } finally {
-      setFlagBusy(null);
-    }
   }
 
   async function unassignMgoGift(g: GiftRow) {
@@ -1174,7 +1095,7 @@ function PointsPageInner() {
                       <tbody>
                   {listedPossible.map((g, i) => {
                     const owners = incomingOwners(g);
-                    const busy = assignBusy != null || flagBusy === (g.giftId != null ? `gift:${g.giftId}` : null);
+                    const busy = flagBusy === (g.giftId != null ? `gift:${g.giftId}` : null);
                     return (
                       <tr key={g.giftId != null && g.giftId !== "" ? String(g.giftId) : `todo-${i}`}>
                         <td className="nowrap">{g.day ? formatDay(g.day) : "—"}</td>
@@ -1209,30 +1130,13 @@ function PointsPageInner() {
                         <td className="pts tabular nowrap">{money(g.amount)}</td>
                         <td>
                           <div className="todo-actions">
-                            <GiftNoteButton contactId={g.contactId} kind={g.kind} />
-                            {owners.map((o) => (
-                              <button
-                                key={`a-${o.name}`}
-                                type="button"
-                                className="mini-btn solid"
-                                disabled={busy}
-                                onClick={() => assignIncoming(g, o.name, false, { skipConfirm: true })}
-                              >
-                                {assignBusy === `${g.giftId}:${o.name}` ? "…" : o.name.split(" ")[0]}
-                              </button>
-                            ))}
-                            {owners.map((o) => (
-                              <button
-                                key={`s-${o.name}`}
-                                type="button"
-                                className="mini-btn"
-                                disabled={busy}
-                                title={`Assist ${o.name.split(" ")[0]} · 100 pts, $0`}
-                                onClick={() => assignIncoming(g, o.name, true, { skipConfirm: true })}
-                              >
-                                Assist
-                              </button>
-                            ))}
+                            <GiftNoteButton
+                              contactId={g.contactId}
+                              name={g.contactName}
+                              amount={g.amount}
+                              day={g.day}
+                              project={g.project}
+                            />
                             <button
                               type="button"
                               className="mini-btn danger"
@@ -1291,17 +1195,13 @@ function PointsPageInner() {
                         <td className="pts tabular nowrap">{money(g.amount)}</td>
                         <td>
                           <div className="todo-actions">
-                            <GiftNoteButton contactId={g.contactId} />
-                            {g.owner && id ? (
-                              <button
-                                type="button"
-                                className="mini-btn solid"
-                                disabled={busy}
-                                onClick={() => assignMgoGift(g)}
-                              >
-                                {busy ? "…" : g.owner.split(" ")[0]}
-                              </button>
-                            ) : null}
+                            <GiftNoteButton
+                              contactId={g.contactId}
+                              name={g.contactName}
+                              amount={g.amount}
+                              day={g.day}
+                              project={g.project}
+                            />
                             {id ? (
                               <button
                                 type="button"
