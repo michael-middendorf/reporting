@@ -1,22 +1,13 @@
 import { NextResponse } from "next/server";
 import { canLogin, sessionDecisionAtComplete } from "@/lib/access";
-import { clearAspireduSessionCookie } from "@/lib/aspiredu-auth";
 import {
-  clearMfaPendingCookie,
-  clearSessionCookie,
-  cookieSecureFromRequest,
-  createMfaPendingToken,
-  createSessionToken,
   currentMfaPendingEmail,
   getSessionFromRequest,
-  MFA_PENDING_TTL_MINUTES,
-  mfaPendingCookie,
-  reportingSessionTtlDays,
-  sessionCookie,
   verifyMagicToken,
   verifySessionToken,
 } from "@/lib/auth";
 import { claimMagicNonce } from "@/lib/magic-nonce";
+import { appendSetCookies, signInAfterVerification } from "@/lib/sign-in-after-verification";
 
 export const runtime = "nodejs";
 
@@ -89,21 +80,14 @@ export async function POST(req: Request) {
     }
   }
 
-  const secure = cookieSecureFromRequest(req);
-  if (decision === "mfa_pending") {
-    const pending = createMfaPendingToken(email, secret, MFA_PENDING_TTL_MINUTES);
-    const res = NextResponse.json({ ok: true, mfaRequired: true, redirect: "/auth/mfa" });
-    res.headers.append("Set-Cookie", mfaPendingCookie(pending, MFA_PENDING_TTL_MINUTES * 60, secure));
-    res.headers.append("Set-Cookie", clearSessionCookie(secure));
-    res.headers.append("Set-Cookie", clearAspireduSessionCookie("/aspiredu"));
-    res.headers.append("Set-Cookie", clearAspireduSessionCookie("/"));
+  const signIn = signInAfterVerification(req, email, secret, decision);
+  if (signIn.kind === "mfa_pending") {
+    const res = NextResponse.json({ ok: true, mfaRequired: true, redirect: signIn.redirect });
+    appendSetCookies(res, signIn.setCookies);
     return res;
   }
 
-  const ttlDays = reportingSessionTtlDays();
-  const session = createSessionToken(email, secret, ttlDays);
-  const res = NextResponse.json({ ok: true, email, redirect: "/", session });
-  res.headers.append("Set-Cookie", sessionCookie(session, ttlDays * 86400, secure));
-  res.headers.append("Set-Cookie", clearMfaPendingCookie(secure));
+  const res = NextResponse.json({ ok: true, email, redirect: "/", session: signIn.session });
+  appendSetCookies(res, signIn.setCookies);
   return res;
 }

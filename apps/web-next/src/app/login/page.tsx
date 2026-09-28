@@ -1,10 +1,14 @@
 import { Suspense } from "react";
+import { microsoftSignInEnabled } from "@/lib/entra";
 import LoginPage from "./LoginClient";
+
+// Read ENTRA_* / CORE_API_URL at request time, not at build time.
+export const dynamic = "force-dynamic";
 
 export default function Page() {
   return (
     <Suspense fallback={<main style={{ padding: 40 }}>Loading…</main>}>
-      <LoginPage />
+      <LoginPage microsoftEnabled={microsoftSignInEnabled()} />
     </Suspense>
   );
 }

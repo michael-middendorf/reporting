@@ -1,6 +1,6 @@
 # Reporting authentication operations
 
-The reporting site uses passwordless magic-link authentication. It does not use a password form for hub sign-in.
+The reporting site uses passwordless magic-link authentication, plus an optional "Sign in with Microsoft" button (see [Microsoft sign-in](#microsoft-sign-in)). It does not use a password form for hub sign-in.
 
 Academic Affairs users (admins plus the `aspiredu` allowlist, including daniel.davy@avemaria.edu, maria.t.gomez@avemaria.edu, and alexandra.r.baalman@avemaria.edu) and athletics coaching users complete a second factor at sign-in: a TOTP authenticator code, or a passkey they set up after the first sign-in. The passkey replaces the 6-digit code at the next sign-in. It does not replace the email magic link.
 
@@ -19,6 +19,45 @@ There is no daily sign-in email and no unsolicited magic-link blast. People book
 - After sign-in, Academic Affairs users can add a passkey at `/settings/security`. Passkeys are stored in the same Dynamo table as TOTP, as base64url credential ids and public keys. WebAuthn RP id and origin come from `APP_BASE_URL` (`reporting.avemaria.edu`).
 - Notification mail (for example new Annunciation Circle members) must link to the hub with no `?token=`.
 - Old inbox messages titled "Your AMU Reporting sign-in link" are expired login tokens, not the report. Send people to the hub instead.
+
+## Microsoft sign-in
+
+"Sign in with Microsoft" (Entra ID) is a second way to prove the same work email. The magic link always stays available. Reporting keeps its own `amu_reporting_session`; it does not use core sessions.
+
+### Flow
+
+1. The login form shows a plain link to `GET /api/auth/microsoft` (optionally `?next=<same-origin path>`). It sets four short-lived cookies (`amu_reporting_entra_state`, `_verifier`, `_nonce`, `_from`; HttpOnly, Secure, SameSite=Lax, Path=`/api/auth/microsoft`, 10 minutes) and 302s to `login.microsoftonline.com` with PKCE S256, `response_mode=query`, `prompt=select_account`.
+2. Microsoft returns to `GET /api/auth/microsoft/callback?code&state`. The route checks `state` against its cookie, then POSTs `{code, code_verifier, redirect_uri, nonce}` to core `POST /user-sessions/from-entra`. Core holds the only Entra client secret and verifies the ID token.
+3. Core answers 201 with a `session_token` Set-Cookie. Reporting uses that core token once for `GET /users/me` to read the verified email, then always calls `DELETE /user-sessions/current`, so no core session is left behind. The token and code are never logged or sent to the browser.
+4. The email must pass `canLogin()`, the same allowlist the magic link uses. Then the same code as `POST /api/auth/complete` (`src/lib/sign-in-after-verification.ts`) decides the result:
+   - Academic Affairs and coaching users get `amu_reporting_mfa_pending` and go to `/auth/mfa`. **MFA is still required.** Microsoft sign-in never sets the `mfa` claim, because core does not pass Microsoft's `amr` claim.
+   - Everyone else gets the 14-day `amu_reporting_session` (no `mfa` claim) and returns to the saved `next` path, or `/`.
+5. Any failure clears the four cookies and redirects to `/login?microsoft=failed`, which tells the user to use the email link or contact IT.
+
+### Redirect URI
+
+Exactly one: `https://reporting.avemaria.edu/api/auth/microsoft/callback`. It is built from `APP_BASE_URL`, never from Host or `x-forwarded-*` headers, with no trailing slash. It must be byte-identical in the Entra app registration ("AMU Apps Sign-In"), core `REDIRECT_URI_APPS` (avemaria-api), and this app. There is no localhost entry: `http://localhost:3000` belongs to another app in core.
+
+### Environment
+
+The button shows, and both routes work, only when `NODE_ENV=production` **and** all of these are set on the web task:
+
+| Variable | Value |
+|---|---|
+| `ENTRA_TENANT_ID` | `7f4bc07b-d9b5-43c4-a1d6-bce660187973` (public) |
+| `ENTRA_CLIENT_ID` | `66a8909d-d22e-41bf-9092-4dbe06e393b0` (public) |
+| `CORE_API_URL` | `https://core.avemaria.edu` |
+
+`APP_BASE_URL` (already set to `https://reporting.avemaria.edu`) supplies the redirect URI. No secret is needed in this app. With any variable missing the login page shows only the email form and `/api/auth/microsoft` redirects to `/login`.
+
+### Identity
+
+The email is the Entra UPN as core records it. A person whose UPN differs from the address on the report allowlists is refused (sent to `/login?microsoft=failed`); they are never mapped to another account. Add the UPN to the allowlist only if that person should have access.
+
+### Debugging `/login?microsoft=failed`
+
+- Reporting logs (`/ecs/amu-reporting/web-v3`, filter `"[entra]"`) name the failing step without the code, token, or email: `state`, `missing_cookies`, `microsoft_error`, `core_exchange` (with core's status), `not_permitted`, or `disabled`.
+- Core logs: `/ecs/avemaria-api`, filter `"from-entra"`. No line means reporting failed before calling core. 503 means core's Entra settings are missing. 401 for everyone means the redirect URI is not on core's allowlist, the Entra client secret expired, or clock skew. 201 followed by `not_permitted` means the verified email is not on any report list.
 
 ## Authorization model
 

@@ -3,21 +3,28 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, fetchMe } from "@/lib/api";
-import { MAGIC_LINK_SENT_MSG } from "@/lib/auth-messages";
+import { MAGIC_LINK_SENT_MSG, MICROSOFT_FAILED_MSG } from "@/lib/auth-messages";
+import { safeLocalPath } from "@/lib/safe-local-path";
 import styles from "../auth.module.css";
 
-export default function LoginClient() {
+function microsoftStartHref(next: string): string {
+  return next === "/" ? "/api/auth/microsoft" : `/api/auth/microsoft?next=${encodeURIComponent(next)}`;
+}
+
+export default function LoginClient({ microsoftEnabled = false }: { microsoftEnabled?: boolean }) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState({ kind: "", text: "" });
   const [busy, setBusy] = useState(false);
   const params = useSearchParams();
   const router = useRouter();
+  const next = safeLocalPath(params.get("next"));
+  const microsoftFailed = params.get("microsoft") === "failed";
 
   useEffect(() => {
     fetchMe().then((me) => {
-      if (me.authenticated) router.replace(params.get("next") || "/");
+      if (me.authenticated) router.replace(next);
     });
-  }, [router, params]);
+  }, [router, next]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -52,6 +59,11 @@ export default function LoginClient() {
         We&apos;ll email you a sign-in link. After you sign in, you&apos;ll see
         the reports you have access to.
       </p>
+      {microsoftFailed && (
+        <div className={`${styles.status} err`} role="alert">
+          {MICROSOFT_FAILED_MSG}
+        </div>
+      )}
       <form onSubmit={onSubmit}>
         <label htmlFor="email">Work email</label>
         <input
@@ -70,6 +82,14 @@ export default function LoginClient() {
       <div className={`${styles.status} ${status.kind}`} aria-live="polite">
         {status.text}
       </div>
+      {microsoftEnabled && (
+        <>
+          <p className={styles.divider}>or</p>
+          <a className={styles.microsoftLink} href={microsoftStartHref(next)}>
+            Sign in with Microsoft
+          </a>
+        </>
+      )}
     </main>
   );
 }

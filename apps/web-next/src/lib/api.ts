@@ -34,7 +34,15 @@ export type AuthMe = {
 
 export async function fetchMe(): Promise<AuthMe> {
   try {
-    const res = await apiFetch("/api/auth/me");
+    let res = await apiFetch("/api/auth/me");
+    // The server reads a Bearer header before the HttpOnly cookie. A stale
+    // tab-scoped token (expired, or from before an AUTH_SECRET change) would
+    // hide a valid cookie session, e.g. one set by Microsoft sign-in, which
+    // never puts a token in sessionStorage. Drop it and retry on the cookie.
+    if (res.status === 401 && getBearer()) {
+      setBearer(null);
+      res = await apiFetch("/api/auth/me");
+    }
     if (!res.ok) return { authenticated: false };
     return (await res.json()) as AuthMe;
   } catch {

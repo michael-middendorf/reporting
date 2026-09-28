@@ -148,3 +148,18 @@
   text-align: center;
   text-decoration: none;
 }
+
+/* "Sign in with Microsoft": a plain GET link styled like the secondary button. */
+.microsoftLink {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 11px 14px;
+  background: #fff;
+  color: var(--blue);
+  font: 700 13px/1 inherit;
+  text-align: center;
+  text-decoration: none;
+}
