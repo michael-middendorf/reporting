@@ -33,6 +33,17 @@ export function virtuousGiftUrl(contactId) {
   return `${VIRTUOUS_APP_BASE}/Generosity/Contact/Gifts/${contactId}`;
 }
 
+/**
+ * Create-note form for this contact. Virtuous sends X-Frame-Options: SAMEORIGIN,
+ * so the dashboard opens this in a popup window. The form names the contact and
+ * is ready to save; the type still has to be chosen there (New Donation or New AC,
+ * Update Recurring Gift, or Gift Assist). Query params do not preselect the type.
+ */
+export function virtuousGiftNoteUrl(contactId) {
+  if (contactId == null || contactId === "") return "";
+  return `${VIRTUOUS_APP_BASE}/Generosity/ContactNote/Create?contactId=${encodeURIComponent(contactId)}`;
+}
+
 /* ---- CSV helpers (RFC-4180) --------------------------------------------- */
 /** Escape one cell. Also neutralizes CSV/formula injection (leading = + - @). */
 function cell(v) {
