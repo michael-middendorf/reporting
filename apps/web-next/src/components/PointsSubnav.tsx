@@ -41,8 +41,9 @@ export function PointsSubnav({ count }: { count?: number }) {
   const tab = search.get("tab");
   const incoming = pathname === "/advancement/points" && tab === "incoming";
   const events = pathname === "/advancement/points" && tab === "events";
+  const insights = pathname === "/advancement/points" && tab === "insights";
   const method = pathname.startsWith("/advancement/points/methodology");
-  const dash = pathname === "/advancement/points" && !incoming && !events;
+  const dash = pathname === "/advancement/points" && !incoming && !events && !insights;
   const badge = n > 0 ? (n > 99 ? "99+" : String(n)) : null;
   return (
     <nav className="points-subnav" aria-label="Points sections">
@@ -71,6 +72,13 @@ export function PointsSubnav({ count }: { count?: number }) {
         aria-current={events ? "page" : undefined}
       >
         Events
+      </Link>
+      <Link
+        href="/advancement/points?tab=insights"
+        className={insights ? "active" : undefined}
+        aria-current={insights ? "page" : undefined}
+      >
+        Insights
       </Link>
       <Link
         href="/advancement/points/methodology"

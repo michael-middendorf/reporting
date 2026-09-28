@@ -36,6 +36,8 @@ import {
 import type { FlagInput, ReviewFlag } from "@/lib/reports/points/flags";
 import type { TrackedEvent } from "@/lib/reports/points/tracked-events";
 import "@/styles/points.css";
+import { InsightsPanel } from "./insights-panel";
+import { buildInsights } from "@/lib/reports/points/insights.js";
 
 type RangeKey = "week" | "all" | "custom" | "dates";
 
@@ -347,14 +349,15 @@ async function loadRaw() {
     if (!res.ok) throw new Error(`${name}: ${res.status}`);
     return res.json();
   };
-  const [notes, gifts, meta] = await Promise.all([
+  const [notes, gifts, meta, profiles] = await Promise.all([
     get("notes.json"),
     get("gifts.json").catch(() => []),
     get("meta.json"),
+    get("profiles.json").catch(() => []),
   ]);
   const arr = (x: unknown) =>
     Array.isArray(x) ? x : ((x as { records?: unknown[] })?.records || []);
-  return { notes: arr(notes), gifts: arr(gifts), meta: meta || {} };
+  return { notes: arr(notes), gifts: arr(gifts), profiles: arr(profiles), meta: meta || {} };
 }
 
 export default function PointsPage() {
@@ -368,8 +371,8 @@ export default function PointsPage() {
 function PointsPageInner() {
   const searchParams = useSearchParams();
   const rawTab = searchParams.get("tab");
-  const tab = rawTab === "incoming" ? "incoming" : rawTab === "events" ? "events" : "points";
-  const [raw, setRaw] = useState<{ notes: unknown[]; gifts: unknown[]; meta: Record<string, unknown> } | null>(null);
+  const tab = rawTab === "incoming" ? "incoming" : rawTab === "events" ? "events" : rawTab === "insights" ? "insights" : "points";
+  const [raw, setRaw] = useState<{ notes: unknown[]; gifts: unknown[]; profiles: unknown[]; meta: Record<string, unknown> } | null>(null);
   const [rows, setRows] = useState<Array<Record<string, unknown>> | null>(null);
   const [meta, setMeta] = useState<Record<string, unknown>>({});
   const [range, setRange] = useState<RangeKey>("all");
@@ -405,6 +408,7 @@ function PointsPageInner() {
         setRaw({
           notes: loaded.notes,
           gifts: loaded.gifts,
+          profiles: loaded.profiles,
           meta: loaded.meta as Record<string, unknown>,
         });
         setMeta(loaded.meta as Record<string, unknown>);
@@ -500,6 +504,22 @@ function PointsPageInner() {
       bests: Bests;
     };
   }, [rows, range, selectedWeek, dateFrom, dateTo, flags]);
+
+  const insights = useMemo(() => {
+    const { start, end } = bounds(range, selectedWeek || null, dateFrom, dateTo);
+    const activity = (rows || []).filter((row) => {
+      const when = row.date instanceof Date ? row.date : null;
+      if (!when) return false;
+      if (start && when < start) return false;
+      if (end && when > end) return false;
+      return true;
+    });
+    return buildInsights({
+      gifts: model.gifts || [],
+      notes: activity,
+      profiles: raw?.profiles || [],
+    });
+  }, [rows, model.gifts, range, selectedWeek, dateFrom, dateTo, raw]);
 
   const selectedOwner = model.owners.find((o) => o.name === selected);
 
@@ -917,7 +937,7 @@ function PointsPageInner() {
         <main className="wrap dash">
           <div className="points-toolbar">
             <PointsSubnav count={todoAllCount} />
-            {tab === "points" || tab === "events" ? (
+            {tab === "points" || tab === "events" || tab === "insights" ? (
               <>
             <div className="seg" role="group" aria-label="Preset range">
               {RANGE_KEYS.map((key) => {
@@ -1909,6 +1929,10 @@ function PointsPageInner() {
           ) : null}
           </>
           )}
+
+          {tab === "insights" ? (
+            error ? null : raw ? <InsightsPanel insights={insights} /> : <p className="footnote">Loading donor records…</p>
+          ) : null}
 
           {undo ? (
             <div className="undo-bar" role="status">

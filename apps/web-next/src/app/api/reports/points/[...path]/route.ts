@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireReportAccess } from "@/lib/s3-proxy";
 import { loadSourceRows, loadSourceRowsOptional } from "@/lib/sources";
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "@/lib/reports/points/counted-gifts.js";
+import { projectProfiles } from "@/lib/reports/points/profiles.js";
 import { contactDisplayName, giftSolicitor, prepareGifts } from "@/lib/reports/points/scoring";
 
 type Ctx = { params: Promise<{ path: string[] }> };
@@ -142,6 +143,15 @@ export async function GET(req: Request, ctx: Ctx) {
       });
       return NextResponse.json(kept, {
         headers: { "X-AMU-Source-Dt": gifts.latest.dt, "Cache-Control": "private, max-age=60" },
+      });
+    }
+    if (file === "profiles.json") {
+      const contacts = await loadSourceRowsOptional<Record<string, unknown>>("virtuous", "contacts");
+      return NextResponse.json(projectProfiles(contacts?.rows || []), {
+        headers: {
+          "X-AMU-Source-Dt": contacts?.latest.dt || "",
+          "Cache-Control": "private, max-age=60",
+        },
       });
     }
     if (file === "events.json") {
