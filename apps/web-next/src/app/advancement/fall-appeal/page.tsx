@@ -5,6 +5,7 @@ import { apiFetch, fetchMe, getBearer } from "@/lib/api";
 import {
   addDaysIso,
   formatMdDate,
+  goalProgress,
   usd,
   type FallAppealSnapshot,
   type EmailPerformanceSegment,
@@ -29,6 +30,8 @@ const num = (n: number) => n.toLocaleString("en-US");
 const pct = (n: number) => `${n}%`;
 
 const DEFS = {
+  goal:
+    "Gross gifts attributed to the appeal in Virtuous (full gift amounts, before any costs), with refunds and reversals subtracted. This is the same figure as Total Revenue. Goal set by Advancement.",
   totalRevenue:
     "Sum of all gift amounts (net of reversals) attributed to the appeal campaign in Virtuous.",
   totalGifts: "Count of gifts attributed to the appeal campaign.",
@@ -322,6 +325,7 @@ export default function FallAppealPage() {
   const constituency = segments.filter((s) => s.group === "constituency");
   const donorType = segments.filter((s) => s.group === "donorType");
   const selectedCampaign = appealCampaign(campaignSlug);
+  const goal = data ? goalProgress(data.summary.totalRevenue, selectedCampaign?.goalGross) : null;
   const campaignStart = data?.campaignStart || data?.appealStart || selectedCampaign?.start || "2026-08-16";
   const campaignEnd = data?.campaignEnd || selectedCampaign?.end;
 
@@ -401,6 +405,40 @@ export default function FallAppealPage() {
               </div>
             </div>
           </section>
+
+          {goal && (
+            <section className="ac-analytics">
+              <h2>
+                Progress to Goal <InfoDot text={DEFS.goal} />
+              </h2>
+              <div className="ac-cards">
+                <div className="ac-card">
+                  <span className="ac-card-num">{usd(goal.raised)}</span>
+                  <span className="ac-card-label">Gross raised</span>
+                  <span className="fa-card-sub">
+                    {goal.pctOfGoal}% of {usd(goal.goal)} goal
+                  </span>
+                </div>
+                <div className="ac-card">
+                  <span className="ac-card-num">{usd(goal.goal)}</span>
+                  <span className="ac-card-label">Gross goal</span>
+                  <span className="fa-card-sub">
+                    {goal.exceeded ? "Goal reached" : `${usd(goal.remaining)} to go`}
+                  </span>
+                </div>
+              </div>
+              <div
+                className="fa-goal-bar"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={goal.goal}
+                aria-valuenow={goal.raised}
+                aria-label="Gross raised toward goal"
+              >
+                <div className="fa-goal-fill" style={{ width: `${Math.min(100, goal.pctOfGoal)}%` }} />
+              </div>
+            </section>
+          )}
 
           {data.yoy && (
             <section className="ac-analytics">

@@ -80,3 +80,6 @@
 .fa-swatch-cur { background: var(--ac-gold); }
 .fa-swatch-prior { background: var(--ac-dim); }
 .fa-swatch-now { background: #B23A2E; }
+
+.fa-goal-bar { position: relative; height: 14px; background: var(--ac-border); border-radius: 7px; overflow: hidden; margin: 12px 0 6px; }
+.fa-goal-fill { height: 100%; background: var(--ac-gold); border-radius: 7px; }

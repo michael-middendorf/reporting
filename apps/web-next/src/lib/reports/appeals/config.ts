@@ -7,6 +7,8 @@ export type AppealCampaign = {
   cacheKey: string;
   legacyCacheKey?: string;
   audienceTags: { id: number; label: string; creative?: boolean }[];
+  /** Gross dollar goal set by Advancement. */
+  goalGross?: number;
 };
 
 /**
@@ -23,6 +25,7 @@ export const APPEAL_CAMPAIGNS: readonly AppealCampaign[] = [
     cacheKey: "appeals/fall-2026/latest.json",
     legacyCacheKey: "fall-appeal/latest.json",
     audienceTags: [{ id: 93, label: "Direct Mail Audience" }],
+    goalGross: 70000,
   },
   {
     slug: "spring-2026",
