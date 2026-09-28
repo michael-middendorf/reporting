@@ -15,6 +15,170 @@ import { cycleMeta, pickCurPrv } from "@/lib/reports/enrollment/cycle";
 import { DEFS } from "@/lib/reports/enrollment/defs";
 import { fmt } from "@/lib/reports/enrollment/load";
 
+type InterviewsByMonthTerm = {
+  months: Record<string, number>;
+  before: number;
+  after: number;
+  total: number;
+  toDate: number;
+  monthToDate: number;
+};
+type InterviewsByMonth = Record<string, InterviewsByMonthTerm> & {
+  asOf?: string;
+  sameDateLastYear?: string;
+};
+
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function monthLabel(monthKey: string) {
+  const [y, m] = monthKey.split("-").map(Number);
+  return `${MONTH_ABBR[(m || 1) - 1]} ${y}`;
+}
+
+/** Interviews by month, aligned by cycle position (curKey vs prvKey). */
+function InterviewsByMonthTable({
+  ibm,
+  curKey,
+  prvKey,
+  curLabel,
+  prvLabel,
+}: {
+  ibm: InterviewsByMonth | undefined;
+  curKey: string;
+  prvKey: string;
+  curLabel: string;
+  prvLabel: string;
+}) {
+  if (!ibm || !ibm[curKey]) return null;
+  const cur = ibm[curKey];
+  const prv = ibm[prvKey];
+  const curMonthKeys = Object.keys(cur.months);
+  const prvMonthKeys = prv ? Object.keys(prv.months) : [];
+
+  const asOfStr = ibm.asOf;
+  let curIsInProgress = false;
+  let asOfMonthKey: string | null = null;
+  if (asOfStr) {
+    const asOfYear = Number(asOfStr.slice(0, 4));
+    const asOfMonth1 = Number(asOfStr.slice(5, 7));
+    const currentTermYear = asOfMonth1 >= 6 ? asOfYear + 1 : asOfYear;
+    const curTermYear = Number((curKey.match(/\d+/) || ["0"])[0]);
+    curIsInProgress = curTermYear === currentTermYear;
+    asOfMonthKey = asOfStr.slice(0, 7);
+  }
+
+  type Row = { monthKey: string; curVal: number; prvVal: number | null; isCurrentMonth: boolean };
+  const rows: Row[] = curMonthKeys.map((mk, i) => {
+    const prvMk = prvMonthKeys[i];
+    return {
+      monthKey: mk,
+      curVal: cur.months[mk] || 0,
+      prvVal: prv && prvMk ? prv.months[prvMk] ?? 0 : null,
+      isCurrentMonth: curIsInProgress && mk === asOfMonthKey,
+    };
+  });
+
+  // Trim trailing future months of an in-progress cycle: zero current value,
+  // after the as-of month. Completed cycles keep all 15 rows.
+  let visibleRows = rows;
+  const currentIdx = rows.findIndex((r) => r.isCurrentMonth);
+  if (curIsInProgress && currentIdx >= 0) {
+    let cut = rows.length;
+    for (let idx = rows.length - 1; idx > currentIdx; idx--) {
+      if (rows[idx].curVal === 0) cut = idx;
+      else break;
+    }
+    visibleRows = rows.slice(0, cut);
+  }
+
+  // Cumulative columns run through the visible window months only; Earlier
+  // (before June of the prior year) is a separate bucket, not folded in.
+  let curCum = 0;
+  let prvCum = 0;
+
+  const showEarlier = cur.before > 0 || (prv?.before ?? 0) > 0;
+  const showLater = cur.after > 0 || (prv?.after ?? 0) > 0;
+  const totalCur = cur.total;
+  const totalPrv = prv ? prv.total : null;
+
+  return (
+    <div className="panel" style={{ overflowX: "auto" }}>
+      {curIsInProgress ? (
+        <p className="rpt-sub" style={{ margin: "0 0 8px" }}>
+          {curLabel} to date: {fmt(cur.toDate)} vs {prvLabel} same date last year: {prv ? fmt(prv.toDate) : "n/a"}
+        </p>
+      ) : null}
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>{curLabel}</th>
+            <th>{prvLabel}</th>
+            <th>Change</th>
+            <th>{curLabel} cumulative</th>
+            <th>{prvLabel} cumulative</th>
+          </tr>
+        </thead>
+        <tbody>
+          {visibleRows.map((row) => {
+            curCum += row.curVal;
+            if (row.prvVal != null) prvCum += row.prvVal;
+            const change = row.prvVal != null ? row.curVal - row.prvVal : null;
+            const label = prv && prvMonthKeys.length
+              ? `${monthLabel(row.monthKey)} vs ${monthLabel(prvMonthKeys[curMonthKeys.indexOf(row.monthKey)] || row.monthKey)}`
+              : monthLabel(row.monthKey);
+            return (
+              <tr key={row.monthKey} style={{ fontWeight: row.isCurrentMonth ? 600 : undefined }}>
+                <td>{label}</td>
+                <td>{fmt(row.curVal)}</td>
+                <td>
+                  {row.prvVal != null ? fmt(row.prvVal) : "n/a"}
+                  {row.isCurrentMonth && prv ? (
+                    <span style={{ color: "var(--muted,#666)", fontSize: 12 }}>
+                      {" "}
+                      ({fmt(prv.monthToDate)} by this date)
+                    </span>
+                  ) : null}
+                </td>
+                <td>{change != null ? fmt(change) : "n/a"}</td>
+                <td>{fmt(curCum)}</td>
+                <td>{row.prvVal != null ? fmt(prvCum) : "n/a"}</td>
+              </tr>
+            );
+          })}
+          {showEarlier ? (
+            <tr>
+              <td>Earlier</td>
+              <td>{fmt(cur.before)}</td>
+              <td>{prv ? fmt(prv.before) : "n/a"}</td>
+              <td>{prv ? fmt(cur.before - prv.before) : "n/a"}</td>
+              <td>n/a</td>
+              <td>n/a</td>
+            </tr>
+          ) : null}
+          {showLater ? (
+            <tr>
+              <td>Later</td>
+              <td>{fmt(cur.after)}</td>
+              <td>{prv ? fmt(prv.after) : "n/a"}</td>
+              <td>{prv ? fmt(cur.after - prv.after) : "n/a"}</td>
+              <td>n/a</td>
+              <td>n/a</td>
+            </tr>
+          ) : null}
+          <tr style={{ fontWeight: 600 }}>
+            <td>Total</td>
+            <td>{fmt(totalCur)}</td>
+            <td>{totalPrv != null ? fmt(totalPrv) : "n/a"}</td>
+            <td>{totalPrv != null ? fmt(totalCur - totalPrv) : "n/a"}</td>
+            <td>n/a</td>
+            <td>n/a</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function AdmissionsPage() {
   const { data, loading, error, cycle } = useEnrollment();
   if (loading)
@@ -31,8 +195,9 @@ export default function AdmissionsPage() {
     );
 
   const adm = data.admissions;
-  const { label, vs } = cycleMeta(cycle);
+  const { label, vs, curKey, prvKey } = cycleMeta(cycle);
   const { cur, prv } = pickCurPrv(adm, cycle);
+  const ibm = adm.interviewsByMonth as InterviewsByMonth | undefined;
   const fa24 = adm.fa24;
   const fa25 = adm.fa25;
   const fa26 = adm.fa26;
@@ -136,6 +301,9 @@ export default function AdmissionsPage() {
         <Kpi label="AC Rec 4s" cur={cur.acRec4} prv={recPrv?.acRec4} info={DEFS.acRec4} />
         <Kpi label="AC Rec 3s & 4s" cur={cur.acRec34} prv={recPrv?.acRec34} highlight info={DEFS.acRec34} />
       </div>
+
+      <Section label="Interviews by Month" info={DEFS.interviewsByMonth} />
+      <InterviewsByMonthTable ibm={ibm} curKey={curKey} prvKey={prvKey} curLabel={label} prvLabel={vs} />
 
       <Section label="AC Recommendations (3s & 4s)" info={DEFS.acRecChart} />
       <BarChart
