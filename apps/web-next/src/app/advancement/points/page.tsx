@@ -25,6 +25,7 @@ import {
   SETTINGS,
   virtuousContactUrl,
   virtuousGiftUrl,
+  virtuousNotesUrl,
   weekKey,
   weekLabel,
   MA_ROSTER,
@@ -33,7 +34,6 @@ import {
   EVENT_POINTS_PER_HOUR,
 } from "@/lib/reports/points/scoring";
 import type { FlagInput, ReviewFlag } from "@/lib/reports/points/flags";
-import { giftNoteFormUrl } from "@/lib/reports/points/gift-note.js";
 import type { TrackedEvent } from "@/lib/reports/points/tracked-events";
 import "@/styles/points.css";
 
@@ -265,39 +265,33 @@ function formatLastRefresh(iso: string) {
   return `${time}, ${date}`;
 }
 
-/** One window is reused as you move down Possible gifts. */
-function openGiftNote(href: string): void {
-  const width = 460;
-  const height = 640;
+/** Virtuous refuses to be framed, so the contact's Notes tab opens in its own window. */
+function openVirtuousNotes(href: string): void {
+  const width = 1120;
+  const height = 840;
   const left = Math.max(0, window.screenX + Math.round((window.outerWidth - width) / 2));
   const top = Math.max(0, window.screenY + Math.round((window.outerHeight - height) / 2));
   const features = `popup=yes,width=${width},height=${height},left=${left},top=${top}`;
-  const popup = window.open(href, "points-gift-note", features);
+  const popup = window.open(href, "points-virtuous-note", features);
   if (popup) popup.focus();
 }
 
 function GiftNoteButton({
   contactId,
   name,
-  amount,
-  day,
-  project,
 }: {
   contactId?: string | number | null;
   name?: string | null;
-  amount?: number;
-  day?: string;
-  project?: string;
 }) {
-  const href = giftNoteFormUrl(contactId, { name, amount, day, project });
+  const href = virtuousNotesUrl(contactId);
   if (!href) return null;
   return (
     <button
       type="button"
       className="mini-btn"
-      title="Opens a gift note for this contact. Type is set to Gift."
-      aria-label={`Add a gift note for ${name || "this contact"}`}
-      onClick={() => openGiftNote(href)}
+      title="Opens this contact in Virtuous. Add the note there."
+      aria-label={`Add a note in Virtuous for ${name || "this contact"}`}
+      onClick={() => openVirtuousNotes(href)}
     >
       Add note
     </button>
@@ -1130,13 +1124,7 @@ function PointsPageInner() {
                         <td className="pts tabular nowrap">{money(g.amount)}</td>
                         <td>
                           <div className="todo-actions">
-                            <GiftNoteButton
-                              contactId={g.contactId}
-                              name={g.contactName}
-                              amount={g.amount}
-                              day={g.day}
-                              project={g.project}
-                            />
+                            <GiftNoteButton contactId={g.contactId} name={g.contactName} />
                             <button
                               type="button"
                               className="mini-btn danger"
@@ -1195,13 +1183,7 @@ function PointsPageInner() {
                         <td className="pts tabular nowrap">{money(g.amount)}</td>
                         <td>
                           <div className="todo-actions">
-                            <GiftNoteButton
-                              contactId={g.contactId}
-                              name={g.contactName}
-                              amount={g.amount}
-                              day={g.day}
-                              project={g.project}
-                            />
+                            <GiftNoteButton contactId={g.contactId} name={g.contactName} />
                             {id ? (
                               <button
                                 type="button"
