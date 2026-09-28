@@ -25,7 +25,7 @@ import {
   SETTINGS,
   virtuousContactUrl,
   virtuousGiftUrl,
-  virtuousNotesUrl,
+  virtuousGiftNoteUrl,
   weekKey,
   weekLabel,
   MA_ROSTER,
@@ -265,10 +265,10 @@ function formatLastRefresh(iso: string) {
   return `${time}, ${date}`;
 }
 
-/** Virtuous refuses to be framed, so the contact's Notes tab opens in its own window. */
-function openVirtuousNotes(href: string): void {
-  const width = 1120;
-  const height = 840;
+/** The create-note page is a fragment Virtuous will not frame, so it opens in its own window. */
+function openVirtuousNoteForm(href: string): void {
+  const width = 720;
+  const height = 900;
   const left = Math.max(0, window.screenX + Math.round((window.outerWidth - width) / 2));
   const top = Math.max(0, window.screenY + Math.round((window.outerHeight - height) / 2));
   const features = `popup=yes,width=${width},height=${height},left=${left},top=${top}`;
@@ -283,15 +283,15 @@ function GiftNoteButton({
   contactId?: string | number | null;
   name?: string | null;
 }) {
-  const href = virtuousNotesUrl(contactId);
+  const href = virtuousGiftNoteUrl(contactId);
   if (!href) return null;
   return (
     <button
       type="button"
       className="mini-btn"
-      title="Opens this contact in Virtuous. Add the note there."
+      title="Opens the Virtuous note form for this contact."
       aria-label={`Add a note in Virtuous for ${name || "this contact"}`}
-      onClick={() => openVirtuousNotes(href)}
+      onClick={() => openVirtuousNoteForm(href)}
     >
       Add note
     </button>

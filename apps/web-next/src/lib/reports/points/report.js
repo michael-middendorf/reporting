@@ -33,7 +33,7 @@ export function virtuousGiftUrl(contactId) {
   return `${VIRTUOUS_APP_BASE}/Generosity/Contact/Gifts/${contactId}`;
 }
 
-/** Raw Virtuous create-note page. It is a modal fragment and has no site layout. */
+/** Create-note form for this contact. Virtuous returns the field markup with no stylesheet. */
 export function virtuousGiftNoteUrl(contactId) {
   if (contactId == null || contactId === "") return "";
   return `${VIRTUOUS_APP_BASE}/Generosity/ContactNote/Create?contactId=${encodeURIComponent(contactId)}`;
