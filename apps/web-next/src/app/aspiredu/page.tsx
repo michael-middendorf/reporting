@@ -27,7 +27,6 @@ type ListStudent = {
   riskBand?: string | null;
   riskScore?: number | null;
   courseCount?: number | null;
-  belowAbCount?: number | null;
   missingAssignments?: number | null;
   lastActivityAt?: string | null;
 };
@@ -295,7 +294,6 @@ export default function AcademicAffairsStudentsPage() {
                   <tr>
                     <th>Name</th>
                     <th className={s.num}>Classes</th>
-                    <th className={s.num}>Below A/B</th>
                     <th className={s.num}>Missing work</th>
                     <th className={s.num}>Risk</th>
                     <th>Last activity</th>
@@ -314,13 +312,6 @@ export default function AcademicAffairsStudentsPage() {
                           {student.email && <span className={s.subtle}>{student.email}</span>}
                         </td>
                         <td className={s.num}>{count(student.courseCount)}</td>
-                        <td className={s.num}>
-                          {typeof student.belowAbCount === "number" && student.belowAbCount > 0 ? (
-                            <span className={s.flag}>{student.belowAbCount}</span>
-                          ) : (
-                            count(student.belowAbCount)
-                          )}
-                        </td>
                         <td className={s.num}>{count(student.missingAssignments)}</td>
                         <td className={s.num}>
                           {risk === null ? EMPTY : <span className={s.riskPill}>{risk}</span>}

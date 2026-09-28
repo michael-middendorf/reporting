@@ -164,16 +164,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.flag {
-  display: inline-block;
-  min-width: 22px;
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: #fbeeee;
-  color: var(--dn);
-  font-weight: 700;
-  text-align: center;
-}
 
 .riskPill {
   display: inline-block;
@@ -323,10 +313,6 @@
   margin: 0;
 }
 
-.smallBtn {
-  padding: 6px 10px;
-  font-size: 13px;
-}
 
 .courseName {
   display: block;

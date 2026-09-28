@@ -62,7 +62,7 @@ describe("buildExportModel", () => {
     assert.equal(row[col("GPA estimate")], 2.85);
     assert.equal(row[col("Average grade %")], 83.8);
     assert.equal(row[col("Classes")], 3);
-    assert.equal(row[col("Below A/B")], 1);
+    assert.ok(!STUDENT_COLUMNS.some((c) => c.header === "Below A/B"));
     assert.equal(row[col("Missing work")], 3);
     assert.equal(row[col("Risk")], 6);
     assert.equal(row[col("Last activity")], "2026-09-25");

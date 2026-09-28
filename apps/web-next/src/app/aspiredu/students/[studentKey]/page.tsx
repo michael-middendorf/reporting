@@ -25,28 +25,6 @@ type LoadState =
   | { kind: "not_enabled"; message: string }
   | { kind: "error"; message: string };
 
-function officeHoursMessage(courses: string[]): string {
-  return `You have to go and see your professor for their office hours for the following classes: ${courses.join(", ")}`;
-}
-
-function CopyOfficeHours({ courses }: { courses: string[] }) {
-  const [copied, setCopied] = useState(false);
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(officeHoursMessage(courses));
-    } catch {
-      return;
-    }
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2000);
-  }
-  return (
-    <button type="button" className={`${styles.button} ${styles.secondary} ${s.smallBtn}`} onClick={() => void copy()}>
-      {copied ? "Copied" : "Copy office-hours text"}
-    </button>
-  );
-}
-
 function pulseLabel(pulse: AttendancePulse): string {
   if (pulse.band === "attending") return "Attending";
   if (pulse.band === "watch") return "Watch";
@@ -170,7 +148,6 @@ function badgeList(profile: StudentProfile): string[] {
 
 function ProfileView({ profile }: { profile: StudentProfile }) {
   const { identity, kpis, courses, sessions, pulse, notes, alerts, associations, associationStatus } = profile;
-  const belowAb = courses.filter((c) => c.belowAB);
   const badges = badgeList(profile);
   const { athletics, housing, census } = associations;
 
@@ -196,7 +173,6 @@ function ProfileView({ profile }: { profile: StudentProfile }) {
       <div className={s.kpiStrip}>
         <Kpi label="GPA estimate" value={formatNumber(kpis.gpaEstimate)} hint="Current course grades, unweighted" />
         <Kpi label="Average grade" value={formatPercent(kpis.avgGrade)} hint={`${kpis.gradedCourses} of ${kpis.courseCount} classes graded`} />
-        <Kpi label="Below A/B" value={kpis.belowAbCount} hint="Graded classes under 80%" />
         <Kpi label="Classes missed" value={kpis.totalAbsences ?? EMPTY} hint="Across all classes" />
         <Kpi label="Missing work" value={kpis.totalMissing ?? EMPTY} hint="Missing assignments" />
         <Kpi
@@ -209,7 +185,6 @@ function ProfileView({ profile }: { profile: StudentProfile }) {
       <section className={styles.panel}>
         <div className={s.sectionHead}>
           <h2>Classes</h2>
-          {belowAb.length > 0 && <CopyOfficeHours courses={belowAb.map((c) => c.course)} />}
         </div>
         {courses.length ? (
           <div className={styles.tableWrap}>
