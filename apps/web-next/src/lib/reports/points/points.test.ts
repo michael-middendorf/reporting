@@ -4,7 +4,7 @@ import { MA_NAMES, SETTINGS, evalStartDate, tierFor } from "./config.js";
 import { assignedNotesFromFlags, contactDisplayName, eventPointsForHours, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, outreachBeforeGift, parseDate, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "./counted-gifts.js";
 import { aggregate, daysOfWeek, isTaskListRow, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
-import { buildCalculationCSV, statusOf, virtuousGiftUrl } from "./report.js";
+import { buildCalculationCSV, statusOf, virtuousGiftNoteUrl, virtuousGiftUrl } from "./report.js";
 
 const ALANNA = MA_NAMES[0];
 const SEAN = "Sean Kelly";
@@ -269,6 +269,12 @@ describe("MA points require a posted gift with dollars", () => {
     assert.match(virtuousGiftUrl(gift.contactId), /Contact\/Gifts\/101/);
     assert.equal(virtuousGiftUrl(null), "");
     assert.equal(virtuousGiftUrl(""), "");
+    assert.equal(
+      virtuousGiftNoteUrl(gift.contactId),
+      "https://app.virtuoussoftware.com/Generosity/ContactNote/Create?contactId=101",
+    );
+    assert.equal(virtuousGiftNoteUrl(null), "");
+    assert.equal(virtuousGiftNoteUrl(""), "");
   });
 
   it("note week 1 and gift week 2 put gifts, dollars, and 100 pts on week 2", () => {
