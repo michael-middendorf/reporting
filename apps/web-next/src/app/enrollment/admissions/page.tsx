@@ -102,9 +102,11 @@ function InterviewsByMonthTable({
 
   return (
     <div className="panel" style={{ overflowX: "auto" }}>
-      <p className="rpt-sub" style={{ margin: "0 0 8px" }}>
-        {curLabel} to date: {fmt(cur.toDate)} vs {prvLabel} same date last year: {prv ? fmt(prv.toDate) : "n/a"}
-      </p>
+      {curIsInProgress ? (
+        <p className="rpt-sub" style={{ margin: "0 0 8px" }}>
+          {curLabel} to date: {fmt(cur.toDate)} vs {prvLabel} same date last year: {prv ? fmt(prv.toDate) : "n/a"}
+        </p>
+      ) : null}
       <table className="data-table">
         <thead>
           <tr>
