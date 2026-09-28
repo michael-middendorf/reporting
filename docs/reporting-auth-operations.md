@@ -50,6 +50,8 @@ The button shows, and both routes work, only when `NODE_ENV=production` **and** 
 
 `APP_BASE_URL` (already set to `https://reporting.avemaria.edu`) supplies the redirect URI. No secret is needed in this app. With any variable missing the login page shows only the email form and `/api/auth/microsoft` redirects to `/login`.
 
+`ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, and `CORE_API_URL` are set as plain (non-secret) environment variables on the web container in `infra/lib/reporting-ecs-stack.ts`. Rollback: remove them from that stack and redeploy. That hides the Microsoft sign-in button and disables both `/api/auth/microsoft` routes; magic-link sign-in is unaffected.
+
 ### Identity
 
 The email is the Entra UPN as core records it. A person whose UPN differs from the address on the report allowlists is refused (sent to `/login?microsoft=failed`); they are never mapped to another account. Add the UPN to the allowlist only if that person should have access.
