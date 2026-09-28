@@ -325,7 +325,9 @@ export default function FallAppealPage() {
   const constituency = segments.filter((s) => s.group === "constituency");
   const donorType = segments.filter((s) => s.group === "donorType");
   const selectedCampaign = appealCampaign(campaignSlug);
-  const goal = data ? goalProgress(data.summary.totalRevenue, selectedCampaign?.goalGross) : null;
+  const goal = data
+    ? goalProgress(data.summary.totalRevenue, appealCampaign(data.campaignSlug ?? campaignSlug)?.goalGross)
+    : null;
   const campaignStart = data?.campaignStart || data?.appealStart || selectedCampaign?.start || "2026-08-16";
   const campaignEnd = data?.campaignEnd || selectedCampaign?.end;
 
@@ -432,7 +434,7 @@ export default function FallAppealPage() {
                 role="progressbar"
                 aria-valuemin={0}
                 aria-valuemax={goal.goal}
-                aria-valuenow={goal.raised}
+                aria-valuenow={Math.max(0, Math.min(goal.goal, goal.raised))}
                 aria-label="Gross raised toward goal"
               >
                 <div className="fa-goal-fill" style={{ width: `${Math.min(100, goal.pctOfGoal)}%` }} />
