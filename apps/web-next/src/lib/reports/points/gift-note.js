@@ -61,8 +61,11 @@ export function giftNoteDraft({ amount, day } = {}) {
 /**
  * Body for POST /api/ContactNote. Type must be one of the gift choices.
  * Noon keeps the calendar day stable when Virtuous stores a date-time.
+ * Fields are optional here because the route validates whatever the form sent.
+ * @param {{ contactId?: unknown, type?: unknown, note?: unknown, day?: unknown }} [input]
  */
-export function buildGiftNotePayload({ contactId, type, note, day }) {
+export function buildGiftNotePayload(input = {}) {
+  const { contactId, type, note, day } = input;
   const id = Number(contactId);
   if (!Number.isInteger(id) || id <= 0) {
     throw new Error("A Virtuous contact is required");
