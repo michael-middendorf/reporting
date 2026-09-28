@@ -20,7 +20,7 @@
     "test:aspiredu": "npx tsx --test src/lib/reports/aspiredu/census-fields.test.ts src/lib/reports/aspiredu/census-cache.test.ts src/lib/reports/aspiredu/export-workbook.test.ts src/lib/reports/aspiredu/export-handler.test.ts src/lib/reports/aspiredu/no-csv.test.ts src/lib/aspiredu-redirects.test.ts src/app/aspiredu/api/export/route.test.ts src/lib/reports/aspiredu/student-profile.test.ts src/lib/reports/aspiredu/profile-handler.test.ts src/lib/reports/aspiredu/student-search.test.ts 'src/app/aspiredu/api/students/*/profile/route.test.ts'",
     "test:mfa": "npx tsx --test src/lib/totp.test.ts src/lib/auth-mfa.test.ts src/lib/mint-session.test.ts src/lib/webauthn.test.ts src/app/aspiredu/api/export/route.test.ts src/app/aspiredu/api/mfa/verify/route.test.ts src/components/AuthenticatorQr.test.ts",
     "test:entra": "npx tsx --test src/lib/safe-local-path.test.ts src/lib/entra.test.ts src/lib/core/entraSession.test.ts src/lib/sign-in-after-verification.test.ts src/app/api/auth/microsoft/callback/route.test.ts",
-    "test:points": "npx tsx --test src/lib/reports/points/points.test.ts"
+    "test:points": "npx tsx --test src/lib/reports/points/points.test.ts src/lib/reports/points/insights.test.tsx"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1105.0",
