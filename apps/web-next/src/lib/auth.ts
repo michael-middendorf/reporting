@@ -130,10 +130,22 @@ export function reportingSessionTtlDays() {
   return Math.max(parseInt(process.env.AUTH_SESSION_TTL_DAYS || "14", 10), 1);
 }
 
+function isLoopbackHost(host: string) {
+  const hostname = host.toLowerCase().replace(/:\d+$/, "");
+  return hostname === "localhost" || hostname === "127.0.0.1";
+}
+
 export function cookieSecureFromRequest(req: Request) {
   const host = (req.headers.get("x-forwarded-host") || req.headers.get("host") || "")
     .split(",")[0]
     ?.trim();
+  // In production the session and MFA cookies always carry Secure. The
+  // x-forwarded-proto header is not trusted here: if a CloudFront or ALB change
+  // ever forwarded "http", the cookies would silently lose Secure. Only a
+  // loopback host (local `next start` over plain http) is exempt.
+  if (process.env.NODE_ENV === "production") {
+    return !isLoopbackHost(host);
+  }
   const proto =
     req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
     (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
