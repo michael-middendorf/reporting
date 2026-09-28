@@ -438,26 +438,38 @@ export function possibleNotesForGift(giftDate, notesOnContact) {
 }
 
 /**
- * Outreach by this MA on or before the gift, within 45 days.
+ * Outreach by this MA on or before the gift.
+ * The closest qualifying note within 45 days sets `touchLabel`, and
+ * `touchCount` is how many qualifying notes fell in that window.
  * The donation note that logs the gift is not a contact. Obituaries,
- * address updates, and bad numbers are not contacts either.
- * `touchLabel` is the closest one. `touchCount` is how many there were.
+ * address updates, events, and bad numbers are not contacts either.
+ * A note after the gift does not count.
+ *
+ * When `counted` is set and the 45-day window is empty, the same type
+ * check runs with no day cap. That lookback names the reached-by row.
+ * It does not assign the gift.
  */
-export function outreachBeforeGift(giftDate, notesOnContact, owner) {
+export function outreachBeforeGift(giftDate, notesOnContact, owner, options = {}) {
   const before = SETTINGS.giftNoteDaysBefore ?? 45;
-  const hits = [];
-  for (const n of notesOnContact || []) {
-    if (owner && n.owner !== owner) continue;
-    if (n.assist || n.unmatched) continue;
-    if (n.bucket === "gift" || n.bucket === "obituary" || n.bucket === "address" || n.bucket === "event" || n.bucket === "failed") continue;
-    const key = (n.type || "").trim().toLowerCase();
-    if (NOT_A_CONTACT.has(key)) continue;
-    if (!CONTACT_BUCKETS.has(n.bucket) && n.bucket !== "commitment") continue;
-    const delta = daysFromNoteToGift(n.date, giftDate);
-    if (delta == null || delta < 0 || delta > before) continue;
-    hits.push({ note: n, days: delta });
-  }
-  hits.sort((a, b) => a.days - b.days || String(a.note.noteId ?? "").localeCompare(String(b.note.noteId ?? "")));
+  const collect = (maxDays) => {
+    const hits = [];
+    for (const n of notesOnContact || []) {
+      if (owner && n.owner !== owner) continue;
+      if (n.assist || n.unmatched) continue;
+      if (n.bucket === "gift" || n.bucket === "obituary" || n.bucket === "address" || n.bucket === "event" || n.bucket === "failed") continue;
+      const key = (n.type || "").trim().toLowerCase();
+      if (NOT_A_CONTACT.has(key)) continue;
+      if (!CONTACT_BUCKETS.has(n.bucket) && n.bucket !== "commitment") continue;
+      const delta = daysFromNoteToGift(n.date, giftDate);
+      if (delta == null || delta < 0) continue;
+      if (maxDays != null && delta > maxDays) continue;
+      hits.push({ note: n, days: delta });
+    }
+    hits.sort((a, b) => a.days - b.days || String(a.note.noteId ?? "").localeCompare(String(b.note.noteId ?? "")));
+    return hits;
+  };
+  const recent = collect(before);
+  const hits = recent.length ? recent : (options.counted ? collect(null) : recent);
   return {
     touchCount: hits.length,
     touchLabel: hits[0]?.note.label || "No contact logged",
@@ -952,7 +964,7 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
     if ((row.amount || 0) <= 0 || row.giftId == null) continue;
     row.points = 100;
     const ck = contactKey(row.contactId);
-    const touch = outreachBeforeGift(row.date, ck ? (activityByContact.get(ck) || []) : [], row.owner);
+    const touch = outreachBeforeGift(row.date, ck ? (activityByContact.get(ck) || []) : [], row.owner, { counted: true });
     row.touchCount = touch.touchCount;
     row.touchLabel = touch.touchLabel;
     raisedByKey.set(`${row.giftId}:${row.owner}`, row);
