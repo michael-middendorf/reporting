@@ -447,6 +447,26 @@ describe("aspiredu grant for Maria Gomez", () => {
   });
 });
 
+describe("aspiredu grant for Alexandra Baalman", () => {
+  const ALEXANDRA = "Alexandra.R.Baalman@avemaria.edu";
+
+  it("lets Alexandra sign in and open Academic Affairs, not census", () => {
+    assert.equal(canLogin(ALEXANDRA), true);
+    assert.equal(canAccessReport(ALEXANDRA, "aspiredu"), true);
+    assert.equal(canAccessReport(ALEXANDRA, "census"), false);
+    assert.equal(canAccessReport(ALEXANDRA, "enrollment"), false);
+    assert.equal(canAccessReport(ALEXANDRA, "athletics"), false);
+    assert.equal(canAccessReport(ALEXANDRA, "housing"), false);
+    assert.equal(canAccessReport(ALEXANDRA, "institute"), false);
+    assert.equal(canAccessReport(ALEXANDRA, "advancement"), false);
+    assert.equal(canAccessReport(ALEXANDRA, "chapel"), false);
+    assert.equal(canAccessReport(ALEXANDRA, "points"), false);
+    assert.equal(canAccessReport(ALEXANDRA, "annunciation"), false);
+    assert.equal(reportsForEmail(ALEXANDRA).includes("aspiredu"), true);
+    assert.deepEqual(reportsForEmail(ALEXANDRA), ["aspiredu"]);
+  });
+});
+
 describe("Fall Appeal viewers", () => {
   const people = [
     "cassandra.l.bournos@avemaria.edu",

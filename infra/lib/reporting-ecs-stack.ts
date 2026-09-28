@@ -31,7 +31,7 @@ const aspireduCallbackUrl = `${reportingUrl}/aspiredu/api/auth/callback`;
 // through cutover. Cognito rejects any redirect_uri not on the callback list.
 const reportingDomainUrl = "https://reporting.avemaria.edu";
 const aspireduDomainCallbackUrl = `${reportingDomainUrl}/aspiredu/api/auth/callback`;
-const aspireduAllowedEmails = "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu,daniel.davy@avemaria.edu,michaelene.hayward@avemaria.edu,maria.t.gomez@avemaria.edu";
+const aspireduAllowedEmails = "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu,daniel.davy@avemaria.edu,michaelene.hayward@avemaria.edu,maria.t.gomez@avemaria.edu,alexandra.r.baalman@avemaria.edu";
 
 export class ReportingEcsStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
