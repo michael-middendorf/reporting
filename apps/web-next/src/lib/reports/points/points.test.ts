@@ -4,8 +4,7 @@ import { MA_NAMES, SETTINGS, evalStartDate, tierFor } from "./config.js";
 import { assignedNotesFromFlags, contactDisplayName, eventPointsForHours, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, outreachBeforeGift, parseDate, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "./counted-gifts.js";
 import { aggregate, daysOfWeek, isTaskListRow, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
-import { buildCalculationCSV, statusOf, virtuousGiftNoteUrl, virtuousGiftUrl } from "./report.js";
-import { buildGiftNotePayload, giftNoteDraft, giftNoteFormUrl } from "./gift-note.js";
+import { buildCalculationCSV, statusOf, virtuousGiftNoteUrl, virtuousGiftUrl, virtuousNotesUrl } from "./report.js";
 
 const ALANNA = MA_NAMES[0];
 const SEAN = "Sean Kelly";
@@ -277,22 +276,11 @@ describe("MA points require a posted gift with dollars", () => {
     assert.equal(virtuousGiftNoteUrl(null), "");
     assert.equal(virtuousGiftNoteUrl(""), "");
     assert.equal(
-      giftNoteFormUrl(gift.contactId, { name: "Mark Woznak", amount: 250, day: "2026-09-15" }),
-      "/advancement/points/gift-note?contactId=101&name=Mark+Woznak&amount=250&day=2026-09-15",
+      virtuousNotesUrl(gift.contactId),
+      "https://app.virtuoussoftware.com/Generosity/Contact/Notes/101",
     );
-    assert.equal(giftNoteFormUrl(null), "");
-    assert.equal(giftNoteFormUrl("nope"), "");
-    assert.equal(giftNoteDraft({ amount: 250, day: "2026-09-15" }), "Gift of $250 on Sep 15, 2026.");
-    const payload = buildGiftNotePayload({
-      contactId: 101,
-      type: "gift",
-      note: "Gift of $250 on Sep 15, 2026.",
-      day: "2026-09-15",
-    });
-    assert.equal(payload.type, "Mission Advancement | New Donation or New AC");
-    assert.equal(payload.noteDateTime, "2026-09-15T12:00:00");
-    assert.equal(payload.contactId, 101);
-    assert.throws(() => buildGiftNotePayload({ contactId: 101, type: "General", note: "x", day: "2026-09-15" }));
+    assert.equal(virtuousNotesUrl(null), "");
+    assert.equal(virtuousNotesUrl(""), "");
   });
 
   it("note week 1 and gift week 2 put gifts, dollars, and 100 pts on week 2", () => {
