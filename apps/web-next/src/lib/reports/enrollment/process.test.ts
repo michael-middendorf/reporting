@@ -5,7 +5,15 @@ import {
   emptyAcFunnel,
   isActivityCounselorKey,
 } from "./counselors";
-import { _acRecScore, _procAdm, _procAME, _procPSW, _termStats, _termStatsAsOf } from "./process.js";
+import {
+  _acRecScore,
+  _interviewsByMonth,
+  _procAdm,
+  _procAME,
+  _procPSW,
+  _termStats,
+  _termStatsAsOf,
+} from "./process.js";
 
 function row(partial: Record<string, unknown> = {}) {
   return {
@@ -432,4 +440,62 @@ test("missing AC rec field is 0 and existing created/accepted still hold", () =>
   assert.equal(adm.fa27.acRec34, 0);
   assert.equal(adm.fa27.created, 1);
   assert.equal(adm.fa27.accepted, 1);
+});
+
+test("_interviewsByMonth picks the latest in-window field, zero-fills months, and buckets outside the window", () => {
+  const rows = [
+    // Two candidates in-window: FA26 field (Oct 2025, MM/DD/YYYY) is later than
+    // the FA25 field (Sep 2025, YYYY-MM-DD), so Oct 2025 is chosen.
+    { ApplicationTerm: "Fall 2026", InterviewedDateFA25Apps: "2025-09-15", InterviewedDateFA26Apps: "10/20/2025" },
+    // Single candidate before the Fall 2026 window (Jun 2025 - Aug 2026).
+    { ApplicationTerm: "Fall 2026", InterviewedDateFA26Apps: "09/15/2024" },
+    // Single candidate after the window.
+    { ApplicationTerm: "Fall 2026", InterviewedDateFA26Apps: "2026-09-05" },
+    // In-window September 2025 date, used for the toDate/monthToDate cutoff checks.
+    { ApplicationTerm: "Fall 2026", InterviewedDateFA25Apps: "2025-09-01" },
+    // No candidate date: not counted anywhere.
+    { ApplicationTerm: "Fall 2026" },
+  ];
+  const ibm = _interviewsByMonth(rows, "2026-09-28");
+  const fa26 = ibm["Fall 2026"];
+  assert.equal(Object.keys(fa26.months).length, 15);
+  assert.equal(fa26.months["2025-06"], 0);
+  assert.equal(fa26.months["2025-09"], 1);
+  assert.equal(fa26.months["2025-10"], 1);
+  assert.equal(fa26.before, 1);
+  assert.equal(fa26.after, 1);
+  assert.equal(fa26.total, 4);
+  // Cutoff for Fall 2026 (one year behind the Fall 2027 in-progress cycle) is
+  // 2025-09-28: only the Sep 2024 (before) and Sep 1, 2025 (in-window) rows qualify.
+  assert.equal(fa26.toDate, 2);
+  // Cycle-position month for Fall 2026 is September 2025; only the Sep 1 row
+  // (day 1 <= asOf day 28) counts toward monthToDate.
+  assert.equal(fa26.monthToDate, 1);
+  assert.equal(ibm.asOf, "2026-09-28");
+  assert.equal(ibm.sameDateLastYear, "2025-09-28");
+});
+
+test("_procAME sign-ups count Registered, Attended, and No Show; Cancelled and Waitlist are excluded; existing fields unchanged", () => {
+  const rows = [
+    { FormStartDateTime: "2026-09-12", RegistrationStatus: "Registered", SubmissionDate: "2026-08-01" },
+    { FormStartDateTime: "2026-09-13", RegistrationStatus: "Attended", SubmissionDate: "2026-08-01" },
+    { FormStartDateTime: "2026-09-14", RegistrationStatus: "No Show", SubmissionDate: "2026-08-01" },
+    { FormStartDateTime: "2026-09-15", RegistrationStatus: "Cancelled", SubmissionDate: "2026-08-01" },
+    { FormStartDateTime: "2026-09-16", RegistrationStatus: "Waitlist", SubmissionDate: "2026-08-01" },
+    { FormStartDateTime: "2025-09-10", RegistrationStatus: "Registered", SubmissionDate: "2025-08-01" },
+    { FormStartDateTime: "2025-09-11", RegistrationStatus: "No Show", SubmissionDate: "2025-08-01" },
+  ];
+  const ame = _procAME(rows, "2026-08-21");
+  const cur = ame.byCycle["Fall 2027"].Sep;
+  assert.equal(cur.signups, 3); // Registered + Attended + No Show
+  assert.equal(cur.noShow, 1);
+  assert.equal(cur.registrants, 2); // unchanged: Registered + Attended only
+  assert.equal(cur.attended, 1);
+  assert.equal(cur.registered, 1);
+
+  const prv = ame.byCycleYoy["Fall 2026"].Sep;
+  assert.equal(prv.signups, 2); // Registered + No Show
+  assert.equal(prv.noShow, 1);
+  assert.equal(prv.registrants, 1); // unchanged: Registered only
+  assert.equal(ame.asOf, "2026-08-21");
 });

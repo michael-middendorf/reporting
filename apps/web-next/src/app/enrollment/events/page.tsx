@@ -6,8 +6,16 @@ import { cycleMeta } from "@/lib/reports/enrollment/cycle";
 import { DEFS } from "@/lib/reports/enrollment/defs";
 import { fmt } from "@/lib/reports/enrollment/load";
 
-type AmeMonth = { attended: number; registered: number; registrants?: number };
+type AmeMonth = { attended: number; registered: number; registrants?: number; signups?: number; noShow?: number };
 type AmeCycle = Record<string, AmeMonth>;
+
+/** 'YYYY-MM-DD' -> 'M/D/YYYY' without going through Date/UTC. */
+function ymdToUs(ymd: string | undefined) {
+  if (!ymd) return "";
+  const [y, m, d] = ymd.split("-");
+  if (!y || !m || !d) return ymd;
+  return `${Number(m)}/${Number(d)}/${y}`;
+}
 
 function AmeMonthTable({
   caption,
@@ -15,20 +23,33 @@ function AmeMonthTable({
   curLabel,
   prvLabel,
   curCyc,
-  prvCyc,
+  prvFinal,
+  prvYoy,
+  sameDateLastYear,
 }: {
   caption: string;
   months: string[];
   curLabel: string;
   prvLabel: string;
   curCyc: AmeCycle;
-  prvCyc: AmeCycle;
+  prvFinal: AmeCycle;
+  prvYoy: AmeCycle;
+  sameDateLastYear?: string;
 }) {
-  const yoyRows = [
-    { label: `${curLabel} Registered`, cyc: curCyc, field: "registered" as const, bold: true },
-    { label: `${curLabel} Attended`, cyc: curCyc, field: "attended" as const, bold: true },
-    { label: `${prvLabel} Registered`, cyc: prvCyc, field: "registered" as const, bold: false },
-    { label: `${prvLabel} Attended`, cyc: prvCyc, field: "attended" as const, bold: false },
+  const asOfLabel = ymdToUs(sameDateLastYear);
+  const rows = [
+    { label: `${curLabel} Sign-ups`, cyc: curCyc, field: "signups" as const, bold: true, muted: false },
+    { label: `${curLabel} Attended`, cyc: curCyc, field: "attended" as const, bold: true, muted: false },
+    {
+      label: `${prvLabel} Sign-ups, same date last year${asOfLabel ? ` (as of ${asOfLabel})` : ""}`,
+      cyc: prvYoy,
+      field: "signups" as const,
+      bold: false,
+      muted: false,
+    },
+    { label: `${prvLabel} Sign-ups, final`, cyc: prvFinal, field: "signups" as const, bold: false, muted: false },
+    { label: `${prvLabel} Attended, final`, cyc: prvFinal, field: "attended" as const, bold: false, muted: false },
+    { label: `${prvLabel} No Show, final`, cyc: prvFinal, field: "noShow" as const, bold: false, muted: true },
   ];
   return (
     <div className="panel" style={{ overflowX: "auto" }}>
@@ -44,7 +65,7 @@ function AmeMonthTable({
             padding: "8px 0 4px",
           }}
         >
-          <MetricLabel label={caption} info={DEFS.ameRegistrants} />
+          <MetricLabel label={caption} info={DEFS.ameSignups} />
         </caption>
         <thead>
           <tr>
@@ -56,12 +77,17 @@ function AmeMonthTable({
           </tr>
         </thead>
         <tbody>
-          {yoyRows.map((row) => {
-            const val = (m: string) =>
-              row.field === "attended" ? (row.cyc[m]?.attended || 0) : (row.cyc[m]?.registered || 0);
+          {rows.map((row) => {
+            const val = (m: string) => (row.cyc[m]?.[row.field] as number | undefined) || 0;
             const total = months.reduce((s, m) => s + val(m), 0);
             return (
-              <tr key={row.label} style={{ fontWeight: row.bold ? 600 : undefined }}>
+              <tr
+                key={row.label}
+                style={{
+                  fontWeight: row.bold ? 600 : undefined,
+                  color: row.muted ? "var(--muted,#666)" : undefined,
+                }}
+              >
                 <td>{row.label}</td>
                 {months.map((m) => (
                   <td key={m}>{fmt(val(m))}</td>
@@ -97,12 +123,14 @@ export default function EventsPage() {
   const byFy = (ame.byFy || {}) as Record<string, AmeFy>;
   const byCycle = (ame.byCycle || campus.byCycle || {}) as Record<string, AmeCycle>;
   const byCycleYoy = (ame.byCycleYoy || {}) as Record<string, AmeCycle>;
+  const ameSameDateLastYear = ame.sameDateLastYear as string | undefined;
   const FALL_MONTHS = ["Sep", "Oct", "Nov"];
   const SPRING_MONTHS = ["Feb", "Mar", "Apr"];
   const { label: curLabel, vs: prvLabel, curKey, prvKey } = cycleMeta(cycle);
   const fy = byFy[curKey] || { total: 0, attended: 0, registered: 0, cancelled: 0, noShow: 0 };
   const curCyc = byCycle[curKey] || {};
-  const prvCyc = byCycleYoy[prvKey] || {};
+  const prvFinalCyc = byCycle[prvKey] || {};
+  const prvYoyCyc = byCycleYoy[prvKey] || {};
 
   // PSW is one January weekend per year. byCycle keys off event date, not
   // the student's application Term (which is why Fall/Spring used to appear).
@@ -140,7 +168,8 @@ export default function EventsPage() {
       {/* ── AME ── */}
       <Section label="Ave Maria Experience (AME)" info={DEFS.ameYoy} />
       <p className="rpt-sub" style={{ margin: "0 0 12px" }}>
-        KPI counts are the selected term&rsquo;s fiscal year (July 1–June 30). Month tables are year-over-year by event month.
+        KPI counts are the selected term&rsquo;s fiscal year (July 1–June 30). Month tables compare
+        sign-ups by event month: this year, last year at the same date, and last year final.
       </p>
       <div className="kpi-strip">
         <Kpi label="Total" cur={fy.total} info={DEFS.ameTotal} />
@@ -152,20 +181,24 @@ export default function EventsPage() {
 
       <div className="g2" style={{ gap: 16, marginTop: 16 }}>
         <AmeMonthTable
-          caption="Fall AME Registrants (Sept / Oct / Nov)"
+          caption="Fall AME Sign-ups (Sept / Oct / Nov)"
           months={FALL_MONTHS}
           curLabel={curLabel}
           prvLabel={prvLabel}
           curCyc={curCyc}
-          prvCyc={prvCyc}
+          prvFinal={prvFinalCyc}
+          prvYoy={prvYoyCyc}
+          sameDateLastYear={ameSameDateLastYear}
         />
         <AmeMonthTable
-          caption="Spring AME Registrants (Feb / Mar / Apr)"
+          caption="Spring AME Sign-ups (Feb / Mar / Apr)"
           months={SPRING_MONTHS}
           curLabel={curLabel}
           prvLabel={prvLabel}
           curCyc={curCyc}
-          prvCyc={prvCyc}
+          prvFinal={prvFinalCyc}
+          prvYoy={prvYoyCyc}
+          sameDateLastYear={ameSameDateLastYear}
         />
       </div>
 

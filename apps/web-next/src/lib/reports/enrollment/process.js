@@ -642,6 +642,90 @@ export function _procTouchpoints(admRows, termKey, interactionRows) {
   return _touchpointsByAC(termRows, interactionRows);
 }
 
+function _ymd(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Undergraduate interviews bucketed by the month the interview actually
+ * happened, for a 15-month recruiting-cycle window (June of the term's
+ * prior calendar year through August of the term year). The Slate field
+ * that carries the date depends on when the interview happened, not on
+ * the application term: early-cycle interviews for a rolled-over applicant
+ * can land in an earlier term's field, and the FA27 field does not exist
+ * in the feed yet. So for each row we take every candidate date present
+ * (FA27, FA26, FA25 fields) and use the one that falls inside this term's
+ * window; when none is inside the window we fall back to the latest
+ * candidate so the row still lands in before or after.
+ */
+export function _interviewsByMonth(rows, asOf) {
+  const asOfDay = _asOfDay(asOf);
+  const asOfMonth1 = asOfDay.getMonth() + 1; // 1-indexed
+  const currentTermYear = asOfMonth1 >= 6 ? asOfDay.getFullYear() + 1 : asOfDay.getFullYear();
+  // Position of asOf's calendar month inside the current term's window (0..14).
+  // Reused for every term so Jun/Jul/Aug, which appear twice per window, line
+  // up by cycle position rather than by an ambiguous calendar-month lookup.
+  const monthIndex = (asOfDay.getFullYear() * 12 + asOfDay.getMonth())
+    - ((currentTermYear - 1) * 12 + 5);
+
+  function windowKeys(termYear) {
+    const keys = [];
+    for (let i = 0; i < 15; i++) {
+      const d = new Date(termYear - 1, 5 + i, 1);
+      keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    return keys;
+  }
+
+  function candidates(r) {
+    return [r.InterviewedDateFA27Apps, r.InterviewedDateFA26Apps, r.InterviewedDateFA25Apps]
+      .map(_parseDate)
+      .filter(Boolean);
+  }
+
+  const out = {};
+  ['Fall 2025', 'Fall 2026', 'Fall 2027'].forEach(term => {
+    const termYear = _termYear(term);
+    const keys = windowKeys(termYear);
+    const start = new Date(termYear - 1, 5, 1);
+    const end = new Date(termYear, 7, 31);
+    const months = {};
+    keys.forEach(k => { months[k] = 0; });
+    const cutoff = new Date(asOfDay);
+    cutoff.setFullYear(cutoff.getFullYear() - (currentTermYear - termYear));
+    const monthKey = (monthIndex >= 0 && monthIndex < 15) ? keys[monthIndex] : null;
+
+    let before = 0;
+    let after = 0;
+    let total = 0;
+    let toDate = 0;
+    let monthToDate = 0;
+
+    rows.filter(r => r.ApplicationTerm === term).forEach(r => {
+      const cands = candidates(r);
+      if (!cands.length) return;
+      const inWindow = cands.filter(d => d >= start && d <= end);
+      const chosen = inWindow.length
+        ? inWindow.reduce((a, b) => (b > a ? b : a))
+        : cands.reduce((a, b) => (b > a ? b : a));
+      total++;
+      if (chosen <= cutoff) toDate++;
+      if (chosen < start) { before++; return; }
+      if (chosen > end) { after++; return; }
+      const key = `${chosen.getFullYear()}-${String(chosen.getMonth() + 1).padStart(2, '0')}`;
+      months[key] = (months[key] || 0) + 1;
+      if (monthKey && key === monthKey && chosen.getDate() <= asOfDay.getDate()) monthToDate++;
+    });
+
+    out[term] = { months, before, after, total, toDate, monthToDate };
+  });
+
+  const sameDateLastYear = new Date(asOfDay);
+  sameDateLastYear.setFullYear(sameDateLastYear.getFullYear() - 1);
+
+  return { ...out, asOf: _ymd(asOfDay), sameDateLastYear: _ymd(sameDateLastYear) };
+}
+
 export function _procAdm(rows, asOf) {
   const asOfDay = _asOfDay(asOf);
   const lastYear = new Date(asOfDay);
@@ -670,6 +754,7 @@ export function _procAdm(rows, asOf) {
     fa26Yoy: _termStatsAsOf(fa26Rows, lastYear, 2026),
     fa26_7d: _termStatsAsOf(fa26Rows, d6, 2026),
     fa27_7d: _termStatsAsOf(fa27Rows, d6, 2027),
+    interviewsByMonth: _interviewsByMonth(ug, asOfDay),
     allRows: rows,
   };
 }
@@ -865,7 +950,12 @@ export function _procAME(rows, asOf) {
   const lastYear = _shiftYears(asOfDay, -1);
 
   function emptyMonth() {
-    return { attended: 0, registered: 0, registrants: 0, chg: 0 };
+    return { attended: 0, registered: 0, registrants: 0, chg: 0, signups: 0, noShow: 0 };
+  }
+
+  /** Sign-ups = Registered + Attended + No Show. Excludes Cancelled and Waitlist. */
+  function _isSignup(status) {
+    return status === 'Registered' || status === 'Attended' || status === 'No Show';
   }
 
   function addRow(bc, r, trackChg) {
@@ -876,16 +966,21 @@ export function _procAME(rows, asOf) {
     const label = MONTH_LABELS[mo];
     if (!y || !label) return;
     const status = r.RegistrationStatus || '';
-    if (!_isEventRegistrant(status)) return;
+    if (!_isSignup(status)) return;
     const faYear = (mo >= 9) ? y + 1 : y;
     const faKey = `Fall ${faYear}`;
     if (!bc[faKey]) bc[faKey] = {};
     if (!bc[faKey][label]) bc[faKey][label] = emptyMonth();
     const cell = bc[faKey][label];
-    cell.registrants++;
-    if (status === 'Attended') cell.attended++;
-    else cell.registered++;
-    if (trackChg && _inLast7(r.SubmissionDate, asOfDay)) cell.chg++;
+    cell.signups++;
+    if (status === 'No Show') cell.noShow++;
+    // registrants/attended/registered/chg keep their original Registered-or-Attended scope.
+    if (_isEventRegistrant(status)) {
+      cell.registrants++;
+      if (status === 'Attended') cell.attended++;
+      else cell.registered++;
+      if (trackChg && _inLast7(r.SubmissionDate, asOfDay)) cell.chg++;
+    }
   }
 
   // Event month → recruiting cycle. Registrants = Registered + Attended.
@@ -908,11 +1003,16 @@ export function _procAME(rows, asOf) {
     else if (status === 'No Show') fy.noShow++;
   });
 
+  const sameDateLastYear = new Date(asOfDay);
+  sameDateLastYear.setFullYear(sameDateLastYear.getFullYear() - 1);
+
   return {
     total: rows.length,
     byCycle,
     byCycleYoy,
     byCycle7d: byCycle,
     byFy,
+    asOf: _ymd(asOfDay),
+    sameDateLastYear: _ymd(sameDateLastYear),
   };
 }

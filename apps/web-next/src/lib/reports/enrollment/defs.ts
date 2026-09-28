@@ -83,8 +83,12 @@ export const DEFS = {
   awaiting:
     "Threads where the student texted last and the counselor has not texted that student since. Some are conversation-enders (\"thanks!\") that need no reply.",
   acceptCodes: "Accepted apps in the current cycle, grouped by Accept Code (AT, CA, ADMI, CMRV, CTA, …).",
+  interviewsByMonth:
+    "Undergraduate applications for the term, counted by the month the interview happened. Uses Slate's Interviewed Date fields (the field in use changes by interview date, not by application term). Months line up by position in the recruiting cycle: June through August of the entry year. Earlier is interviews dated before June of the prior year, usually a prior-cycle interview for a rolled-over applicant. Totals can differ slightly from the Interviews KPI, which counts Interview Status = Interviewed.",
   ameRegistrants:
     "AME form rows with Registration Status Registered or Attended, grouped by event month (Form Start Date). Cancelled and No Show are excluded.",
+  ameSignups:
+    "Sign-ups = Registration Status Registered, Attended, or No Show, grouped by event month (Form Start Date). Excludes Cancelled and Waitlist. Used for year-over-year comparison because upcoming events cannot have No Show yet.",
   ameRegisteredStatus:
     "AME Registration Status = Registered (not yet attended) for that event month.",
   ameAttendedMonth: "AME Registration Status = Attended for that event month.",
