@@ -1211,6 +1211,65 @@ describe("tracker category layout", () => {
     assert.equal(touch.touchLabel, "No contact logged");
   });
 
+  it("a counted gift uses the closest contact type when outreach is older than 45 days", () => {
+    const { rows, owner } = run(
+      [
+        donationNote({ type: "Mission Advancement Call | Voicemail", noteDate: "6/1/2026", id: 1 }),
+        donationNote({ type: "Letter", noteDate: "6/15/2026", id: 2 }),
+        donationNote({ type: "Mission Advancement Call | Invalid Number", noteDate: "6/20/2026", id: 3 }),
+        donationNote({ type: "Obituary", noteDate: "6/21/2026", id: 4 }),
+        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/5/2026", id: 5 }),
+        donationNote({ type: "Mission Advancement | New Donation or New AC", noteDate: "8/4/2026", id: 6 }),
+      ],
+      [postedGift({ giftDate: "8/4/2026", amount: 80 })],
+    );
+    const gift = rows.find((r) => r.bucket === "donation");
+    assert.ok(gift);
+    assert.equal(gift.touchCount, 2);
+    assert.equal(gift.touchLabel, "Handwritten note / letter");
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 80);
+  });
+
+  it("outreach older than 45 days does not count a gift by itself", () => {
+    const { owner, rows } = run(
+      [donationNote({ type: "Mission Advancement Call | Voicemail", noteDate: "6/1/2026", id: 1 })],
+      [postedGift({ giftDate: "8/4/2026", amount: 80 })],
+    );
+    assert.equal(owner.gifts, 0);
+    assert.equal(rows.filter((r) => r.bucket === "donation" && r.points === 100).length, 0);
+  });
+
+  it("a contact inside 45 days stays the reached-by label when older outreach exists", () => {
+    const { rows } = run(
+      [
+        donationNote({ type: "Mission Advancement Call | Voicemail", noteDate: "6/1/2026", id: 1 }),
+        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/1/2026", id: 2 }),
+        donationNote({ type: "Mission Advancement | New Donation or New AC", noteDate: "8/4/2026", id: 3 }),
+      ],
+      [postedGift({ giftDate: "8/4/2026", amount: 80 })],
+    );
+    const gift = rows.find((r) => r.bucket === "donation");
+    assert.ok(gift);
+    assert.equal(gift.touchCount, 1);
+    assert.equal(gift.touchLabel, "Phone conversation");
+  });
+
+  it("a counted gift with only a non-contact note stays No contact logged", () => {
+    const { rows } = run(
+      [
+        donationNote({ type: "Obituary", noteDate: "6/1/2026", id: 1 }),
+        donationNote({ type: "Mission Advancement Call | Invalid Number", noteDate: "6/2/2026", id: 2 }),
+        donationNote({ type: "Mission Advancement | New Donation or New AC", noteDate: "8/4/2026", id: 3 }),
+      ],
+      [postedGift({ giftDate: "8/4/2026", amount: 40 })],
+    );
+    const gift = rows.find((r) => r.bucket === "donation");
+    assert.ok(gift);
+    assert.equal(gift.touchCount, 0);
+    assert.equal(gift.touchLabel, "No contact logged");
+  });
+
   it("Gift chart counts one row per posted gift, with the 100 pts on that row", () => {
     const { rows } = run(
       [donationNote({ type: "Mission Advancement | New Donation or New AC", noteDate: "8/4/2026" })],
