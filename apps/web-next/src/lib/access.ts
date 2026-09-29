@@ -85,7 +85,7 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
   // pages (see canAccessReport). Do not add chapel-only people to advancement.
   chapel: "robert.musselman@avemaria.edu",
   points:
-    "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,annie.esposito@avemaria.edu,leslie.sonnen@avemaria.edu",
+    "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,annie.esposito@avemaria.edu,leslie.sonnen@avemaria.edu,alanna.f.mccann@avemaria.edu,sean.e.kelly@avemaria.edu,joseph.c.blaso@avemaria.edu,elena.j.barnes@avemaria.edu,caleb.m.metzen@avemaria.edu,betsy.scaletty@avemaria.edu,natalia.p.abrams@avemaria.edu",
   // MGO + MA officers, Leslie (both teams), Annie (MA team). Jim is already an MGO.
   // Do not add Zena, Cassandra, Sarah, Susan, or Becca. Annie stays off advancement.
   portfolios:

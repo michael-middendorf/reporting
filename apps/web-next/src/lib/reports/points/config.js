@@ -25,10 +25,10 @@ export const MA_ROSTER = [
   { name: "Alanna McCann",  email: "alanna.f.mccann@avemaria.edu",  short: "Alanna",  tableOrder: 0 },
   { name: "Sean Kelly",     email: "sean.e.kelly@avemaria.edu",     short: "Sean",    tableOrder: 1 },
   { name: "Joseph Blaso",   email: "joseph.c.blaso@avemaria.edu",   short: "Joseph",  tableOrder: 2 },
-  { name: "Elena Barnes",   email: "",                              short: "Elena",   tableOrder: 3, startDate: "2026-07-20" },
-  { name: "Caleb Metzen",   email: "",                              short: "Caleb",   tableOrder: 4, startDate: "2026-07-20" },
-  { name: "Betsy Scaletty", email: "",                              short: "Betsy",   tableOrder: 5, startDate: "2026-07-20" },
-  { name: "Natalia Abrams", email: "",                              short: "Natalia", tableOrder: 6, startDate: "2026-07-20" },
+  { name: "Elena Barnes",   email: "elena.j.barnes@avemaria.edu",   short: "Elena",   tableOrder: 3, startDate: "2026-07-20" },
+  { name: "Caleb Metzen",   email: "caleb.m.metzen@avemaria.edu",   short: "Caleb",   tableOrder: 4, startDate: "2026-07-20" },
+  { name: "Betsy Scaletty", email: "betsy.scaletty@avemaria.edu",   short: "Betsy",   tableOrder: 5, startDate: "2026-07-20" },
+  { name: "Natalia Abrams", email: "natalia.p.abrams@avemaria.edu", short: "Natalia", tableOrder: 6, startDate: "2026-07-20" },
 ];
 
 export const MA_NAMES = MA_ROSTER.map((m) => m.name);
