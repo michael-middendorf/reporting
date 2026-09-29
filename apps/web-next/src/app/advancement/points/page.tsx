@@ -117,6 +117,8 @@ type GiftRow = {
   touchLabel?: string;
   needsReview?: boolean;
   mgoAssigned?: boolean;
+  removed?: boolean;
+  bucket?: string;
   kindLabel?: string;
   schedule?: string | null;
   lastGiftDay?: string | null;
@@ -577,10 +579,14 @@ function PointsPageInner() {
         : "Categories";
   const listedGifts = useMemo(() => {
     if (!giftOwner) return [] as GiftRow[];
-    return [...(model.gifts || [])]
+    return (model.rows as GiftRow[])
+      .filter((r) => r.bucket === "donation" && !r.needsReview && (r.amount || 0) > 0)
       .filter((g) => giftOwner === "all" || g.owner === giftOwner)
-      .sort((a, b) => (b.day || "").localeCompare(a.day || ""));
-  }, [model.gifts, giftOwner]);
+      .sort((a, b) => {
+        if (!!a.removed !== !!b.removed) return a.removed ? 1 : -1;
+        return (b.day || "").localeCompare(a.day || "");
+      });
+  }, [model.rows, giftOwner]);
   const giftTouches = useMemo(() => {
     const map = new Map<string, { count: number; amount: number; touches: number }>();
     for (const g of model.gifts || []) {
@@ -717,6 +723,34 @@ function PointsPageInner() {
 
   function giftFlagId(g: GiftRow) {
     return g.giftId != null && g.giftId !== "" ? `gift:${g.giftId}` : null;
+  }
+
+  function giftRemoveId(g: GiftRow) {
+    return g.giftId != null && g.giftId !== "" ? `gift-remove:${g.giftId}` : null;
+  }
+
+  async function removeCountedGift(g: GiftRow) {
+    const id = giftRemoveId(g);
+    if (!id) return;
+    const ok = await saveFlag({
+      noteId: id,
+      contactId: g.contactId != null ? String(g.contactId) : null,
+      contactName: g.contactName || null,
+      owner: g.owner,
+      day: g.day || null,
+      type: "Gift",
+      label: g.label || "Gift",
+      points: 100,
+      status: "removed",
+      reason: "Removed from gifts",
+    });
+    if (ok) showUndo(id, `Removed ${g.contactName || "this gift"} from Raised.`);
+  }
+
+  async function restoreCountedGift(g: GiftRow) {
+    const id = giftRemoveId(g);
+    if (!id) return;
+    await deleteFlag(id);
   }
 
   async function saveFlag(input: FlagInput): Promise<boolean> {
@@ -899,34 +933,6 @@ function PointsPageInner() {
         else delete next[id];
         return next;
       });
-      setFlagError(`Could not save: ${String(e)}`);
-    } finally {
-      setFlagBusy(null);
-    }
-  }
-
-  async function unassignMgoGift(g: GiftRow) {
-    const id = giftFlagId(g);
-    if (!id) return;
-    const previous = flags[id];
-    setFlagBusy(id);
-    setFlagError(null);
-    setFlags((f) => {
-      const next = { ...f };
-      delete next[id];
-      return next;
-    });
-    try {
-      const res = await apiFetch(
-        `/api/reports/points/flags?noteId=${encodeURIComponent(id)}`,
-        { method: "DELETE" },
-      );
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || res.statusText);
-      }
-    } catch (e) {
-      setFlags((f) => (previous ? { ...f, [id]: previous } : f));
       setFlagError(`Could not save: ${String(e)}`);
     } finally {
       setFlagBusy(null);
@@ -1834,7 +1840,7 @@ function PointsPageInner() {
           <section className="section">
             <h2>
               Gifts{" "}
-              <span className="section-hint">contacts before they gave</span>
+              <span className="section-hint">contacts before they gave · Remove drops a gift from Raised</span>
             </h2>
             <div className="panel">
                   <table className="grid" style={{ marginBottom: 18 }}>
@@ -1909,8 +1915,13 @@ function PointsPageInner() {
                         </tr>
                       </thead>
                       <tbody>
-                        {listedGifts.map((g, i) => (
-                          <tr key={g.giftId != null && g.giftId !== "" ? String(g.giftId) : i}>
+                        {listedGifts.map((g, i) => {
+                          const removeId = giftRemoveId(g);
+                          return (
+                          <tr
+                            key={g.giftId != null && g.giftId !== "" ? String(g.giftId) : i}
+                            style={g.removed ? { opacity: 0.55 } : undefined}
+                          >
                             <td style={{ whiteSpace: "nowrap" }}>
                               {g.day ? formatDay(g.day) : "—"}
                               {g.contactName ? (
@@ -1937,24 +1948,25 @@ function PointsPageInner() {
                                 <a href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
                                   Gift ↗
                                 </a>
+                              ) : null}
+                              {removeId ? (
+                                <div style={{ marginTop: virtuousGiftUrl(g.contactId) ? 6 : 0 }}>
+                                  <button
+                                    type="button"
+                                    className={g.removed ? "mini-btn solid" : "mini-btn danger"}
+                                    disabled={flagBusy === removeId}
+                                    onClick={() => (g.removed ? restoreCountedGift(g) : removeCountedGift(g))}
+                                  >
+                                    {flagBusy === removeId ? "…" : g.removed ? "Count" : "Remove"}
+                                  </button>
+                                </div>
                               ) : (
                                 "—"
                               )}
-                              {g.mgoAssigned && giftFlagId(g) ? (
-                                <div style={{ marginTop: 6 }}>
-                                  <button
-                                    type="button"
-                                    className="mini-btn danger"
-                                    disabled={flagBusy === giftFlagId(g)}
-                                    onClick={() => unassignMgoGift(g)}
-                                  >
-                                    {flagBusy === giftFlagId(g) ? "Removing…" : "Remove"}
-                                  </button>
-                                </div>
-                              ) : null}
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   )}

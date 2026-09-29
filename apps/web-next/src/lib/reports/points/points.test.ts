@@ -1603,6 +1603,45 @@ describe("count/remove overrides", () => {
     assert.match(buildCalculationCSV(model, { flags: { "77": { status: "removed" } } }), /removed/i);
   });
 
+  it("removing a counted gift drops Raised and the 100 points and keeps the row", () => {
+    const notes = [donationNote({ type: "Letter", noteDate: "8/1/2026", id: 1 })];
+    const gifts = [postedGift({ id: 501, giftDate: "8/4/2026", amount: 80 })];
+    const kept = run(notes, gifts);
+    assert.equal(kept.owner.gifts, 1);
+    assert.equal(kept.owner.giftAmount, 80);
+    assert.equal(kept.owner.points, 105);
+
+    const dropped = run(notes, gifts, ALANNA, { "gift-remove:501": { status: "removed" } });
+    assert.equal(dropped.owner.gifts, 0);
+    assert.equal(dropped.owner.giftAmount, 0);
+    assert.equal(dropped.owner.points, 5);
+    assert.equal(dropped.model.gifts.length, 0);
+    const row = dropped.model.rows.find((r) => String(r.giftId) === "501");
+    assert.ok(row);
+    assert.equal(row.removed, true);
+  });
+
+  it("removing a portfolio gift drops it and leaves the row to count again", () => {
+    const gift = postedGift({
+      contactId: 84897,
+      id: 908,
+      giftDate: "9/15/2026",
+      amount: 150,
+      segment: "Direct Solicitation (MGO)",
+    });
+    const kept = run([], [gift], SEAN, {}, [], { "84897": SEAN });
+    assert.equal(kept.owner.gifts, 1);
+    assert.equal(kept.owner.giftAmount, 150);
+
+    const dropped = run([], [gift], SEAN, { "gift-remove:908": { status: "removed" } }, [], { "84897": SEAN });
+    assert.equal(dropped.owner.gifts, 0);
+    assert.equal(dropped.owner.giftAmount, 0);
+    assert.equal(dropped.owner.points, 0);
+    const row = dropped.model.rows.find((r) => String(r.giftId) === "908");
+    assert.ok(row);
+    assert.equal(row.removed, true);
+  });
+
   it("old resolved flags do not exclude the row", () => {
     const scored = scoreAll({ notes: [donationNote({ type: "Obituary", id: 77 })] }) as ScoredRow[];
     const model = aggregate(scored, { flags: { "77": { status: "resolved" } } }) as Model;

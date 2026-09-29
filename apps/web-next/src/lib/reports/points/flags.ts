@@ -8,7 +8,9 @@
  * reviewer sees the same counted/removed/assigned set across browsers.
  *
  * Older documents may still contain "open" / "resolved" review flags; those
- * do not change scoring. Do not reuse "removed" for MGO opt-out. This module
+ * do not change scoring. Do not reuse "removed" on `gift:{id}` for MGO opt-out.
+ * The gifts table stores "removed" on `gift-remove:{id}` so an assign flag can stay.
+ * This module
  * is client-safe: pure types + constants, NO aws-sdk imports. S3 read/write
  * lives in `flags-store.ts`.
  */
