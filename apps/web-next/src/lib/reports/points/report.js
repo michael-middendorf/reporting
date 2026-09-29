@@ -33,18 +33,6 @@ export function virtuousGiftUrl(contactId) {
   return `${VIRTUOUS_APP_BASE}/Generosity/Contact/Gifts/${contactId}`;
 }
 
-/** Create-note form for this contact. Virtuous returns the field markup with no stylesheet. */
-export function virtuousGiftNoteUrl(contactId) {
-  if (contactId == null || contactId === "") return "";
-  return `${VIRTUOUS_APP_BASE}/Generosity/ContactNote/Create?contactId=${encodeURIComponent(contactId)}`;
-}
-
-/** Contact Notes tab, where the signed-in user adds the note in Virtuous. */
-export function virtuousNotesUrl(contactId) {
-  if (contactId == null || contactId === "") return "";
-  return `${VIRTUOUS_APP_BASE}/Generosity/Contact/Notes/${encodeURIComponent(contactId)}`;
-}
-
 /* ---- CSV helpers (RFC-4180) --------------------------------------------- */
 /** Escape one cell. Also neutralizes CSV/formula injection (leading = + - @). */
 function cell(v) {
