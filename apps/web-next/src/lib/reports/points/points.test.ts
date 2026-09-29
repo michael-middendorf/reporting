@@ -48,7 +48,19 @@ type Model = {
     lastNoteType?: string | null;
     owners?: Array<{ name: string; noteType?: string; daysAfterNote?: number }>;
   }>;
-  reviewGifts?: Array<{ amount?: number; owner?: string; giftId?: unknown; needsReview?: boolean; contactName?: string; label?: string; schedule?: string }>;
+  reviewGifts?: Array<{
+    amount?: number;
+    owner?: string;
+    giftId?: unknown;
+    needsReview?: boolean;
+    contactName?: string;
+    label?: string;
+    schedule?: string;
+    lastGiftDay?: string | null;
+    lastGiftSchedule?: string | null;
+    lastNoteDay?: string | null;
+    lastNoteType?: string | null;
+  }>;
   rows: Array<{ noteId?: string | number; giftId?: string | number; bucket?: string; removed?: boolean; points?: number; day?: string; mgoAssigned?: boolean }>;
   bests?: {
     teamWeek?: string | null;
@@ -350,10 +362,10 @@ describe("MA points require a posted gift with dollars", () => {
     assert.equal(model.gifts.length, 1);
   });
 
-  it("gift more than 45 days before a donation note is not attributed", () => {
+  it("gift more than 90 days before a donation note is not attributed", () => {
     const { model, owner, rows } = run(
       [donationNote({ noteDate: "9/9/2026" })],
-      [postedGift({ giftDate: "7/20/2026", amount: 90 })],
+      [postedGift({ giftDate: "6/10/2026", amount: 90 })],
     );
     assert.equal(owner.gifts, 0);
     assert.equal(owner.giftAmount, 0);
@@ -1176,19 +1188,19 @@ describe("gift dollars follow MA activity notes", () => {
     assert.ok(rows.some((r) => r.unmatched));
   });
 
-  it("note 50 days before a gift is outside the window", () => {
+  it("note 91 days before a gift is outside the window", () => {
     const { owner } = run(
-      [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "6/10/2026" })],
-      [postedGift({ giftDate: "8/1/2026", amount: 200 })],
+      [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "6/16/2026" })],
+      [postedGift({ giftDate: "9/15/2026", amount: 200 })],
     );
     assert.equal(owner.giftAmount, 0);
     assert.equal(owner.gifts, 0);
   });
 
-  it("donation note more than 45 days before a gift does not get 100 pts", () => {
+  it("donation note more than 90 days before a gift does not get 100 pts", () => {
     const { owner, rows } = run(
-      [donationNote({ noteDate: "6/10/2026" })],
-      [postedGift({ giftDate: "8/1/2026", amount: 200 })],
+      [donationNote({ noteDate: "6/16/2026" })],
+      [postedGift({ giftDate: "9/15/2026", amount: 200 })],
     );
     assert.equal(owner.points, 0);
     assert.equal(owner.gifts, 0);
@@ -1405,17 +1417,17 @@ describe("tracker category layout", () => {
     assert.equal(touch.touchLabel, "No contact logged");
   });
 
-  it("a counted gift uses the closest contact type when outreach is older than 45 days", () => {
+  it("a counted gift uses the closest contact type when outreach is older than 90 days", () => {
     const { rows, owner } = run(
       [
         donationNote({ type: "Mission Advancement Call | Voicemail", noteDate: "6/1/2026", id: 1 }),
-        donationNote({ type: "Letter", noteDate: "6/15/2026", id: 2 }),
+        donationNote({ type: "Letter", noteDate: "6/10/2026", id: 2 }),
         donationNote({ type: "Mission Advancement Call | Invalid Number", noteDate: "6/20/2026", id: 3 }),
         donationNote({ type: "Obituary", noteDate: "6/21/2026", id: 4 }),
-        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/5/2026", id: 5 }),
-        donationNote({ type: "Mission Advancement | New Donation or New AC", noteDate: "8/4/2026", id: 6 }),
+        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "9/16/2026", id: 5 }),
+        donationNote({ type: "Mission Advancement | New Donation or New AC", noteDate: "9/15/2026", id: 6 }),
       ],
-      [postedGift({ giftDate: "8/4/2026", amount: 80 })],
+      [postedGift({ giftDate: "9/15/2026", amount: 80 })],
     );
     const gift = rows.find((r) => r.bucket === "donation");
     assert.ok(gift);
@@ -1425,23 +1437,23 @@ describe("tracker category layout", () => {
     assert.equal(owner.giftAmount, 80);
   });
 
-  it("outreach older than 45 days does not count a gift by itself", () => {
+  it("outreach older than 90 days does not count a gift by itself", () => {
     const { owner, rows } = run(
       [donationNote({ type: "Mission Advancement Call | Voicemail", noteDate: "6/1/2026", id: 1 })],
-      [postedGift({ giftDate: "8/4/2026", amount: 80 })],
+      [postedGift({ giftDate: "9/15/2026", amount: 80 })],
     );
     assert.equal(owner.gifts, 0);
     assert.equal(rows.filter((r) => r.bucket === "donation" && r.points === 100).length, 0);
   });
 
-  it("a contact inside 45 days stays the reached-by label when older outreach exists", () => {
+  it("a contact inside 90 days stays the reached-by label when older outreach exists", () => {
     const { rows } = run(
       [
         donationNote({ type: "Mission Advancement Call | Voicemail", noteDate: "6/1/2026", id: 1 }),
-        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/1/2026", id: 2 }),
-        donationNote({ type: "Mission Advancement | New Donation or New AC", noteDate: "8/4/2026", id: 3 }),
+        donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "9/1/2026", id: 2 }),
+        donationNote({ type: "Mission Advancement | New Donation or New AC", noteDate: "9/15/2026", id: 3 }),
       ],
-      [postedGift({ giftDate: "8/4/2026", amount: 80 })],
+      [postedGift({ giftDate: "9/15/2026", amount: 80 })],
     );
     const gift = rows.find((r) => r.bucket === "donation");
     assert.ok(gift);
@@ -1693,34 +1705,32 @@ describe("possible gifts", () => {
     assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
-  it("a conversation 52 days before the gift waits on Incoming review", () => {
+  it("a conversation 52 days before the gift is Raised", () => {
     const { owner, model } = run(
       [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "6/10/2026" })],
       [postedGift({ giftDate: "8/1/2026", amount: 200 })],
     );
-    assert.equal(owner.gifts, 0);
-    assert.equal(model.possibleGifts?.length, 1);
-    assert.equal(model.possibleGifts?.[0].daysAfterNote, 52);
-    assert.equal(model.possibleGifts?.[0].amount, 200);
-    assert.equal(model.possibleGifts?.[0].schedule, "One-time");
-    assert.equal(model.possibleGifts?.[0].lastNoteDay, "2026-06-10");
-    assert.equal(model.possibleGifts?.[0].lastNoteType, "Phone conversation");
-    assert.equal(model.possibleGifts?.[0].lastGiftDay ?? null, null);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 200);
+    assert.equal(owner.points, 110);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
-  it("an incoming gift shows the previous gift as one-time or recurring", () => {
+  it("a recurring gift waiting on review shows the previous gift as one-time or recurring", () => {
     const { model } = run(
-      [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "6/10/2026" })],
+      [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026" })],
       [
-        postedGift({ id: 1, giftDate: "5/1/2026", amount: 25, frequency: "Monthly" }),
-        postedGift({ id: 2, giftDate: "8/1/2026", amount: 200 }),
+        postedGift({ id: 1, giftDate: "5/1/2026", amount: 25 }),
+        postedGift({ id: 2, giftDate: "8/20/2026", amount: 40, frequency: "Monthly" }),
       ],
     );
-    const waiting = model.possibleGifts?.find((g) => g.giftId === 2);
+    const waiting = model.reviewGifts?.find((g) => g.giftId === 2);
     assert.ok(waiting);
-    assert.equal(waiting.schedule, "One-time");
+    assert.equal(waiting.schedule, "Recurring");
     assert.equal(waiting.lastGiftDay, "2026-05-01");
-    assert.equal(waiting.lastGiftSchedule, "Recurring");
+    assert.equal(waiting.lastGiftSchedule, "One-time");
+    assert.equal(waiting.lastNoteDay, "2026-08-10");
+    assert.equal(waiting.lastNoteType, "Phone conversation");
   });
 
   it("in-person meeting before a gift is possible when there is no donation note", () => {
@@ -1849,7 +1859,7 @@ describe("possible gifts", () => {
   });
 });
 
-describe("contacts from 46 to 90 days wait for review", () => {
+describe("a contact within 90 days assigns the gift", () => {
   it("a letter 45 days before the gift still assigns it", () => {
     const { owner, model } = run(
       [donationNote({ type: "Letter", noteDate: "8/1/2026", id: 45 })],
@@ -1861,34 +1871,35 @@ describe("contacts from 46 to 90 days wait for review", () => {
     assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
-  it("a letter 60 days before the gift is Incoming and not Raised", () => {
+  it("a letter 60 days before the gift assigns it", () => {
     const { owner, model } = run(
       [donationNote({ type: "Letter", noteDate: "7/17/2026", id: 60 })],
       [postedGift({ giftDate: "9/15/2026", amount: 100, id: 901 })],
     );
-    assert.equal(owner.gifts, 0);
-    assert.equal(owner.giftAmount, 0);
-    assert.equal(owner.points, 5);
-    assert.equal(model.possibleGifts?.length, 1);
-    assert.equal(model.possibleGifts?.[0].daysAfterNote, 60);
-    assert.equal(model.possibleGifts?.[0].owner, ALANNA);
-    assert.equal(model.possibleGifts?.[0].amount, 100);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 100);
+    assert.equal(owner.points, 105);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
-  it("a contact 46 days before is review and 90 days before is still review", () => {
+  it("a contact 46 days before assigns the gift and 90 days before still assigns it", () => {
     const early = run(
       [donationNote({ type: "Mission Advancement Call | Voicemail", noteDate: "7/31/2026", id: 46 })],
       [postedGift({ giftDate: "9/15/2026", amount: 25, id: 902 })],
     );
-    assert.equal(early.owner.gifts, 0);
-    assert.equal(early.model.possibleGifts?.[0].daysAfterNote, 46);
+    assert.equal(early.owner.gifts, 1);
+    assert.equal(early.owner.giftAmount, 25);
+    assert.equal(early.owner.points, 101);
+    assert.equal(early.model.possibleGifts?.length ?? 0, 0);
 
     const edge = run(
       [donationNote({ type: "Mission Advancement Call | Email Reach Out", noteDate: "6/17/2026", id: 90 })],
       [postedGift({ giftDate: "9/15/2026", amount: 25, id: 903 })],
     );
-    assert.equal(edge.owner.gifts, 0);
-    assert.equal(edge.model.possibleGifts?.[0].daysAfterNote, 90);
+    assert.equal(edge.owner.gifts, 1);
+    assert.equal(edge.owner.giftAmount, 25);
+    assert.equal(edge.owner.points, 102);
+    assert.equal(edge.model.possibleGifts?.length ?? 0, 0);
   });
 
   it("a contact 91 days before the gift is not listed", () => {
@@ -1910,7 +1921,7 @@ describe("contacts from 46 to 90 days wait for review", () => {
     assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
-  it("a closer contact inside 45 days assigns the gift even if an older note exists", () => {
+  it("a closer contact assigns the gift even if an older note exists", () => {
     const { owner, model } = run(
       [
         donationNote({ type: "Letter", noteDate: "7/7/2026", id: 70 }),
@@ -1923,7 +1934,7 @@ describe("contacts from 46 to 90 days wait for review", () => {
     assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
-  it("assigning a 60-day review gift scores 100 points and leaves Incoming", () => {
+  it("assigning a gift whose only contact is older than 90 days scores 100 points", () => {
     const flags = {
       "gift:907": {
         status: "assigned",
@@ -1938,7 +1949,7 @@ describe("contacts from 46 to 90 days wait for review", () => {
     const extra = assignedNotesFromFlags(flags);
     const { owner, model } = run(
       [
-        donationNote({ type: "Letter", noteDate: "7/17/2026", id: 61 }),
+        donationNote({ type: "Letter", noteDate: "6/16/2026", id: 61 }),
         extra[0],
       ],
       [postedGift({ giftDate: "9/15/2026", amount: 80, id: 907 })],
@@ -1949,7 +1960,7 @@ describe("contacts from 46 to 90 days wait for review", () => {
     assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
-  it("an MGO gift with a letter 60 days before is not listed", () => {
+  it("an MGO gift with a letter 60 days before is Raised", () => {
     const { owner, model } = run(
       [donationNote({
         createdByUser: SEAN,
@@ -1967,8 +1978,9 @@ describe("contacts from 46 to 90 days wait for review", () => {
       })],
       SEAN,
     );
-    assert.equal(owner.gifts, 0);
-    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 150);
+    assert.equal(owner.points, 105);
     assert.equal(model.possibleGifts?.length ?? 0, 0);
     assert.equal(model.reviewGifts?.length ?? 0, 0);
   });
@@ -2870,7 +2882,7 @@ describe("gala ticket purchases", () => {
     assert.equal(giftKindOf({ segment: "2026 Chancellor's Gala" }), "gala");
   });
 
-  it("counts the ticket purchase when an MA conversation is within 45 days", () => {
+  it("counts the ticket purchase when an MA conversation is within 90 days", () => {
     const { owner, model } = run(
       [donationNote({
         createdByUser: ELENA,
@@ -2917,7 +2929,7 @@ describe("gala ticket purchases", () => {
     assert.equal(owner.gifts, 0);
   });
 
-  it("counts a gala gift from a voicemail in the 45 days before", () => {
+  it("counts a gala gift from a voicemail in the 90 days before", () => {
     const { owner, model } = run(
       [donationNote({
         createdByUser: ELENA,

@@ -1233,7 +1233,7 @@ function PointsPageInner() {
                               {o.daysAfterNote != null ? (
                                 <span className="todo-muted">
                                   {" "}· {o.daysAfterNote}d
-                                  {o.daysAfterNote > (SETTINGS.giftNoteDaysBefore ?? 45) ? " · review" : ""}
+                                  {o.daysAfterNote > (SETTINGS.giftNoteDaysBefore ?? 90) ? " · review" : ""}
                                 </span>
                               ) : null}
                             </div>

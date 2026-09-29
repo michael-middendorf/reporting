@@ -331,11 +331,16 @@ export const SETTINGS = {
   invalidNumberScores: true,
   /** Tracker credits a new monthly AC as 12 months of the monthly amount. */
   monthlyAnnualizeFactor: 12,
-  /** A contact on or before the gift, within this many days, assigns the gift. Notes after the gift date do not count. */
-  giftNoteDaysBefore: 45,
   /**
-   * The same contact from the day after giftNoteDaysBefore through this many
-   * days before the gift is listed for review. It does not assign itself.
+   * A contact on or before the gift, within this many days, assigns the gift.
+   * Notes after the gift date do not count. A New Donation or Gift Assist note
+   * also matches this many days after the gift.
+   */
+  giftNoteDaysBefore: 90,
+  /**
+   * Contacts from the day after giftNoteDaysBefore through this many days
+   * before the gift would be listed for review. They do not assign themselves.
+   * While this is not greater than giftNoteDaysBefore, that list is empty.
    */
   giftReviewDaysBefore: 90,
   /**
@@ -377,17 +382,17 @@ export const TRACKING_CHART = {
     {
       label: "Dollars received",
       detail:
-        "A voicemail, email, letter, visit, conversation, or general note on or before the gift assigns it within 45 days: the dollars and 100 points. The same note from 46 through 90 days before the gift puts it on Incoming for review, with no points until Assign. A New Donation note within 45 days before or after the gift also assigns it. A note after the gift does not, except that New Donation note. A monthly gift with a qualifying contact waits on review. Direct Solicitation (MGO) follows the same 45-day assign and 90-day review windows. A tracker row does not assign a gift by itself.",
+        "A voicemail, email, letter, visit, conversation, or general note on or before the gift assigns it within 90 days: the dollars and 100 points. A New Donation note within 90 days before or after the gift also assigns it. A note after the gift does not, except that New Donation note. A contact older than 90 days is not listed. A monthly gift with a qualifying contact waits on review. Direct Solicitation (MGO) follows the same 90-day window: a contact in that window assigns it, and a donor on exactly one MA portfolio counts with no contact. A tracker row does not assign a gift by itself.",
     },
     {
       label: "Secured gift · 100 pts",
       detail:
-        "Note type New Donation or New AC, Annunciation Circle Updated, or Update Recurring Gift, plus a posted gift on that contact within 45 days after the note.",
+        "Note type New Donation or New AC, Annunciation Circle Updated, or Update Recurring Gift, plus a posted gift on that contact within 90 days before or after the note.",
     },
     {
       label: "Gift assist · 100 pts",
       detail:
-        "Note type Mission Advancement | Gift Assist, plus a posted gift on that contact within 45 days. 100 points, no dollars. Use this when you assisted on a gift credited to someone else.",
+        "Note type Mission Advancement | Gift Assist, plus a posted gift on that contact within 90 days. 100 points, no dollars. Use this when you assisted on a gift credited to someone else.",
     },
     {
       label: "Monthly AC",
@@ -398,7 +403,7 @@ export const TRACKING_CHART = {
     {
       label: "Incoming gifts",
       detail:
-        "A posted gift whose closest qualifying contact is 46 to 90 days before the gift. No points until Assign or Remove. A contact within 45 days assigns the gift instead. A gala ticket purchase with a conversation, two-way email, or meeting within 45 days is Raised for the MA who spoke with the donor.",
+        "A new monthly gift with a qualifying contact within 90 days. No points until Assign or Remove. A one-time gift with a contact within 90 days is Raised instead. A gala ticket purchase with a conversation, two-way email, or meeting within 90 days is Raised for the MA who spoke with the donor.",
     },
     {
       label: "Event hours · 25 pts/hour",
@@ -449,21 +454,18 @@ export const DEFINITIONS = [
       "Large-event hours added on this dashboard count at 25 points per hour and are not written to Virtuous. " +
       "A one-on-one Event or Marketing Event note on a contact still counts at 25 points. " +
       "A note on the wrong person, a generic type, a note after the gift, or no note at all will not count. " +
-      "Raised dollars and 100 gift points always go together. A conversation or meeting on the donor, within 45 days, puts the gift on Incoming — not Raised and not 100 points — until someone assigns it or logs a donation note. " +
-      "A New Donation note can be logged up to 45 days after the gift posts and still count. " +
-      "A row on the MA gift tracker does not assign the gift by itself. " +
-      "A letter, email, voicemail, or thank-you does not pull the gift. A thank-you logged after the gift does not pull that gift. " +
-      "100 points require a donation note type (‘New Donation or New AC’, ‘Annunciation Circle updated’, or ‘Update recurring gift’), an Incoming assignment, or a Gift Assist note, paired with a posted gift. Gift Assist is 100 points and does not count dollars.",
+      "Raised dollars and 100 gift points always go together. A voicemail, email, letter, visit, conversation, meeting, or general note on or before the gift, within 90 days, assigns it. " +
+      "A New Donation note can be logged up to 90 days after the gift posts and still count. A note after the gift does not, except that New Donation note. " +
+      "A row on the MA gift tracker does not assign the gift by itself. A thank-you logged after the gift does not pull that gift. " +
+      "A new monthly gift with a qualifying contact waits on Incoming until Assign. Gift Assist is 100 points and does not count dollars.",
   },
   {
     term: "Incoming gifts",
     text:
-      "Incoming gifts are posted Virtuous gifts (one-time, Mission Fund, new Annunciation Circle, or an AC increase) on a donor an MA actually spoke with " +
-      "(phone conversation, two-way email, in-person, or MAS meeting) on or before the gift date, within 45 days, " +
-      "when there is no matching donation note yet. Every MA who spoke with that donor in the window is listed. " +
-      "This is a review list, not points and not Raised. A voicemail, letter, or email-sent does not put a gift here. " +
-      "Anyone can assign an MA. That scores 100 points and counts the gift in Raised immediately. " +
+      "Incoming gifts are new monthly gifts that already have a qualifying contact on or before the gift, within 90 days, and are not an increase. " +
+      "They stay at 0 points until Assign or Remove. Assign scores 100 points and counts the gift in Raised. " +
       "It does not write a note to Virtuous. Gift Assist is 100 points and $0. " +
+      "A one-time gift with a contact inside 90 days is Raised and is not listed here. A contact older than 90 days is not listed. " +
       "If it was not because of you, leave it.",
   },
   {
@@ -482,7 +484,7 @@ export const DEFINITIONS = [
     term: "Gift assist (100 pts, no dollars)",
     text:
       "Log ‘Mission Advancement | Gift Assist’ on the donor’s contact when you assisted on a gift credited to someone else (usually an MGO). " +
-      "It scores 100 points when a posted gift on that contact is on or after the note, within 45 days. Dollars are not counted for that gift. " +
+      "It scores 100 points when a posted gift on that contact is within 90 days of the note. Dollars are not counted for that gift. " +
       "A tour or call on the same contact does not pull the dollars either once the gift is an assist.",
   },
   {
@@ -522,10 +524,9 @@ export const DEFINITIONS = [
   {
     term: "Dollars received",
     text:
-      "A posted Virtuous gift counts in Raised only with 100 points: a donation note on that contact within 45 days before the gift, or a donation note within 45 days after the gift, or an Incoming assignment, or an MGO-coded gift on that MA’s portfolio. " +
-      "A gala ticket purchase counts the same way when an MA has a conversation, two-way email, or meeting on that contact within 45 days of the gift. A gala invitation does not claim a different gift. " +
-      "A conversation or meeting alone does not count the gift in Raised — it stays on Incoming. " +
-      "A letter, email, voicemail, or thank-you does not claim the gift. A row on the MA gift tracker does not assign the gift by itself. Gift Assist notes do not count dollars. " +
+      "A posted Virtuous gift counts in Raised only with 100 points: a qualifying contact on or before the gift within 90 days, a donation note on that contact within 90 days before or after the gift, an Incoming assignment, or an MGO-coded gift on that MA’s portfolio. " +
+      "A gala ticket purchase counts the same way when an MA has a conversation, two-way email, or meeting on that contact within 90 days of the gift. A gala invitation does not claim a different gift. " +
+      "A voicemail, email, letter, visit, or general note on or before the gift within 90 days claims the gift. A note after the gift does not. A row on the MA gift tracker does not assign the gift by itself. Gift Assist notes do not count dollars. " +
       "Dollars go to the MA who logged the note, not GFT_Solicitor. " +
       "A gift coded Direct Solicitation (MGO) or Direct Solicitation (MGO)-HIST_DS, or a gift whose GFT_Solicitor is not on the MA roster, counts for the MA whose portfolio includes that donor. It is not listed for review. If the donor is not on an MA portfolio, that gift is not counted. " +
       "One-time gifts use the posted amount. A new monthly gift (Recurring Gift, frequency Monthly) is counted once as monthly amount × 12. " +
