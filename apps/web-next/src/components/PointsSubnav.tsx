@@ -17,13 +17,17 @@ export function PointsSubnav({ count }: { count?: number }) {
       apiFetch("/api/reports/points/flags").then((r) => (r.ok ? r.json() : { flags: {} })),
       apiFetch("/api/reports/points/notes.json").then((r) => (r.ok ? r.json() : [])),
       apiFetch("/api/reports/points/gifts.json").then((r) => (r.ok ? r.json() : [])),
+      apiFetch("/api/reports/points/portfolios.json").then((r) => (r.ok ? r.json() : {})),
     ])
-      .then(([flagsDoc, notes, gifts]) => {
+      .then(([flagsDoc, notes, gifts, portfolios]) => {
         const flags = (flagsDoc?.flags || {}) as Record<string, unknown>;
         const extra = assignedNotesFromFlags(flags) as unknown[];
         const noteList = Array.isArray(notes) ? notes : [];
         const giftList = Array.isArray(gifts) ? gifts : [];
-        const scored = scoreAll({ notes: [...noteList, ...extra], gifts: giftList, flags }) as unknown[];
+        const portfolioOwners = portfolios && typeof portfolios === "object" && !Array.isArray(portfolios)
+          ? portfolios as Record<string, string>
+          : {};
+        const scored = scoreAll({ notes: [...noteList, ...extra], gifts: giftList, flags, portfolios: portfolioOwners }) as unknown[];
         const model = aggregate(scored, { start: evalStartDate(), end: null, flags }) as {
           possibleGifts?: unknown[];
           reviewGifts?: unknown[];

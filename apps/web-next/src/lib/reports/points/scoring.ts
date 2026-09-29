@@ -6,7 +6,9 @@ const points = require("./points.js") as {
     gifts?: unknown[];
     flags?: Record<string, unknown>;
     countedGifts?: unknown[];
+    portfolios?: Record<string, string>;
   }) => unknown[];
+  portfolioOwnersFromSnapshot: (snapshot: unknown) => Record<string, string>;
   scoreEventsForDisplay: (events: unknown[]) => unknown[];
   scoreTrackedEvents: (events: unknown[]) => unknown[];
   eventPointsForHours: (hours: unknown) => number;
@@ -89,6 +91,7 @@ export const prepareGifts = points.prepareGifts;
 export const isMonthlyRecurring = points.isMonthlyRecurring;
 export const giftSolicitor = points.giftSolicitor;
 export const isMgoAttributedGift = points.isMgoAttributedGift;
+export const portfolioOwnersFromSnapshot = points.portfolioOwnersFromSnapshot;
 export const buildCalculationCSV = reportMod.buildCalculationCSV;
 export const downloadText = reportMod.downloadText;
 export const virtuousContactUrl = reportMod.virtuousContactUrl;

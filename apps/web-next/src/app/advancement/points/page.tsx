@@ -114,6 +114,12 @@ type GiftRow = {
   touchLabel?: string;
   needsReview?: boolean;
   mgoAssigned?: boolean;
+  kindLabel?: string;
+  schedule?: string | null;
+  lastGiftDay?: string | null;
+  lastGiftSchedule?: string | null;
+  lastNoteDay?: string | null;
+  lastNoteType?: string | null;
 };
 
 type IncomingOwner = {
@@ -316,15 +322,19 @@ async function loadRaw() {
     if (!res.ok) throw new Error(`${name}: ${res.status}`);
     return res.json();
   };
-  const [notes, gifts, meta, profiles] = await Promise.all([
+  const [notes, gifts, meta, profiles, portfolios] = await Promise.all([
     get("notes.json"),
     get("gifts.json").catch(() => []),
     get("meta.json"),
     get("profiles.json").catch(() => []),
+    get("portfolios.json").catch(() => ({})),
   ]);
   const arr = (x: unknown) =>
     Array.isArray(x) ? x : ((x as { records?: unknown[] })?.records || []);
-  return { notes: arr(notes), gifts: arr(gifts), profiles: arr(profiles), meta: meta || {} };
+  const portfolioOwners = portfolios && typeof portfolios === "object" && !Array.isArray(portfolios)
+    ? portfolios as Record<string, string>
+    : {};
+  return { notes: arr(notes), gifts: arr(gifts), profiles: arr(profiles), portfolios: portfolioOwners, meta: meta || {} };
 }
 
 export default function PointsPage() {
@@ -339,7 +349,7 @@ function PointsPageInner() {
   const searchParams = useSearchParams();
   const rawTab = searchParams.get("tab");
   const tab = rawTab === "incoming" ? "incoming" : rawTab === "events" ? "events" : rawTab === "insights" ? "insights" : "points";
-  const [raw, setRaw] = useState<{ notes: unknown[]; gifts: unknown[]; profiles: unknown[]; meta: Record<string, unknown> } | null>(null);
+  const [raw, setRaw] = useState<{ notes: unknown[]; gifts: unknown[]; profiles: unknown[]; portfolios: Record<string, string>; meta: Record<string, unknown> } | null>(null);
   const [rows, setRows] = useState<Array<Record<string, unknown>> | null>(null);
   const [meta, setMeta] = useState<Record<string, unknown>>({});
   const [range, setRange] = useState<RangeKey>("all");
@@ -377,6 +387,7 @@ function PointsPageInner() {
           notes: loaded.notes,
           gifts: loaded.gifts,
           profiles: loaded.profiles,
+          portfolios: loaded.portfolios,
           meta: loaded.meta as Record<string, unknown>,
         });
         setMeta(loaded.meta as Record<string, unknown>);
@@ -387,7 +398,7 @@ function PointsPageInner() {
   useEffect(() => {
     if (!raw) return;
     const extra = assignedNotesFromFlags(flags) as unknown[];
-    const scored = scoreAll({ notes: [...raw.notes, ...extra], gifts: raw.gifts, flags }) as unknown as Array<Record<string, unknown>>;
+    const scored = scoreAll({ notes: [...raw.notes, ...extra], gifts: raw.gifts, flags, portfolios: raw.portfolios }) as unknown as Array<Record<string, unknown>>;
     const eventRows = scoreTrackedEvents(trackedEvents) as unknown as Array<Record<string, unknown>>;
     setRows([...scored, ...eventRows]);
   }, [raw, flags, trackedEvents]);
@@ -602,7 +613,7 @@ function PointsPageInner() {
       })
       .sort((a, b) => b.day.localeCompare(a.day));
   }, [rows]);
-  function incomingOwners(g: PossibleGiftRow): IncomingOwner[] {
+  function incomingOwners(g: GiftRow & Partial<PossibleGiftRow>): IncomingOwner[] {
     if (g.owners?.length) return g.owners;
     return g.owner ? [{ name: g.owner, noteType: g.noteType, noteLabel: g.noteLabel, noteDay: g.noteDay, daysAfterNote: g.daysAfterNote }] : [];
   }
@@ -623,6 +634,10 @@ function PointsPageInner() {
       .filter((g) => possibleOwner === "all" || g.owner === possibleOwner)
       .sort((a, b) => (a.day || "").localeCompare(b.day || "") || (b.amount || 0) - (a.amount || 0));
   }, [todoQueue.reviewGifts, possibleOwner]);
+  const listedIncoming = useMemo(() => {
+    return [...listedPossible, ...todoReviewGifts]
+      .sort((a, b) => (a.day || "").localeCompare(b.day || "") || (b.amount || 0) - (a.amount || 0));
+  }, [listedPossible, todoReviewGifts]);
   const todoAllCount = (todoQueue.possibleGifts || []).length + (todoQueue.reviewGifts || []).length;
   const todoAllAmount =
     (todoQueue.possibleGifts || []).reduce((s, g) => s + (g.amount || 0), 0) +
@@ -776,7 +791,7 @@ function PointsPageInner() {
     deleteFlag(id);
   }
 
-  async function assignIncoming(g: PossibleGiftRow, owner: string, assist: boolean, opts?: { skipConfirm?: boolean }) {
+  async function assignIncoming(g: GiftRow & { kind?: string }, owner: string, assist: boolean, opts?: { skipConfirm?: boolean }) {
     if (g.giftId == null || g.giftId === "" || g.contactId == null || !g.day) return;
     const kindLabel = assist ? "Gift Assist" : (noteTypeForIncoming(g.kind) || "gift note");
     if (!opts?.skipConfirm && !window.confirm(`Assign this ${kindLabel} to ${owner}? It scores 100 points and counts in Raised. It does not add a note in Virtuous.`)) return;
@@ -815,7 +830,7 @@ function PointsPageInner() {
     }
   }
 
-  async function dismissIncoming(g: PossibleGiftRow) {
+  async function dismissIncoming(g: GiftRow) {
     if (g.giftId == null || g.giftId === "") return;
     const id = `gift:${g.giftId}`;
     const ok = await saveFlag({
@@ -1156,16 +1171,22 @@ function PointsPageInner() {
                         <tr>
                           <th>Date</th>
                           <th>Donor</th>
-                          <th>Kind</th>
+                          <th>Gift</th>
+                          <th>Last gift</th>
+                          <th>Last note</th>
                           <th>Spoke with</th>
                           <th>Amount</th>
                           <th></th>
                         </tr>
                       </thead>
                       <tbody>
-                  {listedPossible.map((g, i) => {
+                  {listedIncoming.map((g, i) => {
                     const owners = incomingOwners(g);
-                    const busy = assignBusy != null || flagBusy === (g.giftId != null ? `gift:${g.giftId}` : null);
+                    const review = !!g.needsReview;
+                    const flagId = giftFlagId(g);
+                    const busy = review
+                      ? flagBusy === flagId
+                      : (assignBusy != null || flagBusy === (g.giftId != null ? `gift:${g.giftId}` : null));
                     return (
                       <tr key={g.giftId != null && g.giftId !== "" ? String(g.giftId) : `todo-${i}`}>
                         <td className="nowrap">{g.day ? formatDay(g.day) : "—"}</td>
@@ -1180,9 +1201,22 @@ function PointsPageInner() {
                             </>
                           ) : null}
                         </td>
+                        <td>{g.schedule || (g.annualized ? "Recurring" : "One-time")}</td>
+                        <td className="nowrap">
+                          {g.lastGiftDay ? (
+                            <>
+                              {formatDay(g.lastGiftDay)}
+                              {g.lastGiftSchedule ? <span className="todo-muted"> · {g.lastGiftSchedule}</span> : null}
+                            </>
+                          ) : "—"}
+                        </td>
                         <td>
-                          {g.kindLabel || g.giftType || "—"}
-                          {g.project ? <span className="todo-muted"> · {g.project}</span> : null}
+                          {g.lastNoteType || g.lastNoteDay ? (
+                            <>
+                              {g.lastNoteType || "Note"}
+                              {g.lastNoteDay ? <span className="todo-muted"> · {formatDay(g.lastNoteDay)}</span> : null}
+                            </>
+                          ) : "—"}
                         </td>
                         <td>
                           {owners.map((o, idx) => (
@@ -1200,37 +1234,79 @@ function PointsPageInner() {
                         <td className="pts tabular nowrap">{money(g.amount)}</td>
                         <td>
                           <div className="todo-actions">
-                            {owners.map((o) => (
+                            {review ? (
+                              flagId && g.owner ? (
+                                <button
+                                  type="button"
+                                  className="mini-btn solid"
+                                  disabled={busy}
+                                  onClick={() => assignMgoGift(g)}
+                                >
+                                  {busy ? "…" : g.owner.split(" ")[0]}
+                                </button>
+                              ) : null
+                            ) : (
+                              <>
+                                {owners.map((o) => (
+                                  <button
+                                    key={`a-${o.name}`}
+                                    type="button"
+                                    className="mini-btn solid"
+                                    disabled={busy}
+                                    onClick={() => assignIncoming(g, o.name, false, { skipConfirm: true })}
+                                  >
+                                    {assignBusy === `${g.giftId}:${o.name}` ? "…" : o.name.split(" ")[0]}
+                                  </button>
+                                ))}
+                                {owners.map((o) => (
+                                  <button
+                                    key={`s-${o.name}`}
+                                    type="button"
+                                    className="mini-btn"
+                                    disabled={busy}
+                                    title={`Assist ${o.name.split(" ")[0]} · 100 pts, $0`}
+                                    onClick={() => assignIncoming(g, o.name, true, { skipConfirm: true })}
+                                  >
+                                    Assist
+                                  </button>
+                                ))}
+                              </>
+                            )}
+                            {review ? (
+                              flagId ? (
+                                <button
+                                  type="button"
+                                  className="mini-btn danger"
+                                  disabled={busy}
+                                  onClick={async () => {
+                                    const ok = await saveFlag({
+                                      noteId: flagId,
+                                      contactId: g.contactId != null ? String(g.contactId) : null,
+                                      contactName: g.contactName || null,
+                                      owner: g.owner,
+                                      day: g.day,
+                                      type: g.giftType || null,
+                                      label: "Gift dismissed",
+                                      points: 0,
+                                      status: "removed",
+                                      reason: "Does not qualify",
+                                    });
+                                    if (ok) showUndo(flagId, `Removed ${g.contactName || "this gift"}.`);
+                                  }}
+                                >
+                                  {busy ? "…" : "Remove"}
+                                </button>
+                              ) : null
+                            ) : (
                               <button
-                                key={`a-${o.name}`}
                                 type="button"
-                                className="mini-btn solid"
+                                className="mini-btn danger"
                                 disabled={busy}
-                                onClick={() => assignIncoming(g, o.name, false, { skipConfirm: true })}
+                                onClick={() => dismissIncoming(g)}
                               >
-                                {assignBusy === `${g.giftId}:${o.name}` ? "…" : o.name.split(" ")[0]}
+                                {flagBusy === `gift:${g.giftId}` ? "…" : "Remove"}
                               </button>
-                            ))}
-                            {owners.map((o) => (
-                              <button
-                                key={`s-${o.name}`}
-                                type="button"
-                                className="mini-btn"
-                                disabled={busy}
-                                title={`Assist ${o.name.split(" ")[0]} · 100 pts, $0`}
-                                onClick={() => assignIncoming(g, o.name, true, { skipConfirm: true })}
-                              >
-                                Assist
-                              </button>
-                            ))}
-                            <button
-                              type="button"
-                              className="mini-btn danger"
-                              disabled={busy}
-                              onClick={() => dismissIncoming(g)}
-                            >
-                              {flagBusy === `gift:${g.giftId}` ? "…" : "Remove"}
-                            </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1239,92 +1315,6 @@ function PointsPageInner() {
                       </tbody>
                     </table>
                   </div>
-
-                  {todoReviewGifts.length > 0 ? (
-                    <>
-                    <h3 className="todo-sub">MGO-coded</h3>
-                    <div className="todo-table-wrap">
-                    <table className="grid todo-table">
-                      <thead>
-                        <tr>
-                          <th>Date</th>
-                          <th>Donor</th>
-                          <th>Kind</th>
-                          <th>MA</th>
-                          <th>Amount</th>
-                          <th></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                  {todoReviewGifts.map((g, i) => {
-                    const id = giftFlagId(g);
-                    const busy = flagBusy === id;
-                    return (
-                      <tr key={id || `todo-mgo-${i}`}>
-                        <td className="nowrap">{g.day ? formatDay(g.day) : "—"}</td>
-                        <td>
-                          {g.contactName || "Unknown donor"}
-                          {virtuousGiftUrl(g.contactId) ? (
-                            <>
-                              {" "}
-                              <a className="todo-link" href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">
-                                ↗
-                              </a>
-                            </>
-                          ) : null}
-                        </td>
-                        <td>
-                          {g.giftType || "—"}
-                          {g.project ? <span className="todo-muted"> · {g.project}</span> : null}
-                        </td>
-                        <td>{g.owner ? g.owner.split(" ")[0] : "—"}</td>
-                        <td className="pts tabular nowrap">{money(g.amount)}</td>
-                        <td>
-                          <div className="todo-actions">
-                            {g.owner && id ? (
-                              <button
-                                type="button"
-                                className="mini-btn solid"
-                                disabled={busy}
-                                onClick={() => assignMgoGift(g)}
-                              >
-                                {busy ? "…" : g.owner.split(" ")[0]}
-                              </button>
-                            ) : null}
-                            {id ? (
-                              <button
-                                type="button"
-                                className="mini-btn danger"
-                                disabled={busy}
-                                onClick={async () => {
-                                  const ok = await saveFlag({
-                                    noteId: id,
-                                    contactId: g.contactId != null ? String(g.contactId) : null,
-                                    contactName: g.contactName || null,
-                                    owner: g.owner,
-                                    day: g.day,
-                                    type: g.giftType || null,
-                                    label: "MGO gift dismissed",
-                                    points: 0,
-                                    status: "removed",
-                                    reason: "Does not qualify",
-                                  });
-                                  if (ok) showUndo(id, `Removed ${g.contactName || "this gift"}.`);
-                                }}
-                              >
-                                {busy ? "…" : "Remove"}
-                              </button>
-                            ) : null}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                      </tbody>
-                    </table>
-                    </div>
-                    </>
-                  ) : null}
                 </>
               )}
             </div>

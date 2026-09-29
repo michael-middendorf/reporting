@@ -44,6 +44,7 @@ export default function PointsMethodologyPage() {
               on Incoming for review, with no points until Assign. A note after the gift does
               not count. A monthly
               gift with a contact inside 45 days waits on review instead of going straight to Raised.
+              An MGO-coded gift counts when the donor is on that officer’s portfolio. Otherwise it is not counted.
               Assign does not write a note in Virtuous. A tracker row does not assign a gift.
               A Verbal Gift Commitment is a two-day follow-up and adds no points. Event hours
               are logged on the Events tab, 25 points per hour, and are not a Virtuous note.

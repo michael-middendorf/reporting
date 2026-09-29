@@ -351,10 +351,11 @@ export const SETTINGS = {
    */
   assistGiftIds: ["451486"],
   /**
-   * Monday of the first All / leaderboard week. Second week of August 2026
-   * (Mon Aug 10 – Sun Aug 16). Weeks before this are not listed.
+   * Monday of the first All / leaderboard week. June 1, 2026.
+   * Weeks before this are not listed. An officer with a later roster
+   * startDate is still scored only from that day.
    */
-  evalStart: "2026-08-10",
+  evalStart: "2026-06-01",
 };
 
 /** Local calendar date for SETTINGS.evalStart (YYYY-MM-DD, not UTC midnight). */
@@ -519,13 +520,12 @@ export const DEFINITIONS = [
   {
     term: "Dollars received",
     text:
-      "A posted Virtuous gift counts in Raised only with 100 points: a donation note on that contact within 45 days before the gift, or a donation note within 45 days after the gift, or an Incoming assignment, or an assigned MGO-coded gift. " +
+      "A posted Virtuous gift counts in Raised only with 100 points: a donation note on that contact within 45 days before the gift, or a donation note within 45 days after the gift, or an Incoming assignment, or an MGO-coded gift on that MA’s portfolio. " +
       "A gala ticket purchase counts the same way when an MA has a conversation, two-way email, or meeting on that contact within 45 days of the gift. A gala invitation does not claim a different gift. " +
       "A conversation or meeting alone does not count the gift in Raised — it stays on Incoming. " +
       "A letter, email, voicemail, or thank-you does not claim the gift. A row on the MA gift tracker does not assign the gift by itself. Gift Assist notes do not count dollars. " +
-      "Dollars go to the MA who logged the note, not the MA officer on the contact and not GFT_Solicitor. " +
-      "Gifts coded Direct Solicitation (MGO) or Direct Solicitation (MGO)-HIST_DS show under MGO-coded gifts until assigned to an MA. " +
-      "A nonempty GFT_Solicitor who is not on the MA roster is listed the same way. " +
+      "Dollars go to the MA who logged the note, not GFT_Solicitor. " +
+      "A gift coded Direct Solicitation (MGO) or Direct Solicitation (MGO)-HIST_DS, or a gift whose GFT_Solicitor is not on the MA roster, counts for the MA whose portfolio includes that donor. It is not listed for review. If the donor is not on an MA portfolio, that gift is not counted. " +
       "One-time gifts use the posted amount. A new monthly AC (Recurring Gift, frequency Monthly) is counted once as monthly amount × 12. " +
       "If that contact already had an Annunciation Circle monthly gift, only the increase is counted: (new monthly − prior monthly) × 12. " +
       "The matching posted installment is not also added. Same-rate continuations are not counted again. " +

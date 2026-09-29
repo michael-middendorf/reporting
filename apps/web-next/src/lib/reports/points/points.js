@@ -33,6 +33,94 @@ function contactKey(id) {
   return s && s !== "undefined" && s !== "null" ? s : null;
 }
 
+/**
+ * contactId → roster MA name from the portfolios snapshot.
+ * Only team "ma" solicitors on the roster count. A donor on two MA
+ * portfolios is left unset so the gift is not guessed.
+ */
+export function portfolioOwnersFromSnapshot(snapshot) {
+  const owners = {};
+  const blocked = new Set();
+  for (const person of snapshot?.solicitors || []) {
+    if (String(person?.team || "") !== "ma") continue;
+    const name = String(person?.name || "").replace(/\s+/g, " ").trim();
+    if (!rosterSet.has(name)) continue;
+    for (const stage of person.stages || []) {
+      for (const donor of stage?.donors || []) {
+        const key = contactKey(donor?.contactId);
+        if (!key || blocked.has(key)) continue;
+        if (owners[key] && owners[key] !== name) {
+          delete owners[key];
+          blocked.add(key);
+          continue;
+        }
+        owners[key] = name;
+      }
+    }
+  }
+  return owners;
+}
+
+function portfolioOwnerFor(contactId, portfolios) {
+  const key = contactKey(contactId);
+  if (!key || !portfolios) return null;
+  const name = String(portfolios[key] || "").replace(/\s+/g, " ").trim();
+  return rosterSet.has(name) ? name : null;
+}
+
+function groupByContact(items, idOf) {
+  const map = new Map();
+  for (const item of items || []) {
+    const key = contactKey(idOf(item));
+    if (!key) continue;
+    const list = map.get(key) || [];
+    list.push(item);
+    map.set(key, list);
+  }
+  return map;
+}
+
+function noteDayOf(note) {
+  const date = note?.date instanceof Date
+    ? note.date
+    : (parseDate(note?.noteDate) || parseDate(note?.createDateTimeUtc));
+  return isoDay(date);
+}
+
+/** One-time or Recurring, plus the donor's previous gift and latest note. */
+function incomingFacts(record, notesByContact, giftsByContact) {
+  const key = contactKey(record?.contactId);
+  const giftDay = isoDay(giftDateOf(record));
+  const schedule = isMonthlyRecurring(record) ? "Recurring" : "One-time";
+  let lastGiftDay = null;
+  let lastGiftSchedule = null;
+  if (key && giftDay) {
+    for (const other of giftsByContact.get(key) || []) {
+      if (other === record) continue;
+      if (record?.id != null && other?.id != null && String(other.id) === String(record.id)) continue;
+      const day = isoDay(giftDateOf(other));
+      if (!day || day >= giftDay) continue;
+      if (!lastGiftDay || day > lastGiftDay) {
+        lastGiftDay = day;
+        lastGiftSchedule = isMonthlyRecurring(other) ? "Recurring" : "One-time";
+      }
+    }
+  }
+  let lastNoteDay = null;
+  let lastNoteType = null;
+  if (key) {
+    for (const note of notesByContact.get(key) || []) {
+      const day = noteDayOf(note);
+      if (!day) continue;
+      if (lastNoteDay && day <= lastNoteDay) continue;
+      lastNoteDay = day;
+      const mapped = mapNoteType(note.type || note.label || "");
+      lastNoteType = (POINTS_MAP[mapped] && POINTS_MAP[mapped].label) || note.label || note.type || "";
+    }
+  }
+  return { schedule, lastGiftDay, lastGiftSchedule, lastNoteDay, lastNoteType: lastNoteType || null };
+}
+
 /** Virtuous Gift Query, FullContact, and notes use different name fields. */
 export function contactDisplayName(record) {
   if (!record || typeof record !== "object") return "";
@@ -767,11 +855,14 @@ function markAssist(gift) {
  * `countedGifts` is accepted and ignored so older callers keep working.
  *
  * `flags` is the shared review-flags map (same object aggregate uses). An
- * MGO-coded gift with status "assigned" and a roster `flag.owner` scores as
- * a normal donation. An unassigned MGO gift with an MA note in the window
- * is emitted with `needsReview: true` (listed, not added to Raised).
+ * MGO-coded gift counts when a roster MA was assigned, or when `portfolios`
+ * maps that contact to one roster MA. Otherwise it is not listed.
+ * `portfolios` is `{ [contactId]: "MA Name" }`.
  */
-export function scoreAll({ notes = [], gifts = [], flags = {} }) {
+export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }) {
+  const notesByContact = groupByContact(notes, (n) => n.contactId);
+  const giftsForFacts = groupByContact(gifts, (g) => g.contactId);
+  const factsFor = (record) => incomingFacts(record, notesByContact, giftsForFacts);
   const rows = [];
   const donationNotes = [];
   const activityByContact = new Map();
@@ -822,7 +913,13 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
         const flagId = g.id != null && g.id !== "" ? `gift:${g.id}` : "";
         const assignedFlag = flagId && flags[flagId]?.status === "assigned";
         if (isMonthlyRecurring(g) && !g.acIncrease && !assignedFlag) {
-          rows.push({ ...credited, needsReview: true, points: 0, label: "Recurring — needs review" });
+          rows.push({
+            ...credited,
+            ...factsFor(g),
+            needsReview: true,
+            points: 0,
+            label: "Recurring — needs review",
+          });
           continue;
         }
         rows.push(credited);
@@ -851,22 +948,19 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
     }
     if (isMgoAttributedGift(g)) {
       const assigned = assignedOwnerForGift(g, reviewHint, flags);
-      if (assigned) {
-        const r = scoreGift(g, giftHint, assigned);
+      const fromPortfolio = portfolioOwnerFor(g.contactId, portfolios);
+      const owner = assigned || fromPortfolio;
+      if (owner) {
+        const r = scoreGift(g, giftHint || owner, owner);
         if (r) {
-          const credited = { ...r, mgoAssigned: true };
+          const credited = {
+            ...r,
+            mgoAssigned: true,
+            source: assigned ? r.source : "portfolio",
+          };
           if (!credited.assist) rows.push(credited);
           scoredGifts.push(credited);
           matchGifts.push(credited);
-        }
-      } else if (reviewHint && rosterSet.has(reviewHint)) {
-        const r = donationRow(g, reviewHint);
-        if (r) rows.push({ ...r, needsReview: true });
-      } else if (gDate) {
-        const older = reviewContacts(gDate, notesOnContact)[0];
-        if (older && rosterSet.has(older.note.owner)) {
-          const r = donationRow(g, older.note.owner);
-          if (r) rows.push({ ...r, needsReview: true, label: "Review — older contact" });
         }
       }
       continue;
@@ -1015,6 +1109,7 @@ export function scoreAll({ notes = [], gifts = [], flags = {} }) {
     const annualized = raised ? !!raised.annualized : monthly;
     const kind = giftKindOf({ ...g, acIncrease: raised?.acIncrease || g.acIncrease });
     rows.push({
+      ...factsFor(g),
       owner: hit.note.owner,
       owners: hits.map((h) => ({
         name: h.note.owner,
