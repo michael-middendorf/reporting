@@ -157,6 +157,12 @@ export function buildCalculationCSV(model, { meta = {}, rangeLabel = "All", gene
   }
   flush();
 
+  const giftKind = (g) => (
+    g.acIncrease && g.priorMonthly != null && g.newMonthly != null
+      ? `AC increase ($${g.priorMonthly} → $${g.newMonthly}/mo)`
+      : g.annualized ? "Monthly ×12" : (g.giftType || "")
+  );
+
   // --- Gifts (same list as Donations Received) -----------------------------
   L.push(line(["GIFTS — posted gifts attributed in this range"]));
   L.push(line([
@@ -172,7 +178,7 @@ export function buildCalculationCSV(model, { meta = {}, rangeLabel = "All", gene
       formatExportDay(g.day),
       g.contactName || "",
       g.contactId || "",
-      g.annualized ? "Monthly ×12" : (g.giftType || ""),
+      giftKind(g),
       g.project || "",
       g.amount || 0,
       g.giftId || "",
@@ -223,7 +229,7 @@ export function buildCalculationCSV(model, { meta = {}, rangeLabel = "All", gene
       formatExportDay(g.day),
       g.contactName || "",
       g.contactId || "",
-      g.annualized ? "Monthly ×12" : (g.giftType || ""),
+      giftKind(g),
       g.project || "",
       g.amount || 0,
       g.giftId || "",

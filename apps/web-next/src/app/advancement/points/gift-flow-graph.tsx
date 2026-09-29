@@ -57,7 +57,7 @@ export function GiftFlowGraph() {
       <svg className="gift-graph" viewBox="0 0 980 1240" role="img" aria-labelledby="gift-flow-title gift-flow-desc">
         <title id="gift-flow-title">How a posted gift is recorded</title>
         <desc id="gift-flow-desc">
-          A gift follows the checks in order. Same monthly amount stops. A gala ticket purchase with a conversation on or before the gift is Raised. An MGO-coded gift counts when the donor is on that MA’s portfolio, and is not counted otherwise. A New Donation note within 45 days is Raised, including a note logged after the gift posts. Any other contact on or before the gift within 45 days is Raised. The same contact from 46 through 90 days before the gift waits on Incoming for Assign. Otherwise the gift is not attributed.
+          A gift follows the checks in order. Same monthly amount stops. A higher monthly gift counts only the increase over the recent monthly amount, including a monthly gift cancelled within 45 days. A gala ticket purchase with a conversation on or before the gift is Raised. An MGO-coded gift counts when the donor is on that MA’s portfolio, and is not counted otherwise. A New Donation note within 45 days is Raised, including a note logged after the gift posts. Any other contact on or before the gift within 45 days is Raised. The same contact from 46 through 90 days before the gift waits on Incoming for Assign. Otherwise the gift is not attributed.
         </desc>
         <defs>
           <marker id="flow-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
@@ -81,7 +81,7 @@ export function GiftFlowGraph() {
         <FlowEdge d="M230 1092 L230 1128" label="No" lx={240} ly={1116} />
 
         <FlowBox x={60} y={16} w={340} h={52} tone="start" title="Gift posts in Virtuous" />
-        <FlowDiamond cx={230} cy={160} lines={["Same monthly amount", "as the last", "Annunciation Circle charge?"]} />
+        <FlowDiamond cx={230} cy={160} lines={["Same monthly amount", "as the monthly gift", "they were already giving?"]} />
         <FlowBox x={468} y={128} w={470} h={64} tone="stop" title="Not recorded again" lines={["A continuing monthly payment is not a new gift."]} />
         <FlowBox x={60} y={236} w={340} h={72} tone="count" title="Count the new dollars" lines={["One-time as posted. New monthly × 12.", "Increase is (new − prior) × 12."]} />
         <FlowDiamond cx={230} cy={390} lines={["Gala tickets, and an MA", "spoke within 45 days?"]} />

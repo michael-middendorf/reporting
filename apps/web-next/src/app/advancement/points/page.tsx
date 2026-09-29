@@ -108,6 +108,9 @@ type GiftRow = {
   amount?: number;
   postedAmount?: number;
   annualized?: boolean;
+  acIncrease?: boolean;
+  priorMonthly?: number | null;
+  newMonthly?: number | null;
   label?: string;
   giftId?: string | number | null;
   touchCount?: number;
@@ -167,6 +170,11 @@ type Bests = {
 };
 
 const money = (n: number | undefined) => `$${Math.round(n || 0).toLocaleString()}`;
+const monthlyRate = (n: number | null | undefined) => {
+  const v = Math.round(Number(n) * 100) / 100;
+  if (!Number.isFinite(v)) return "";
+  return Number.isInteger(v) ? `$${v.toLocaleString()}` : `$${v.toFixed(2)}`;
+};
 const pct = (n: number | undefined) => `${((n || 0) * 100).toFixed(1)}%`;
 function isoToday() {
   const n = new Date();
@@ -1910,14 +1918,16 @@ function PointsPageInner() {
                               ) : null}
                             </td>
                             <td>
-                              {g.annualized ? "Monthly ×12" : (g.giftType || "—")}
+                              {g.acIncrease ? "AC increase" : g.annualized ? "Monthly ×12" : (g.giftType || "—")}
                               {g.project ? (
                                 <span style={{ color: "var(--slate-400)" }}> · {g.project}</span>
                               ) : null}
                             </td>
                             <td className="pts tabular">
                               {money(g.amount)}
-                              {g.annualized && g.postedAmount != null ? (
+                              {g.acIncrease && g.priorMonthly != null && g.newMonthly != null ? (
+                                <span className="section-hint"> ({monthlyRate(g.priorMonthly)} → {monthlyRate(g.newMonthly)}/mo)</span>
+                              ) : g.annualized && g.postedAmount != null ? (
                                 <span className="section-hint"> ({money(g.postedAmount)}/mo)</span>
                               ) : null}
                             </td>
