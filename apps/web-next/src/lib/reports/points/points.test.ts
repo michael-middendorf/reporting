@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MA_NAMES, SETTINGS, evalStartDate, tierFor } from "./config.js";
-import { assignedNotesFromFlags, contactDisplayName, eventPointsForHours, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, outreachBeforeGift, parseDate, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
+import { assignedNotesFromFlags, contactDisplayName, eventPointsForHours, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, outreachBeforeGift, parseDate, portfolioOwnersFromSnapshot, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "./counted-gifts.js";
 import { aggregate, daysOfWeek, isTaskListRow, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
 import { buildCalculationCSV, statusOf, virtuousGiftUrl } from "./report.js";
@@ -41,9 +41,14 @@ type Model = {
     contactName?: string;
     kind?: string;
     kindLabel?: string;
+    schedule?: string | null;
+    lastGiftDay?: string | null;
+    lastGiftSchedule?: string | null;
+    lastNoteDay?: string | null;
+    lastNoteType?: string | null;
     owners?: Array<{ name: string; noteType?: string; daysAfterNote?: number }>;
   }>;
-  reviewGifts?: Array<{ amount?: number; owner?: string; giftId?: unknown; needsReview?: boolean; contactName?: string }>;
+  reviewGifts?: Array<{ amount?: number; owner?: string; giftId?: unknown; needsReview?: boolean; contactName?: string; label?: string; schedule?: string }>;
   rows: Array<{ noteId?: string | number; giftId?: string | number; bucket?: string; removed?: boolean; points?: number; day?: string; mgoAssigned?: boolean }>;
   bests?: {
     teamWeek?: string | null;
@@ -105,8 +110,9 @@ function run(
   ownerName: string = ALANNA,
   flags: Record<string, { status?: string; owner?: string }> = {},
   countedGifts: unknown[] = [],
+  portfolios: Record<string, string> = {},
 ) {
-  const rows = scoreAll({ notes, gifts, flags, countedGifts }) as ScoredRow[];
+  const rows = scoreAll({ notes, gifts, flags, countedGifts, portfolios }) as ScoredRow[];
   const model = aggregate(rows, { flags }) as Model;
   const owner = model.tableOwners.find((o) => o.name === ownerName);
   assert.ok(owner, `expected ${ownerName} on the MA roster`);
@@ -1319,19 +1325,19 @@ describe("sheet tier names", () => {
 });
 
 describe("leaderboard period", () => {
-  it("All range starts Monday of the second week of August 2026", () => {
-    assert.equal(SETTINGS.evalStart, "2026-08-10");
+  it("All range starts Monday June 1, 2026", () => {
+    assert.equal(SETTINGS.evalStart, "2026-06-01");
     const start = evalStartDate();
-    assert.equal(weekKey(start), "2026-08-10");
+    assert.equal(weekKey(start), "2026-06-01");
     const scored = scoreAll({
       notes: [
-        donationNote({ type: "Letter", noteDate: "8/9/2026", id: 1 }),
-        donationNote({ type: "Letter", noteDate: "8/10/2026", id: 2 }),
+        donationNote({ type: "Letter", noteDate: "5/31/2026", id: 1 }),
+        donationNote({ type: "Letter", noteDate: "6/1/2026", id: 2 }),
       ],
     }) as ScoredRow[];
     const model = aggregate(scored, { start, end: null }) as Model;
     assert.equal(model.rows.length, 1);
-    assert.equal(model.rows[0].day, "2026-08-10");
+    assert.equal(model.rows[0].day, "2026-06-01");
     const owner = model.tableOwners.find((o) => o.name === ALANNA);
     assert.ok(owner);
     assert.equal(owner.points, 5);
@@ -1496,6 +1502,25 @@ describe("possible gifts", () => {
     assert.equal(model.possibleGifts?.length, 1);
     assert.equal(model.possibleGifts?.[0].daysAfterNote, 52);
     assert.equal(model.possibleGifts?.[0].amount, 200);
+    assert.equal(model.possibleGifts?.[0].schedule, "One-time");
+    assert.equal(model.possibleGifts?.[0].lastNoteDay, "2026-06-10");
+    assert.equal(model.possibleGifts?.[0].lastNoteType, "Phone conversation");
+    assert.equal(model.possibleGifts?.[0].lastGiftDay ?? null, null);
+  });
+
+  it("an incoming gift shows the previous gift as one-time or recurring", () => {
+    const { model } = run(
+      [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "6/10/2026" })],
+      [
+        postedGift({ id: 1, giftDate: "5/1/2026", amount: 25, frequency: "Monthly" }),
+        postedGift({ id: 2, giftDate: "8/1/2026", amount: 200 }),
+      ],
+    );
+    const waiting = model.possibleGifts?.find((g) => g.giftId === 2);
+    assert.ok(waiting);
+    assert.equal(waiting.schedule, "One-time");
+    assert.equal(waiting.lastGiftDay, "2026-05-01");
+    assert.equal(waiting.lastGiftSchedule, "Recurring");
   });
 
   it("in-person meeting before a gift is possible when there is no donation note", () => {
@@ -1724,7 +1749,7 @@ describe("contacts from 46 to 90 days wait for review", () => {
     assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
-  it("an MGO gift with a letter 60 days before waits on review", () => {
+  it("an MGO gift with a letter 60 days before is not listed", () => {
     const { owner, model } = run(
       [donationNote({
         createdByUser: SEAN,
@@ -1745,9 +1770,62 @@ describe("contacts from 46 to 90 days wait for review", () => {
     assert.equal(owner.gifts, 0);
     assert.equal(owner.giftAmount, 0);
     assert.equal(model.possibleGifts?.length ?? 0, 0);
-    assert.equal(model.reviewGifts?.length, 1);
-    assert.equal(model.reviewGifts?.[0].owner, SEAN);
-    assert.equal(model.reviewGifts?.[0].amount, 150);
+    assert.equal(model.reviewGifts?.length ?? 0, 0);
+  });
+
+  it("an MGO gift on that MA portfolio counts without Assign", () => {
+    const { owner, model } = run(
+      [donationNote({
+        createdByUser: SEAN,
+        type: "Letter",
+        noteDate: "7/17/2026",
+        contactId: 84897,
+        id: 62,
+      })],
+      [postedGift({
+        contactId: 84897,
+        giftDate: "9/15/2026",
+        amount: 150,
+        id: 908,
+        segment: "Direct Solicitation (MGO)",
+      })],
+      SEAN,
+      {},
+      [],
+      { "84897": SEAN },
+    );
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 150);
+    assert.equal(owner.points, 105);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
+    assert.equal(model.reviewGifts?.length ?? 0, 0);
+    assert.equal(model.gifts[0].owner, SEAN);
+  });
+
+  it("a donor on two MA portfolios is not auto-assigned", () => {
+    const owners = portfolioOwnersFromSnapshot({
+      solicitors: [
+        { team: "ma", name: ALANNA, stages: [{ donors: [{ contactId: 84897 }] }] },
+        { team: "ma", name: SEAN, stages: [{ donors: [{ contactId: 84897 }] }] },
+      ],
+    });
+    assert.equal(owners["84897"], undefined);
+    const { owner, model } = run(
+      [],
+      [postedGift({
+        contactId: 84897,
+        giftDate: "9/15/2026",
+        amount: 150,
+        id: 908,
+        segment: "Direct Solicitation (MGO)",
+      })],
+      SEAN,
+      {},
+      [],
+      owners,
+    );
+    assert.equal(owner.gifts, 0);
+    assert.equal(model.reviewGifts?.length ?? 0, 0);
   });
 });
 
@@ -2054,6 +2132,7 @@ describe("MGO-coded gifts do not credit MAs", () => {
     assert.equal(owner.giftAmount, 0);
     assert.equal(owner.gifts, 0);
     assert.equal(model.reviewGifts?.[0]?.label, "Recurring — needs review");
+    assert.equal(model.reviewGifts?.[0]?.schedule, "Recurring");
   });
 
   it("posted MGO installment plus AC RecurringGift stays MGO and does not auto-credit", () => {

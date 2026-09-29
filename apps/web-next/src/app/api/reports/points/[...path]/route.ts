@@ -3,7 +3,8 @@ import { requireReportAccess } from "@/lib/s3-proxy";
 import { loadSourceRows, loadSourceRowsOptional } from "@/lib/sources";
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "@/lib/reports/points/counted-gifts.js";
 import { projectProfiles } from "@/lib/reports/points/profiles.js";
-import { contactDisplayName, giftSolicitor, prepareGifts } from "@/lib/reports/points/scoring";
+import { contactDisplayName, giftSolicitor, portfolioOwnersFromSnapshot, prepareGifts } from "@/lib/reports/points/scoring";
+import { readJson } from "@/lib/sources";
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
@@ -144,6 +145,16 @@ export async function GET(req: Request, ctx: Ctx) {
       return NextResponse.json(kept, {
         headers: { "X-AMU-Source-Dt": gifts.latest.dt, "Cache-Control": "private, max-age=60" },
       });
+    }
+    if (file === "portfolios.json") {
+      try {
+        const snapshot = await readJson("portfolios/latest.json");
+        return NextResponse.json(portfolioOwnersFromSnapshot(snapshot), {
+          headers: { "Cache-Control": "private, max-age=60" },
+        });
+      } catch {
+        return NextResponse.json({});
+      }
     }
     if (file === "profiles.json") {
       const contacts = await loadSourceRowsOptional<Record<string, unknown>>("virtuous", "contacts");
