@@ -16,6 +16,7 @@ HANDLERS = {
     "mas": "services.publishers.mas.handler",
     "alumni": "services.publishers.alumni.handler",
     "institute-process": "services.publishers.institute.process_handler",
+    "powercampus": "services.publishers.powercampus.handler",
 }
 
 

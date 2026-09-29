@@ -58,6 +58,9 @@ export class ReportingEcsStack extends cdk.Stack {
     // avemaria-api and scholarship-app already store theirs.
     const resendSecret = secrets.Secret.fromSecretNameV2(this, "ResendApiKeySecret", "amu-reporting/production/resend-api-key");
     const xaiSecret = secrets.Secret.fromSecretNameV2(this, "XaiApiKeySecret", "amu-reporting/production/xai-api-key");
+    // Read-only PowerCampus SQL login (amu_reporting_ro) for the powercampus worker job.
+    // JSON keys: host, port, database, username, password. Worker task only, never web.
+    const powercampusSecret = secrets.Secret.fromSecretNameV2(this, "PowerCampusSecret", "amu-reporting/production/powercampus");
     // Single-use tracking for magic-link sign-in tokens (replay prevention).
     // TTL'd on `expiresAt` (the token's own exp) so used/expired nonces don't
     // accumulate; PutItem is conditional (attribute_not_exists) at the call
@@ -243,14 +246,26 @@ export class ReportingEcsStack extends cdk.Stack {
     new elbv2.CfnListenerRule(this, "TemporaryCloudFrontRule", { listenerArn: `arn:aws:elasticloadbalancing:${region}:${account}:listener/app/avemaria-alb/57b406e2fc6d6c5c/2292cb613158c683`, priority: 35, conditions: [{ field: "http-header", httpHeaderConfig: { httpHeaderName: reportingOriginHeaderName, values: [reportingOriginHeaderValue] } }], actions: [{ type: "forward", targetGroupArn: tg.targetGroupArn }] });
     const worker = new ecs.FargateTaskDefinition(this, "WorkerTask", { cpu: 1024, memoryLimitMiB: 3072 });
     secret.grantRead(worker.obtainExecutionRole());
+    powercampusSecret.grantRead(worker.obtainExecutionRole());
+    // Worker-only secrets, kept out of runtimeSecrets() because that is shared with web.
+    const powercampusSecrets = {
+      PC_HOST: ecs.Secret.fromSecretsManager(powercampusSecret, "host"),
+      PC_PORT: ecs.Secret.fromSecretsManager(powercampusSecret, "port"),
+      PC_DATABASE: ecs.Secret.fromSecretsManager(powercampusSecret, "database"),
+      PC_USERNAME: ecs.Secret.fromSecretsManager(powercampusSecret, "username"),
+      PC_PASSWORD: ecs.Secret.fromSecretsManager(powercampusSecret, "password"),
+    };
     worker.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"], resources: [dataBucketArn, `${dataBucketArn}/*`] }));
     worker.addVolume({ name: "tmp" });
-    worker.addContainer("worker", { image: ecs.ContainerImage.fromDockerImageAsset(workerImage), logging: ecs.LogDrivers.awsLogs({ logGroup: workerLogs, streamPrefix: "worker" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke" }, secrets: runtimeSecrets(secret, resendSecret, xaiSecret), readonlyRootFilesystem: true, user: "reporting" }).addMountPoints(
+    worker.addContainer("worker", { image: ecs.ContainerImage.fromDockerImageAsset(workerImage), logging: ecs.LogDrivers.awsLogs({ logGroup: workerLogs, streamPrefix: "worker" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke" }, secrets: { ...runtimeSecrets(secret, resendSecret, xaiSecret), ...powercampusSecrets }, readonlyRootFilesystem: true, user: "reporting" }).addMountPoints(
       { sourceVolume: "tmp", containerPath: "/tmp", readOnly: false },
     );
     for (const [name, schedule, action] of [["Enrollment", events.Schedule.rate(cdk.Duration.minutes(15)), "enrollment"], ["Virtuous", events.Schedule.rate(cdk.Duration.minutes(15)), "virtuous"], ["Housing", events.Schedule.rate(cdk.Duration.hours(6)), "housing"], ["Institute", events.Schedule.rate(cdk.Duration.hours(6)), "institute"]] as const) {
       new events.Rule(this, `${name}Schedule`, { enabled: false, schedule, targets: [new targets.EcsTask({ cluster, taskDefinition: worker, taskCount: 1, subnetSelection: ecsPrivateSubnets, assignPublicIp: false, containerOverrides: [{ containerName: "worker", command: [action] }] })] });
     }
+    // Nightly read-only PowerCampus pull. 07:30 UTC is 03:30 ET in EDT and 02:30 ET in EST,
+    // inside the handler's allowed window (it refuses 07:00 to 22:00 America/New_York).
+    new events.Rule(this, "PowerCampusSchedule", { enabled: true, schedule: events.Schedule.cron({ minute: "30", hour: "7" }), targets: [new targets.EcsTask({ cluster, taskDefinition: worker, taskCount: 1, subnetSelection: ecsPrivateSubnets, assignPublicIp: false, containerOverrides: [{ containerName: "worker", command: ["powercampus"] }] })] });
     new cdk.CfnOutput(this, "AspireduUserPoolId", { value: aspireduUserPool.userPoolId });
     new cdk.CfnOutput(this, "AspireduUserPoolClientId", { value: aspireduClient.userPoolClientId });
     new cdk.CfnOutput(this, "AspireduLoginDomain", { value: aspireduDomain.baseUrl() });
