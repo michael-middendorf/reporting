@@ -161,6 +161,7 @@ export class ReportingEcsStack extends cdk.Stack {
     const webSg = new ec2.SecurityGroup(this, "WebSg", { vpc, description: "AMU reporting web tasks", allowAllOutbound: true });
     const task = new ecs.FargateTaskDefinition(this, "WebTask", { cpu: 512, memoryLimitMiB: 1024 });
     secret.grantRead(task.obtainExecutionRole());
+    grantGuardDutyAgentPull(task.obtainExecutionRole());
     task.addToTaskRolePolicy(new iam.PolicyStatement({ actions: ["s3:GetObject", "s3:ListBucket"], resources: [dataBucketArn, `${dataBucketArn}/*`] }));
     // Points count/remove overrides and reporting-only event hours: the web app
     // persists each as a single object. Scope the write narrowly (least privilege)
@@ -247,6 +248,7 @@ export class ReportingEcsStack extends cdk.Stack {
     const worker = new ecs.FargateTaskDefinition(this, "WorkerTask", { cpu: 1024, memoryLimitMiB: 3072 });
     secret.grantRead(worker.obtainExecutionRole());
     powercampusSecret.grantRead(worker.obtainExecutionRole());
+    grantGuardDutyAgentPull(worker.obtainExecutionRole());
     // Worker-only secrets, kept out of runtimeSecrets() because that is shared with web.
     const powercampusSecrets = {
       PC_HOST: ecs.Secret.fromSecretsManager(powercampusSecret, "host"),
@@ -270,6 +272,17 @@ export class ReportingEcsStack extends cdk.Stack {
     new cdk.CfnOutput(this, "AspireduUserPoolClientId", { value: aspireduClient.userPoolClientId });
     new cdk.CfnOutput(this, "AspireduLoginDomain", { value: aspireduDomain.baseUrl() });
   }
+}
+
+// GuardDuty Runtime Monitoring injects its agent sidecar into every Fargate task and
+// pulls the image with the task's execution role. The CDK default execution policy only
+// allows pulls from this account's asset repo, so the sidecar failed with 403 and the
+// tasks ran unmonitored. Allow pulls from the AWS-owned agent repo only.
+function grantGuardDutyAgentPull(role: iam.IRole) {
+  role.addToPrincipalPolicy(new iam.PolicyStatement({
+    actions: ["ecr:BatchCheckLayerAvailability", "ecr:GetDownloadUrlForLayer", "ecr:BatchGetImage"],
+    resources: ["arn:aws:ecr:us-east-2:307168627858:repository/aws-guardduty-agent-fargate"],
+  }));
 }
 
 function runtimeSecrets(secret: secrets.ISecret, resendSecret: secrets.ISecret, xaiSecret: secrets.ISecret) {
