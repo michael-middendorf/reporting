@@ -575,12 +575,12 @@ function daysFromNoteToGift(noteDate, giftDate) {
 }
 
 /**
- * Every MA who spoke with the donor on or before the gift, within 45 days.
+ * Every MA who spoke with the donor on or before the gift, within 90 days.
  * One closest note per MA. Sorted nearest-first so the first entry is the
  * primary association.
  */
 export function possibleNotesForGift(giftDate, notesOnContact) {
-  const before = SETTINGS.giftNoteDaysBefore ?? 45;
+  const before = SETTINGS.giftNoteDaysBefore ?? 90;
   const bestByOwner = new Map();
   for (const n of notesOnContact || []) {
     const key = (n.type || "").trim().toLowerCase();
@@ -599,18 +599,18 @@ export function possibleNotesForGift(giftDate, notesOnContact) {
 
 /**
  * Outreach by this MA on or before the gift.
- * The closest qualifying note within 45 days sets `touchLabel`, and
+ * The closest qualifying note within 90 days sets `touchLabel`, and
  * `touchCount` is how many qualifying notes fell in that window.
  * The donation note that logs the gift is not a contact. Obituaries,
  * address updates, events, and bad numbers are not contacts either.
  * A note after the gift does not count.
  *
- * When `counted` is set and the 45-day window is empty, the same type
+ * When `counted` is set and the 90-day window is empty, the same type
  * check runs with no day cap. That lookback names the reached-by row.
  * It does not assign the gift.
  */
 export function outreachBeforeGift(giftDate, notesOnContact, owner, options = {}) {
-  const before = SETTINGS.giftNoteDaysBefore ?? 45;
+  const before = SETTINGS.giftNoteDaysBefore ?? 90;
   const collect = (maxDays) => {
     const hits = [];
     for (const n of notesOnContact || []) {
@@ -636,7 +636,7 @@ export function outreachBeforeGift(giftDate, notesOnContact, owner, options = {}
   };
 }
 
-/** Closest conversation/meeting on or before the gift, within the 45-day window. */
+/** Closest conversation/meeting on or before the gift, within the assignment window. */
 export function nearestPossibleNote(giftDate, notesOnContact) {
   return possibleNotesForGift(giftDate, notesOnContact)[0] || null;
 }
@@ -671,21 +671,21 @@ function contactsOnOrBefore(giftDate, notesOnContact, minDays, maxDays) {
 /**
  * Every qualifying contact on the gift, not only the latest note.
  * Any voicemail, email, letter, conversation, meeting, or general note
- * on or before the gift, within 45 days, assigns it. A note after the gift
+ * on or before the gift, within 90 days, assigns it. A note after the gift
  * date does not. One closest note per MA, nearest first.
  */
 export function attributingContacts(giftDate, notesOnContact) {
-  const before = SETTINGS.giftNoteDaysBefore ?? 45;
+  const before = SETTINGS.giftNoteDaysBefore ?? 90;
   return contactsOnOrBefore(giftDate, notesOnContact, 0, before);
 }
 
 /**
  * Same contacts as attributingContacts, from the day after the auto window
- * through 90 days before the gift. These are listed for review and do not
- * assign the gift.
+ * through giftReviewDaysBefore. While that ceiling is not past the auto
+ * window, this list is empty and those contacts assign instead.
  */
 export function reviewContacts(giftDate, notesOnContact) {
-  const auto = SETTINGS.giftNoteDaysBefore ?? 45;
+  const auto = SETTINGS.giftNoteDaysBefore ?? 90;
   const review = SETTINGS.giftReviewDaysBefore ?? 90;
   if (review <= auto) return [];
   return contactsOnOrBefore(giftDate, notesOnContact, auto + 1, review);
@@ -698,12 +698,12 @@ export function isGalaGift(record) {
 }
 
 /**
- * Conversation, two-way email, or meeting within 45 days of a gala gift.
+ * Conversation, two-way email, or meeting within 90 days of a gala gift.
  * The gift is the ticket purchase, so that conversation secures it.
  * A voicemail, letter, or email-sent does not. One closest note per MA.
  */
 export function galaSecuringNotes(giftDate, notesOnContact) {
-  const window = SETTINGS.giftNoteDaysBefore ?? 45;
+  const window = SETTINGS.giftNoteDaysBefore ?? 90;
   const bestByOwner = new Map();
   for (const n of notesOnContact || []) {
     const key = (n.type || "").trim().toLowerCase();
@@ -740,7 +740,7 @@ export function giftKindLabel(kind, annualized) {
 }
 
 function ownerHintFromBuckets(giftDate, notesOnContact, buckets) {
-  const before = SETTINGS.giftNoteDaysBefore ?? 45;
+  const before = SETTINGS.giftNoteDaysBefore ?? 90;
   let best = null;
   let bestScore = Infinity;
   for (const n of notesOnContact || []) {
@@ -833,8 +833,9 @@ function assignedOwnerForGift(gift, hint, flags) {
  * Score a Virtuous Gift as dollars received (0 points on this row; the 100-pt
  * credit comes from the matching donation note, or a backfill so Raised never
  * exists without 100 pts). Owner is the MA who logged a donation note on the
- * contact in the gift window (`ownerHint`), or `assignedOwner`. A conversation
- * or meeting alone does not put the gift in Raised — that is Incoming.
+ * contact in the gift window (`ownerHint`), or `assignedOwner`. The caller
+ * passes the note owner as `assignedOwner` when a qualifying contact assigns
+ * the gift. A monthly gift that is not an increase stays on review instead.
  * GFT_Solicitor is never used for owner. Gifts Virtuous coded as MGO work
  * return null unless `assignedOwner` is a roster MA. Returns null when amount
  * is 0 or less.
@@ -870,8 +871,8 @@ function matchableGift(record) {
 
 /**
  * Pair a donation note with a posted gift on the same contact.
- * MAs often log New Donation after the gift posts, so gifts up to 45 days
- * before the note count as well as gifts up to 45 days after. Prefer the
+ * MAs often log New Donation after the gift posts, so gifts up to 90 days
+ * before the note count as well as gifts up to 90 days after. Prefer the
  * closest date; a gift on or after the note wins ties.
  */
 function pickDonationMatch(note, candidates, used, window) {
@@ -903,7 +904,7 @@ function markAssist(gift) {
  *
  * A received gift is one row: label Gift, the dollars, and 100 points.
  * A donation note awards those points only after it pairs with a posted gift
- * of amount > 0 on the same contact within 45 days. Points land on the gift's
+ * of amount > 0 on the same contact within 90 days. Points land on the gift's
  * week. The note is not listed again. Unmatched donation notes score 0 and
  * leave the gift bucket. Gift Assist is the same 100 pts but does not count
  * dollars, and stays on its own row. A new monthly Recurring Gift is one gift
@@ -911,19 +912,18 @@ function markAssist(gift) {
  * commitment are dropped in prepareGifts. An AC raise credits only
  * (new − prior monthly) × 12.
  *
- * Posted gifts on a contact with a conversation/meeting in the 45-day window
- * and no matching donation or Gift Assist note become bucket "possible"
- * (Incoming: 0 pts, not Raised). Raised dollars always pair with 100 pts.
+ * A voicemail, email, letter, visit, conversation, meeting, or general note
+ * on or before the gift, within 90 days, assigns it (Raised and 100 points).
+ * A note after the gift does not. A new monthly gift with that contact, when
+ * it is not an increase, waits on Incoming at 0 points until Assign.
+ * Raised dollars always pair with 100 pts.
  *
  * A row on the MA tracker spreadsheet does not assign Raised. The MA who
- * receives the dollars must have a donation note on that contact within 45
- * days before the gift, or a donation note within 45 days after the gift
+ * receives the dollars must have a qualifying contact on or before the gift
+ * within 90 days, or a donation note within 90 days before or after the gift
  * (New Donation or New AC, Annunciation Circle updated, or Update Recurring
- * Gift). A letter, email, voicemail, or thank-you does not qualify. A gala
- * ticket purchase is a new donation: a conversation, two-way email, or
- * meeting within 45 days assigns that gift to the MA who spoke with the
- * donor. The same conversation does not claim a different gift. An Incoming
- * or MGO assignment on the dashboard is the other way a gift is credited.
+ * Gift). A gala ticket purchase is assigned the same way. An Incoming
+ * assignment, or an MGO-coded gift on that MA’s portfolio, also credits it.
  * `countedGifts` is accepted and ignored so older callers keep working.
  *
  * `flags` is the shared review-flags map (same object aggregate uses). An
@@ -961,13 +961,13 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
     const donationInWindow = gDate && notesOnContact.some((n) => {
       if (n.assist || n.bucket !== "gift") return false;
       const delta = daysFromNoteToGift(n.date, gDate);
-      const window = SETTINGS.giftNoteDaysBefore ?? 45;
+      const window = SETTINGS.giftNoteDaysBefore ?? 90;
       return delta != null && Math.abs(delta) <= window;
     });
     const assistInWindow = gDate && notesOnContact.some((n) => {
       if (!n.assist) return false;
       const delta = daysFromNoteToGift(n.date, gDate);
-      const window = SETTINGS.giftNoteDaysBefore ?? 45;
+      const window = SETTINGS.giftNoteDaysBefore ?? 90;
       return delta != null && Math.abs(delta) <= window;
     });
     const contacts = gDate && !donationInWindow && !assistInWindow && !isAssistGiftId(g.id)
@@ -1070,7 +1070,7 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
       const ck = contactKey(note.contactId);
       return ck ? (giftsByContact.get(ck) || []) : [];
     })();
-    const window = SETTINGS.giftNoteDaysBefore ?? 45;
+    const window = SETTINGS.giftNoteDaysBefore ?? 90;
     const match = pickDonationMatch(note, candidates, used, window);
     if (match) {
       used.add(match);
@@ -1163,7 +1163,7 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
       const mapped = mapNoteType(n.type);
       if (!POINTS_MAP[mapped] || POINTS_MAP[mapped].bucket !== "gift") return false;
       const delta = daysFromNoteToGift(n.date, gDate);
-      const window = SETTINGS.giftNoteDaysBefore ?? 45;
+      const window = SETTINGS.giftNoteDaysBefore ?? 90;
       return delta != null && Math.abs(delta) <= window;
     });
     if (donationOnContact) continue;

@@ -54,10 +54,10 @@ function FlowEdge({ d, label, lx, ly }: { d: string; label?: string; lx?: number
 export function GiftFlowGraph() {
   return (
     <div className="gift-graph-scroll">
-      <svg className="gift-graph" viewBox="0 0 980 1240" role="img" aria-labelledby="gift-flow-title gift-flow-desc">
+      <svg className="gift-graph" viewBox="0 0 980 1080" role="img" aria-labelledby="gift-flow-title gift-flow-desc">
         <title id="gift-flow-title">How a posted gift is recorded</title>
         <desc id="gift-flow-desc">
-          A gift follows the checks in order. Same monthly amount stops. A higher monthly gift counts only the increase over the recent monthly amount, including a monthly gift cancelled within 45 days. A gala ticket purchase with a conversation on or before the gift is Raised. An MGO-coded gift counts when the donor is on that MA’s portfolio, and is not counted otherwise. A New Donation note within 45 days is Raised, including a note logged after the gift posts. Any other contact on or before the gift within 45 days is Raised. The same contact from 46 through 90 days before the gift waits on Incoming for Assign. Otherwise the gift is not attributed.
+          A gift follows the checks in order. Same monthly amount stops. A higher monthly gift counts only the increase over the recent monthly amount, including a monthly gift cancelled within 45 days. A gala ticket purchase with a conversation on or before the gift is Raised. An MGO-coded gift counts when the donor is on that MA’s portfolio, and is not counted otherwise. A New Donation note within 90 days is Raised, including a note logged after the gift posts. Any other contact on or before the gift within 90 days is Raised. Otherwise the gift is not attributed.
         </desc>
         <defs>
           <marker id="flow-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
@@ -77,25 +77,21 @@ export function GiftFlowGraph() {
         <FlowEdge d="M230 772 L230 838" label="No" lx={240} ly={810} />
         <FlowEdge d="M400 890 L468 890" label="Yes" lx={418} ly={882} />
         <FlowEdge d="M230 942 L230 988" label="No" lx={240} ly={970} />
-        <FlowEdge d="M400 1040 L468 1040" label="Yes" lx={418} ly={1032} />
-        <FlowEdge d="M230 1092 L230 1128" label="No" lx={240} ly={1116} />
 
         <FlowBox x={60} y={16} w={340} h={52} tone="start" title="Gift posts in Virtuous" />
         <FlowDiamond cx={230} cy={160} lines={["Same monthly amount", "as the monthly gift", "they were already giving?"]} />
         <FlowBox x={468} y={128} w={470} h={64} tone="stop" title="Not recorded again" lines={["A continuing monthly payment is not a new gift."]} />
         <FlowBox x={60} y={236} w={340} h={72} tone="count" title="Count the new dollars" lines={["One-time as posted. New monthly × 12.", "Increase is (new − prior) × 12."]} />
-        <FlowDiamond cx={230} cy={390} lines={["Gala tickets, and an MA", "spoke within 45 days?"]} />
+        <FlowDiamond cx={230} cy={390} lines={["Gala tickets, and an MA", "spoke within 90 days?"]} />
         <FlowBox x={468} y={358} w={470} h={64} tone="raised" title="Raised · gala tickets" lines={["Dollars and 100 points for the MA who spoke."]} />
         <FlowDiamond cx={230} cy={550} lines={["MGO coded, or the", "solicitor is not an MA?"]} />
         <FlowBox x={468} y={502} w={470} h={64} tone="raised" title="Raised · MA portfolio" lines={["The donor is on that officer’s portfolio."]} />
         <FlowBox x={468} y={574} w={470} h={56} tone="stop" title="Not on a portfolio" lines={["The gift is not counted."]} />
-        <FlowDiamond cx={230} cy={720} lines={["New Donation note within", "45 days, even if logged", "after the gift posted?"]} />
+        <FlowDiamond cx={230} cy={720} lines={["New Donation note within", "90 days, even if logged", "after the gift posted?"]} />
         <FlowBox x={468} y={688} w={470} h={64} tone="raised" title="Raised · donation note" lines={["Dollars and 100 points for the MA who logged it."]} />
-        <FlowDiamond cx={230} cy={890} lines={["Any contact on or before", "the gift, within 45 days?"]} />
+        <FlowDiamond cx={230} cy={890} lines={["Any contact on or before", "the gift, within 90 days?"]} />
         <FlowBox x={468} y={858} w={470} h={64} tone="raised" title="Raised · that contact" lines={["A note after the gift date does not count."]} />
-        <FlowDiamond cx={230} cy={1040} lines={["Contact on or before,", "46 to 90 days before?"]} />
-        <FlowBox x={468} y={1008} w={470} h={64} tone="review" title="Incoming review" lines={["0 points until Assign or Remove."]} />
-        <FlowBox x={60} y={1128} w={340} h={64} tone="stop" title="Not attributed" lines={["The gift stays off the MA’s Raised total."]} />
+        <FlowBox x={60} y={988} w={340} h={64} tone="stop" title="Not attributed" lines={["The gift stays off the MA’s Raised total."]} />
       </svg>
     </div>
   );

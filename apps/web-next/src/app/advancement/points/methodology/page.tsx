@@ -33,17 +33,15 @@ export default function PointsMethodologyPage() {
             <GiftFlowGraph />
             <ul className="flow-key">
               <li><i className="swatch raised" /> Raised, with the dollars and 100 points</li>
-              <li><i className="swatch review" /> Waiting for review</li>
               <li><i className="swatch stop" /> Not counted</li>
             </ul>
             <p className="flow-foot">
               Every note on the contact is checked, not only the latest one. A New Donation
-              note can be logged after the gift posts, within 45 days. A voicemail, email,
+              note can be logged after the gift posts, within 90 days. A voicemail, email,
               letter, visit, conversation, or general note on or before the gift assigns it
-              within 45 days. The same note from 46 through 90 days before the gift puts it
-              on Incoming for review, with no points until Assign. A note after the gift does
+              within 90 days. A contact older than 90 days is not listed. A note after the gift does
               not count. A monthly
-              gift with a contact inside 45 days waits on review instead of going straight to Raised.
+              gift with a contact inside 90 days waits on review instead of going straight to Raised.
               An MGO-coded gift counts when the donor is on that officer’s portfolio. Otherwise it is not counted.
               Assign does not write a note in Virtuous. A tracker row does not assign a gift.
               A Verbal Gift Commitment is a two-day follow-up and adds no points. Event hours
