@@ -190,5 +190,8 @@ describe("gift insights", () => {
     assert.match(html, /Handwritten note \/ letter/);
     assert.match(html, /Giving history/);
     assert.match(html, /\$400/);
+    assert.doesNotMatch(html, /the most of any generation/);
+    assert.doesNotMatch(html, /Same dates as the Points tab/);
+    assert.doesNotMatch(html, /Birth year is on file/);
   });
 });

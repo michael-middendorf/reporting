@@ -109,26 +109,14 @@ function Matrix({ groups, channels }: { groups: Group[]; channels: Channel[] }) 
 }
 
 export function InsightsPanel({ insights }: { insights: InsightsModel }) {
+  const hasRows = insights.generations.length > 0 || insights.relationships.length > 0 || insights.donorTags.length > 0;
   return (
     <section className="section" aria-labelledby="insights-heading">
       <h2 id="insights-heading">
         Insights <span className="section-hint">who gave, and which contact came before the gift</span>
       </h2>
       <div className="panel">
-        <ul className="insight-findings">
-          {insights.findings.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
-        <p className="footnote" style={{ marginTop: 0 }}>
-          Same dates as the Points tab. Dollars match Raised. Age is the birth year of the primary person on the Virtuous contact.
-          A donor can be alumni and a parent, so relationship rows overlap and will not add up to the donor count.
-          Best contact is the outreach type tied to the most dollars in that row.
-          The percent of people reached counts notes logged in these dates.
-          {insights.knownRelationship === 0 && insights.donors > 0
-            ? " University relationship is missing on every donor in this range."
-            : ""}
-        </p>
+        {hasRows ? null : <p className="footnote">No counted gifts in this range.</p>}
 
         {insights.generations.length > 0 ? (
           <>

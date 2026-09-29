@@ -54,8 +54,6 @@ const reportMod = require("./report.js") as {
   downloadText: (filename: string, text: string, mime?: string) => void;
   virtuousContactUrl: (contactId: unknown) => string;
   virtuousGiftUrl: (contactId: unknown) => string;
-  virtuousGiftNoteUrl: (contactId: unknown) => string;
-  virtuousNotesUrl: (contactId: unknown) => string;
 };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const config = require("./config.js") as {
@@ -95,8 +93,6 @@ export const buildCalculationCSV = reportMod.buildCalculationCSV;
 export const downloadText = reportMod.downloadText;
 export const virtuousContactUrl = reportMod.virtuousContactUrl;
 export const virtuousGiftUrl = reportMod.virtuousGiftUrl;
-export const virtuousGiftNoteUrl = reportMod.virtuousGiftNoteUrl;
-export const virtuousNotesUrl = reportMod.virtuousNotesUrl;
 export const aggregate = aggregateMod.aggregate;
 export const dailyTotals = aggregateMod.dailyTotals;
 export const rowId = aggregateMod.rowId;
