@@ -58,12 +58,23 @@ describe("portfolio grants", () => {
     assert.deepEqual(reportsForEmail(ANNIE), ["points", "portfolios"]);
   });
 
-  it("lets an MA sign in to portfolios only", () => {
-    const alanna = "alanna.f.mccann@avemaria.edu";
-    assert.equal(canLogin(alanna), true);
-    assert.equal(canAccessReport(alanna, "portfolios"), true);
-    assert.equal(canAccessReport(alanna, "advancement"), false);
-    assert.deepEqual(reportsForEmail(alanna), ["portfolios"]);
+  it("lets every MA officer open Points and Portfolios only", () => {
+    const officers = [
+      "alanna.f.mccann@avemaria.edu",
+      "sean.e.kelly@avemaria.edu",
+      "joseph.c.blaso@avemaria.edu",
+      "elena.j.barnes@avemaria.edu",
+      "caleb.m.metzen@avemaria.edu",
+      "betsy.scaletty@avemaria.edu",
+      "natalia.p.abrams@avemaria.edu",
+    ];
+    for (const email of officers) {
+      assert.equal(canLogin(email), true, email);
+      assert.equal(canAccessReport(email, "points"), true, email);
+      assert.equal(canAccessReport(email, "portfolios"), true, email);
+      assert.equal(canAccessReport(email, "advancement"), false, email);
+      assert.deepEqual(reportsForEmail(email), ["points", "portfolios"], email);
+    }
   });
 
   it("lets Jim and Julie open portfolios as MGOs, not Becca", () => {
