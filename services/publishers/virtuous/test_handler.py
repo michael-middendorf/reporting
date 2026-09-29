@@ -1,6 +1,7 @@
 """Retry behavior for the Virtuous raw refresh client (no network)."""
 from __future__ import annotations
 
+import datetime as dt
 import io
 import json
 import unittest
@@ -44,6 +45,33 @@ class PostRetryTests(unittest.TestCase):
         with mock.patch.object(urllib.request, "urlopen", fake_urlopen):
             with self.assertRaisesRegex(RuntimeError, "timed out after retries"):
                 self.client._post("/api/x", {}, {})
+
+
+class RecurringGiftQueryTests(unittest.TestCase):
+    def test_cancel_query_uses_cancel_date(self):
+        body = handler._cancelled_recurring_gift_query(dt.date(2025, 9, 29), dt.date(2026, 9, 29))
+        conds = body["groups"][0]["conditions"]
+        cancel = [c for c in conds if c["parameter"] == "Cancel Date"]
+        self.assertEqual(
+            [(c["operator"], c["value"]) for c in cancel],
+            [("OnOrAfter", "2025-09-29"), ("OnOrBefore", "2026-09-29")],
+        )
+        frequency = next(c for c in conds if c["parameter"] == "Frequency")
+        self.assertEqual(frequency["value"], "Monthly")
+
+    def test_cancel_only_rows_are_prior_evidence(self):
+        merged = handler.merge_recurring_gifts(
+            [{"id": 3824, "amount": 50}],
+            [
+                {"id": 3824, "amount": 50, "status": "Cancelled"},
+                {"id": 1817, "amount": 25, "status": "Cancelled"},
+            ],
+        )
+        by_id = {row["id"]: row for row in merged}
+        self.assertNotIn("priorOnly", by_id[3824])
+        self.assertEqual(by_id[3824]["amount"], 50)
+        self.assertTrue(by_id[1817]["priorOnly"])
+        self.assertEqual(by_id[1817]["amount"], 25)
 
 
 if __name__ == "__main__":

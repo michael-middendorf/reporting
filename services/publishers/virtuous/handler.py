@@ -140,6 +140,44 @@ def _recurring_gift_query(start: dt.date, end: dt.date) -> dict[str, Any]:
     }
 
 
+def _cancelled_recurring_gift_query(start: dt.date, end: dt.date) -> dict[str, Any]:
+    """Monthly gifts cancelled in the window, including ones that started earlier.
+
+    A $25 Mission Fund gift cancelled a few days before a new $50 Annunciation
+    Circle gift is the prior amount. Its start date is outside this window, so
+    the start-date query never returns it.
+    """
+    return {
+        "groups": [
+            {
+                "conditions": [
+                    {"parameter": "Cancel Date", "operator": "OnOrAfter", "value": start.isoformat()},
+                    {"parameter": "Cancel Date", "operator": "OnOrBefore", "value": end.isoformat()},
+                    {"parameter": "Frequency", "operator": "Is", "value": "Monthly"},
+                ]
+            }
+        ]
+    }
+
+
+def merge_recurring_gifts(started: list[dict], cancelled: list[dict]) -> list[dict]:
+    """Start-date rows stay gifts. Cancel-only rows are prior evidence."""
+    by_id: dict[Any, dict] = {}
+    for row in started:
+        rid = row.get("id")
+        if rid is None:
+            continue
+        by_id[rid] = row
+    for row in cancelled:
+        rid = row.get("id")
+        if rid is None or rid in by_id:
+            continue
+        tagged = dict(row)
+        tagged["priorOnly"] = True
+        by_id[rid] = tagged
+    return list(by_id.values())
+
+
 def _event_query(start: dt.date, end: dt.date) -> dict[str, Any]:
     date_conditions = [
         {"parameter": "Start Date", "operator": "OnOrAfter", "value": start.isoformat()},
@@ -224,9 +262,13 @@ def handler(event, context):  # noqa: ANN001, ARG001
     )
 
     print(f"Fetching monthly recurring gifts {start} → {today}", flush=True)
-    recurring_gifts = _dedupe(
-        client.paged_query("/api/RecurringGift/Query", _recurring_gift_query(start, today), page_size)
+    started_recurring = client.paged_query(
+        "/api/RecurringGift/Query", _recurring_gift_query(start, today), page_size
     )
+    cancelled_recurring = client.paged_query(
+        "/api/RecurringGift/Query", _cancelled_recurring_gift_query(start, today), page_size
+    )
+    recurring_gifts = merge_recurring_gifts(started_recurring, cancelled_recurring)
     published.append(
         publish_dataset(
             source="virtuous",
@@ -237,6 +279,7 @@ def handler(event, context):  # noqa: ANN001, ARG001
                 "path": "/api/RecurringGift/Query",
                 "window_days": window,
                 "frequency": "Monthly",
+                "includes_cancelled": True,
             },
         )
     )

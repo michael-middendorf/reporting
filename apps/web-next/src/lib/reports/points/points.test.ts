@@ -764,6 +764,206 @@ describe("monthly AC annualization", () => {
     assert.equal(owner.gifts, 1);
   });
 
+  it("counts a cancelled Mission Fund monthly gift as the prior when the new Circle starts within 45 days", () => {
+    // Contact 82800: $25 Mission Fund cancelled 2026-07-24, $50 Annunciation Circle started 2026-07-30.
+    const merged = prepareGifts(
+      [
+        postedGift({
+          id: 450745,
+          contactId: 82800,
+          contactName: "Kai and Josephine Olander",
+          giftDate: "7/30/2026",
+          amount: 50,
+          segment: "Annunciation Circle",
+        }),
+      ],
+      [
+        {
+          id: 1817,
+          contactId: 82800,
+          contactName: "Kai and Josephine Olander",
+          startDate: "2020-04-22T00:00:00",
+          amount: 25,
+          frequency: "Monthly",
+          status: "Cancelled",
+          cancelDateTimeUtc: "2026-07-24T20:12:04.07",
+          segment: "Expired Appeal-HIST_OT",
+          designations: [{ project: "AMU Mission Fund" }],
+          priorOnly: true,
+        },
+        {
+          id: 3824,
+          contactId: 82800,
+          contactName: "Kai and Josephine Olander",
+          startDate: "2026-07-30T00:00:00",
+          amount: 50,
+          frequency: "Monthly",
+          status: "UpToDate",
+          segment: "Annunciation Circle",
+          designations: [{ project: "Annunciation Circle" }],
+        },
+      ],
+    );
+    assert.equal(merged.some((g: { id?: number | string }) => g.id === "rg-1817" || g.id === 1817), false);
+    assert.equal(merged.some((g: { id?: number | string }) => g.id === 450745), false);
+    const monthly = merged.find((g: { id?: number | string }) => g.id === "rg-3824") as {
+      amount: number;
+      acIncrease?: boolean;
+      priorMonthly?: number;
+      newMonthly?: number;
+    };
+    assert.ok(monthly);
+    assert.equal(monthly.amount, 25);
+    assert.equal(monthly.acIncrease, true);
+    assert.equal(monthly.priorMonthly, 25);
+    assert.equal(monthly.newMonthly, 50);
+
+    const { owner, rows } = run(
+      [donationNote({
+        createdByUser: "Caleb Metzen",
+        contactId: 82800,
+        contactName: "Kai and Josephine Olander",
+        noteDate: "7/30/2026",
+        type: "Mission Advancement | New Donation or New AC",
+      })],
+      merged,
+      "Caleb Metzen",
+    );
+    assert.equal(owner.giftAmount, 300);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 100);
+    const giftRow = rows.find((r) => r.bucket === "donation");
+    assert.ok(giftRow);
+    assert.match(String(giftRow.label), /AC increase \(\$25 → \$50\/mo, ×12\)/);
+  });
+
+  it("uses the higher of a recent Circle payment and a cancelled monthly gift", () => {
+    const merged = prepareGifts(
+      [
+        postedGift({
+          id: 1,
+          contactId: 82800,
+          giftDate: "7/15/2026",
+          amount: 32.5,
+          segment: "Annunciation Circle",
+        }),
+      ],
+      [
+        {
+          id: 1817,
+          contactId: 82800,
+          startDate: "2020-04-22T00:00:00",
+          amount: 25,
+          frequency: "Monthly",
+          status: "Cancelled",
+          cancelDateTimeUtc: "2026-07-24T20:12:04.07",
+          priorOnly: true,
+        },
+        {
+          id: 3824,
+          contactId: 82800,
+          startDate: "2026-07-30T00:00:00",
+          amount: 40,
+          frequency: "Monthly",
+          segment: "Annunciation Circle",
+          designations: [{ project: "Annunciation Circle" }],
+        },
+      ],
+    );
+    const monthly = merged.find((g: { id?: number | string }) => g.id === "rg-3824") as {
+      amount: number;
+      priorMonthly?: number;
+    };
+    assert.equal(monthly.amount, 7.5);
+    assert.equal(monthly.priorMonthly, 32.5);
+  });
+
+  it("a monthly gift cancelled more than 45 days earlier stays a new gift", () => {
+    const merged = prepareGifts(
+      [],
+      [
+        {
+          id: 1817,
+          contactId: 82800,
+          startDate: "2020-04-22T00:00:00",
+          amount: 25,
+          frequency: "Monthly",
+          status: "Cancelled",
+          cancelDateTimeUtc: "2026-05-01T00:00:00",
+          priorOnly: true,
+        },
+        {
+          id: 3824,
+          contactId: 82800,
+          startDate: "2026-07-30T00:00:00",
+          amount: 50,
+          frequency: "Monthly",
+          segment: "Annunciation Circle",
+          designations: [{ project: "Annunciation Circle" }],
+        },
+      ],
+    );
+    const monthly = merged.find((g: { id?: number | string }) => g.id === "rg-3824") as {
+      amount: number;
+      acIncrease?: boolean;
+    };
+    assert.ok(monthly);
+    assert.equal(monthly.amount, 50);
+    assert.equal(monthly.acIncrease, false);
+    assert.equal(merged.some((g: { id?: number | string }) => g.id === "rg-1817"), false);
+  });
+
+  it("a same or lower monthly gift after a recent cancellation is not a new gift", () => {
+    const merged = prepareGifts(
+      [],
+      [
+        {
+          id: 1817,
+          contactId: 82800,
+          startDate: "2020-04-22T00:00:00",
+          amount: 50,
+          frequency: "Monthly",
+          status: "Cancelled",
+          cancelDateTimeUtc: "2026-07-24T00:00:00",
+          priorOnly: true,
+        },
+        {
+          id: 3824,
+          contactId: 82800,
+          startDate: "2026-07-30T00:00:00",
+          amount: 25,
+          frequency: "Monthly",
+          segment: "Annunciation Circle",
+          designations: [{ project: "Annunciation Circle" }],
+        },
+      ],
+    );
+    const monthly = merged.find((g: { id?: number | string }) => g.id === "rg-3824") as { amount: number; acIncrease?: boolean };
+    assert.ok(monthly);
+    assert.equal(monthly.amount, 0);
+    assert.equal(monthly.acIncrease, false);
+  });
+
+  it("still scores a cancelled monthly gift that started inside the feed", () => {
+    const merged = prepareGifts([], [
+      {
+        id: 9,
+        contactId: 82800,
+        contactName: "Recent cancel",
+        startDate: "2026-07-01T00:00:00",
+        amount: 30,
+        frequency: "Monthly",
+        status: "Cancelled",
+        cancelDateTimeUtc: "2026-07-20T00:00:00",
+        segment: "Annunciation Circle",
+        designations: [{ project: "Annunciation Circle" }],
+      },
+    ]);
+    const monthly = merged.find((g: { id?: number | string }) => g.id === "rg-9") as { amount: number };
+    assert.ok(monthly);
+    assert.equal(monthly.amount, 30);
+  });
+
   it("a tracker row does not raise a same-rate AC continuation", () => {
     const merged = prepareGifts(
       [

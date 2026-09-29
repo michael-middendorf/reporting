@@ -342,6 +342,8 @@ export const SETTINGS = {
    * If the last Annunciation Circle gift on the contact is older than this
    * many days, the membership lapsed. A new signup is the full monthly
    * amount × 12, not an increase off the old rate.
+   * A monthly recurring gift cancelled within this many days is also a prior
+   * rate, including Mission Fund and other projects.
    */
   acLapseDays: 45,
   /**
@@ -472,7 +474,7 @@ export const DEFINITIONS = [
       "Points land on the gift's week, not the note's week. Each donation note is matched to the earliest unused posted gift on the same contact with giftDate on or after the note date. " +
       "A donation note with no matching posted gift scores 0 points and is not counted as a secured gift. " +
       "A new monthly commitment is one gift (annualized dollars) and one 100-pt credit; later installments of that same commitment are not counted again. " +
-      "An AC increase counts only the difference (new monthly − prior monthly) × 12, not the new full amount. " +
+      "A monthly increase counts only the difference (new monthly − prior monthly) × 12, not the new full amount. The prior monthly can be Annunciation Circle or another fund cancelled within 45 days. " +
       "Points are attributed to whoever authored the note (Virtuous `createdByUser`). " +
       "Only notes and gifts on or after the author's roster start date count.",
   },
@@ -526,8 +528,8 @@ export const DEFINITIONS = [
       "A letter, email, voicemail, or thank-you does not claim the gift. A row on the MA gift tracker does not assign the gift by itself. Gift Assist notes do not count dollars. " +
       "Dollars go to the MA who logged the note, not GFT_Solicitor. " +
       "A gift coded Direct Solicitation (MGO) or Direct Solicitation (MGO)-HIST_DS, or a gift whose GFT_Solicitor is not on the MA roster, counts for the MA whose portfolio includes that donor. It is not listed for review. If the donor is not on an MA portfolio, that gift is not counted. " +
-      "One-time gifts use the posted amount. A new monthly AC (Recurring Gift, frequency Monthly) is counted once as monthly amount × 12. " +
-      "If that contact already had an Annunciation Circle monthly gift, only the increase is counted: (new monthly − prior monthly) × 12. " +
+      "One-time gifts use the posted amount. A new monthly gift (Recurring Gift, frequency Monthly) is counted once as monthly amount × 12. " +
+      "If that contact was already giving monthly, only the increase is counted: (new monthly − prior monthly) × 12. The prior amount is the latest Annunciation Circle payment within 45 days, or a monthly recurring gift cancelled within 45 days before the new one starts, whichever is higher. " +
       "The matching posted installment is not also added. Same-rate continuations are not counted again. " +
       "Only notes and gifts on or after the author's roster start date count.",
   },

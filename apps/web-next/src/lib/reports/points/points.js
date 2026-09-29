@@ -321,6 +321,40 @@ function daysBetweenIso(a, b) {
   return Math.round((new Date(`${b}T00:00:00`) - new Date(`${a}T00:00:00`)) / 86400000);
 }
 
+/** Calendar day from a Virtuous date or datetime, without a timezone shift. */
+function calendarDay(value) {
+  if (value == null || value === "") return null;
+  const iso = String(value).trim().match(/^(\d{4}-\d{2}-\d{2})/);
+  if (iso) return iso[1];
+  return isoDay(parseDate(value));
+}
+
+function recurringStatusKey(record) {
+  return String(record?.status || record?.recurringStatus || "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+}
+
+/** Rows the publisher loaded only so a later gift can see the old monthly amount. */
+function isPriorOnlyRecurring(record) {
+  return record?.priorOnly === true || record?.priorOnly === "true";
+}
+
+function isCancelledRecurring(record) {
+  if (isPriorOnlyRecurring(record)) return true;
+  const status = recurringStatusKey(record);
+  return status === "cancelled" || status === "canceled";
+}
+
+function cancelDayOf(record) {
+  return calendarDay(
+    record?.cancelDateTimeUtc
+    || record?.cancelDate
+    || record?.canceledDate
+    || record?.cancelDateUtc,
+  );
+}
+
 /**
  * Most recent Annunciation Circle monthly amount on this contact before `beforeDay`.
  * Tracker credits only the increase when an existing AC is raised. A gap longer
@@ -350,14 +384,48 @@ export function priorAcMonthly(posted, contactId, beforeDay) {
   return bestAmt;
 }
 
+/**
+ * Monthly amount cancelled within acLapseDays before the new gift starts.
+ * The cancelled gift can be Mission Fund or any other project. The latest
+ * cancellation wins. Two on the same day use the larger amount.
+ */
+function priorCancelledMonthly(recurring, contactId, startRaw, excludeId) {
+  const cid = Number(contactId);
+  const beforeDay = calendarDay(startRaw);
+  if (!Number.isFinite(cid) || !beforeDay) return 0;
+  const lapse = SETTINGS.acLapseDays ?? 45;
+  let bestDay = "";
+  let bestAmt = 0;
+  for (const r of recurring || []) {
+    if (excludeId != null && String(r.id) === String(excludeId)) continue;
+    if (Number(r.contactId) !== cid) continue;
+    if (!isCancelledRecurring(r)) continue;
+    if (!/^monthly$/i.test(String(r.frequency || "").trim())) continue;
+    const amt = parseAmount(r.amount);
+    if (amt <= 0) continue;
+    const day = cancelDayOf(r);
+    if (!day || day > beforeDay) continue;
+    const gap = daysBetweenIso(day, beforeDay);
+    if (gap == null || gap > lapse) continue;
+    if (day > bestDay || (day === bestDay && amt > bestAmt)) {
+      bestDay = day;
+      bestAmt = amt;
+    }
+  }
+  return bestAmt;
+}
+
 /** Map a Virtuous RecurringGift onto the gift shape the scorer already uses. */
-export function recurringToGift(record, posted = []) {
+export function recurringToGift(record, posted = [], recurring = []) {
   const des = (record.designations && record.designations[0])
     || (record.giftDesignations && record.giftDesignations[0]);
   const start = record.startDate || record.recurringGiftDate || record.giftDate;
-  const startDay = isoDay(parseDate(start));
+  const startDay = calendarDay(start);
   const newAmt = parseAmount(record.amount);
-  const prior = priorAcMonthly(posted, record.contactId, startDay);
+  const prior = Math.max(
+    priorAcMonthly(posted, record.contactId, startDay),
+    priorCancelledMonthly(recurring, record.contactId, start, record.id),
+  );
   const increase = prior > 0 && newAmt > prior;
   const continuation = prior > 0 && newAmt <= prior;
   const creditMonthly = increase ? roundCents(newAmt - prior) : continuation ? 0 : newAmt;
@@ -407,21 +475,25 @@ function withPostedMgoCoding(mapped, rg, posted) {
 
 /**
  * Merge posted gifts with RecurringGift rows. Monthly commitments replace the
- * matching posted installment so dollars are not counted twice. An AC raise
- * credits only (new monthly − prior monthly); a same-rate continuation is $0.
+ * matching posted installment so dollars are not counted twice. An increase
+ * credits only (new monthly − prior monthly). The prior is the recent
+ * Annunciation Circle payment or a monthly gift cancelled within 45 days,
+ * whichever is higher. A same-rate or lower continuation is $0.
+ * `priorOnly` rows are evidence for that prior amount. They are not gifts.
  * MGO coding on a matched posted gift is kept on the replacement row.
  */
 export function prepareGifts(posted = [], recurring = []) {
-  const monthly = recurring.filter((r) => /^monthly$/i.test(String(r.frequency || "").trim()));
-  const asGifts = monthly
+  const monthly = (recurring || []).filter((r) => /^monthly$/i.test(String(r.frequency || "").trim()));
+  const scoreable = monthly.filter((r) => !isPriorOnlyRecurring(r));
+  const asGifts = scoreable
     .map((r) => {
-      const mapped = withPostedMgoCoding(recurringToGift(r, posted), r, posted);
+      const mapped = withPostedMgoCoding(recurringToGift(r, posted, monthly), r, posted);
       if (contactDisplayName(mapped)) return mapped;
       const named = (posted || []).find((p) => Number(p.contactId) === Number(r.contactId) && contactDisplayName(p));
       return named ? { ...mapped, contactName: contactDisplayName(named) } : mapped;
     })
     .filter((g) => parseAmount(g.amount) > 0 || parseAmount(g.newMonthly) > 0);
-  const filtered = posted.filter((g) => !monthly.some((rg) => matchesMonthlyInstallment(rg, g)));
+  const filtered = (posted || []).filter((g) => !scoreable.some((rg) => matchesMonthlyInstallment(rg, g)));
   return [...filtered, ...asGifts];
 }
 
