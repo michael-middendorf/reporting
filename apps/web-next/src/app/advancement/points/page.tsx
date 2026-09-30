@@ -495,20 +495,12 @@ function PointsPageInner() {
   }, [rows, range, selectedWeek, dateFrom, dateTo, flags]);
 
   const insights = useMemo(() => {
-    const { start, end } = bounds(range, selectedWeek || null, dateFrom, dateTo);
-    const activity = (rows || []).filter((row) => {
-      const when = row.date instanceof Date ? row.date : null;
-      if (!when) return false;
-      if (start && when < start) return false;
-      if (end && when > end) return false;
-      return true;
-    });
     return buildInsights({
       gifts: model.gifts || [],
-      notes: activity,
+      notes: model.rows || [],
       profiles: raw?.profiles || [],
     });
-  }, [rows, model.gifts, range, selectedWeek, dateFrom, dateTo, raw]);
+  }, [model.gifts, model.rows, raw]);
 
   const selectedOwner = model.owners.find((o) => o.name === selected);
 

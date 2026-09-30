@@ -193,5 +193,61 @@ describe("gift insights", () => {
     assert.doesNotMatch(html, /the most of any generation/);
     assert.doesNotMatch(html, /Same dates as the Points tab/);
     assert.doesNotMatch(html, /Birth year is on file/);
+    assert.match(html, /Phone vs email conversations/);
+    assert.match(html, /No phone or email conversations in this range/);
+  });
+
+  it("counts phone and email conversation notes by generation", () => {
+    const insights = buildInsights({
+      profiles: [
+        ...profiles,
+        { id: 5, birthYear: 1972, age: 54, deceased: false, relationships: [], donorTags: [] },
+        { id: 6, birthYear: 2015, age: 11, deceased: false, relationships: [], donorTags: [] },
+      ],
+      gifts: [],
+      notes: [
+        { contactId: 1, bucket: "conversation", label: "Phone conversation" },
+        { contactId: 1, bucket: "conversation", label: "Phone conversation" },
+        { contactId: 1, bucket: "email", label: "Email conversation" },
+        { contactId: 2, bucket: "email", label: "Email conversation" },
+        { contactId: 5, bucket: "conversation", label: "Phone conversation" },
+        { contactId: 5, bucket: "email", label: "Email conversation" },
+        { contactId: 2, bucket: "email", label: "Email conversation", removed: true },
+        { contactId: 1, bucket: "conversation", label: "Phone conversation", unmatched: true },
+        { contactId: 1, bucket: "email", label: "Email reach-out" },
+        { contactId: 1, bucket: "email", label: "Text message" },
+        { contactId: 1, bucket: "email", label: "Email conversation", assist: true },
+        { label: "Email conversation" },
+        { contactId: 6, bucket: "conversation", label: "Phone conversation" },
+      ],
+    });
+    const byId = Object.fromEntries(insights.conversations.map((row) => [row.id, row]));
+    assert.equal(byId.millennial.phone, 2);
+    assert.equal(byId.millennial.email, 1);
+    assert.equal(byId.millennial.more, "phone");
+    assert.equal(byId.boomer.phone, 0);
+    assert.equal(byId.boomer.email, 1);
+    assert.equal(byId.boomer.more, "email");
+    assert.equal(byId.genx.phone, 1);
+    assert.equal(byId.genx.email, 1);
+    assert.equal(byId.genx.more, "tie");
+    assert.equal(byId.genz.more, "none");
+    assert.equal(byId.earlier.more, "none");
+    assert.equal(byId.later.phone, 1);
+    assert.equal(byId.later.email, 0);
+    assert.equal(byId.unknown.email, 1);
+    assert.equal(byId.unknown.phone, 0);
+    assert.equal(insights.generations.length, 0);
+    assert.equal(insights.conversations.find((row) => row.id === "millennial")?.label, "Millennial");
+
+    const html = renderToStaticMarkup(<InsightsPanel insights={insights} />);
+    assert.match(html, /Phone vs email conversations/);
+    assert.match(html, /Phone conversation/);
+    assert.match(html, /Email conversation/);
+    assert.match(html, /Gen X/);
+    assert.match(html, /Tie/);
+    assert.match(html, /No counted gifts in this range/);
+    assert.doesNotMatch(html, /the most of any generation/);
+    assert.doesNotMatch(html, /Email reach-out/);
   });
 });
