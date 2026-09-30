@@ -232,6 +232,7 @@ export default $config({
         DATA_BUCKET: data.name,
         VIRTUOUS_API_KEY: virtuousApiKey.value,
         ADVANCEMENT_OVERVIEW_CACHE_KEY: "advancement-overview/latest.json",
+        ADVANCEMENT_PIPELINE_CACHE_KEY: "advancement-overview/pipeline.json",
       },
       permissions: reportDataPerms,
     });

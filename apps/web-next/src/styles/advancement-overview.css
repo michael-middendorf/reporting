@@ -212,6 +212,20 @@
   color: var(--ao-muted);
 }
 
+.ao-panel-link {
+  margin: 14px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ao-panel-link a {
+  color: var(--ao-ink);
+}
+
+.ao-panel-link a:hover {
+  color: #b8892a;
+}
+
 .ao-panel-total {
   font-size: 18px;
   font-weight: 700;

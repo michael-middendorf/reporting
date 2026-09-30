@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import {
@@ -237,6 +238,9 @@ function AdvancementOverviewPage() {
                   />
                 ))}
               </div>
+              <p className="ao-panel-link">
+                <Link href="/advancement/pipeline">View pipeline detail</Link>
+              </p>
             </section>
 
             <section className="ao-panel">

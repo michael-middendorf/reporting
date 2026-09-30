@@ -24,6 +24,7 @@ describe("reportNavActive", () => {
   it("marks Advancement nested reports and Annunciation", () => {
     const overview = item(ADVANCEMENT_NAV, "/advancement/overview");
     const mgo = item(ADVANCEMENT_NAV, "/advancement/mgo-top-prospects");
+    const pipeline = item(ADVANCEMENT_NAV, "/advancement/pipeline");
     const ac = item(ADVANCEMENT_NAV, "/annunciation");
     const fall = item(ADVANCEMENT_NAV, "/advancement/appeals?campaign=fall-2026");
     const points = item(ADVANCEMENT_NAV, "/advancement/points");
@@ -36,6 +37,9 @@ describe("reportNavActive", () => {
     assert.equal(reportNavActive(points, ADVANCEMENT_NAV, "/advancement/points"), true);
     assert.equal(reportNavActive(points, ADVANCEMENT_NAV, "/advancement/points/methodology"), true);
     assert.equal(reportNavActive(glass, ADVANCEMENT_NAV, "/advancement/stained-glass-windows"), true);
+    assert.equal(reportNavActive(pipeline, ADVANCEMENT_NAV, "/advancement/pipeline"), true);
+    assert.equal(reportNavActive(overview, ADVANCEMENT_NAV, "/advancement/pipeline"), false);
+    assert.equal(pipeline.report, "advancement");
     assert.equal(overview.report, "advancement");
     assert.equal(fall.report, "advancement");
     assert.equal(points.report, "points");
