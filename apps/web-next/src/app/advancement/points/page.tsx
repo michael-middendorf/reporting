@@ -387,6 +387,7 @@ function PointsPageInner() {
     day: isoToday(),
     eventType: TRACKED_EVENT_TYPES[0]?.id || "event",
     name: "",
+    projectType: "",
     hours: "1",
   });
 
@@ -958,6 +959,7 @@ function PointsPageInner() {
           day: eventForm.day,
           eventType: eventForm.eventType,
           name: eventForm.name.trim(),
+          projectType: eventForm.eventType === "projects" ? eventForm.projectType.trim() : "",
           hours,
         }),
       });
@@ -970,7 +972,7 @@ function PointsPageInner() {
         next.sort((a, b) => String(b.day).localeCompare(String(a.day)) || String(b.createdAt).localeCompare(String(a.createdAt)));
         return next;
       });
-      setEventForm((f) => ({ ...f, name: "", hours: "1" }));
+      setEventForm((f) => ({ ...f, name: "", projectType: "", hours: "1" }));
     } catch (e) {
       setFlagError(`Could not add event: ${String(e)}`);
     } finally {
@@ -1749,6 +1751,19 @@ function PointsPageInner() {
                     ))}
                   </select>
                 </label>
+                {eventForm.eventType === "projects" ? (
+                  <label>
+                    Project type
+                    <input
+                      type="text"
+                      aria-label="Project type"
+                      placeholder="Type of project"
+                      maxLength={200}
+                      value={eventForm.projectType}
+                      onChange={(e) => setEventForm((f) => ({ ...f, projectType: e.target.value }))}
+                    />
+                  </label>
+                ) : null}
                 <label>
                   Hours
                   <input
@@ -1804,7 +1819,12 @@ function PointsPageInner() {
                       <tr key={e.id}>
                         <td style={{ whiteSpace: "nowrap" }}>{formatDay(e.day)}</td>
                         <td>{e.owner}</td>
-                        <td>{eventTypeLabel(e.eventType)}</td>
+                        <td>
+                          {eventTypeLabel(e.eventType)}
+                          {(e.eventType === "projects" || e.eventType === "Projects") && e.projectType ? (
+                            <div className="section-hint">{e.projectType}</div>
+                          ) : null}
+                        </td>
                         <td>{e.name || "—"}</td>
                         <td className="tabular">{e.hours}</td>
                         <td className="pts tabular">{eventPointsForHours(e.hours).toLocaleString()}</td>
