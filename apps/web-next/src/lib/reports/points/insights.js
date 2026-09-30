@@ -37,6 +37,10 @@ const SKIP_LABELS = new Set(["Email bounced"]);
 const UNKNOWN_GENERATION = { id: "unknown", label: "Age unknown", born: "no birth year" };
 const UNTAGGED_RELATIONSHIP = { id: "untagged", label: "Not tagged", born: "" };
 const UNTAGGED_DONOR = { id: "untagged", label: "Not tagged", born: "" };
+const PHONE_CONVERSATION = "Phone conversation";
+const EMAIL_CONVERSATION = "Email conversation";
+/** Shown even at zero so each named generation has an answer. */
+const ALWAYS_GENERATIONS = new Set(["genz", "millennial", "genx", "boomer", "earlier"]);
 
 function money(n) {
   return `$${Math.round(n || 0).toLocaleString("en-US")}`;
@@ -185,6 +189,50 @@ function findingsFor(summary) {
   return lines;
 }
 
+function conversationWinner(phone, email) {
+  if (!phone && !email) return "none";
+  if (phone === email) return "tie";
+  return phone > email ? "phone" : "email";
+}
+
+/**
+ * Activity-note counts for the two conversation types. This is separate from
+ * the dollar "best contact" above: email reach-out, text, and a removed note
+ * do not count.
+ * @param {any[]} notes
+ * @param {(row: any) => any} profileOf
+ */
+function conversationPopularity(notes, profileOf) {
+  const counts = new Map(
+    [...GENERATIONS, UNKNOWN_GENERATION].map((group) => [group.id, { phone: 0, email: 0 }]),
+  );
+  for (const note of notes || []) {
+    if (!note || note.removed || note.unmatched || note.assist) continue;
+    const kind = note.label === PHONE_CONVERSATION ? "phone" : note.label === EMAIL_CONVERSATION ? "email" : "";
+    if (!kind) continue;
+    const profile = note.contactId == null || note.contactId === "" ? null : profileOf(note);
+    const generation = generationForYear(profile?.birthYear)?.id || "unknown";
+    const bucket = counts.get(generation);
+    if (bucket) bucket[kind] += 1;
+  }
+  const rows = [];
+  for (const group of [...GENERATIONS, UNKNOWN_GENERATION]) {
+    const count = counts.get(group.id);
+    const phone = count?.phone || 0;
+    const email = count?.email || 0;
+    if (!ALWAYS_GENERATIONS.has(group.id) && !phone && !email) continue;
+    rows.push({
+      id: group.id,
+      label: group.label,
+      detail: group.born || "",
+      phone,
+      email,
+      more: conversationWinner(phone, email),
+    });
+  }
+  return rows;
+}
+
 /**
  * @param {{ gifts?: any[], notes?: any[], profiles?: any[] }} [input]
  */
@@ -280,5 +328,6 @@ export function buildInsights(input = {}) {
     findings: findingsFor(summary),
     generationChannels: channelsUsed(generationViews),
     relationshipChannels: channelsUsed(relationshipViews),
+    conversations: conversationPopularity(notes, profileOf),
   };
 }

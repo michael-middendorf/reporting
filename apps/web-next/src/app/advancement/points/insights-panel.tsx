@@ -14,6 +14,14 @@ type Group = {
   cells: Record<string, Cell>;
 };
 type Channel = { id: string; label: string; short: string };
+type Conversation = {
+  id: string;
+  label: string;
+  detail: string;
+  phone: number;
+  email: number;
+  more: "phone" | "email" | "tie" | "none";
+};
 export type InsightsModel = {
   donors: number;
   findings: string[];
@@ -23,6 +31,7 @@ export type InsightsModel = {
   donorTags: Group[];
   generationChannels: Channel[];
   relationshipChannels: Channel[];
+  conversations: Conversation[];
 };
 
 const money = (n: number | undefined) => `$${Math.round(n || 0).toLocaleString("en-US")}`;
@@ -70,6 +79,49 @@ function SummaryTable({ groups }: { groups: Group[] }) {
         ))}
       </tbody>
     </table>
+    </div>
+  );
+}
+
+function moreLabel(more: Conversation["more"]) {
+  if (more === "phone") return "Phone conversation";
+  if (more === "email") return "Email conversation";
+  if (more === "tie") return "Tie";
+  return "—";
+}
+
+function ConversationTable({ rows }: { rows: Conversation[] }) {
+  const any = rows.some((row) => row.phone > 0 || row.email > 0);
+  if (!any) return <p className="footnote">No phone or email conversations in this range.</p>;
+  return (
+    <div className="week-scroll">
+      <table className="grid">
+        <thead>
+          <tr>
+            <th>Group</th>
+            <th>Phone conversation</th>
+            <th>Email conversation</th>
+            <th>More common</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id}>
+              <td>
+                {row.label}
+                {row.detail ? <div className="section-hint">{row.detail}</div> : null}
+              </td>
+              <td className={row.more === "phone" || row.more === "tie" ? "insight-best tabular" : "tabular"}>
+                {row.phone > 0 ? row.phone.toLocaleString("en-US") : "—"}
+              </td>
+              <td className={row.more === "email" || row.more === "tie" ? "insight-best tabular" : "tabular"}>
+                {row.email > 0 ? row.email.toLocaleString("en-US") : "—"}
+              </td>
+              <td>{moreLabel(row.more)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -126,6 +178,9 @@ export function InsightsPanel({ insights }: { insights: InsightsModel }) {
             <Matrix groups={insights.generations} channels={insights.generationChannels} />
           </>
         ) : null}
+
+        <h3 className="insight-head">Phone vs email conversations</h3>
+        <ConversationTable rows={insights.conversations || []} />
 
         {insights.relationships.length > 0 ? (
           <>
