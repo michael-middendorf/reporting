@@ -119,6 +119,7 @@ type GiftRow = {
   mgoAssigned?: boolean;
   removed?: boolean;
   bucket?: string;
+  kind?: string;
   kindLabel?: string;
   schedule?: string | null;
   lastGiftDay?: string | null;
