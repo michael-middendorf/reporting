@@ -16,7 +16,7 @@ import {
   removeTrackedEvent,
   upsertTrackedEvent,
 } from "@/lib/reports/points/tracked-events-store";
-import type { TrackedEventInput } from "@/lib/reports/points/tracked-events";
+import { projectTypeFor, type TrackedEventInput } from "@/lib/reports/points/tracked-events";
 
 const ALLOWED_TYPES = new Set(
   [...TRACKED_EVENT_TYPES, ...RETIRED_TRACKED_EVENT_TYPES].flatMap(
@@ -81,6 +81,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "name too long" }, { status: 400 });
   }
 
+  const projectType = projectTypeFor(eventType, body?.projectType);
+  if (projectType.length > 200) {
+    return NextResponse.json({ error: "project type too long" }, { status: 400 });
+  }
+
   const id = body?.id == null || String(body.id).trim() === "" ? undefined : String(body.id).trim();
   if (id && (id.length > 80 || !/^[-a-zA-Z0-9]+$/.test(id))) {
     return NextResponse.json({ error: "id is invalid" }, { status: 400 });
@@ -88,7 +93,7 @@ export async function POST(req: Request) {
 
   try {
     const event = await upsertTrackedEvent(
-      { id, owner: ma.name, day, eventType, name, hours },
+      { id, owner: ma.name, day, eventType, name, projectType, hours },
       email,
       new Date().toISOString(),
     );

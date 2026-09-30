@@ -5,6 +5,7 @@ import { assignedNotesFromFlags, contactDisplayName, eventPointsForHours, giftKi
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "./counted-gifts.js";
 import { aggregate, daysOfWeek, isTaskListRow, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
 import { buildCalculationCSV, statusOf, virtuousGiftUrl } from "./report.js";
+import { projectTypeFor } from "./tracked-events";
 
 const ALANNA = MA_NAMES[0];
 const SEAN = "Sean Kelly";
@@ -3017,6 +3018,14 @@ describe("gala ticket purchases", () => {
 });
 
 describe("dashboard-tracked event hours", () => {
+  it("keeps a typed project type only on Projects events", () => {
+    assert.equal(projectTypeFor("projects", "  American   House "), "American House");
+    assert.equal(projectTypeFor("Projects", "Del Webb"), "Del Webb");
+    assert.equal(projectTypeFor("meetings", "American House"), "");
+    assert.equal(projectTypeFor("tours", "Campus"), "");
+    assert.equal(projectTypeFor("projects", "   "), "");
+  });
+
   it("hours × 25 points per hour", () => {
     assert.equal(eventPointsForHours(1), 25);
     assert.equal(eventPointsForHours(4), 100);
@@ -3051,14 +3060,21 @@ describe("dashboard-tracked event hours", () => {
 
   it("Projects and Meetings hours score 25 per hour", () => {
     const rows = scoreTrackedEvents([
-      { id: "p1", owner: SEAN, day: "2026-08-13", eventType: "projects", hours: 2 },
-      { id: "mtg", owner: SEAN, day: "2026-08-13", eventType: "meetings", hours: 1 },
+      { id: "p1", owner: SEAN, day: "2026-08-13", eventType: "projects", hours: 2, projectType: "American House", name: "Open house" },
+      { id: "mtg", owner: SEAN, day: "2026-08-13", eventType: "meetings", hours: 1, projectType: "Should stay off a meeting" },
     ]) as ScoredRow[];
     assert.equal(rows.length, 2);
     assert.equal(rows[0].points, 50);
     assert.equal(rows[0].type, "Projects");
+    assert.equal(rows[0].label, "Projects · American House · 2 hrs · Open house");
     assert.equal(rows[1].points, 25);
     assert.equal(rows[1].type, "Meetings");
+    assert.equal(rows[1].label, "Meetings · 1 hr");
+    const blank = scoreTrackedEvents([
+      { id: "p2", owner: SEAN, day: "2026-08-13", eventType: "projects", hours: 2, projectType: "   " },
+    ]) as ScoredRow[];
+    assert.equal(blank[0].points, 50);
+    assert.equal(blank[0].label, "Projects · 2 hrs");
     const model = aggregate(rows, {}) as Model;
     const owner = model.tableOwners.find((o) => o.name === SEAN);
     assert.ok(owner);

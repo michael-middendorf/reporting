@@ -15,6 +15,8 @@ export type TrackedEvent = {
   day: string; // YYYY-MM-DD
   eventType: string; // TRACKED_EVENT_TYPES id, or a Virtuous type string
   name: string;
+  /** Free text for a Projects event. Empty for every other event type. */
+  projectType?: string;
   hours: number;
   createdBy: string;
   createdAt: string;
@@ -37,5 +39,12 @@ export type TrackedEventInput = {
   day: string;
   eventType: string;
   name?: string | null;
+  projectType?: string | null;
   hours: number;
 };
+
+/** Project type is stored only on Projects events. Other types keep it blank. */
+export function projectTypeFor(eventType: string, value: unknown): string {
+  if (eventType !== "projects" && eventType !== "Projects") return "";
+  return String(value ?? "").trim().replace(/\s+/g, " ");
+}

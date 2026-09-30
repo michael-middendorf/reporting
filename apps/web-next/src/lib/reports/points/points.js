@@ -1279,8 +1279,11 @@ export function scoreTrackedEvent(event) {
   const type = preset?.type || String(event.eventType || "Mission Advancement | Event").trim();
   const typeLabel = preset?.label || type;
   const name = String(event.name || "").trim();
+  const projectType = preset?.id === "projects" || event.eventType === "projects" || event.eventType === "Projects"
+    ? String(event.projectType || "").trim().replace(/\s+/g, " ")
+    : "";
   const hrsLabel = `${hours} ${hours === 1 ? "hr" : "hrs"}`;
-  const label = name ? `${typeLabel} · ${hrsLabel} · ${name}` : `${typeLabel} · ${hrsLabel}`;
+  const label = [typeLabel, projectType, hrsLabel, name].filter(Boolean).join(" · ");
   const id = event.id != null && event.id !== "" ? String(event.id) : null;
   return {
     owner,
