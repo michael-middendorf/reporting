@@ -217,15 +217,20 @@ export default $config({
     const advancementOverview = new sst.aws.Function("AdvancementOverviewData", {
       handler: "services/publishers/advancement-overview/handler.handler",
       runtime: "python3.12",
-      timeout: "5 minutes",
+      timeout: "15 minutes",
       memory: "2048 MB",
       link: [data],
       python: { uv: true },
-      copyFiles: commonFiles,
+      copyFiles: [
+        ...commonFiles,
+        {
+          from: "services/publishers/advancement-overview/fund_status.csv",
+          to: "fund_status.csv",
+        },
+      ],
       environment: {
         DATA_BUCKET: data.name,
-        QLIK_API_KEY: qlikApiKey.value,
-        QLIK_TENANT: qlikTenant.value,
+        VIRTUOUS_API_KEY: virtuousApiKey.value,
         ADVANCEMENT_OVERVIEW_CACHE_KEY: "advancement-overview/latest.json",
       },
       permissions: reportDataPerms,

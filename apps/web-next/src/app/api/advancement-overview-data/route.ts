@@ -3,7 +3,10 @@ import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
 import { requireReportAccess } from "@/lib/s3-proxy";
-import type { AdvancementOverviewSnapshot } from "@/lib/reports/advancement-overview/shape";
+import {
+  isOverviewReady,
+  type AdvancementOverviewSnapshot,
+} from "@/lib/reports/advancement-overview/shape";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -50,7 +53,7 @@ async function invokeBuild(): Promise<AdvancementOverviewSnapshot | null> {
 }
 
 function cacheIsCurrent(cached: AdvancementOverviewSnapshot | null): boolean {
-  return Boolean(cached?.source === "qlik" && cached.received && cached.ytd && cached.pledges);
+  return isOverviewReady(cached);
 }
 
 async function readLocalSnapshot(): Promise<AdvancementOverviewSnapshot | null> {

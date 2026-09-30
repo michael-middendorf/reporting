@@ -13,7 +13,7 @@ import {
 function snapshot(): AdvancementOverviewSnapshot {
   return {
     generated_at: "2026-08-31T15:14:38Z",
-    source: "qlik",
+    source: "virtuous",
     currentFiscalYear: 2027,
     fiscalYearLabel: "FY 2026-27",
     asOf: "2026-08-31",
@@ -21,8 +21,19 @@ function snapshot(): AdvancementOverviewSnapshot {
       endowed: 27780.26,
       temporaryRestricted: 1046092.41,
       unrestricted: 501971.6,
+      unassigned: 9682.63,
       total: 1585526.9,
+      unassignedFunds: [{ fundId: "6278", description: "New Fund", amount: 9682.63 }],
+      method: "designation-allocated",
     },
+    conflictingFunds: [
+      {
+        fundId: "6404",
+        description: "Library",
+        statuses: ["Temporary Restricted", "Unrestricted"],
+        used: "Temporary Restricted",
+      },
+    ],
     released: { fy26: null, other: null, total: 0, note: "Actuals Updated 7/1/2026" },
     pledges: {
       multiYear: 3,
@@ -51,7 +62,7 @@ function snapshot(): AdvancementOverviewSnapshot {
 }
 
 describe("advancement overview shape", () => {
-  it("formats money, counts, and percents like the Qlik sheet", () => {
+  it("formats money, counts, and percents like the Qlik sheet did", () => {
     assert.equal(usd(1585526.9), "$1,585,527");
     assert.equal(usd(501971.6), "$501,972");
     assert.equal(usd(-206), "-$206");
@@ -64,7 +75,7 @@ describe("advancement overview shape", () => {
     assert.equal(pct(null), "--");
   });
 
-  it("formats Qlik snapshot times in Eastern", () => {
+  it("formats snapshot times in Eastern", () => {
     assert.equal(formatEastern("2026-08-31T15:57:00Z"), "Aug 31, 2026, 11:57 AM ET");
     assert.equal(formatEastern(null), "");
   });
@@ -76,10 +87,19 @@ describe("advancement overview shape", () => {
     assert.equal(barFill(null), 0);
   });
 
-  it("accepts a Qlik snapshot and rejects the old Virtuous shape", () => {
+  it("accepts a Virtuous snapshot and rejects Qlik and the old Virtuous shape", () => {
     assert.equal(isOverviewReady(snapshot()), true);
+    assert.equal(isOverviewReady({ ...snapshot(), source: "qlik" }), false);
     assert.equal(isOverviewReady({ source: "virtuous" } as AdvancementOverviewSnapshot), false);
     assert.equal(isOverviewReady(null), false);
+  });
+
+  it("class buckets add up to the total", () => {
+    const r = snapshot().received;
+    const sum =
+      (r.endowed ?? 0) + (r.temporaryRestricted ?? 0) + (r.unrestricted ?? 0) + (r.unassigned ?? 0);
+    assert.equal(Math.round(sum * 100), Math.round((r.total ?? 0) * 100));
+    assert.equal(r.unassignedFunds?.[0]?.fundId, "6278");
   });
 
   it("keeps Sanford, pipeline totals, and the installment status", () => {

@@ -147,6 +147,9 @@ function AdvancementOverviewPage() {
   const pipeRows: PipelineRow[] = pipeline?.rows ?? [];
   const pipeMax = Math.max(0, ...pipeRows.map((row) => row.amount ?? 0));
   const total = received?.total ?? 0;
+  const unassigned = received?.unassigned ?? 0;
+  const fyShort =
+    data?.currentFiscalYear != null ? `FY${String(data.currentFiscalYear % 100).padStart(2, "0")}` : "FY";
 
   return (
     <main className="ac-page ao-page">
@@ -154,7 +157,7 @@ function AdvancementOverviewPage() {
         <div>
           <h1>Advancement Overview</h1>
           <p className="ac-sub">
-            {data?.fiscalYearLabel ?? "FY"} results from Qlik
+            {data?.fiscalYearLabel ?? "FY"} results from Virtuous
             {data?.generated_at ? ` · updated ${formatEastern(data.generated_at)}` : ""}
           </p>
         </div>
@@ -173,7 +176,7 @@ function AdvancementOverviewPage() {
         <>
           <section className="ao-hero">
             <div>
-              <div className="ao-kicker">FY27 total received</div>
+              <div className="ao-kicker">{fyShort} total received</div>
               <div className="ao-hero-value">{usd(received?.total)}</div>
               <p className="ao-hero-note">Gifts booked this fiscal year</p>
             </div>
@@ -181,6 +184,9 @@ function AdvancementOverviewPage() {
               <Split label="Endowed" amount={received?.endowed} total={total} />
               <Split label="Temporary restricted" amount={received?.temporaryRestricted} total={total} />
               <Split label="Unrestricted" amount={received?.unrestricted} total={total} />
+              {unassigned > 0 ? (
+                <Split label="Fund not yet classified" amount={unassigned} total={total} />
+              ) : null}
             </div>
           </section>
 
@@ -262,7 +268,7 @@ function AdvancementOverviewPage() {
 
       {!error && !ready && !loading && (
         <div className="ac-error">
-          <p>Advancement overview cache is not a Qlik snapshot yet. Wait for the next refresh.</p>
+          <p>Advancement overview cache is not a Virtuous snapshot yet. Wait for the next refresh.</p>
         </div>
       )}
     </main>
