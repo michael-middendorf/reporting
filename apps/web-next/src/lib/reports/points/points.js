@@ -694,7 +694,12 @@ export function reviewContacts(giftDate, notesOnContact) {
 /** Ticket purchase for a gala. Segment or project must name the gala. */
 export function isGalaGift(record) {
   const blob = `${record?.segment || ""} ${record?.project || ""} ${giftProject(record)}`;
-  return /gala/i.test(blob);
+  return /gala/i.test(blob) || !!record?.galaSite;
+}
+
+/** Paid on the gala site and not yet a posted Virtuous gift. */
+export function isPendingGalaSiteTicket(record) {
+  return !!(record?.galaSite && record?.inVirtuous === false);
 }
 
 /**
@@ -922,8 +927,9 @@ function markAssist(gift) {
  * receives the dollars must have a qualifying contact on or before the gift
  * within 90 days, or a donation note within 90 days before or after the gift
  * (New Donation or New AC, Annunciation Circle updated, or Update Recurring
- * Gift). A gala ticket purchase is assigned the same way. An Incoming
- * assignment, or an MGO-coded gift on that MA’s portfolio, also credits it.
+ * Gift). A gala ticket purchase posted in Virtuous is assigned the same way.
+ * A gala-site Stripe ticket that is not yet in Virtuous waits on Incoming.
+ * An Incoming assignment, or an MGO-coded gift on that MA’s portfolio, also credits it.
  * `countedGifts` is accepted and ignored so older callers keep working.
  *
  * `flags` is the shared review-flags map (same object aggregate uses). An
@@ -970,7 +976,8 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
       const window = SETTINGS.giftNoteDaysBefore ?? 90;
       return delta != null && Math.abs(delta) <= window;
     });
-    const contacts = gDate && !donationInWindow && !assistInWindow && !isAssistGiftId(g.id)
+    const pendingGalaSite = isPendingGalaSiteTicket(g);
+    const contacts = gDate && !pendingGalaSite && !donationInWindow && !assistInWindow && !isAssistGiftId(g.id)
       ? attributingContacts(gDate, notesOnContact)
       : [];
     if (contacts[0]) {
@@ -999,7 +1006,7 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
         continue;
       }
     }
-    if (gDate && isGalaGift(g)) {
+    if (gDate && isGalaGift(g) && !pendingGalaSite) {
       const hits = galaSecuringNotes(gDate, notesOnContact);
       const hit = hits[0];
       if (hit) {
@@ -1147,7 +1154,8 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
   for (const g of gifts) {
     if (isMgoAttributedGift(g)) continue;
     const gDate = giftDateOf(g);
-    if (!gDate || g.contactId == null) continue;
+    if (!gDate) continue;
+    if (g.contactId == null && !isGalaGift(g)) continue;
     const postedAmount = parseAmount(g.amount);
     if (postedAmount <= 0) continue;
     const gid = g.id == null ? "" : String(g.id);
@@ -1170,7 +1178,8 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
     const autoHits = possibleNotesForGift(gDate, notesOnContact);
     const olderHits = autoHits.length ? [] : reviewContacts(gDate, notesOnContact);
     const hits = autoHits.length ? autoHits : olderHits;
-    if (!hits.length) continue;
+    if (!hits.length && !isGalaGift(g)) continue;
+    const pendingGalaSite = isPendingGalaSiteTicket(g);
     const reviewWindow = olderHits.length > 0;
     const hit = hits[0];
     const monthly = isMonthlyRecurring(g);
@@ -1182,7 +1191,7 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
     const kind = giftKindOf({ ...g, acIncrease: raised?.acIncrease || g.acIncrease });
     rows.push({
       ...factsFor(g),
-      owner: hit.note.owner,
+      owner: hit?.note.owner || "",
       owners: hits.map((h) => ({
         name: h.note.owner,
         noteId: h.note.noteId,
@@ -1199,7 +1208,9 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
       kind,
       kindLabel: giftKindLabel(kind, annualized),
       bucket: "possible",
-      label: reviewWindow ? "Review — older contact" : "Incoming gift",
+      label: pendingGalaSite
+        ? (hits.length ? "Gala site ticket" : "Gala site ticket — no unique note yet")
+        : reviewWindow ? "Review — older contact" : "Incoming gift",
       reviewWindow,
       day: isoDay(gDate),
       date: gDate,
@@ -1208,19 +1219,22 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
       contactName:
         contactDisplayName(g)
         || notesOnContact.map((n) => n.contactName).find(Boolean)
-        || hit.note.contactName
+        || hit?.note.contactName
         || "",
       giftId: g.id,
       giftType: g.giftType || "",
       project: giftProject(g),
-      noteId: hit.note.noteId,
-      noteType: hit.note.type,
-      noteLabel: hit.note.label,
-      noteDay: hit.note.day,
-      daysAfterNote: hit.days,
+      noteId: hit?.note.noteId,
+      noteType: hit?.note.type,
+      noteLabel: hit?.note.label,
+      noteDay: hit?.note.day,
+      daysAfterNote: hit?.days,
       inRaised: !!raised && (raised.amount || 0) > 0,
-      source: "possible",
+      source: pendingGalaSite ? "gala-site" : "possible",
       possible: true,
+      galaSite: !!g.galaSite,
+      inVirtuous: g.inVirtuous !== false && !g.galaSite ? true : !!g.inVirtuous,
+      emailMatch: g.emailMatch || null,
     });
   }
 

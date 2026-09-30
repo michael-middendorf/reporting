@@ -403,7 +403,7 @@ export const TRACKING_CHART = {
     {
       label: "Incoming gifts",
       detail:
-        "A new monthly gift with a qualifying contact within 90 days. No points until Assign or Remove. A one-time gift with a contact within 90 days is Raised instead. A gala ticket purchase with a conversation, two-way email, or meeting within 90 days is Raised for the MA who spoke with the donor.",
+        "A new monthly gift with a qualifying contact within 90 days. No points until Assign or Remove. A one-time gift with a contact within 90 days is Raised instead. A gala ticket posted in Virtuous with a conversation, two-way email, or meeting within 90 days is Raised for the MA who spoke with the donor. A gala-site Stripe ticket that is not yet in Virtuous waits on Incoming. Assign scores 100 points and Raised. Comp tickets stay off the list.",
     },
     {
       label: "Event hours · 25 pts/hour",
@@ -525,7 +525,7 @@ export const DEFINITIONS = [
     term: "Dollars received",
     text:
       "A posted Virtuous gift counts in Raised only with 100 points: a qualifying contact on or before the gift within 90 days, a donation note on that contact within 90 days before or after the gift, an Incoming assignment, or an MGO-coded gift on that MA’s portfolio. " +
-      "A gala ticket purchase counts the same way when an MA has a conversation, two-way email, or meeting on that contact within 90 days of the gift. A gala invitation does not claim a different gift. " +
+      "A gala ticket posted in Virtuous counts the same way when an MA has a conversation, two-way email, or meeting on that contact within 90 days of the gift. A gala-site Stripe ticket that is not yet in Virtuous shows on Incoming and stays out of Raised until Assign or the gift posts in Virtuous. A gala invitation does not claim a different gift. " +
       "A voicemail, email, letter, visit, or general note on or before the gift within 90 days claims the gift. A note after the gift does not. A row on the MA gift tracker does not assign the gift by itself. Gift Assist notes do not count dollars. " +
       "Dollars go to the MA who logged the note, not GFT_Solicitor. " +
       "A gift coded Direct Solicitation (MGO) or Direct Solicitation (MGO)-HIST_DS, or a gift whose GFT_Solicitor is not on the MA roster, counts for the MA whose portfolio includes that donor. It is not listed for review. If the donor is not on an MA portfolio, that gift is not counted. " +

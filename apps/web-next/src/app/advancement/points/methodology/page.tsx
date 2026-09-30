@@ -44,6 +44,7 @@ export default function PointsMethodologyPage() {
               gift with a contact inside 90 days waits on review instead of going straight to Raised.
               An MGO-coded gift counts when the donor is on that officer’s portfolio. Otherwise it is not counted.
               Assign does not write a note in Virtuous. A tracker row does not assign a gift.
+              A Chancellor’s Gala ticket paid on the gala site waits on Incoming until it is assigned or posted in Virtuous.
               A Verbal Gift Commitment is a two-day follow-up and adds no points. Event hours
               are logged on the Events tab, 25 points per hour, and are not a Virtuous note.
               Biographical notes, a plain Email note, and hours dialing are not points. A General

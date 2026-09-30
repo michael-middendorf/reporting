@@ -125,6 +125,9 @@ type GiftRow = {
   lastGiftSchedule?: string | null;
   lastNoteDay?: string | null;
   lastNoteType?: string | null;
+  galaSite?: boolean;
+  inVirtuous?: boolean;
+  emailMatch?: string | null;
 };
 
 type IncomingOwner = {
@@ -623,6 +626,12 @@ function PointsPageInner() {
   function incomingOwners(g: GiftRow & Partial<PossibleGiftRow>): IncomingOwner[] {
     if (g.owners?.length) return g.owners;
     return g.owner ? [{ name: g.owner, noteType: g.noteType, noteLabel: g.noteLabel, noteDay: g.noteDay, daysAfterNote: g.daysAfterNote }] : [];
+  }
+  function incomingAssignOwners(g: GiftRow & Partial<PossibleGiftRow>): IncomingOwner[] {
+    const owners = incomingOwners(g);
+    if (owners.length) return owners;
+    if (g.galaSite && g.contactId != null) return MA_ROSTER.map((m) => ({ name: m.name }));
+    return [];
   }
   const todoQueue = useMemo(() => {
     return (
@@ -1190,6 +1199,7 @@ function PointsPageInner() {
                       <tbody>
                   {listedIncoming.map((g, i) => {
                     const owners = incomingOwners(g);
+                    const assignOwners = incomingAssignOwners(g);
                     const review = !!g.needsReview;
                     const flagId = giftFlagId(g);
                     const busy = review
@@ -1209,7 +1219,18 @@ function PointsPageInner() {
                             </>
                           ) : null}
                         </td>
-                        <td>{g.schedule || (g.annualized ? "Recurring" : "One-time")}</td>
+                        <td>
+                          {g.schedule || (g.annualized ? "Recurring" : "One-time")}
+                          {g.kind === "gala" || g.galaSite ? (
+                            <span className="todo-muted">
+                              {" "}
+                              · {g.galaSite && !g.inVirtuous ? "Gala site" : "Gala"}
+                            </span>
+                          ) : null}
+                          {g.galaSite && g.emailMatch && g.emailMatch !== "unique" ? (
+                            <span className="todo-muted"> · no unique email match</span>
+                          ) : null}
+                        </td>
                         <td className="nowrap">
                           {g.lastGiftDay ? (
                             <>
@@ -1255,7 +1276,7 @@ function PointsPageInner() {
                               ) : null
                             ) : (
                               <>
-                                {owners.map((o) => (
+                                {assignOwners.map((o) => (
                                   <button
                                     key={`a-${o.name}`}
                                     type="button"
@@ -1266,7 +1287,7 @@ function PointsPageInner() {
                                     {assignBusy === `${g.giftId}:${o.name}` ? "…" : o.name.split(" ")[0]}
                                   </button>
                                 ))}
-                                {owners.map((o) => (
+                                {assignOwners.map((o) => (
                                   <button
                                     key={`s-${o.name}`}
                                     type="button"
