@@ -799,17 +799,15 @@ def pledge_query(fy_start: dt.date) -> dict[str, Any]:
     }
 
 
-def planned_gift_query(fy_start: dt.date) -> dict[str, Any]:
-    """PlannedGift: "Planned Gift Date" OnOrAfter FY start. Parameter name is
-    not confirmed live (Virtuous docs do not list query parameters; see GET
-    /api/PlannedGift/QueryOptions). A 400 fails the run loudly on purpose."""
-    return {
-        "groups": [
-            {"conditions": [
-                {"parameter": "Planned Gift Date", "operator": "OnOrAfter", "value": virt_date(fy_start)},
-            ]}
-        ]
-    }
+def planned_gift_query() -> dict[str, Any]:
+    """PlannedGift: unfiltered on purpose. Live GET /api/PlannedGift/QueryOptions
+    (2026-09-29) has no "Planned Gift Date" option (only Create Date, Last
+    Modified Date, Planned Gift Type, Anticipated Start Date, Thank You Date,
+    Contact Type), and a created/modified-date filter would change the
+    definition. There are only about 320 planned gifts, so we pull them all
+    (paging stays capped at MAX_PAGES) and count_planned_estate filters
+    plannedGiftDate >= FY start and type WillAndBequest locally."""
+    return {"groups": []}
 
 
 def gift_ask_query(fy_start: dt.date, fy_end: dt.date) -> dict[str, Any]:
@@ -855,7 +853,7 @@ def fetch_inputs(client: VirtuousClient, today: dt.date) -> dict[str, Any]:
     fy_end: dt.date = win["fyEnd"]
     pledges = client.paged_query(PLEDGE_PATH_V2, pledge_query(fy_start), SMALL_PAGE)
     log(f"  pledges: {len(pledges)}")
-    planned = client.paged_query(PLANNED_PATH, planned_gift_query(fy_start), SMALL_PAGE)
+    planned = client.paged_query(PLANNED_PATH, planned_gift_query(), 1000)
     log(f"  planned gifts: {len(planned)}")
     asks = client.paged_query(ASK_PATH, gift_ask_query(fy_start, fy_end), SMALL_PAGE)
     log(f"  gift asks: {len(asks)}")

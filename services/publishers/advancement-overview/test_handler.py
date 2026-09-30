@@ -380,13 +380,9 @@ class QueryBodyTests(unittest.TestCase):
             ]}]},
         )
 
-    def test_planned_gift_query(self):
-        self.assertEqual(
-            planned_gift_query(dt.date(2026, 7, 1)),
-            {"groups": [{"conditions": [
-                {"parameter": "Planned Gift Date", "operator": "OnOrAfter", "value": "7/1/2026"},
-            ]}]},
-        )
+    def test_planned_gift_query_is_unfiltered(self):
+        # No planned-gift-date query option exists; filtering is local.
+        self.assertEqual(planned_gift_query(), {"groups": []})
 
     def test_gift_ask_query(self):
         self.assertEqual(
@@ -503,11 +499,18 @@ class FetchTests(unittest.TestCase):
         gift_body = client.calls[0][2]
         self.assertEqual(len(gift_body["groups"]), 2)
         self.assertEqual(client.calls[3][2], pledge_query(dt.date(2026, 7, 1)))
-        self.assertEqual(client.calls[4][2], planned_gift_query(dt.date(2026, 7, 1)))
+        self.assertEqual(client.calls[4][2], planned_gift_query())
         self.assertEqual(client.calls[5][2], gift_ask_query(dt.date(2026, 7, 1), dt.date(2027, 6, 30)))
-        for _m, _p, body in client.calls:
-            if body is not None:
-                self.assertTrue(body["groups"], "every POST query must carry a server-side filter")
+        for _m, path, body in client.calls:
+            if body is None:
+                continue
+            if path == PLANNED_PATH:
+                # Exempt: PlannedGift QueryOptions has no planned-gift-date
+                # parameter (live 2026-09-29) and there are only ~320 planned
+                # gifts, so it is pulled whole and filtered locally.
+                self.assertEqual(body, {"groups": []})
+                continue
+            self.assertTrue(body["groups"], "every other POST query must carry a server-side filter")
         self.assertEqual(snap["officers"][1], {"name": "Thomas", "amount": 100.0})
 
     def test_dry_run_prints_json_and_skips_s3(self):
