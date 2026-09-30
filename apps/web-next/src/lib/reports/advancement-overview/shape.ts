@@ -85,13 +85,9 @@ export type AdvancementOverviewSnapshot = {
 export function isOverviewReady(
   data: AdvancementOverviewSnapshot | null | undefined,
 ): data is AdvancementOverviewSnapshot {
-  // "qlik" is accepted only for the rollout window: deploy.yml ships the web
-  // (cdk deploy AmuReportingEcs) before the Lambda (sst deploy), so the first
-  // requests still see the cached Qlik snapshot. Remove the "qlik" branch
-  // after the first Virtuous publish lands in advancement-overview/latest.json.
   const source = data?.source;
   return Boolean(
-    (source === "virtuous" || source === "qlik") && data?.received && data.ytd && data.pledges,
+    source === "virtuous" && data?.received && data.ytd && data.pledges,
   );
 }
 
