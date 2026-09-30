@@ -1,4 +1,4 @@
-/** Snapshot from the Qlik FY Advancement Overview Results sheet. */
+/** Snapshot built from Virtuous by services/publishers/advancement-overview. */
 
 export type YtdRow = {
   current: number | null;
@@ -19,11 +19,22 @@ export type PipelineRow = {
   count: number | null;
 };
 
+export type UnassignedFund = {
+  fundId: string | null;
+  description: string;
+  amount: number;
+};
+
+export type ConflictingFund = {
+  fundId: string;
+  description: string;
+  statuses: string[];
+  used: string;
+};
+
 export type AdvancementOverviewSnapshot = {
   generated_at: string;
   source: string;
-  qlikAppId?: string;
-  qlikSheetId?: string;
   currentFiscalYear?: number;
   fiscalYearLabel: string;
   asOf?: string;
@@ -31,8 +42,16 @@ export type AdvancementOverviewSnapshot = {
     endowed: number | null;
     temporaryRestricted: number | null;
     unrestricted: number | null;
+    /** Gifts to funds missing from the fund classification table (or no designation). */
+    unassigned?: number | null;
     total: number | null;
+    unassignedFunds?: UnassignedFund[];
+    method?: string;
+    giftCount?: number;
+    splitGiftCount?: number;
+    undesignatedGiftCount?: number;
   };
+  conflictingFunds?: ConflictingFund[];
   released: {
     fy26: number | null;
     other: number | null;
@@ -66,7 +85,14 @@ export type AdvancementOverviewSnapshot = {
 export function isOverviewReady(
   data: AdvancementOverviewSnapshot | null | undefined,
 ): data is AdvancementOverviewSnapshot {
-  return Boolean(data?.source === "qlik" && data.received && data.ytd && data.pledges);
+  // "qlik" is accepted only for the rollout window: deploy.yml ships the web
+  // (cdk deploy AmuReportingEcs) before the Lambda (sst deploy), so the first
+  // requests still see the cached Qlik snapshot. Remove the "qlik" branch
+  // after the first Virtuous publish lands in advancement-overview/latest.json.
+  const source = data?.source;
+  return Boolean(
+    (source === "virtuous" || source === "qlik") && data?.received && data.ytd && data.pledges,
+  );
 }
 
 export function usd(n: number | null | undefined): string {
