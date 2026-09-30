@@ -189,6 +189,11 @@ function findingsFor(summary) {
   return lines;
 }
 
+/**
+ * @param {number} phone
+ * @param {number} email
+ * @returns {"phone" | "email" | "tie" | "none"}
+ */
 function conversationWinner(phone, email) {
   if (!phone && !email) return "none";
   if (phone === email) return "tie";
@@ -201,6 +206,7 @@ function conversationWinner(phone, email) {
  * do not count.
  * @param {any[]} notes
  * @param {(row: any) => any} profileOf
+ * @returns {{ id: string, label: string, detail: string, phone: number, email: number, more: "phone" | "email" | "tie" | "none" }[]}
  */
 function conversationPopularity(notes, profileOf) {
   const counts = new Map(
