@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MA_NAMES, SETTINGS, evalStartDate, tierFor } from "./config.js";
-import { assignedNotesFromFlags, contactDisplayName, eventPointsForHours, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, outreachBeforeGift, parseDate, portfolioOwnersFromSnapshot, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
+import { assignedNotesFromFlags, contactDisplayName, eventPointsForHours, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, isPendingGalaSiteTicket, outreachBeforeGift, parseDate, portfolioOwnersFromSnapshot, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
+import { galaSiteGiftId, mergeGalaSiteTickets, uniqueEmailContactIndex } from "./gala-site-tickets.js";
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "./counted-gifts.js";
 import { aggregate, daysOfWeek, isTaskListRow, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
 import { buildCalculationCSV, statusOf, virtuousGiftUrl } from "./report.js";
@@ -42,6 +43,8 @@ type Model = {
     contactName?: string;
     kind?: string;
     kindLabel?: string;
+    galaSite?: boolean;
+    emailMatch?: string | null;
     schedule?: string | null;
     lastGiftDay?: string | null;
     lastGiftSchedule?: string | null;
@@ -3014,6 +3017,184 @@ describe("gala ticket purchases", () => {
     assert.equal(owner.giftAmount, 20.91);
     assert.equal(owner.gifts, 1);
     assert.equal(model.possibleGifts?.length ?? 0, 0);
+  });
+
+  it("treats a gala-site flag as a gala gift", () => {
+    assert.equal(isGalaGift({ galaSite: true, amount: 875.7 }), true);
+    assert.equal(isPendingGalaSiteTicket({ galaSite: true, inVirtuous: false }), true);
+    assert.equal(isPendingGalaSiteTicket({ segment: "26-27 Chancellor's Gala" }), false);
+  });
+
+  it("keeps an unsynced gala-site ticket on Incoming even with a conversation", () => {
+    const { owner, model } = run(
+      [donationNote({
+        createdByUser: ELENA,
+        type: "Mission Advancement Call | Conversation",
+        noteDate: "9/15/2026",
+        contactId: 40026,
+        contactName: "Jay Hamilton",
+      })],
+      [postedGift({
+        id: "gala-stripe-pi_jay",
+        contactId: 40026,
+        contactName: "Jay Hamilton",
+        giftDate: "2026-09-17",
+        amount: 1275,
+        segment: "26-27 Chancellor's Gala",
+        galaSite: true,
+        inVirtuous: false,
+        emailMatch: "unique",
+      })],
+      ELENA,
+    );
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+    assert.equal(model.possibleGifts?.length, 1);
+    assert.equal(model.possibleGifts?.[0].galaSite, true);
+    assert.equal(model.possibleGifts?.[0].amount, 1275);
+    assert.equal(model.possibleGifts?.[0].kind, "gala");
+    assert.equal(model.possibleGifts?.[0].owners?.[0].name, ELENA);
+  });
+
+  it("puts a gala-site ticket with no notes on Incoming", () => {
+    const { model, owner } = run(
+      [],
+      [postedGift({
+        id: "gala-stripe-pi_open",
+        contactId: 37276,
+        contactName: "Jeffrey and Donna Langton",
+        giftDate: "2026-09-29",
+        amount: 2000,
+        segment: "26-27 Chancellor's Gala",
+        galaSite: true,
+        inVirtuous: false,
+        emailMatch: "unique",
+      })],
+    );
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(model.possibleGifts?.length, 1);
+    assert.equal(model.possibleGifts?.[0].contactName, "Jeffrey and Donna Langton");
+    assert.equal((model.possibleGifts?.[0].owners || []).length, 0);
+  });
+
+  it("lists an unmatched gala-site ticket without a contact id", () => {
+    const { model } = run(
+      [],
+      [postedGift({
+        id: "gala-stripe-pi_unmatched",
+        contactId: null,
+        contactName: "Greg Trum",
+        giftDate: "2026-09-28",
+        amount: 2000,
+        segment: "26-27 Chancellor's Gala",
+        galaSite: true,
+        inVirtuous: false,
+        emailMatch: "unmatched",
+      })],
+    );
+    assert.equal(model.possibleGifts?.length, 1);
+    assert.equal(model.possibleGifts?.[0].contactName, "Greg Trum");
+    assert.equal(model.possibleGifts?.[0].emailMatch, "unmatched");
+  });
+
+  it("credits an assigned gala-site ticket", () => {
+    const flags = {
+      "gift:gala-stripe-pi_assign": {
+        status: "assigned",
+        owner: ELENA,
+        contactId: "40026",
+        contactName: "Jay Hamilton",
+        day: "2026-09-17",
+        type: "Mission Advancement | New Donation or New AC",
+        noteId: "gift:gala-stripe-pi_assign",
+      },
+    };
+    const extra = assignedNotesFromFlags(flags);
+    const { owner, model } = run(
+      extra,
+      [postedGift({
+        id: "gala-stripe-pi_assign",
+        contactId: 40026,
+        contactName: "Jay Hamilton",
+        giftDate: "2026-09-17",
+        amount: 1275,
+        segment: "26-27 Chancellor's Gala",
+        galaSite: true,
+        inVirtuous: false,
+      })],
+      ELENA,
+      flags,
+    );
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 1275);
+    assert.equal(owner.points, 100);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
+  });
+
+  it("skips a Stripe ticket already posted in Virtuous", () => {
+    const merged = mergeGalaSiteTickets(
+      [{ id: 451459, contactId: 54618, giftDate: "2026-08-28", amount: 875.7, segment: "26-27 Chancellor's Gala" }],
+      [],
+      [{
+        paymentIntentId: "pi_posted",
+        day: "2026-08-28",
+        email: "joeguernsey@gmail.com",
+        amountCents: 87570,
+        inVirtuous: true,
+        giftId: 451459,
+        contactId: 54618,
+        contactName: "Joe and Hannah Guernsey",
+        emailMatch: "unique",
+      }],
+    );
+    assert.equal(merged.length, 1);
+    assert.equal(merged[0].id, 451459);
+  });
+
+  it("adds a synthetic gift for a unique email and skips an ambiguous one", () => {
+    const contacts = [
+      { id: 40026, contactName: "Jay Hamilton", email: "jayhamilton.law@outlook.com" },
+      { id: 1, contactName: "A McManus", email: "sydneymfl@icloud.com" },
+      { id: 2, contactName: "B McManus", email: "sydneymfl@icloud.com" },
+    ];
+    const unique = uniqueEmailContactIndex(contacts);
+    assert.equal(unique.get("jayhamilton.law@outlook.com")?.contactId, 40026);
+    assert.equal(unique.has("sydneymfl@icloud.com"), false);
+    const merged = mergeGalaSiteTickets(
+      [],
+      contacts,
+      [
+        {
+          paymentIntentId: "pi_jay",
+          day: "2026-09-17",
+          email: "jayhamilton.law@outlook.com",
+          amountCents: 127500,
+          inVirtuous: false,
+          giftId: null,
+          contactId: 40026,
+          contactName: "Jay Hamilton",
+          emailMatch: "unique",
+        },
+        {
+          paymentIntentId: "pi_syd",
+          day: "2026-09-28",
+          email: "sydneymfl@icloud.com",
+          amountCents: 411977,
+          inVirtuous: false,
+          giftId: null,
+          contactId: null,
+          contactName: "Sydney McManus",
+          emailMatch: "ambiguous",
+          stripeName: "Sydney McManus",
+        },
+      ],
+    );
+    assert.equal(merged.length, 2);
+    assert.equal(merged[0].id, galaSiteGiftId("pi_jay"));
+    assert.equal(merged[0].contactId, 40026);
+    assert.equal(merged[0].galaSite, true);
+    assert.equal(merged[1].contactId, null);
+    assert.equal(merged[1].emailMatch, "ambiguous");
   });
 });
 

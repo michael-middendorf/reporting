@@ -236,12 +236,12 @@ export function aggregate(rows, { start, end, flags } = {}) {
   const possibleGifts = [];
 
   for (const r of scored) {
-    const o = byOwner.get(r.owner);
-    if (!o) continue;
     if (r.bucket === "possible") {
       if (!r.removed) possibleGifts.push(r);
       continue;
     }
+    const o = byOwner.get(r.owner);
+    if (!o) continue;
     if (r.removed) continue;
     o.count += 1;
     o.buckets[r.bucket] = (o.buckets[r.bucket] || 0) + 1;
