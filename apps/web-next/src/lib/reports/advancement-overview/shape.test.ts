@@ -87,18 +87,9 @@ describe("advancement overview shape", () => {
     assert.equal(barFill(null), 0);
   });
 
-  it("accepts Virtuous and (during rollout) Qlik snapshots, rejects the old Virtuous shape", () => {
+  it("accepts only Virtuous snapshots, rejects Qlik and the old shape", () => {
     assert.equal(isOverviewReady(snapshot()), true);
-    // Cached Qlik snapshot as written before this change: no unassigned bucket.
-    const qlik = {
-      ...snapshot(),
-      source: "qlik",
-      qlikAppId: "a62f36c1-266e-4c71-95da-29ec2381a0d8",
-      received: { endowed: 27780.26, temporaryRestricted: 1046092.41, unrestricted: 501971.6, total: 1585526.9 },
-      conflictingFunds: undefined,
-    } as AdvancementOverviewSnapshot;
-    assert.equal(qlik.received.unassigned, undefined);
-    assert.equal(isOverviewReady(qlik), true);
+    assert.equal(isOverviewReady({ ...snapshot(), source: "qlik" }), false);
     assert.equal(isOverviewReady({ ...snapshot(), source: "other" }), false);
     assert.equal(isOverviewReady({ source: "virtuous" } as AdvancementOverviewSnapshot), false);
     assert.equal(isOverviewReady({ source: "qlik" } as AdvancementOverviewSnapshot), false);
