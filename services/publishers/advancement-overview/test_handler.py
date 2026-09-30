@@ -28,7 +28,11 @@ from handler import (
     count_realized_estate,
     fiscal_year_label,
     fiscal_year_window,
+    VirtuousClient,
     fund_id_from_code,
+    gift_ask_query,
+    planned_gift_query,
+    pledge_query,
     gift_mgo_last,
     gift_window_query,
     in_window,
@@ -367,6 +371,118 @@ class FakeClient:
         raise AssertionError(f"unexpected GET {path}")
 
 
+class QueryBodyTests(unittest.TestCase):
+    def test_pledge_query(self):
+        self.assertEqual(
+            pledge_query(dt.date(2026, 7, 1)),
+            {"groups": [{"conditions": [
+                {"parameter": "Pledge Date", "operator": "OnOrAfter", "value": "7/1/2026"},
+            ]}]},
+        )
+
+    def test_planned_gift_query(self):
+        self.assertEqual(
+            planned_gift_query(dt.date(2026, 7, 1)),
+            {"groups": [{"conditions": [
+                {"parameter": "Planned Gift Date", "operator": "OnOrAfter", "value": "7/1/2026"},
+            ]}]},
+        )
+
+    def test_gift_ask_query(self):
+        self.assertEqual(
+            gift_ask_query(dt.date(2026, 7, 1), dt.date(2027, 6, 30)),
+            {"groups": [{"conditions": [
+                {"parameter": "Expected Fulfillment Date", "operator": "OnOrAfter", "value": "7/1/2026"},
+                {"parameter": "Expected Fulfillment Date", "operator": "OnOrBefore", "value": "6/30/2027"},
+            ]}]},
+        )
+
+    def test_full_gift_query_two_windows(self):
+        w = ytd_windows(dt.date(2026, 9, 29))
+        body = gift_window_query([w["prior"], w["current"]])
+        self.assertEqual(
+            [[c["value"] for c in g["conditions"]] for g in body["groups"]],
+            [["2025-07-01", "2025-09-29"], ["2026-07-01", "2026-09-29"]],
+        )
+
+
+class _Resp:
+    def __init__(self, payload, status=200):
+        self._body = json.dumps(payload).encode("utf-8")
+        self.status = status
+
+    def read(self):
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+class ClientTests(unittest.TestCase):
+    def _client(self, pages, **kw):
+        client = VirtuousClient("secret-key", "https://example.invalid", **kw)
+        seen = []
+
+        def fake_urlopen(req, timeout):
+            seen.append((req.full_url, timeout))
+            item = pages[len(seen) - 1]
+            if isinstance(item, Exception):
+                raise item
+            return _Resp(item)
+
+        return client, seen, fake_urlopen
+
+    def test_default_timeout_is_60s(self):
+        self.assertEqual(VirtuousClient("k", "https://x").timeout, 60)
+
+    def test_stops_on_short_page(self):
+        client, seen, fake = self._client([{"list": [{"id": 1}, {"id": 2}], "total": 99}])
+        err = io.StringIO()
+        with mock.patch("urllib.request.urlopen", fake), redirect_stderr(err):
+            rows = client.paged_query("/api/x", {"groups": [1]}, page_size=5)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(len(seen), 1)
+        self.assertEqual(seen[0][1], 60)
+        line = err.getvalue()
+        self.assertIn("POST /api/x skip=0 status=200", line)
+        self.assertIn("rows=2", line)
+        self.assertIn("elapsed=", line)
+        self.assertNotIn("secret-key", line)
+        self.assertEqual(client.requests, 1)
+
+    def test_stops_when_total_missing(self):
+        client, seen, fake = self._client([{"list": [{"id": 1}, {"id": 2}]}])
+        with mock.patch("urllib.request.urlopen", fake), redirect_stderr(io.StringIO()):
+            rows = client.paged_get("/api/g", page_size=2)
+        self.assertEqual((len(rows), len(seen)), (2, 1))
+
+    def test_pages_until_total(self):
+        pages = [{"list": [{"id": 1}, {"id": 2}], "total": 4}, {"list": [{"id": 3}, {"id": 4}], "total": 4}]
+        client, seen, fake = self._client(pages)
+        with mock.patch("urllib.request.urlopen", fake), redirect_stderr(io.StringIO()):
+            rows = client.paged_query("/api/x", {"groups": [1]}, page_size=2)
+        self.assertEqual(len(rows), 4)
+        self.assertIn("skip=2", seen[1][0])
+
+    def test_page_cap_raises(self):
+        pages = [{"list": [{"id": i}], "total": 10_000} for i in range(10)]
+        client, _seen, fake = self._client(pages, max_pages=3)
+        with mock.patch("urllib.request.urlopen", fake), redirect_stderr(io.StringIO()):
+            with self.assertRaises(RuntimeError):
+                client.paged_query("/api/x", {"groups": [1]}, page_size=1)
+
+    def test_timeout_retries_once_then_raises(self):
+        pages = [TimeoutError("slow"), TimeoutError("slow"), {"list": [], "total": 0}]
+        client, seen, fake = self._client(pages)
+        with mock.patch("urllib.request.urlopen", fake), mock.patch("time.sleep"), redirect_stderr(io.StringIO()):
+            with self.assertRaises(RuntimeError):
+                client.paged_query("/api/x", {"groups": [1]}, page_size=5)
+        self.assertEqual(len(seen), 2)
+
+
 class FetchTests(unittest.TestCase):
     def test_build_snapshot_calls_expected_endpoints(self):
         client = FakeClient()
@@ -386,6 +502,12 @@ class FetchTests(unittest.TestCase):
         )
         gift_body = client.calls[0][2]
         self.assertEqual(len(gift_body["groups"]), 2)
+        self.assertEqual(client.calls[3][2], pledge_query(dt.date(2026, 7, 1)))
+        self.assertEqual(client.calls[4][2], planned_gift_query(dt.date(2026, 7, 1)))
+        self.assertEqual(client.calls[5][2], gift_ask_query(dt.date(2026, 7, 1), dt.date(2027, 6, 30)))
+        for _m, _p, body in client.calls:
+            if body is not None:
+                self.assertTrue(body["groups"], "every POST query must carry a server-side filter")
         self.assertEqual(snap["officers"][1], {"name": "Thomas", "amount": 100.0})
 
     def test_dry_run_prints_json_and_skips_s3(self):

@@ -41,6 +41,9 @@ GROUP_PATH = "/api/OrganizationGroup"
 CACHE_KEY = os.environ.get("ADVANCEMENT_OVERVIEW_CACHE_KEY") or "advancement-overview/latest.json"
 RETRYABLE = {429, 500, 502, 503, 504}
 FULL_GIFT_PAGE = 500
+SMALL_PAGE = 200
+REQUEST_TIMEOUT_S = 60
+MAX_PAGES = 200
 
 PLEDGE_GOAL = 30
 ESTATE_GOAL = 25
@@ -87,36 +90,51 @@ def log(message: str) -> None:
 
 
 class VirtuousClient:
-    def __init__(self, api_key: str, base_url: str, timeout: int = 180):
+    """Minimal Virtuous client with a hard per-request timeout, per-call stderr
+    logging, and guarded paging (never an unbounded loop)."""
+
+    def __init__(
+        self,
+        api_key: str,
+        base_url: str,
+        timeout: int = REQUEST_TIMEOUT_S,
+        max_pages: int = MAX_PAGES,
+    ):
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self.max_pages = max_pages
         self.requests = 0
 
     def paged_query(self, path: str, body: dict[str, Any], page_size: int = 1000) -> list[dict]:
-        rows: list[dict] = []
-        skip = 0
-        while True:
-            payload = self._request("POST", path, body, {"skip": skip, "take": page_size})
-            batch = payload.get("list") or []
-            total = int(payload.get("total") or 0)
-            rows.extend(batch)
-            skip += page_size
-            if not batch or skip >= total:
-                break
-        return rows
+        return self._paged("POST", path, body, page_size)
 
     def paged_get(self, path: str, page_size: int = 1000) -> list[dict]:
+        return self._paged("GET", path, None, page_size)
+
+    def _paged(
+        self,
+        method: str,
+        path: str,
+        body: dict[str, Any] | None,
+        page_size: int,
+    ) -> list[dict]:
         rows: list[dict] = []
         skip = 0
-        while True:
-            payload = self._request("GET", path, None, {"skip": skip, "take": page_size})
+        for _page in range(self.max_pages):
+            payload = self._request(method, path, body, {"skip": skip, "take": page_size})
             batch = payload.get("list") or []
-            total = int(payload.get("total") or 0)
             rows.extend(batch)
             skip += page_size
-            if not batch or skip >= total:
+            raw_total = payload.get("total")
+            if raw_total is None or raw_total == "":
                 break
+            if len(batch) < page_size or skip >= int(raw_total):
+                break
+        else:
+            raise RuntimeError(
+                f"Virtuous {method} {path} exceeded {self.max_pages} pages of {page_size}"
+            )
         return rows
 
     def _request(
@@ -128,6 +146,8 @@ class VirtuousClient:
     ) -> dict[str, Any]:
         url = f"{self.base_url}{path}?{urllib.parse.urlencode(params)}"
         data = json.dumps(body).encode("utf-8") if body is not None else None
+        skip = params.get("skip")
+        timeouts = 0
         for attempt in range(6):
             req = urllib.request.Request(
                 url,
@@ -140,21 +160,43 @@ class VirtuousClient:
                 method=method,
             )
             self.requests += 1
+            started = time.monotonic()
             try:
                 with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                    return json.loads(resp.read().decode("utf-8"))
+                    payload = json.loads(resp.read().decode("utf-8"))
+                    rows = len(payload.get("list") or []) if isinstance(payload, dict) else 0
+                    log(
+                        f"  virtuous {method} {path} skip={skip} status={resp.status} "
+                        f"elapsed={time.monotonic() - started:.1f}s rows={rows} "
+                        f"total={payload.get('total') if isinstance(payload, dict) else None} "
+                        f"requests={self.requests}"
+                    )
+                    return payload
             except urllib.error.HTTPError as exc:
+                log(
+                    f"  virtuous {method} {path} skip={skip} status={exc.code} "
+                    f"elapsed={time.monotonic() - started:.1f}s rows=0 requests={self.requests}"
+                )
                 if exc.code in RETRYABLE and attempt < 5:
                     time.sleep(min(30, 2 * (attempt + 1)))
                     continue
                 detail = exc.read().decode("utf-8", errors="replace")[:500]
-                raise RuntimeError(f"Virtuous {path} -> {exc.code}: {detail}") from exc
+                raise RuntimeError(f"Virtuous {method} {path} -> {exc.code}: {detail}") from exc
             except (TimeoutError, urllib.error.URLError) as exc:
-                if attempt < 5:
-                    time.sleep(min(30, 2 * (attempt + 1)))
+                timeouts += 1
+                log(
+                    f"  virtuous {method} {path} skip={skip} status=timeout/{type(exc).__name__} "
+                    f"elapsed={time.monotonic() - started:.1f}s rows=0 requests={self.requests}"
+                )
+                # One retry only: a query that times out twice at 60s is too
+                # heavy for the Lambda and should fail loudly.
+                if timeouts < 2:
+                    time.sleep(2)
                     continue
-                raise RuntimeError(f"Virtuous {path} timed out after retries: {exc}") from exc
-        raise RuntimeError(f"Virtuous {path} failed after retries")
+                raise RuntimeError(
+                    f"Virtuous {method} {path} skip={skip} timed out twice ({self.timeout}s): {exc}"
+                ) from exc
+        raise RuntimeError(f"Virtuous {method} {path} failed after retries")
 
 
 # --------------------------------------------------------------------------
@@ -739,6 +781,51 @@ def gift_window_query(windows: list[tuple[dt.date, dt.date]]) -> dict[str, Any]:
     }
 
 
+def virt_date(day: dt.date) -> str:
+    """Virtuous UI date format (M/D/YYYY), as the earlier Virtuous publisher sent."""
+    return f"{day.month}/{day.day}/{day.year}"
+
+
+def pledge_query(fy_start: dt.date) -> dict[str, Any]:
+    """v2 Pledge: same groups/conditions body as v1. "Pledge Date" OnOrAfter
+    with an M/D/YYYY value is the shape the 493f7d1 publisher sent to
+    /api/v2/Pledge/Query in production. Frequency is filtered locally."""
+    return {
+        "groups": [
+            {"conditions": [
+                {"parameter": "Pledge Date", "operator": "OnOrAfter", "value": virt_date(fy_start)},
+            ]}
+        ]
+    }
+
+
+def planned_gift_query(fy_start: dt.date) -> dict[str, Any]:
+    """PlannedGift: "Planned Gift Date" OnOrAfter FY start. Parameter name is
+    not confirmed live (Virtuous docs do not list query parameters; see GET
+    /api/PlannedGift/QueryOptions). A 400 fails the run loudly on purpose."""
+    return {
+        "groups": [
+            {"conditions": [
+                {"parameter": "Planned Gift Date", "operator": "OnOrAfter", "value": virt_date(fy_start)},
+            ]}
+        ]
+    }
+
+
+def gift_ask_query(fy_start: dt.date, fy_end: dt.date) -> dict[str, Any]:
+    """GiftAsk: expected fulfillment date inside the full FY. Parameter name is
+    not confirmed live (see GET /api/GiftAsk/QueryOptions). pipeline_rows
+    re-checks status and date locally."""
+    return {
+        "groups": [
+            {"conditions": [
+                {"parameter": "Expected Fulfillment Date", "operator": "OnOrAfter", "value": virt_date(fy_start)},
+                {"parameter": "Expected Fulfillment Date", "operator": "OnOrBefore", "value": virt_date(fy_end)},
+            ]}
+        ]
+    }
+
+
 def fetch_inputs(client: VirtuousClient, today: dt.date) -> dict[str, Any]:
     win = ytd_windows(today)
     log(
@@ -764,11 +851,13 @@ def fetch_inputs(client: VirtuousClient, today: dt.date) -> dict[str, Any]:
         members.extend(rows)
     log(f"  MGO portfolios: {len(groups)}, members: {len(members)}")
 
-    pledges = client.paged_query(PLEDGE_PATH_V2, {"groups": []}, 1000)
+    fy_start: dt.date = win["fyStart"]
+    fy_end: dt.date = win["fyEnd"]
+    pledges = client.paged_query(PLEDGE_PATH_V2, pledge_query(fy_start), SMALL_PAGE)
     log(f"  pledges: {len(pledges)}")
-    planned = client.paged_query(PLANNED_PATH, {"groups": []}, 1000)
+    planned = client.paged_query(PLANNED_PATH, planned_gift_query(fy_start), SMALL_PAGE)
     log(f"  planned gifts: {len(planned)}")
-    asks = client.paged_query(ASK_PATH, {"groups": []}, 1000)
+    asks = client.paged_query(ASK_PATH, gift_ask_query(fy_start, fy_end), SMALL_PAGE)
     log(f"  gift asks: {len(asks)}")
     return {"gifts": gifts, "members": members, "pledges": pledges, "planned": planned, "asks": asks}
 
