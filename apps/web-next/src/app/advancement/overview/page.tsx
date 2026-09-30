@@ -157,7 +157,7 @@ function AdvancementOverviewPage() {
         <div>
           <h1>Advancement Overview</h1>
           <p className="ac-sub">
-            {data?.fiscalYearLabel ?? "FY"} results from Virtuous
+            {data?.fiscalYearLabel ?? "FY"} results from {data?.source === "qlik" ? "Qlik" : "Virtuous"}
             {data?.generated_at ? ` · updated ${formatEastern(data.generated_at)}` : ""}
           </p>
         </div>

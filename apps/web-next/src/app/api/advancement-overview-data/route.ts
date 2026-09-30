@@ -52,6 +52,8 @@ async function invokeBuild(): Promise<AdvancementOverviewSnapshot | null> {
   return data;
 }
 
+// Accepts "virtuous" and, until the first Virtuous publish, the cached "qlik"
+// snapshot (see isOverviewReady).
 function cacheIsCurrent(cached: AdvancementOverviewSnapshot | null): boolean {
   return isOverviewReady(cached);
 }
