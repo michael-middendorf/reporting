@@ -8,7 +8,7 @@ export default function AdvancementLayout({
   children: React.ReactNode;
 }) {
   return (
-    <AccessGate report={["advancement", "chapel", "points", "portfolios"]}>
+    <AccessGate report={["advancement", "chapel", "points", "portfolios", "mgo-analysis"]}>
       <ReportTopBar title="Advancement" nav={[]} />
       {children}
     </AccessGate>

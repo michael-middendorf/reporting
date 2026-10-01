@@ -37,6 +37,12 @@ const REPORTS: {
     report: "advancement",
   },
   {
+    href: "/advancement/mgo-analysis",
+    title: "MGO Analysis",
+    desc: "MGO team and per-officer fundraising, pipeline, activity, and FY27 plans by donor.",
+    report: "mgo-analysis",
+  },
+  {
     href: "/advancement/portfolios",
     title: "Portfolios",
     desc: "MGO and MA books by pipeline stage, last gift, and last activity.",
