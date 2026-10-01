@@ -136,13 +136,15 @@ describe("athletics coaching enrollment sport filter", () => {
     assert.equal(normalizeRosterRow({ Sport: "Golf", Gender: "Female" }).sportKey, "womens-golf");
     assert.equal(
       normalizeRosterRow({ Sport: "Cross Country/Track", Gender: "M" }).sportKey,
-      "mens-cross-country",
+      "xc-track",
     );
     assert.equal(
       normalizeRosterRow({ Sport: "Cross Country/Track", Gender: "F" }).sportKey,
-      "womens-cross-country",
+      "xc-track",
     );
-    assert.equal(normalizeRosterRow({ Sport: "Cross Country/Track" }).sportKey, null);
+    assert.equal(normalizeRosterRow({ Sport: "Cross Country/Track" }).sportKey, "xc-track");
+    assert.equal(normalizeRosterRow({ Sport: "Track and Field" }).sportKey, "xc-track");
+    assert.equal(normalizeRosterRow({ CurrentSport: "XC", Sport: "Basketball", Gender: "M" }).sportKey, "xc-track");
     assert.equal(
       normalizeRosterRow({ CurrentSport: "Football", Sport: "Basketball", Gender: "M" }).sportKey,
       "football",
@@ -245,6 +247,10 @@ describe("athletics coaching enrollment access deny", () => {
 
       const leadership = enrollmentAccess(ERIC, "womens-volleyball");
       assert.equal(leadership.ok, true);
+
+      const xcLegacy = enrollmentAccess(ERIC, "track-and-field");
+      assert.equal(xcLegacy.ok, true);
+      if (xcLegacy.ok) assert.equal(xcLegacy.sport, "xc-track");
     } finally {
       if (prevCoaches === undefined) delete process.env.ATHLETICS_COACHING_COACHES;
       else process.env.ATHLETICS_COACHING_COACHES = prevCoaches;

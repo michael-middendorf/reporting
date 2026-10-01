@@ -444,14 +444,30 @@ def mapped_row(
     }
 
 
-def parse_sports_catalog(text: str) -> list[dict[str, str | None]]:
-    """Read key + virtuousProjectCode from sports.ts. Codes only; no edits."""
+_CODES_BLOCK = re.compile(r"virtuousProjectCodes:\s*\[([^\]]*)\]")
+
+
+def _codes_from_block(block: str, primary: str | None) -> list[str]:
+    found = _CODES_BLOCK.search(block)
+    codes: list[str] = []
+    if found:
+        for part in found.group(1).split(","):
+            code = part.strip().strip('"').strip()
+            if code and code not in FORBIDDEN_CODES:
+                codes.append(code)
+    elif primary and primary not in FORBIDDEN_CODES:
+        codes.append(primary)
+    return codes
+
+
+def parse_sports_catalog(text: str) -> list[dict[str, Any]]:
+    """Read key + Virtuous project codes from sports.ts. Codes only; no edits."""
     start = text.find("export const SPORTS")
     end = text.find("export const sportByKey")
     if start < 0 or end < 0 or end <= start:
         raise RuntimeError("sports.ts catalog markers not found")
     chunk = text[start:end]
-    sports: list[dict[str, str | None]] = []
+    sports: list[dict[str, Any]] = []
     seen: set[str] = set()
     for match in _SPORT_BLOCK.finditer(chunk):
         key = match.group(1)
@@ -462,7 +478,8 @@ def parse_sports_catalog(text: str) -> list[dict[str, str | None]]:
         seen.add(key)
         if code in FORBIDDEN_CODES:
             code = None
-        sports.append({"key": key, "projectCode": code})
+        codes = _codes_from_block(match.group(0), code)
+        sports.append({"key": key, "projectCode": code, "projectCodes": codes})
     if not sports:
         raise RuntimeError("sports.ts catalog parsed zero sports")
     return sports
@@ -484,7 +501,7 @@ def sports_catalog_candidates() -> list[Path]:
     return candidates
 
 
-def load_sports_catalog() -> list[dict[str, str | None]]:
+def load_sports_catalog() -> list[dict[str, Any]]:
     tried: list[str] = []
     for path in sports_catalog_candidates():
         tried.append(str(path))
@@ -522,18 +539,72 @@ def _assert_allowed_code(code: str) -> None:
         raise RuntimeError(f"refusing forbidden project code {code}")
 
 
+def sport_project_codes(sport: dict[str, Any]) -> list[str]:
+    extra = sport.get("projectCodes")
+    if isinstance(extra, list) and extra:
+        return [code for code in extra if isinstance(code, str) and code and code not in FORBIDDEN_CODES]
+    code = sport.get("projectCode")
+    if isinstance(code, str) and code and code not in FORBIDDEN_CODES:
+        return [code]
+    return []
+
+
+def _merge_mapped_rows(key: str, codes: list[str], rows: list[dict[str, Any]], as_of: str) -> dict[str, Any]:
+    ok = [row for row in rows if row.get("reason") is None and row.get("mapped")]
+    if not ok:
+        if any(row.get("reason") == "unavailable" for row in rows):
+            return unavailable_row(key, ",".join(codes))
+        return unmapped_row(key, None)
+    gifts: list[dict[str, Any]] = []
+    for row in ok:
+        gifts.extend(row.get("gifts") or [])
+    gifts.sort(key=lambda gift: str(gift.get("giftDate") or ""), reverse=True)
+    fytd_amounts = [row["fytdAmount"] for row in ok if row.get("fytdAmount") is not None]
+    all_time_amounts = [row["allTimeAmount"] for row in ok if row.get("allTimeAmount") is not None]
+    fytd_counts = [row["fytdGiftCount"] for row in ok if row.get("fytdGiftCount") is not None]
+    all_time_counts = [row["allTimeGiftCount"] for row in ok if row.get("allTimeGiftCount") is not None]
+    return mapped_row(
+        key,
+        ",".join(codes),
+        fytd_amount=sum(fytd_amounts),
+        fytd_gift_count=sum(fytd_counts),
+        all_time_amount=sum(all_time_amounts) if all_time_amounts else None,
+        all_time_gift_count=sum(all_time_counts) if all_time_counts else None,
+        as_of=as_of,
+        gifts=gifts,
+    )
+
+
 def collect_sport(
     client: VirtuousClient,
-    sport: dict[str, str | None],
+    sport: dict[str, Any],
     fy_start: dt.date,
     fy_end: dt.date,
     as_of: str,
     anonymous_ids: frozenset[str] | None,
 ) -> dict[str, Any]:
     key = str(sport["key"])
-    code = sport.get("projectCode")
-    if not code:
+    codes = sport_project_codes(sport)
+    if not codes:
         return unmapped_row(key, None)
+    if len(codes) == 1:
+        return collect_one_code(client, key, codes[0], fy_start, fy_end, as_of, anonymous_ids)
+    parts = [
+        collect_one_code(client, key, code, fy_start, fy_end, as_of, anonymous_ids)
+        for code in codes
+    ]
+    return _merge_mapped_rows(key, codes, parts, as_of)
+
+
+def collect_one_code(
+    client: VirtuousClient,
+    key: str,
+    code: str,
+    fy_start: dt.date,
+    fy_end: dt.date,
+    as_of: str,
+    anonymous_ids: frozenset[str] | None,
+) -> dict[str, Any]:
     _assert_allowed_code(code)
     try:
         project = client.get(f"{PROJECT_BY_CODE_PATH}/{urllib.parse.quote(code, safe='')}")
@@ -602,7 +673,7 @@ def collect_sport(
 
 
 def build_snapshot(
-    sports: list[dict[str, str | None]],
+    sports: list[dict[str, Any]],
     rows: dict[str, dict[str, Any]],
     *,
     today: dt.date,
@@ -629,7 +700,7 @@ def build_snapshot(
 
 def collect_snapshot(
     client: VirtuousClient,
-    sports: list[dict[str, str | None]],
+    sports: list[dict[str, Any]],
     *,
     today: dt.date,
     generated_at: str,

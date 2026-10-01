@@ -59,6 +59,9 @@ describe("athletics master overview", () => {
     assert.equal(coachingSportKeyForRecord({ sport: "Basketball", gender: "F" }), "womens-basketball");
     assert.equal(coachingSportKeyForRecord({ sport: "Football", gender: "M" }), "football");
     assert.equal(coachingSportKeyForRecord({ sport: "Ultimate Frisbee", gender: "M" }), "ultimate-frisbee");
+    assert.equal(coachingSportKeyForRecord({ sport: "Cross Country/Track", gender: "F" }), "xc-track");
+    assert.equal(coachingSportKeyForRecord({ sport: "Track and Field", gender: "M" }), "xc-track");
+    assert.equal(coachingSportKeyForRecord({ sport: "Cross Country", gender: "" }), "xc-track");
   });
 
   it("summarizes recruiting stats for one sport", () => {
@@ -102,5 +105,8 @@ describe("athletics master overview", () => {
     assert.equal(canSeeOverviewSport("joseph.patterson@avemaria.edu", "mens-soccer"), false);
     assert.equal(canSeeOverviewSport("jamon.copeland@avemaria.edu", "mens-basketball"), true);
     assert.equal(canSeeOverviewSport("jamon.copeland@avemaria.edu", "womens-basketball"), false);
+    assert.equal(canSeeOverviewSport("alan.webb@avemaria.edu", "xc-track"), true);
+    assert.equal(canSeeOverviewSport("alan.webb@avemaria.edu", "football"), false);
+    assert.equal(visibleOverviewSports("alan.webb@avemaria.edu").map((sport) => sport.key).includes("track-and-field"), false);
   });
 });

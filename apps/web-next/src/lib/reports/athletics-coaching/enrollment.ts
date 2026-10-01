@@ -2,7 +2,7 @@ import { canAccessReport } from "../../access";
 import { eligibleIncomingSigned } from "../athletics/normalize";
 import type { AthleticsRecord, SlateRow } from "../athletics/types";
 import { canAccessSport } from "./access";
-import { isSportKey, resolveGenderedSportKey, sportByKey } from "./sports";
+import { canonicalSportKey, resolveGenderedSportKey, sportByKey } from "./sports";
 
 export const ROSTER_UNAVAILABLE_REASON = "awaiting_roster_secret" as const;
 
@@ -147,8 +147,8 @@ export function enrollmentAccess(email: string | null, sportParam: string | null
   if (!canAccessReport(email, "athletics-coaching")) {
     return { ok: false, status: 403, error: "Forbidden" };
   }
-  const sport = (sportParam || "").trim();
-  if (!sport || !isSportKey(sport)) {
+  const sport = canonicalSportKey((sportParam || "").trim());
+  if (!sport) {
     return { ok: false, status: 400, error: "Unknown sport" };
   }
   if (!canAccessSport(email, sport)) {

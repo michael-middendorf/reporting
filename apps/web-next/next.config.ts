@@ -17,10 +17,32 @@ const nextConfig: NextConfig = {
       { source: "/athletics/applications", destination: "/athletics/master/recruiting/applications", permanent: true },
       { source: "/athletics/prospects", destination: "/athletics/master/recruiting/prospects", permanent: true },
       { source: "/athletics/rosters", destination: "/athletics/master/recruiting", permanent: true },
-      { source: "/athletics/coaching/cross-country", destination: "/athletics/coaching", permanent: false },
+      { source: "/athletics/coaching/cross-country", destination: "/athletics/coaching/xc-track", permanent: false },
       {
         source: "/athletics/coaching/cross-country/:path*",
-        destination: "/athletics/coaching",
+        destination: "/athletics/coaching/xc-track/:path*",
+        permanent: false,
+      },
+      { source: "/athletics/coaching/mens-cross-country", destination: "/athletics/coaching/xc-track", permanent: false },
+      {
+        source: "/athletics/coaching/mens-cross-country/:path*",
+        destination: "/athletics/coaching/xc-track/:path*",
+        permanent: false,
+      },
+      {
+        source: "/athletics/coaching/womens-cross-country",
+        destination: "/athletics/coaching/xc-track",
+        permanent: false,
+      },
+      {
+        source: "/athletics/coaching/womens-cross-country/:path*",
+        destination: "/athletics/coaching/xc-track/:path*",
+        permanent: false,
+      },
+      { source: "/athletics/coaching/track-and-field", destination: "/athletics/coaching/xc-track", permanent: false },
+      {
+        source: "/athletics/coaching/track-and-field/:path*",
+        destination: "/athletics/coaching/xc-track/:path*",
         permanent: false,
       },
       {
