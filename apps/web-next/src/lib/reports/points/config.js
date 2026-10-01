@@ -403,7 +403,7 @@ export const TRACKING_CHART = {
     {
       label: "Incoming gifts",
       detail:
-        "A new monthly gift with a qualifying contact within 90 days. No points until Assign or Remove. A one-time gift with a contact within 90 days is Raised instead. A gala ticket posted in Virtuous with a conversation, two-way email, or meeting within 90 days is Raised for the MA who spoke with the donor. A gala-site Stripe ticket that is not yet in Virtuous waits on Incoming so it can be reviewed. Assign is only the MA who had a conversation, two-way email, or meeting on that contact on or before the purchase, within 90 days. Comp tickets stay off the list.",
+        "A new monthly gift with a qualifying contact within 90 days. No points until Assign or Remove. A one-time gift with a contact within 90 days is Raised instead. A gala ticket posted in Virtuous with a conversation, two-way email, or meeting within 90 days is Raised for the MA who spoke with the donor. A gala-site Stripe ticket waits on Incoming only when an MA contacted that person on or before the purchase, within 90 days. Tickets sold to people the MAs did not contact are not listed. Comp tickets stay off the list.",
     },
     {
       label: "Event hours · 25 pts/hour",
@@ -466,7 +466,7 @@ export const DEFINITIONS = [
       "They stay at 0 points until Assign or Remove. Assign scores 100 points and counts the gift in Raised. " +
       "It does not write a note to Virtuous. Gift Assist is 100 points and $0. " +
       "A one-time gift with a contact inside 90 days is Raised and is not listed here. A contact older than 90 days is not listed. " +
-      "Gala-site ticket purchases are not in Virtuous yet, so they are listed here. Assign chips are only the MA who spoke with that contact on or before the purchase, within 90 days. " +
+      "A gala-site ticket purchase that is not in Virtuous yet is listed here only when an MA had a conversation, two-way email, or meeting on that contact on or before the purchase, within 90 days. Assign is that MA. Tickets sold to people the MAs did not contact are not listed. " +
       "If it was not because of you, leave it.",
   },
   {
@@ -526,7 +526,7 @@ export const DEFINITIONS = [
     term: "Dollars received",
     text:
       "A posted Virtuous gift counts in Raised only with 100 points: a qualifying contact on or before the gift within 90 days, a donation note on that contact within 90 days before or after the gift, an Incoming assignment, or an MGO-coded gift on that MA’s portfolio. " +
-      "A gala ticket posted in Virtuous counts the same way when an MA has a conversation, two-way email, or meeting on that contact within 90 days of the gift. A gala-site Stripe ticket that is not yet in Virtuous shows on Incoming and stays out of Raised until Assign or the gift posts in Virtuous. Assign on Incoming is only that MA. A gala invitation does not claim a different gift. " +
+      "A gala ticket posted in Virtuous counts the same way when an MA has a conversation, two-way email, or meeting on that contact within 90 days of the gift. A gala-site Stripe ticket that is not yet in Virtuous shows on Incoming only when an MA contacted that person on or before the purchase, within 90 days, and stays out of Raised until Assign or the gift posts in Virtuous. Tickets with no MA contact are omitted. A gala invitation does not claim a different gift. " +
       "A voicemail, email, letter, visit, or general note on or before the gift within 90 days claims the gift. A note after the gift does not. A row on the MA gift tracker does not assign the gift by itself. Gift Assist notes do not count dollars. " +
       "Dollars go to the MA who logged the note, not GFT_Solicitor. " +
       "A gift coded Direct Solicitation (MGO) or Direct Solicitation (MGO)-HIST_DS, or a gift whose GFT_Solicitor is not on the MA roster, counts for the MA whose portfolio includes that donor. It is not listed for review. If the donor is not on an MA portfolio, that gift is not counted. " +
