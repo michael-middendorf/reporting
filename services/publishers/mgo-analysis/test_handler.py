@@ -50,6 +50,11 @@ class NoteTypeTests(unittest.TestCase):
             "Proposal / Gift Ask Documentation": "proposal",
             "Proposal Documentation": "proposal",
             "General": None,
+            "Zoom Meeting": None,
+            "Virtual Visit": None,
+            "Meeting": "face_to_face",
+            "Planned Giving FY27": None,
+            "FY27 Activity Plan": "plan",
             "Obituary": None,
             "": None,
         }
@@ -166,6 +171,9 @@ def _fixture():
     creator_notes = [
         {"id": 301, "contactId": 103, "noteDate": "2024-05-01", "type": "General", "createdByUser": "Patrick OConnell"},
         {"id": 302, "contactId": 103, "noteDate": "2023-01-01", "type": "Letter", "createdByUser": "Jim Thomas"},
+        # Plan written in spring, before the FY started: still fills planFy27.
+        {"id": 303, "contactId": 102, "noteDate": "2026-05-01", "type": "MGO Plan for FY27", "createdByUser": "Patrick OConnell",
+         "note": "spring plan"},
     ]
     return contacts_by_group, asks, gifts, fy_notes, creator_notes
 
@@ -266,6 +274,10 @@ class SnapshotTests(unittest.TestCase):
         b = donors[("Patrick J. O'Connell", 102)]
         self.assertEqual(b["openAskAmount"], 1000.0)
         self.assertEqual(b["lastMgoActivityDate"], "2026-09-28")
+        self.assertEqual(b["planFy27"], "spring plan")
+        self.assertEqual(b["planDate"], "2026-05-01")
+        # Pre-FY plan notes do not become FY note rows (KPIs stay FY-only).
+        self.assertNotIn(303, [r["noteId"] for r in self.snap["notes"]])
 
 
 class DiscoveryTests(unittest.TestCase):

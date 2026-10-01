@@ -36,6 +36,11 @@ const COLUMNS: { key: DonorSortKey; label: string; num?: boolean; firstDir: Sort
 
 const PERIODS: Period[] = ["week", "month", "quarter"];
 
+/** Footer type list; a kind with no notes yet says so instead of rendering empty. */
+function typeList(types: string[] | undefined): string {
+  return types && types.length ? types.join(", ") : "(none recorded yet)";
+}
+
 function count(n: number, one: string, many = `${one}s`): string {
   return `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 }
@@ -325,18 +330,18 @@ export default function MgoAnalysisPage() {
               <ul>
                 <li>
                   <strong>Activity Notes</strong>: Virtuous notes by the MGO on a donor in their portfolio, of type{" "}
-                  {defs.outreachTypes.join(", ")}.
+                  {typeList(defs.outreachTypes)}.
                 </li>
                 <li>
-                  <strong>Face to Face</strong>: notes of type {defs.faceToFaceTypes.join(", ")}.
+                  <strong>Face to Face</strong>: notes of type {typeList(defs.faceToFaceTypes)}.
                 </li>
                 <li>
                   <strong>Proposal Documentation</strong> and <strong>Formal Proposal</strong>: notes of type{" "}
-                  {defs.proposalTypes.join(", ")} this fiscal year.
+                  {typeList(defs.proposalTypes)} this fiscal year.
                 </li>
                 <li>
-                  <strong>Plan for FY27</strong>: the latest note of type {defs.planTypes.join(", ")} this fiscal
-                  year.
+                  <strong>Plan for FY27</strong>: the latest note of type {typeList(defs.planTypes)}. The type name sets the
+                  year, so plan notes written before July 1 still count.
                 </li>
                 <li>
                   <strong>Top FY27 Prospect</strong>: contact tag {defs.topProspectTag}.

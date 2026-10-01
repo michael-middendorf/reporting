@@ -323,9 +323,8 @@ export default $config({
       permissions: reportDataPerms,
     });
 
-    // DST-2830 MGO Analysis and Management. Fixed function name so the ECS
-    // stack (infra/lib/reporting-ecs-stack.ts MGO_ANALYSIS_FN_NAME) can
-    // reference it before this stack deploys; CI deploys ECS first.
+    // DST-2830 MGO Analysis and Management. Fixed function name so operators can
+    // invoke it by name (e.g. {"mode":"discover"}); the web route is cache-only.
     const mgoAnalysis = new sst.aws.Function("MgoAnalysisData", {
       name: `${$app.name}-${$app.stage}-MgoAnalysisData`,
       handler: "services/publishers/mgo-analysis/handler.handler",
@@ -596,7 +595,9 @@ export default $config({
     });
 
     new sst.aws.Cron("MgoAnalysisRefresh", {
-      schedule: "rate(15 minutes)",
+      // 30 minutes: full FY notes plus all-time notes per MGO author; keeps
+      // headroom on the shared Virtuous rate limit.
+      schedule: "rate(30 minutes)",
       function: mgoAnalysis,
     });
 

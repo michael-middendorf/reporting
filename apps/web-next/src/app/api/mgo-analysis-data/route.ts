@@ -1,11 +1,9 @@
-import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
 import { requireReportAccess } from "@/lib/s3-proxy";
 import type { MgoAnalysisSnapshot } from "@/lib/reports/mgo-analysis/shape";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
 
 const region = process.env.AWS_REGION || "us-east-2";
 const CACHE_KEY =
@@ -26,29 +24,11 @@ async function readCache(): Promise<MgoAnalysisSnapshot | null> {
   }
 }
 
-async function invokeBuild(): Promise<MgoAnalysisSnapshot | null> {
-  const fn = (process.env.MGO_ANALYSIS_FN_NAME || "").trim();
-  if (!fn) return null;
-  const out = await new LambdaClient({ region }).send(
-    new InvokeCommand({
-      FunctionName: fn,
-      InvocationType: "RequestResponse",
-      Payload: new TextEncoder().encode(JSON.stringify({})),
-    }),
-  );
-  const text = out.Payload ? new TextDecoder().decode(out.Payload) : "";
-  if (!text) return null;
-  const data = JSON.parse(text) as MgoAnalysisSnapshot & {
-    errorMessage?: string;
-    error?: string;
-  };
-  if (out.FunctionError) {
-    throw new Error(data.errorMessage || data.error || out.FunctionError);
-  }
-  return data;
-}
-
-/** MGO Analysis and Management (DST-2830) from DATA_BUCKET/mgo-analysis/latest.json. */
+/**
+ * MGO Analysis and Management (DST-2830) from DATA_BUCKET/mgo-analysis/latest.json.
+ * Cache-only on purpose: the MgoAnalysisData Lambda is a full Virtuous pull
+ * (minutes long), so page loads never invoke it. The cron publishes the snapshot.
+ */
 export async function GET(req: Request) {
   const denied = requireReportAccess(req, "mgo-analysis");
   if (denied) return denied;
@@ -60,27 +40,10 @@ export async function GET(req: Request) {
     });
   }
 
-  try {
-    const live = await invokeBuild();
-    if (live?.donors) {
-      return NextResponse.json(live, {
-        headers: { "Cache-Control": "private, max-age=30" },
-      });
-    }
-  } catch (e) {
-    return NextResponse.json(
-      {
-        error: e instanceof Error ? e.message : "MGO analysis data unavailable",
-        donors: [],
-      },
-      { status: 502 },
-    );
-  }
-
   return NextResponse.json(
     {
       error:
-        "MGO analysis cache not published yet (DATA_BUCKET/mgo-analysis/latest.json).",
+        "MGO analysis data is not published yet. It refreshes every 30 minutes; try again shortly.",
       donors: [],
     },
     { status: 503 },

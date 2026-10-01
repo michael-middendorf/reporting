@@ -67,10 +67,14 @@ FUNDED_STATUSES = ["Gift Received (Adv Svcs)"]
 # Note type pattern rules. Types are normalized (casefold, collapsed spaces)
 # and checked in this order: plan, proposal, face_to_face, outreach.
 NOTE_KIND_ORDER = ["plan", "proposal", "face_to_face", "outreach"]
-PLAN_WORDS = ["plan"]
+# Word-boundary match so "planned giving" or "estate plan" do not qualify alone;
+# the year words below are still required.
+PLAN_WORDS = ["mgo plan", "plan for", "activity plan"]
 PLAN_YEAR_WORDS = ["fy27", "fy 27", "2027"]
 PROPOSAL_WORDS = ["proposal"]
 FACE_TO_FACE_WORDS = ["in person", "face to face", "face-to-face", "meeting", "visit"]
+# Remote meetings are not face to face; they fall through to outreach or None.
+FACE_TO_FACE_EXCLUDE_WORDS = ["zoom", "virtual", "teams", "phone", "video", "online"]
 OUTREACH_WORDS = ["call", "email", "e-mail", "text", "letter", "mail", "thank"]
 # Mission Advancement types belong to the MA team, not MGOs.
 MA_TYPE_PREFIX = "mission advancement"
@@ -556,7 +560,7 @@ def classify_note_type(note_type: Any) -> str | None:
         return "proposal"
     if t.startswith(MA_TYPE_PREFIX) or _has_any(t, EXCLUDED_TYPE_WORDS):
         return None
-    if _has_any(t, FACE_TO_FACE_WORDS):
+    if _has_any(t, FACE_TO_FACE_WORDS) and not _has_any(t, FACE_TO_FACE_EXCLUDE_WORDS):
         return "face_to_face"
     if _has_any(t, OUTREACH_WORDS):
         return "outreach"
@@ -795,6 +799,13 @@ def build_snapshot(
     latest_plan: dict[int, tuple[str, int, str | None]] = {}
     last_activity: dict[tuple[str, int], dt.date] = {}
 
+    def stamp_plan(note: dict[str, Any], cid: int, day: dt.date) -> None:
+        nid = _int_id(note.get("id"))
+        prev = latest_plan.get(cid)
+        cand = (day.isoformat(), nid or 0, clean_note_text(note.get("note") or note.get("text")))
+        if prev is None or cand[:2] > prev[:2]:
+            latest_plan[cid] = cand
+
     def stamp_activity(note: dict[str, Any]) -> None:
         author_key = map_user_to_mgo(note_author(note), index)
         cid = _int_id(note.get("contactId"))
@@ -827,15 +838,23 @@ def build_snapshot(
         if kind == "proposal":
             proposal_contacts.add(cid)
         else:
-            prev = latest_plan.get(cid)
-            cand = (day.isoformat(), nid or 0, clean_note_text(note.get("note") or note.get("text")))
-            if prev is None or cand[:2] > prev[:2]:
-                latest_plan[cid] = cand
+            stamp_plan(note, cid, day)
         for key in contact_labels.get(cid, []):
             note_rows.append({"mgo": key, "contactId": cid, "kind": kind, "date": day.isoformat(), "noteId": nid})
 
+    # "MGO Plan for FY27" notes are often written before Jul 1 (spring
+    # planning). The type name already pins the year, so pre-FY plan notes
+    # by MGO authors still fill planFy27. FY KPIs above stay FY-only.
     for note in creator_notes or []:
         stamp_activity(note)
+        cid = _int_id(note.get("contactId"))
+        day = note_date(note)
+        if cid is None or day is None or day > today:
+            continue
+        raw_type = note_type(note)
+        if classify_note_type(raw_type) == "plan":
+            observed["plan"].add(raw_type)
+            stamp_plan(note, cid, day)
 
     note_rows.sort(key=lambda r: (r["date"], r["mgo"], r["contactId"], r["noteId"] or 0))
 
