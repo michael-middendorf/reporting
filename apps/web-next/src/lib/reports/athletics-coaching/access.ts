@@ -13,7 +13,7 @@ const HARDCODED_LEADERSHIP = [
  * Head coaches → coaching dashboard sport keys only. Not Master.
  * Do not add Michael Middendorf (Ultimate Frisbee HC is a hub admin).
  * Ty Kaufman (interim golf) has no public email and is omitted.
- * "cross-country" expands to men's and women's Cross Country.
+ * Cross country and track keys fold into XC/Track and Field.
  */
 const HARDCODED_COACHES: Record<string, string[]> = {
   "robert.cooper@avemaria.edu": ["mens-baseball"],
@@ -21,7 +21,7 @@ const HARDCODED_COACHES: Record<string, string[]> = {
   "jelani.akil@avemaria.edu": ["womens-basketball"],
   "john.schmidt@avemaria.edu": ["womens-volleyball"],
   "camryn.e.olive@avemaria.edu": ["dance-team"],
-  "alan.webb@avemaria.edu": ["cross-country", "track-and-field"],
+  "alan.webb@avemaria.edu": ["xc-track"],
   "joseph.patterson@avemaria.edu": ["football"],
   "katelyn.j.sherman@avemaria.edu": ["womens-lacrosse"],
   "ryan.dolnick@avemaria.edu": ["rugby"],

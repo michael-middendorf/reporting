@@ -3,7 +3,7 @@ import { canAccessSport, isCoachingLeadership } from "../athletics-coaching/acce
 import type { EnrollmentAccess } from "../athletics-coaching/enrollment";
 import {
   ambiguousSportKeys,
-  isSportKey,
+  canonicalSportKey,
   SPORTS,
   resolveSportKey,
   sportByKey,
@@ -71,8 +71,8 @@ export function canSeeOverviewSport(email: string, sportKey: string): boolean {
 /** Fundraising/academics APIs for Coaching and Master Overview. */
 export function sportDashboardAccess(email: string | null, sportParam: string | null): EnrollmentAccess {
   if (!email) return { ok: false, status: 401, error: "Authentication required" };
-  const sport = (sportParam || "").trim();
-  if (!sport || !isSportKey(sport)) {
+  const sport = canonicalSportKey((sportParam || "").trim());
+  if (!sport) {
     return { ok: false, status: 400, error: "Unknown sport" };
   }
   if (canAccessReport(email, "athletics-coaching") && canAccessSport(email, sport)) {

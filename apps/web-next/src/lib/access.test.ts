@@ -270,7 +270,7 @@ describe("athletics coaching access", () => {
       ["jelani.akil@avemaria.edu", ["womens-basketball"]],
       ["john.schmidt@avemaria.edu", ["womens-volleyball"]],
       ["camryn.e.olive@avemaria.edu", ["dance-team"]],
-      ["alan.webb@avemaria.edu", ["mens-cross-country", "womens-cross-country", "track-and-field"]],
+      ["alan.webb@avemaria.edu", ["xc-track"]],
       ["joseph.patterson@avemaria.edu", ["football"]],
       ["katelyn.j.sherman@avemaria.edu", ["womens-lacrosse"]],
       ["ryan.dolnick@avemaria.edu", ["rugby"]],

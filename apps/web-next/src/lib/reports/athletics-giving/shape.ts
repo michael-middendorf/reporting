@@ -241,7 +241,13 @@ const OTHER_SPORT = { key: "other", label: "General / other" } as const;
 
 const CODE_TO_SPORT: Record<string, string> = {};
 for (const sport of SPORTS) {
-  if (sport.virtuousProjectCode) CODE_TO_SPORT[sport.virtuousProjectCode] = sport.key;
+  const codes = [
+    ...(sport.virtuousProjectCodes || []),
+    ...(sport.virtuousProjectCode ? [sport.virtuousProjectCode] : []),
+  ];
+  for (const code of codes) {
+    if (code) CODE_TO_SPORT[code] = sport.key;
+  }
 }
 
 export function sportForGift(gift: Pick<AthleticsGivingGift, "project" | "projectCode" | "isFee">): {

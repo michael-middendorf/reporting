@@ -121,15 +121,20 @@ class FiscalYearTests(unittest.TestCase):
 
 
 class CatalogTests(unittest.TestCase):
-    def test_catalog_has_20_sports_and_womens_golf_unmapped(self):
+    def test_catalog_has_combined_xc_track_and_womens_golf_unmapped(self):
         sports = load_sports_catalog()
         keys = [s["key"] for s in sports]
-        self.assertEqual(len(sports), 20)
-        self.assertEqual(len(set(keys)), 20)
+        self.assertEqual(len(sports), 17)
+        self.assertEqual(len(set(keys)), 17)
         by_key = {s["key"]: s["projectCode"] for s in sports}
-        self.assertEqual(by_key["mens-cross-country"], "6578MXC")
-        self.assertEqual(by_key["womens-cross-country"], "6580WXC")
+        self.assertNotIn("mens-cross-country", by_key)
+        self.assertNotIn("womens-cross-country", by_key)
+        self.assertNotIn("track-and-field", by_key)
         self.assertNotIn("cross-country", by_key)
+        self.assertIn("xc-track", by_key)
+        self.assertIsNone(by_key["xc-track"])
+        xc = next(sport for sport in sports if sport["key"] == "xc-track")
+        self.assertEqual(xc["projectCodes"], ["6578MXC", "6580WXC", "6683Track"])
         self.assertIsNone(by_key["womens-golf"])
         self.assertEqual(by_key["football"], "6552FB")
         self.assertNotIn("6117AthGEN", by_key.values())
@@ -221,8 +226,19 @@ class SnapshotTests(unittest.TestCase):
         rows = {}
         for sport in sports:
             key = str(sport["key"])
+            codes = sport.get("projectCodes") or []
             code = sport.get("projectCode")
-            if not code:
+            if codes:
+                rows[key] = mapped_row(
+                    key,
+                    ",".join(codes),
+                    fytd_amount=1,
+                    fytd_gift_count=1,
+                    all_time_amount=2,
+                    all_time_gift_count=2,
+                    as_of=as_of,
+                )
+            elif not code:
                 rows[key] = unmapped_row(key, None)
             else:
                 rows[key] = mapped_row(
@@ -236,15 +252,14 @@ class SnapshotTests(unittest.TestCase):
                 )
         # Inject forbidden designations into the football total path; output must omit them.
         snap = build_snapshot(sports, rows, today=dt.date(2026, 9, 3), generated_at=as_of)
-        self.assertEqual(len(snap["sports"]), 20)
+        self.assertEqual(len(snap["sports"]), 17)
         self.assertEqual(snap["fiscalYear"], 2027)
         self.assertEqual(snap["fiscalYearLabel"], "FY 2026-27")
         self.assertEqual(snap["fyStart"], "2026-07-01")
         self.assertEqual(snap["fyEnd"], "2027-06-30")
-        self.assertTrue(snap["sports"]["mens-cross-country"]["mapped"])
-        self.assertEqual(snap["sports"]["mens-cross-country"]["projectCode"], "6578MXC")
-        self.assertTrue(snap["sports"]["womens-cross-country"]["mapped"])
-        self.assertEqual(snap["sports"]["womens-cross-country"]["projectCode"], "6580WXC")
+        self.assertTrue(snap["sports"]["xc-track"]["mapped"])
+        self.assertEqual(snap["sports"]["xc-track"]["projectCode"], "6578MXC,6580WXC,6683Track")
+        self.assertNotIn("mens-cross-country", snap["sports"])
         self.assertNotIn("cross-country", snap["sports"])
         self.assertFalse(snap["sports"]["womens-golf"]["mapped"])
         self.assertIsNone(snap["sports"]["womens-golf"]["allTimeAmount"])
