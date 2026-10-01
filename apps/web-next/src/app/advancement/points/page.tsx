@@ -577,12 +577,9 @@ function PointsPageInner() {
   const listedGifts = useMemo(() => {
     if (!giftOwner) return [] as GiftRow[];
     return (model.rows as GiftRow[])
-      .filter((r) => r.bucket === "donation" && !r.needsReview && (r.amount || 0) > 0)
+      .filter((r) => r.bucket === "donation" && !r.needsReview && (r.amount || 0) > 0 && !r.removed)
       .filter((g) => giftOwner === "all" || g.owner === giftOwner)
-      .sort((a, b) => {
-        if (!!a.removed !== !!b.removed) return a.removed ? 1 : -1;
-        return (b.day || "").localeCompare(a.day || "");
-      });
+      .sort((a, b) => (b.day || "").localeCompare(a.day || ""));
   }, [model.rows, giftOwner]);
   const giftTouches = useMemo(() => {
     const map = new Map<string, { count: number; amount: number; touches: number }>();
@@ -742,12 +739,6 @@ function PointsPageInner() {
       reason: "Removed from gifts",
     });
     if (ok) showUndo(id, `Removed ${g.contactName || "this gift"} from Raised.`);
-  }
-
-  async function restoreCountedGift(g: GiftRow) {
-    const id = giftRemoveId(g);
-    if (!id) return;
-    await deleteFlag(id);
   }
 
   async function saveFlag(input: FlagInput): Promise<boolean> {
@@ -1867,7 +1858,7 @@ function PointsPageInner() {
           <section className="section">
             <h2>
               Gifts{" "}
-              <span className="section-hint">contacts before they gave · Remove drops a gift from Raised</span>
+              <span className="section-hint">contacts before they gave · Remove drops a gift from Raised and this list</span>
             </h2>
             <div className="panel">
                   <table className="grid" style={{ marginBottom: 18 }}>
@@ -1947,7 +1938,6 @@ function PointsPageInner() {
                           return (
                           <tr
                             key={g.giftId != null && g.giftId !== "" ? String(g.giftId) : i}
-                            style={g.removed ? { opacity: 0.55 } : undefined}
                           >
                             <td style={{ whiteSpace: "nowrap" }}>
                               {g.day ? formatDay(g.day) : "—"}
@@ -1980,11 +1970,11 @@ function PointsPageInner() {
                                 <div style={{ marginTop: virtuousGiftUrl(g.contactId) ? 6 : 0 }}>
                                   <button
                                     type="button"
-                                    className={g.removed ? "mini-btn solid" : "mini-btn danger"}
+                                    className="mini-btn danger"
                                     disabled={flagBusy === removeId}
-                                    onClick={() => (g.removed ? restoreCountedGift(g) : removeCountedGift(g))}
+                                    onClick={() => removeCountedGift(g)}
                                   >
-                                    {flagBusy === removeId ? "…" : g.removed ? "Count" : "Remove"}
+                                    {flagBusy === removeId ? "…" : "Remove"}
                                   </button>
                                 </div>
                               ) : (
