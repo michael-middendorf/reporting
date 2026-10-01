@@ -19,6 +19,12 @@ const REPORTS: {
     report: "advancement",
   },
   {
+    href: "/advancement/pipeline",
+    title: "Gift Pipeline",
+    desc: "Gift asks expected this fiscal year: to be asked, waiting for response, and accepted, with every donor.",
+    report: "advancement",
+  },
+  {
     href: "/annunciation",
     title: "Annunciation Circle",
     desc: "Current Annunciation Circle members and new-member activity from Virtuous.",

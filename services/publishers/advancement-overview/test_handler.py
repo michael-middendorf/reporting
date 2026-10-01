@@ -390,7 +390,7 @@ class QueryBodyTests(unittest.TestCase):
             {"groups": [{"conditions": [
                 {"parameter": "Expected Fulfillment Date", "operator": "OnOrAfter", "value": "7/1/2026"},
                 {"parameter": "Expected Fulfillment Date", "operator": "OnOrBefore", "value": "6/30/2027"},
-            ]}]},
+            ]}], "sortBy": "Id", "descending": False},
         )
 
     def test_full_gift_query_two_windows(self):
@@ -529,6 +529,247 @@ class FetchTests(unittest.TestCase):
         with mock.patch.dict(os.environ, {"VIRTUOUS_API_KEY": "", "SST_RESOURCE_VirtuousApiKey": ""}):
             with self.assertRaises(RuntimeError):
                 resolve_api_key()
+
+
+# --------------------------------------------------------------------------
+# Pipeline detail (pipeline.json). All fixtures synthetic.
+# --------------------------------------------------------------------------
+
+PIPE_FUNDS = [
+    {"fund_id": "6102", "category": "Endowed Scholarship", "description": "Sample Endowed", "status": "Endowed"},
+    {"fund_id": "6103", "category": "Temp - Program Support", "description": "Sample Temp", "status": "Temporary Restricted"},
+]
+
+
+def ask(aid, status, amount=1000, expected="2026-10-01", contact=100, project_id=None, project=None,
+        user="Pat Officer", notes=None, ask_date="2026-08-15"):
+    return {
+        "id": aid,
+        "status": status,
+        "askAmount": amount,
+        "expectedFulfillmentDate": f"{expected}T00:00:00" if expected else None,
+        "askDate": f"{ask_date}T00:00:00",
+        "contactId": contact,
+        "projectId": project_id,
+        "project": project,
+        "assignedUser": user,
+        "notes": notes,
+    }
+
+
+def full_contact(cid, name="Sample Household", city="Sampletown", state="FL", primary=True):
+    rec = {"id": cid, "name": name}
+    if city is not None or state is not None:
+        rec["address"] = {"city": city, "state": state, "isPrimary": primary}
+    return rec
+
+
+class PipelineDetailTests(unittest.TestCase):
+    TODAY = dt.date(2026, 9, 30)
+
+    def _assemble(self, asks, contacts=None, projects=None, missing=()):
+        with redirect_stderr(io.StringIO()):
+            return handler.assemble_pipeline(
+                today=self.TODAY,
+                generated_at="2026-09-30T12:00:00Z",
+                asks=asks,
+                contacts=contacts or {},
+                projects=projects or {},
+                fund_rows=PIPE_FUNDS,
+                missing_contacts=missing,
+            )
+
+    def test_bucket_assignment_folds_whitespace(self):
+        self.assertEqual(handler.pipeline_bucket_key("Cultivation / Gift Ask Strategy (MGO)"), "to_be_asked")
+        self.assertEqual(handler.pipeline_bucket_key("Preparing Proposal / Agreement (MGO)"), "to_be_asked")
+        self.assertEqual(handler.pipeline_bucket_key("Solicitation / Ask (MGO)"), "asked")
+        self.assertEqual(handler.pipeline_bucket_key(" Pending (MGO) "), "asked")
+        self.assertEqual(handler.pipeline_bucket_key("Accepted (MGO)"), "accepted")
+        # Virtuous stores this one with a double space.
+        self.assertEqual(handler.pipeline_bucket_key("Pending Installment  / Annual Gift (MGO)"), "accepted")
+
+    def test_non_mgo_statuses_excluded_and_counted(self):
+        asks = [
+            ask(1, "Cultivation / Gift Ask Strategy (MGO)"),
+            ask(2, "Declined (MGO)"),
+            ask(3, "Gift Received (Adv Svcs)"),
+            ask(4, "Cultivation"),
+            ask(5, "Pending"),
+        ]
+        out = self._assemble(asks)
+        self.assertEqual([b["count"] for b in out["buckets"]], [1, 0, 0])
+        self.assertEqual(
+            out["excludedStatuses"],
+            {"Cultivation": 1, "Declined (MGO)": 1, "Gift Received (Adv Svcs)": 1, "Pending": 1},
+        )
+
+    def test_fy_window_inclusive_and_keeps_past_due(self):
+        asks = [
+            ask(1, "Pending (MGO)", expected="2026-07-01"),  # FY start, already past due
+            ask(2, "Pending (MGO)", expected="2027-06-30"),  # FY end
+            ask(3, "Pending (MGO)", expected="2026-06-30"),  # prior FY
+            ask(4, "Pending (MGO)", expected="2027-07-01"),  # next FY
+            ask(5, "Pending (MGO)", expected=None),
+        ]
+        out = self._assemble(asks)
+        self.assertEqual(out["window"], {"start": "2026-07-01", "end": "2027-06-30"})
+        self.assertEqual(out["fiscalYearLabel"], "FY 2026-27")
+        asked = out["buckets"][1]
+        self.assertEqual(sorted(r["askId"] for r in asked["rows"]), [1, 2])
+
+    def test_fy_window_rolls_with_today(self):
+        with redirect_stderr(io.StringIO()):
+            out = handler.assemble_pipeline(
+                today=dt.date(2027, 7, 2), generated_at="x",
+                asks=[ask(1, "Pending (MGO)", expected="2027-07-15"), ask(2, "Pending (MGO)", expected="2027-06-30")],
+                contacts={}, projects={}, fund_rows=PIPE_FUNDS,
+            )
+        self.assertEqual(out["window"], {"start": "2027-07-01", "end": "2028-06-30"})
+        self.assertEqual([r["askId"] for r in out["buckets"][1]["rows"]], [1])
+
+    def test_totals_sort_and_row_fields(self):
+        asks = [
+            ask(1, "Accepted (MGO)", amount=500, notes="Line one\nLine two"),
+            ask(2, "Accepted (MGO)", amount=2500, contact=101, user=None),
+            ask(3, "Pending Installment  / Annual Gift (MGO)", amount=1000, contact=102),
+        ]
+        contacts = {100: full_contact(100, name="  Sample   Family "), 101: full_contact(101), 102: full_contact(102)}
+        out = self._assemble(asks, contacts)
+        acc = out["buckets"][2]
+        self.assertEqual(acc["key"], "accepted")
+        self.assertEqual(acc["label"], "Accepted: Waiting for Check")
+        self.assertEqual((acc["count"], acc["totalAmount"]), (3, 4000.0))
+        self.assertEqual([r["askAmount"] for r in acc["rows"]], [2500.0, 1000.0, 500.0])
+        row = acc["rows"][2]
+        self.assertEqual(row["donor"], "Sample Family")
+        self.assertEqual(row["reason"], "Line one\nLine two")
+        self.assertEqual(row["askDate"], "2026-08-15")
+        self.assertEqual(row["expectedFulfillmentDate"], "2026-10-01")
+        self.assertEqual(acc["rows"][0]["assignedUser"], None)
+        self.assertEqual(acc["rows"][1]["status"], "Pending Installment / Annual Gift (MGO)")
+        self.assertEqual(
+            set(row),
+            {"askId", "askDate", "donor", "contactId", "status", "askAmount", "expectedFulfillmentDate",
+             "assignedUser", "reason", "city", "state", "fund", "fundClass"},
+        )
+        json.dumps(out)
+
+    def test_primary_address_only(self):
+        self.assertEqual(handler.primary_city_state(full_contact(1)), ("Sampletown", "FL"))
+        self.assertEqual(handler.primary_city_state(full_contact(1, primary=None)), ("Sampletown", "FL"))
+        self.assertEqual(handler.primary_city_state(full_contact(1, primary=False)), (None, None))
+        self.assertEqual(handler.primary_city_state(full_contact(1, city=None, state=None)), (None, None))
+        self.assertEqual(handler.primary_city_state(None), (None, None))
+        self.assertEqual(handler.primary_city_state(full_contact(1, city=" ", state="OH")), (None, "OH"))
+
+    def test_fund_class_by_accounting_code(self):
+        _fund_map, _ = build_fund_map(PIPE_FUNDS)
+        asks = [
+            ask(1, "Pending (MGO)", project_id=11, project="Sample Endowed Fund"),
+            ask(2, "Pending (MGO)", project_id=12, project="Sample Temp Fund"),
+            ask(3, "Pending (MGO)", project_id=13, project="Sample Unmapped Fund"),
+            ask(4, "Pending (MGO)"),
+        ]
+        projects = {
+            # projectCode carries a suffix; the class keys off the accounting code.
+            11: {"id": 11, "projectCode": "6103Suffix", "externalAccountingCode": code("6102")},
+            12: {"id": 12, "projectCode": "6102", "externalAccountingCode": code("6103")},
+            13: {"id": 13, "projectCode": "9999", "externalAccountingCode": code("9999")},
+        }
+        out = self._assemble(asks, projects=projects)
+        by_id = {r["askId"]: r for r in out["buckets"][1]["rows"]}
+        self.assertEqual((by_id[1]["fund"], by_id[1]["fundClass"]), ("Sample Endowed Fund", "Endowed"))
+        self.assertEqual(by_id[2]["fundClass"], "Temporary Restricted")
+        self.assertIsNone(by_id[3]["fundClass"])
+        self.assertEqual((by_id[4]["fund"], by_id[4]["fundClass"]), (None, None))
+
+    def test_duplicate_ask_ids_raise(self):
+        with self.assertRaises(RuntimeError):
+            self._assemble([ask(1, "Pending (MGO)"), ask(1, "Accepted (MGO)")])
+
+    def test_missing_contact_gets_labelled_not_blank(self):
+        out = self._assemble([ask(1, "Pending (MGO)", contact=555)], contacts={}, missing=[555])
+        row = out["buckets"][1]["rows"][0]
+        self.assertEqual(row["donor"], "Contact 555")
+        self.assertEqual((row["city"], row["state"]), (None, None))
+        self.assertEqual(out["missingContacts"], 1)
+
+
+class PipelineClient:
+    def __init__(self, fail_contacts=False):
+        self.calls: list[tuple[str, dict]] = []
+        self.requests = 0
+        self.fail_contacts = fail_contacts
+
+    def paged_query(self, path, body, page_size=1000):
+        self.calls.append((path, body))
+        self.requests += 1
+        ids = [int(g["conditions"][0]["value"]) for g in body["groups"]]
+        if path == handler.FULL_CONTACT_PATH:
+            if self.fail_contacts:
+                raise RuntimeError("Virtuous POST /api/Contact/Query/FullContact -> 500: boom")
+            return [full_contact(i) for i in ids if i != 999]
+        if path == handler.PROJECT_PATH:
+            return [{"id": i, "externalAccountingCode": code("6102")} for i in ids]
+        raise AssertionError(path)
+
+
+class PipelineFetchTests(unittest.TestCase):
+    def test_batched_contact_and_project_queries(self):
+        asks = [ask(i, "Pending (MGO)", contact=1000 + i) for i in range(1, 151)]
+        asks.append(ask(151, "Pending (MGO)", contact=999, project_id=7, project="Sample Fund"))
+        asks.append(ask(152, "Declined (MGO)", contact=5000))  # excluded: no lookup
+        client = PipelineClient()
+        with redirect_stderr(io.StringIO()):
+            out = handler.build_pipeline(client, dt.date(2026, 9, 30), asks, PIPE_FUNDS, "2026-09-30T12:00:00Z")
+        paths = [p for p, _b in client.calls]
+        self.assertEqual(paths, [handler.FULL_CONTACT_PATH, handler.FULL_CONTACT_PATH, handler.PROJECT_PATH])
+        contact_ids = [int(g["conditions"][0]["value"]) for _p, b in client.calls[:2] for g in b["groups"]]
+        self.assertNotIn(5000, contact_ids)
+        self.assertEqual(len(contact_ids), 151)
+        for _p, body in client.calls[:2]:
+            self.assertTrue(body["includeArchived"])
+            self.assertLessEqual(len(body["groups"]), handler.CONTACT_BATCH)
+            self.assertEqual(body["groups"][0]["conditions"][0]["parameter"], "Contact Id")
+        self.assertEqual(out["missingContacts"], 1)
+        row = next(r for r in out["buckets"][1]["rows"] if r["askId"] == 151)
+        self.assertEqual((row["donor"], row["fundClass"]), ("Contact 999", "Endowed"))
+
+    def test_no_project_query_when_no_projects(self):
+        client = PipelineClient()
+        with redirect_stderr(io.StringIO()):
+            handler.build_pipeline(client, dt.date(2026, 9, 30), [ask(1, "Pending (MGO)")], PIPE_FUNDS, "x")
+        self.assertEqual([p for p, _b in client.calls], [handler.FULL_CONTACT_PATH])
+
+    def test_contact_failure_is_loud(self):
+        client = PipelineClient(fail_contacts=True)
+        err = io.StringIO()
+        ctx = {"asks": [ask(1, "Pending (MGO)")], "fund_rows": PIPE_FUNDS, "generated_at": "x"}
+        with redirect_stderr(err):
+            with self.assertRaises(RuntimeError):
+                handler.build_pipeline_from(client, dt.date(2026, 9, 30), ctx)
+        self.assertIn("ERROR pipeline detail failed: RuntimeError: Virtuous POST", err.getvalue())
+
+    def test_handler_writes_overview_before_pipeline(self):
+        puts = []
+
+        def fake_put(key, payload):
+            puts.append((key, payload))
+            return f"s3://bucket/{key}"
+
+        import types
+        fake_mod = types.ModuleType("common.s3util")
+        fake_mod.put_json = fake_put
+        fake_pkg = types.ModuleType("common")
+        with mock.patch.dict("sys.modules", {"common": fake_pkg, "common.s3util": fake_mod}):
+            with mock.patch.object(handler, "make_client", return_value=FakeClient()):
+                with mock.patch.object(handler, "today_eastern", return_value=dt.date(2026, 9, 29)):
+                    with redirect_stderr(io.StringIO()):
+                        result = handler.handler({}, None)
+        self.assertEqual([k for k, _p in puts], [handler.CACHE_KEY, handler.PIPELINE_CACHE_KEY])
+        self.assertNotIn("buckets", puts[0][1])
+        self.assertEqual([b["key"] for b in puts[1][1]["buckets"]], ["to_be_asked", "asked", "accepted"])
+        self.assertEqual(result["source"], "virtuous")
 
 
 if __name__ == "__main__":

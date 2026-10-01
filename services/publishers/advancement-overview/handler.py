@@ -14,7 +14,10 @@ Advancement asked for:
 * A gift is credited to exactly one MGO (the Qlik join can credit a gift to
   every MGO portfolio the donor sits in).
 
-Dry run (no S3 write): ``python3 handler.py --dry-run``.
+Each run also writes ``advancement-overview/pipeline.json`` (ask-level gift
+pipeline detail for /advancement/pipeline) from the same GiftAsk rows.
+
+Dry run (no S3 write): ``python3 handler.py --dry-run [--pipeline-out PATH]``.
 """
 from __future__ import annotations
 
@@ -37,8 +40,13 @@ ASK_PATH = "/api/GiftAsk/Query"
 PLEDGE_PATH_V2 = "/api/v2/Pledge/Query"
 PLANNED_PATH = "/api/PlannedGift/Query"
 GROUP_PATH = "/api/OrganizationGroup"
+FULL_CONTACT_PATH = "/api/Contact/Query/FullContact"
+PROJECT_PATH = "/api/Project/Query"
 
 CACHE_KEY = os.environ.get("ADVANCEMENT_OVERVIEW_CACHE_KEY") or "advancement-overview/latest.json"
+PIPELINE_CACHE_KEY = (
+    os.environ.get("ADVANCEMENT_PIPELINE_CACHE_KEY") or "advancement-overview/pipeline.json"
+)
 RETRYABLE = {429, 500, 502, 503, 504}
 FULL_GIFT_PAGE = 500
 SMALL_PAGE = 200
@@ -67,6 +75,32 @@ PIPELINE_ORDER = [
     "Accepted (MGO)",
     "Pending Installment / Annual Gift (MGO)",
 ]
+
+# Pipeline detail buckets (Qlik "FY27 Pipeline" sheet). Status strings are
+# compared whitespace-folded: Virtuous stores "Pending Installment  / Annual
+# Gift (MGO)" with a double space, which the Qlik sheet's exact match missed.
+PIPELINE_BUCKETS = [
+    {
+        "key": "to_be_asked",
+        "label": "To Be Asked",
+        "statuses": [
+            "Cultivation / Gift Ask Strategy (MGO)",
+            "Preparing Proposal / Agreement (MGO)",
+        ],
+    },
+    {
+        "key": "asked",
+        "label": "Asked: Waiting for Response",
+        "statuses": ["Solicitation / Ask (MGO)", "Pending (MGO)"],
+    },
+    {
+        "key": "accepted",
+        "label": "Accepted: Waiting for Check",
+        "statuses": ["Accepted (MGO)", "Pending Installment / Annual Gift (MGO)"],
+    },
+]
+CONTACT_BATCH = 100
+PROJECT_BATCH = 100
 
 STATUS_BUCKETS = {
     "Endowed": "endowed",
@@ -626,6 +660,238 @@ def pipeline_rows(
 
 
 # --------------------------------------------------------------------------
+# Pipeline detail (advancement-overview/pipeline.json)
+# --------------------------------------------------------------------------
+
+
+_BUCKET_BY_STATUS = {
+    _fold_ws(status): bucket["key"] for bucket in PIPELINE_BUCKETS for status in bucket["statuses"]
+}
+
+
+def pipeline_bucket_key(status: Any) -> str | None:
+    """Bucket key for an ask status, or None for statuses outside the six MGO
+    pipeline statuses (Declined, Gift Received, plain non-MGO variants)."""
+    return _BUCKET_BY_STATUS.get(_fold_ws(status))
+
+
+def _int_id(value: Any) -> int | None:
+    try:
+        return int(value) if value is not None and value != "" else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _iso_date(value: Any) -> str | None:
+    day = _parse_date(value)
+    return day.isoformat() if day else None
+
+
+def _clean(value: Any) -> str | None:
+    text = str(value).strip() if value is not None else ""
+    return text or None
+
+
+def primary_city_state(contact: dict[str, Any] | None) -> tuple[str | None, str | None]:
+    """City/state of the contact's primary address only. FullContact returns the
+    primary address as ``address``; anything not flagged primary is ignored."""
+    address = (contact or {}).get("address")
+    if not isinstance(address, dict) or address.get("isPrimary") is False:
+        return None, None
+    return _clean(address.get("city")), _clean(address.get("state"))
+
+
+def fund_class_for_project(
+    project: dict[str, Any] | None,
+    fund_map: dict[str, dict[str, str]],
+) -> str | None:
+    """Restriction class from fund_status.csv, keyed by the fund id in the
+    project's accounting code (same key the Overview class bars use). Blank when
+    the ask has no project or the fund is not classified."""
+    if not project:
+        return None
+    fid = fund_id_from_code(project.get("externalAccountingCode"))
+    row = fund_map.get(fid) if fid else None
+    return _clean(row.get("status")) if row else None
+
+
+def select_pipeline_asks(
+    asks: Iterable[dict[str, Any]],
+    fy_start: dt.date,
+    fy_end: dt.date,
+) -> tuple[list[tuple[str, dict[str, Any]]], dict[str, int]]:
+    """(bucket key, ask) for asks in the six MGO statuses with an expected
+    fulfillment date inside the FY (past-due asks stay in), plus a count of
+    in-window asks excluded by status."""
+    picked: list[tuple[str, dict[str, Any]]] = []
+    excluded: dict[str, int] = defaultdict(int)
+    for ask in asks:
+        expected = _parse_date(
+            ask.get("expectedFulfillmentDate") or ask.get("expectedFulfillmentDateFormatted")
+        )
+        if expected is None or expected < fy_start or expected > fy_end:
+            continue
+        key = pipeline_bucket_key(ask.get("status"))
+        if key is None:
+            excluded[_fold_ws(ask.get("status")) or "(no status)"] += 1
+            continue
+        picked.append((key, ask))
+    ids = [_int_id(ask.get("id")) for _key, ask in picked]
+    if any(i is None for i in ids):
+        raise RuntimeError("Pipeline ask without an id")
+    if len(set(ids)) != len(ids):
+        dupes = sorted({i for i in ids if ids.count(i) > 1})
+        raise RuntimeError(f"Pipeline ask ids are not unique: {dupes[:20]}")
+    return picked, dict(sorted(excluded.items()))
+
+
+def assemble_pipeline(
+    *,
+    today: dt.date,
+    generated_at: str,
+    asks: list[dict[str, Any]],
+    contacts: dict[int, dict[str, Any]],
+    projects: dict[int, dict[str, Any]],
+    fund_rows: list[dict[str, str]],
+    missing_contacts: Iterable[int] = (),
+) -> dict[str, Any]:
+    fy, fy_start, fy_end = fiscal_year_window(today)
+    fund_map, _conflicts = build_fund_map(fund_rows)
+    picked, excluded = select_pipeline_asks(asks, fy_start, fy_end)
+
+    rows_by_bucket: dict[str, list[dict[str, Any]]] = {b["key"]: [] for b in PIPELINE_BUCKETS}
+    totals: dict[str, Decimal] = {b["key"]: Decimal("0") for b in PIPELINE_BUCKETS}
+    for key, ask in picked:
+        cid = _int_id(ask.get("contactId"))
+        contact = contacts.get(cid) if cid is not None else None
+        pid = _int_id(ask.get("projectId"))
+        project = projects.get(pid) if pid is not None else None
+        city, state = primary_city_state(contact)
+        amount = _money(ask.get("askAmount"))
+        donor = _fold_ws((contact or {}).get("name"))
+        if not donor:
+            donor = f"Contact {cid}" if cid is not None else "Unknown contact"
+        totals[key] += amount
+        rows_by_bucket[key].append({
+            "askId": _int_id(ask.get("id")),
+            "askDate": _iso_date(ask.get("askDate") or ask.get("askDateFormatted")),
+            "donor": donor,
+            "contactId": cid,
+            "status": _fold_ws(ask.get("status")),
+            "askAmount": _to_float(amount),
+            "expectedFulfillmentDate": _iso_date(
+                ask.get("expectedFulfillmentDate") or ask.get("expectedFulfillmentDateFormatted")
+            ),
+            "assignedUser": _clean(ask.get("assignedUser")),
+            "reason": _clean(ask.get("notes")),
+            "city": city,
+            "state": state,
+            "fund": _fold_ws(ask.get("project")) or None,
+            "fundClass": fund_class_for_project(project, fund_map),
+        })
+
+    buckets = []
+    for bucket in PIPELINE_BUCKETS:
+        rows = sorted(rows_by_bucket[bucket["key"]], key=lambda r: (-r["askAmount"], r["askId"]))
+        buckets.append({
+            "key": bucket["key"],
+            "label": bucket["label"],
+            "statuses": list(bucket["statuses"]),
+            "totalAmount": _to_float(totals[bucket["key"]]),
+            "count": len(rows),
+            "rows": rows,
+        })
+
+    missing = sorted({int(c) for c in missing_contacts})
+    payload = {
+        "generated_at": generated_at,
+        "source": "virtuous",
+        "asOf": today.isoformat(),
+        "currentFiscalYear": fy,
+        "fiscalYearLabel": fiscal_year_label(fy),
+        "window": {"start": fy_start.isoformat(), "end": fy_end.isoformat()},
+        "buckets": buckets,
+        "excludedStatuses": excluded,
+        "missingContacts": len(missing),
+    }
+    log(
+        "  pipeline detail "
+        + " ".join(f"{b['key']}={b['count']}/{b['totalAmount']}" for b in buckets)
+        + f" excluded={excluded} missingContacts={missing}"
+    )
+    return payload
+
+
+def _id_groups(parameter: str, ids: list[int]) -> list[dict[str, Any]]:
+    return [
+        {"conditions": [{"parameter": parameter, "operator": "Is", "value": str(i)}]}
+        for i in ids
+    ]
+
+
+def fetch_contacts(
+    client: VirtuousClient, contact_ids: Iterable[Any]
+) -> tuple[dict[int, dict[str, Any]], list[int]]:
+    """FullContact (name + primary address) for every contact id, as OR groups
+    of "Contact Id Is" in batches of CONTACT_BATCH: one request per batch
+    instead of one GET per contact. HTTP errors raise (the run fails loudly);
+    ids Virtuous does not return (merged or deleted contacts) come back in the
+    missing list so the page can show "Contact N" instead of a blank."""
+    wanted = sorted({i for i in (_int_id(c) for c in contact_ids) if i is not None})
+    found: dict[int, dict[str, Any]] = {}
+    for start in range(0, len(wanted), CONTACT_BATCH):
+        batch = wanted[start:start + CONTACT_BATCH]
+        body = {"groups": _id_groups("Contact Id", batch), "includeArchived": True}
+        for rec in client.paged_query(FULL_CONTACT_PATH, body, CONTACT_BATCH):
+            rid = _int_id(rec.get("id"))
+            if rid is not None:
+                found[rid] = rec
+    missing = [i for i in wanted if i not in found]
+    if missing:
+        log(f"  WARNING pipeline contacts not returned by Virtuous: {missing}")
+    return found, missing
+
+
+def fetch_projects(client: VirtuousClient, project_ids: Iterable[Any]) -> dict[int, dict[str, Any]]:
+    wanted = sorted({i for i in (_int_id(p) for p in project_ids) if i is not None})
+    found: dict[int, dict[str, Any]] = {}
+    for start in range(0, len(wanted), PROJECT_BATCH):
+        batch = wanted[start:start + PROJECT_BATCH]
+        for rec in client.paged_query(PROJECT_PATH, {"groups": _id_groups("Project Id", batch)}, PROJECT_BATCH):
+            rid = _int_id(rec.get("id"))
+            if rid is not None:
+                found[rid] = rec
+    missing = [i for i in wanted if i not in found]
+    if missing:
+        log(f"  WARNING pipeline projects not returned by Virtuous: {missing}")
+    return found
+
+
+def build_pipeline(
+    client: VirtuousClient,
+    today: dt.date,
+    asks: list[dict[str, Any]],
+    fund_rows: list[dict[str, str]],
+    generated_at: str,
+) -> dict[str, Any]:
+    _fy, fy_start, fy_end = fiscal_year_window(today)
+    picked, _excluded = select_pipeline_asks(asks, fy_start, fy_end)
+    before = client.requests
+    contacts, missing = fetch_contacts(client, (a.get("contactId") for _k, a in picked))
+    projects = fetch_projects(client, (a.get("projectId") for _k, a in picked))
+    log(f"  pipeline detail Virtuous requests: {client.requests - before}")
+    return assemble_pipeline(
+        today=today,
+        generated_at=generated_at,
+        asks=asks,
+        contacts=contacts,
+        projects=projects,
+        fund_rows=fund_rows,
+        missing_contacts=missing,
+    )
+
+
+# --------------------------------------------------------------------------
 # Snapshot
 # --------------------------------------------------------------------------
 
@@ -811,16 +1077,20 @@ def planned_gift_query() -> dict[str, Any]:
 
 
 def gift_ask_query(fy_start: dt.date, fy_end: dt.date) -> dict[str, Any]:
-    """GiftAsk: expected fulfillment date inside the full FY. Parameter name is
-    not confirmed live (see GET /api/GiftAsk/QueryOptions). pipeline_rows
-    re-checks status and date locally."""
+    """GiftAsk: expected fulfillment date inside the full FY. "Expected
+    Fulfillment Date" with OnOrAfter/OnOrBefore is confirmed by live GET
+    /api/GiftAsk/QueryOptions (2026-09-30). pipeline_rows and
+    select_pipeline_asks re-check status and date locally. Sorted by Id so
+    skip/take paging is stable once the FY passes one SMALL_PAGE of asks."""
     return {
         "groups": [
             {"conditions": [
                 {"parameter": "Expected Fulfillment Date", "operator": "OnOrAfter", "value": virt_date(fy_start)},
                 {"parameter": "Expected Fulfillment Date", "operator": "OnOrBefore", "value": virt_date(fy_end)},
             ]}
-        ]
+        ],
+        "sortBy": "Id",
+        "descending": False,
     }
 
 
@@ -860,13 +1130,30 @@ def fetch_inputs(client: VirtuousClient, today: dt.date) -> dict[str, Any]:
     return {"gifts": gifts, "members": members, "pledges": pledges, "planned": planned, "asks": asks}
 
 
-def build_snapshot(client: VirtuousClient, today: dt.date) -> dict[str, Any]:
+def _build(client: VirtuousClient, today: dt.date) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Overview snapshot plus the context the pipeline detail reuses (the same
+    GiftAsk rows, fund table, and timestamp, so no second GiftAsk query)."""
     fund_rows = load_fund_rows()
     inputs = fetch_inputs(client, today)
     generated_at = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     snapshot = assemble_snapshot(today=today, generated_at=generated_at, fund_rows=fund_rows, **inputs)
     log(f"  Virtuous requests: {client.requests}")
-    return snapshot
+    ctx = {"asks": inputs["asks"], "fund_rows": fund_rows, "generated_at": generated_at}
+    return snapshot, ctx
+
+
+def build_snapshot(client: VirtuousClient, today: dt.date) -> dict[str, Any]:
+    return _build(client, today)[0]
+
+
+def build_pipeline_from(client: VirtuousClient, today: dt.date, ctx: dict[str, Any]) -> dict[str, Any]:
+    """Pipeline detail; any failure is logged with its message and re-raised so
+    the run fails loudly instead of publishing blank donor names."""
+    try:
+        return build_pipeline(client, today, ctx["asks"], ctx["fund_rows"], ctx["generated_at"])
+    except Exception as exc:
+        log(f"  ERROR pipeline detail failed: {type(exc).__name__}: {exc}")
+        raise
 
 
 def resolve_api_key() -> str:
@@ -902,19 +1189,35 @@ def today_eastern() -> dt.date:
 
 def handler(event: dict[str, Any] | None = None, context: Any = None) -> dict[str, Any]:
     del event, context
-    snapshot = build_snapshot(make_client(), today_eastern())
+    client = make_client()
+    today = today_eastern()
+    snapshot, ctx = _build(client, today)
     from common.s3util import put_json
 
+    # Overview first: a pipeline-detail failure must not block latest.json.
     uri = put_json(CACHE_KEY, snapshot)
     snapshot["cache"] = uri
+    pipeline = build_pipeline_from(client, today, ctx)
+    snapshot["pipelineCache"] = put_json(PIPELINE_CACHE_KEY, pipeline)
+    log(f"  Virtuous requests (overview + pipeline detail): {client.requests}")
     return snapshot
 
 
 def main(argv: list[str]) -> int:
     if "--dry-run" not in argv:
-        print("usage: python3 handler.py --dry-run", file=sys.stderr)
+        print("usage: python3 handler.py --dry-run [--pipeline-out PATH]", file=sys.stderr)
         return 2
-    snapshot = build_snapshot(make_client(), today_eastern())
+    client = make_client()
+    today = today_eastern()
+    snapshot, ctx = _build(client, today)
+    if "--pipeline-out" in argv:
+        idx = argv.index("--pipeline-out")
+        if idx + 1 >= len(argv):
+            print("--pipeline-out needs a path", file=sys.stderr)
+            return 2
+        pipeline = build_pipeline_from(client, today, ctx)
+        Path(argv[idx + 1]).write_text(json.dumps(pipeline, indent=2) + "\n", encoding="utf-8")
+        log(f"  wrote pipeline detail to {argv[idx + 1]}; Virtuous requests: {client.requests}")
     json.dump(snapshot, sys.stdout, indent=2)
     sys.stdout.write("\n")
     return 0

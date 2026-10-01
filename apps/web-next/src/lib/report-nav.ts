@@ -12,6 +12,7 @@ export type ReportNavItem = {
 
 export const ADVANCEMENT_NAV: ReportNavItem[] = [
   { href: "/advancement/overview", label: "Overview", report: "advancement" },
+  { href: "/advancement/pipeline", label: "Gift Pipeline", report: "advancement" },
   { href: "/advancement/mgo-top-prospects", label: "MGO Top Prospects", report: "advancement" },
   { href: "/advancement/portfolios", label: "Portfolios", report: "portfolios" },
   { href: "/annunciation", label: "Annunciation Circle", report: "annunciation" },

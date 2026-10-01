@@ -219,6 +219,9 @@ export default $config({
       runtime: "python3.12",
       timeout: "15 minutes",
       memory: "2048 MB",
+      // A failed cron run waits for the next 15-minute tick instead of
+      // retrying, so one bad run costs one run of Virtuous calls, not three.
+      retries: 0,
       link: [data],
       python: { uv: true },
       copyFiles: [
@@ -232,6 +235,7 @@ export default $config({
         DATA_BUCKET: data.name,
         VIRTUOUS_API_KEY: virtuousApiKey.value,
         ADVANCEMENT_OVERVIEW_CACHE_KEY: "advancement-overview/latest.json",
+        ADVANCEMENT_PIPELINE_CACHE_KEY: "advancement-overview/pipeline.json",
       },
       permissions: reportDataPerms,
     });
