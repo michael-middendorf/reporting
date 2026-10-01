@@ -382,7 +382,7 @@ export const TRACKING_CHART = {
     {
       label: "Dollars received",
       detail:
-        "A voicemail, email, letter, visit, conversation, or general note on or before the gift assigns it within 90 days: the dollars and 100 points. A New Donation note within 90 days before or after the gift also assigns it. A note after the gift does not, except that New Donation note. A contact older than 90 days is not listed. A monthly gift with a qualifying contact waits on review. Direct Solicitation (MGO) follows the same 90-day window: a contact in that window assigns it, and a donor on exactly one MA portfolio counts with no contact. A tracker row does not assign a gift by itself.",
+        "A voicemail, email, letter, visit, conversation, or general note on or before the gift assigns it within 90 days: the dollars and 100 points. A New Donation note within 90 days before or after the gift also assigns it. A note after the gift does not, except that New Donation note. A contact older than 90 days is not listed. A monthly gift with a qualifying contact waits on review. Direct Solicitation (MGO) uses that same 90-day contact rule. A tracker row does not assign a gift by itself.",
     },
     {
       label: "Secured gift · 100 pts",
@@ -525,11 +525,10 @@ export const DEFINITIONS = [
   {
     term: "Dollars received",
     text:
-      "A posted Virtuous gift counts in Raised only with 100 points: a qualifying contact on or before the gift within 90 days, a donation note on that contact within 90 days before or after the gift, an Incoming assignment, or an MGO-coded gift on that MA’s portfolio. " +
+      "A posted Virtuous gift counts in Raised only with 100 points: a qualifying contact on or before the gift within 90 days, a donation note on that contact within 90 days before or after the gift, or an Incoming assignment. Direct Solicitation (MGO) uses that same rule. " +
       "A gala ticket posted in Virtuous counts the same way when an MA has a conversation, two-way email, or meeting on that contact within 90 days of the gift. A gala-site Stripe ticket that is not yet in Virtuous shows on Incoming only when an MA contacted that person on or before the purchase, within 90 days, and stays out of Raised until Assign or the gift posts in Virtuous. Tickets with no MA contact are omitted. A gala invitation does not claim a different gift. " +
       "A voicemail, email, letter, visit, or general note on or before the gift within 90 days claims the gift. A note after the gift does not. A row on the MA gift tracker does not assign the gift by itself. Gift Assist notes do not count dollars. " +
       "Dollars go to the MA who logged the note, not GFT_Solicitor. " +
-      "A gift coded Direct Solicitation (MGO) or Direct Solicitation (MGO)-HIST_DS, or a gift whose GFT_Solicitor is not on the MA roster, counts for the MA whose portfolio includes that donor. It is not listed for review. If the donor is not on an MA portfolio, that gift is not counted. " +
       "One-time gifts use the posted amount. A new monthly gift (Recurring Gift, frequency Monthly) is counted once as monthly amount × 12. " +
       "If that contact was already giving monthly, only the increase is counted: (new monthly − prior monthly) × 12. The prior amount is the latest Annunciation Circle payment within 45 days, or a monthly recurring gift cancelled within 45 days before the new one starts, whichever is higher. " +
       "The matching posted installment is not also added. Same-rate continuations are not counted again. " +
