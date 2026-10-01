@@ -929,6 +929,8 @@ function markAssist(gift) {
  * (New Donation or New AC, Annunciation Circle updated, or Update Recurring
  * Gift). A gala ticket purchase posted in Virtuous is assigned the same way.
  * A gala-site Stripe ticket that is not yet in Virtuous waits on Incoming.
+ * Assign on that ticket is the MA who spoke with the contact on or before
+ * the purchase, within 90 days.
  * An Incoming assignment, or an MGO-coded gift on that MA’s portfolio, also credits it.
  * `countedGifts` is accepted and ignored so older callers keep working.
  *

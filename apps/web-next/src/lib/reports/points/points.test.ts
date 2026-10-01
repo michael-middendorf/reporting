@@ -3077,6 +3077,31 @@ describe("gala ticket purchases", () => {
     assert.equal((model.possibleGifts?.[0].owners || []).length, 0);
   });
 
+  it("does not treat a voicemail as an Incoming assign owner on a gala-site ticket", () => {
+    const { model } = run(
+      [donationNote({
+        createdByUser: ELENA,
+        type: "Mission Advancement Call | Voicemail",
+        noteDate: "9/22/2026",
+        contactId: 37276,
+        contactName: "Jeffrey and Donna Langton",
+      })],
+      [postedGift({
+        id: "gala-stripe-pi_vm",
+        contactId: 37276,
+        contactName: "Jeffrey and Donna Langton",
+        giftDate: "2026-09-29",
+        amount: 2000,
+        segment: "26-27 Chancellor's Gala",
+        galaSite: true,
+        inVirtuous: false,
+        emailMatch: "unique",
+      })],
+    );
+    assert.equal(model.possibleGifts?.length, 1);
+    assert.equal((model.possibleGifts?.[0].owners || []).length, 0);
+  });
+
   it("lists an unmatched gala-site ticket without a contact id", () => {
     const { model } = run(
       [],
