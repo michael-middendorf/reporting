@@ -24,7 +24,24 @@ def s3():
     return boto3.client("s3", region_name=REGION)
 
 
-def put_json(key: str, payload: Any, *, bucket: str | None = None) -> str:
+def sse_kms_args(kms_key_id: str | None) -> dict[str, Any]:
+    """put_object arguments that encrypt with a specific KMS key (empty when None)."""
+    if not kms_key_id:
+        return {}
+    return {
+        "ServerSideEncryption": "aws:kms",
+        "SSEKMSKeyId": kms_key_id,
+        "BucketKeyEnabled": True,
+    }
+
+
+def put_json(
+    key: str,
+    payload: Any,
+    *,
+    bucket: str | None = None,
+    kms_key_id: str | None = None,
+) -> str:
     body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
     dest = bucket or data_bucket()
     s3().put_object(
@@ -33,6 +50,7 @@ def put_json(key: str, payload: Any, *, bucket: str | None = None) -> str:
         Body=body,
         ContentType="application/json",
         CacheControl="no-cache",
+        **sse_kms_args(kms_key_id),
     )
     return f"s3://{dest}/{key}"
 
@@ -44,6 +62,7 @@ def put_bytes(
     content_type: str,
     bucket: str | None = None,
     content_encoding: str | None = None,
+    kms_key_id: str | None = None,
 ) -> str:
     dest = bucket or data_bucket()
     args: dict[str, Any] = {
@@ -55,6 +74,7 @@ def put_bytes(
     }
     if content_encoding:
         args["ContentEncoding"] = content_encoding
+    args.update(sse_kms_args(kms_key_id))
     s3().put_object(**args)
     return f"s3://{dest}/{key}"
 

@@ -16,6 +16,8 @@ import os
 from datetime import date, datetime, timezone
 from typing import Any, Iterable
 
+from botocore.exceptions import ClientError
+
 from .s3util import data_bucket, put_bytes, put_json, s3
 
 RETAIN_DAYS = int(os.getenv("SOURCES_RETAIN_DAYS", "3"))
@@ -55,8 +57,16 @@ def publish_dataset(
     dt: str | None = None,
     bucket: str | None = None,
     retain_days: int | None = None,
+    kms_key_id: str | None = None,
+    refresh_catalog: bool = True,
 ) -> dict[str, Any]:
-    """Write one dataset snapshot + _latest pointer; prune old days; refresh catalog."""
+    """Write one dataset snapshot + _latest pointer; prune old days; refresh catalog.
+
+    kms_key_id: when set, every object this call writes (data, meta, _latest)
+    is encrypted with that customer-managed KMS key (SSE-KMS, bucket key on).
+    refresh_catalog: False skips rebuilding sources/_catalog.json (sources
+    whose _latest.json is under a restricted KMS key pass False).
+    """
     dest = bucket or data_bucket()
     day = dt or utc_today()
     retain = retain_days if retain_days is not None else RETAIN_DAYS
@@ -71,6 +81,7 @@ def publish_dataset(
         body,
         content_type="application/gzip",
         bucket=dest,
+        kms_key_id=kms_key_id,
     )
 
     meta = {
@@ -83,7 +94,7 @@ def publish_dataset(
         "content_type": "jsonl+gzip",
         "provenance": provenance or {},
     }
-    put_json(f"{prefix}/meta.json", meta, bucket=dest)
+    put_json(f"{prefix}/meta.json", meta, bucket=dest, kms_key_id=kms_key_id)
 
     latest = {
         "schema_version": SCHEMA_VERSION,
@@ -94,10 +105,12 @@ def publish_dataset(
         "pulled_at": pulled_at,
         "record_count": len(rows),
     }
-    put_json(f"{dataset_prefix(source, dataset)}/_latest.json", latest, bucket=dest)
+    put_json(f"{dataset_prefix(source, dataset)}/_latest.json", latest, bucket=dest, kms_key_id=kms_key_id)
 
     prune_old_days(source, dataset, keep=retain, bucket=dest)
-    refresh_catalog(bucket=dest)
+    if refresh_catalog:
+        # The parameter shadows the module function of the same name.
+        globals()["refresh_catalog"](bucket=dest)
     return latest
 
 
@@ -144,6 +157,17 @@ def prune_old_days(
     return deleted
 
 
+_KMS_DENIED_CODES = frozenset({"AccessDenied", "AccessDeniedException", "KMS.AccessDeniedException"})
+
+
+def _is_access_or_kms_error(exc: BaseException) -> bool:
+    """True for S3/KMS denials, e.g. a _latest.json under a KMS key this job cannot use."""
+    if not isinstance(exc, ClientError):
+        return False
+    code = str((exc.response or {}).get("Error", {}).get("Code") or "")
+    return code in _KMS_DENIED_CODES or code.startswith("KMS.")
+
+
 def refresh_catalog(*, bucket: str | None = None) -> dict[str, Any]:
     """Rebuild sources/_catalog.json by scanning sources/*/ */_latest.json."""
     dest = bucket or data_bucket()
@@ -171,6 +195,14 @@ def refresh_catalog(*, bucket: str | None = None) -> dict[str, Any]:
                         "prefix": latest.get("prefix"),
                     }
                 )
+            except ClientError as exc:
+                if _is_access_or_kms_error(exc):
+                    # Restricted source (e.g. its own KMS key): leave it out of
+                    # the catalog rather than failing this job.
+                    code = exc.response.get("Error", {}).get("Code")
+                    print(f"catalog: skipping {key} ({code})", flush=True)
+                    continue
+                entries.append({"latest_key": key, "error": str(exc)})
             except Exception as exc:  # noqa: BLE001
                 entries.append({"latest_key": key, "error": str(exc)})
 
