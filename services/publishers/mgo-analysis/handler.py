@@ -53,9 +53,11 @@ TEAM_KEY = "__team__"
 # Business constants
 # --------------------------------------------------------------------------
 
-TOP_PROSPECT_TAG = "Top FY27 MGO Donor"
+# Live Virtuous tag name, confirmed with discover mode on 2026-10-01. The ticket
+# called it "Top FY27 MGO Donor"; that and the docx spellings stay as aliases.
+TOP_PROSPECT_TAG = "Top FY27 MGO Prospect"
 # Also accepted (normalized name equality) in case Advancement renames the tag.
-TOP_PROSPECT_TAG_ALIASES = ["Top FY27 MGO Donor", "FY27 Top Prospect", "Top FY27 Prospect"]
+TOP_PROSPECT_TAG_ALIASES = ["Top FY27 MGO Prospect", "Top FY27 MGO Donor", "FY27 Top Prospect", "Top FY27 Prospect"]
 
 OPEN_ASK_EXCLUDED_STATUSES = [
     "Declined (MGO)",
@@ -67,7 +69,8 @@ FUNDED_STATUSES = ["Gift Received (Adv Svcs)"]
 # Note type pattern rules. Types are normalized (casefold, collapsed spaces)
 # and checked in this order: plan, proposal, face_to_face, outreach.
 NOTE_KIND_ORDER = ["plan", "proposal", "face_to_face", "outreach"]
-# Word-boundary match so "planned giving" or "estate plan" do not qualify alone;
+# Substring phrases (not single "plan") so "planned giving" or "estate plan" do
+# not qualify alone. Live type is "FY27 MGO Plan" (discover mode, 2026-10-01);
 # the year words below are still required.
 PLAN_WORDS = ["mgo plan", "plan for", "activity plan"]
 PLAN_YEAR_WORDS = ["fy27", "fy 27", "2027"]

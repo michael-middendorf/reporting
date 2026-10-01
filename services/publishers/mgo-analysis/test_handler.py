@@ -47,6 +47,14 @@ class NoteTypeTests(unittest.TestCase):
             "Phone Call": "outreach",
             "In Person": "face_to_face",
             "MGO Plan for FY27": "plan",
+            "FY27 MGO Plan": "plan",
+            "FY27 MGO Goal Activity": None,
+            "Planned Gift / Bequest Documentation": None,
+            "AS - Invalid Phone/Email Address": None,
+            "Thank You": "outreach",
+            "Direct Mail": "outreach",
+            "Call": "outreach",
+            "Email": "outreach",
             "Proposal / Gift Ask Documentation": "proposal",
             "Proposal Documentation": "proposal",
             "General": None,
@@ -119,6 +127,7 @@ class AuthorMappingTests(unittest.TestCase):
 class TagTests(unittest.TestCase):
     def test_top_prospect_tag_and_aliases(self):
         self.assertTrue(is_top_prospect({"tags": [{"tagName": "Top FY27 MGO Donor"}]}))
+        self.assertTrue(is_top_prospect({"tags": [{"tagName": "Top FY27 MGO Prospect", "tagGroupName": "Prospect Pipeline"}]}))
         self.assertTrue(is_top_prospect({"tags": ["top  fy27 prospect"]}))
         self.assertTrue(is_top_prospect({"contactTags": [{"name": "FY27 Top Prospect"}]}))
         self.assertFalse(is_top_prospect({"tags": [{"tagName": "Top FY26 MGO Donor"}]}))
