@@ -40,7 +40,13 @@ DEFAULT_YEARS_BACK = 7
 def window_params(years_back: int, today: date | None = None) -> dict[str, Any]:
     today = today or datetime.now(timezone.utc).date()
     min_year = today.year - years_back
-    return {"min_year": str(min_year), "min_date": date(min_year, 1, 1), "current_year": str(today.year)}
+    # GP fiscal years (YEAR1, HSTYEAR, OPENYEAR) are smallint, so also bind an int.
+    return {
+        "min_year": str(min_year),
+        "min_year_int": min_year,
+        "min_date": date(min_year, 1, 1),
+        "current_year": str(today.year),
+    }
 
 
 def handler(
