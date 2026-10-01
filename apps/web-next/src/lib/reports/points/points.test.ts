@@ -3056,6 +3056,35 @@ describe("gala ticket purchases", () => {
     assert.equal(model.possibleGifts?.[0].owners?.[0].name, ELENA);
   });
 
+  it("lists a same-day conversation on a gala-site ticket dated YYYY-MM-DD", () => {
+    const { owner, model } = run(
+      [donationNote({
+        createdByUser: ELENA,
+        type: "Mission Advancement Call | Conversation",
+        noteDate: "9/18/2026",
+        contactId: 40026,
+        contactName: "Jay Hamilton",
+      })],
+      [postedGift({
+        id: "gala-stripe-pi_3UH6aYQNgURefLuY1o4Fz8ir",
+        contactId: 40026,
+        contactName: "Jay Hamilton",
+        giftDate: "2026-09-18",
+        amount: 1275,
+        segment: "26-27 Chancellor's Gala",
+        galaSite: true,
+        inVirtuous: false,
+        emailMatch: "unique",
+      })],
+      ELENA,
+    );
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(model.possibleGifts?.length, 1);
+    assert.equal(model.possibleGifts?.[0].contactName, "Jay Hamilton");
+    assert.equal(model.possibleGifts?.[0].owners?.[0].name, ELENA);
+    assert.equal(model.possibleGifts?.[0].owners?.[0].daysAfterNote, 0);
+  });
+
   it("omits a gala-site ticket with no MA contact from Incoming", () => {
     const { model, owner } = run(
       [],

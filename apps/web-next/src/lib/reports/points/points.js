@@ -7,6 +7,8 @@ import { POINTS_MAP, EVENT_POINTS_PER_HOUR, TRACKED_EVENT_TYPES, RETIRED_TRACKED
 /** Normalize a Virtuous date string ("8/4/2026" or ISO) to a Date (local). */
 export function parseDate(value) {
   if (!value) return null;
+  const isoDayOnly = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoDayOnly) return new Date(+isoDayOnly[1], +isoDayOnly[2] - 1, +isoDayOnly[3]);
   if (/^\d{4}-\d{2}-\d{2}/.test(value)) return new Date(value);
   const m = String(value).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (m) return new Date(+m[3], +m[1] - 1, +m[2]);
@@ -174,9 +176,7 @@ function mapNoteType(type) {
   return DONATION_TYPE_ALIASES[stripped] || DONATION_TYPE_ALIASES[raw] || raw;
 }
 
-/** True when isoDay(date) is before the owner's optional roster startDate.
- * Compare YYYY-MM-DD strings, not Date objects: parseDate("2026-07-20") is
- * UTC midnight and can shift the local day. */
+/** True when isoDay(date) is before the owner's optional roster startDate. */
 function beforeStart(date, owner) {
   const start = startByOwner.get(owner);
   if (!start) return false;
