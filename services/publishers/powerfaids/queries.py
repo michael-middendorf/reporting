@@ -67,8 +67,13 @@ FUNDS = (
     "OPTION (MAXDOP 1)"
 )
 
+# alternate_id is published only when it is a PowerCampus ID (P + 9 digits).
+# Discovery on 2026-10-01 found 21 rows where alternate_id equals the SSN and
+# 163 other 9-digit values, so anything else is returned as NULL.
 STUDENTS = (
-    "SELECT s.student_token, s.alternate_id, s.restricted_access "
+    "SELECT s.student_token, "
+    "CASE WHEN s.alternate_id LIKE 'P[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' "
+    "THEN s.alternate_id END AS campus_id, s.restricted_access "
     "FROM dbo.student AS s "
     "WHERE s.student_token IN (SELECT say.student_token FROM dbo.stu_award_year AS say "
     f"WHERE say.award_year_token IN ({_YEAR_WINDOW})) "

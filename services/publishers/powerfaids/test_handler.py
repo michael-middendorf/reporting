@@ -325,3 +325,14 @@ class DispatcherTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CampusIdMaskTests(unittest.TestCase):
+    """alternate_id can hold an SSN in PowerFAIDS; only P + 9 digit IDs may leave."""
+
+    def test_students_query_masks_non_campus_ids(self) -> None:
+        sql = queries.STUDENTS
+        self.assertIn("CASE WHEN s.alternate_id LIKE 'P[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'", sql)
+        self.assertIn("THEN s.alternate_id END AS campus_id", sql)
+        self.assertNotRegex(sql, r"s\.alternate_id\s*,")
+        self.assertNotIn("%", sql.replace("%(min_date)s", ""))
