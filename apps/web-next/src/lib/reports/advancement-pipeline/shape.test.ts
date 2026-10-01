@@ -6,6 +6,7 @@ import {
   filterByOfficer,
   isPastDue,
   isPipelineReady,
+  isStale,
   officerOptions,
   shortDate,
   sortByAmount,
@@ -84,5 +85,15 @@ describe("advancement pipeline shape", () => {
     assert.equal(isPastDue({ expectedFulfillmentDate: "2026-09-01" }, "2026-09-30"), true);
     assert.equal(isPastDue({ expectedFulfillmentDate: "2026-09-30" }, "2026-09-30"), false);
     assert.equal(statusLabel("Pending Installment / Annual Gift (MGO)"), "Pending Installment / Annual Gift");
+  });
+
+  it("flags a snapshot older than two hours as stale", () => {
+    const now = Date.parse("2026-10-01T16:00:00Z");
+    assert.equal(isStale("2026-10-01T15:45:00Z", now), false);
+    assert.equal(isStale("2026-10-01T14:00:00Z", now), false);
+    assert.equal(isStale("2026-10-01T13:59:00Z", now), true);
+    assert.equal(isStale("", now), false);
+    assert.equal(isStale(undefined, now), false);
+    assert.equal(isStale("not a date", now), false);
   });
 });

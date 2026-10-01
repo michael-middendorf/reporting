@@ -8,6 +8,7 @@ import {
   filterByOfficer,
   isPastDue,
   isPipelineReady,
+  isStale,
   officerName,
   officerOptions,
   shortDate,
@@ -31,6 +32,7 @@ function AdvancementPipelinePage() {
   const [tab, setTab] = useState<PipelineBucketKey>("to_be_asked");
   const [officer, setOfficer] = useState<string>(ALL_OFFICERS);
   const [dir, setDir] = useState<SortDir>("desc");
+  const [loadedAt, setLoadedAt] = useState<number | null>(null);
 
   function readSnapshot() {
     return apiFetch("/api/advancement-pipeline-data").then(async (r) => {
@@ -45,6 +47,7 @@ function AdvancementPipelinePage() {
     readSnapshot()
       .then((json) => {
         setData(json);
+        setLoadedAt(Date.now());
         setError(null);
       })
       .catch((e: Error) => setError(e.message || "Failed to load"))
@@ -57,6 +60,7 @@ function AdvancementPipelinePage() {
       .then((json) => {
         if (cancelled) return;
         setData(json);
+        setLoadedAt(Date.now());
         setError(null);
       })
       .catch((e: Error) => {
@@ -79,6 +83,7 @@ function AdvancementPipelinePage() {
     [active, officer, dir],
   );
   const filtered = officer !== ALL_OFFICERS;
+  const stale = ready && loadedAt !== null && isStale(data.generated_at, loadedAt);
 
   return (
     <main className="ac-page ao-page">
@@ -99,6 +104,15 @@ function AdvancementPipelinePage() {
       {error && (
         <div className="ac-error">
           <p>{error}</p>
+        </div>
+      )}
+
+      {!error && stale && (
+        <div className="ap-stale" role="status">
+          <p>
+            This data last refreshed {formatEastern(data.generated_at)}. The scheduled refresh may be
+            failing, so these figures may be out of date. Let IT know if this message stays up.
+          </p>
         </div>
       )}
 

@@ -219,6 +219,9 @@ export default $config({
       runtime: "python3.12",
       timeout: "15 minutes",
       memory: "2048 MB",
+      // A failed cron run waits for the next 15-minute tick instead of
+      // retrying, so one bad run costs one run of Virtuous calls, not three.
+      retries: 0,
       link: [data],
       python: { uv: true },
       copyFiles: [

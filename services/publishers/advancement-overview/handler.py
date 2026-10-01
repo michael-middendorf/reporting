@@ -1080,14 +1080,17 @@ def gift_ask_query(fy_start: dt.date, fy_end: dt.date) -> dict[str, Any]:
     """GiftAsk: expected fulfillment date inside the full FY. "Expected
     Fulfillment Date" with OnOrAfter/OnOrBefore is confirmed by live GET
     /api/GiftAsk/QueryOptions (2026-09-30). pipeline_rows and
-    select_pipeline_asks re-check status and date locally."""
+    select_pipeline_asks re-check status and date locally. Sorted by Id so
+    skip/take paging is stable once the FY passes one SMALL_PAGE of asks."""
     return {
         "groups": [
             {"conditions": [
                 {"parameter": "Expected Fulfillment Date", "operator": "OnOrAfter", "value": virt_date(fy_start)},
                 {"parameter": "Expected Fulfillment Date", "operator": "OnOrBefore", "value": virt_date(fy_end)},
             ]}
-        ]
+        ],
+        "sortBy": "Id",
+        "descending": False,
     }
 
 

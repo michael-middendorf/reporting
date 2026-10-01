@@ -138,6 +138,21 @@
   background: var(--ac-raised);
 }
 
+.ap-stale {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--ao-gold);
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: #fdf6e3;
+  color: var(--ao-ink);
+  font-size: 13px;
+}
+
+.ap-stale p {
+  margin: 0;
+}
+
 .ap-note {
   margin: 12px 4px 0;
   font-size: 12px;

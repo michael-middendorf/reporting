@@ -390,7 +390,7 @@ class QueryBodyTests(unittest.TestCase):
             {"groups": [{"conditions": [
                 {"parameter": "Expected Fulfillment Date", "operator": "OnOrAfter", "value": "7/1/2026"},
                 {"parameter": "Expected Fulfillment Date", "operator": "OnOrBefore", "value": "6/30/2027"},
-            ]}]},
+            ]}], "sortBy": "Id", "descending": False},
         )
 
     def test_full_gift_query_two_windows(self):

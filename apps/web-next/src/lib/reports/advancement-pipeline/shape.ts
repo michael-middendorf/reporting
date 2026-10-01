@@ -104,6 +104,17 @@ export function isPastDue(row: Pick<PipelineAsk, "expectedFulfillmentDate">, asO
   return row.expectedFulfillmentDate.slice(0, 10) < asOf.slice(0, 10);
 }
 
+/** The publisher runs every 15 minutes, so 2 hours is about 8 missed runs. */
+export const STALE_AFTER_MS = 2 * 60 * 60 * 1000;
+
+/** True when the snapshot's UTC generated_at is older than STALE_AFTER_MS at `now` (epoch ms). */
+export function isStale(generatedAt: string | null | undefined, now: number): boolean {
+  if (!generatedAt) return false;
+  const t = Date.parse(generatedAt);
+  if (Number.isNaN(t)) return false;
+  return now - t > STALE_AFTER_MS;
+}
+
 export function statusLabel(status: string): string {
   return status.replace(/\s*\(MGO\)\s*/g, "").replace(/\s+/g, " ").trim();
 }
