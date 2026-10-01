@@ -32,7 +32,7 @@ WHOLE_IDENTIFIER_TOKENS: tuple[str, ...] = ("tin", "dob", "agi")
 # ---------------------------------------------------------------------------
 # Window: award years whose award_year_defn.date_begin is on/after min_date
 # (default 7 years back). Every student-level query is limited to those years.
-# Person key is student_token plus alternate_id (the campus ID). No SSN, ITIN,
+# Person key is student_token plus campus_id (alternate_id masked to P + 9 digits). No SSN, ITIN,
 # names, contact details, birth date, ISIR income or parent data.
 # ---------------------------------------------------------------------------
 

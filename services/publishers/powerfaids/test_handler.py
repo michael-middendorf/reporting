@@ -323,10 +323,6 @@ class DispatcherTests(unittest.TestCase):
         self.assertIn(f'"{SOURCE}": "services.publishers.{SOURCE}.handler"', src)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class CampusIdMaskTests(unittest.TestCase):
     """alternate_id can hold an SSN in PowerFAIDS; only P + 9 digit IDs may leave."""
 
@@ -336,3 +332,8 @@ class CampusIdMaskTests(unittest.TestCase):
         self.assertIn("THEN s.alternate_id END AS campus_id", sql)
         self.assertNotRegex(sql, r"s\.alternate_id\s*,")
         self.assertNotIn("%", sql.replace("%(min_date)s", ""))
+
+
+if __name__ == "__main__":
+    unittest.main()
+
