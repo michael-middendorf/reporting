@@ -16,6 +16,7 @@ export const REPORT_IDS = [
   "annunciation",
   "aspiredu",
   "marketing",
+  "mgo-analysis",
 ] as const;
 
 export type ReportId = (typeof REPORT_IDS)[number];
@@ -96,6 +97,9 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu,daniel.davy@avemaria.edu,michaelene.hayward@avemaria.edu,maria.t.gomez@avemaria.edu,alexandra.r.baalman@avemaria.edu",
   marketing:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu,zena.weist@avemaria.edu,susan.gallagher@avemaria.edu",
+  // DST-2830: MGO Analysis and Management is Leslie and Jim only (admins via isAdmin).
+  // Do not add other Advancement users here.
+  "mgo-analysis": "leslie.sonnen@avemaria.edu,jim.thomas@avemaria.edu",
 };
 
 const ENV_KEYS: Record<ReportId, string> = {
@@ -112,6 +116,7 @@ const ENV_KEYS: Record<ReportId, string> = {
   annunciation: "ANNUNCIATION_ALLOWED_EMAILS",
   aspiredu: "ASPIREDU_ALLOWED_EMAILS",
   marketing: "MARKETING_ALLOWED_EMAILS",
+  "mgo-analysis": "MGO_ANALYSIS_ALLOWED_EMAILS",
 };
 
 export function parseEmailCsv(csv: string): Set<string> {

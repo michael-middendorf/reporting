@@ -72,6 +72,24 @@ describe("reportNavActive", () => {
     );
   });
 
+  it("shows MGO Analysis only to users with the mgo-analysis report", () => {
+    const mga = item(ADVANCEMENT_NAV, "/advancement/mgo-analysis");
+    assert.equal(mga.report, "mgo-analysis");
+    assert.equal(mga.label, "MGO Analysis");
+    assert.equal(reportNavActive(mga, ADVANCEMENT_NAV, "/advancement/mgo-analysis"), true);
+    const mgo = item(ADVANCEMENT_NAV, "/advancement/mgo-top-prospects");
+    assert.equal(reportNavActive(mgo, ADVANCEMENT_NAV, "/advancement/mgo-analysis"), false);
+    const advancementOnly = navForReports(ADVANCEMENT_NAV, ["advancement", "chapel", "annunciation"]);
+    assert.equal(advancementOnly.some((n) => n.href === "/advancement/mgo-analysis"), false);
+    const leslie = navForReports(ADVANCEMENT_NAV, ["advancement", "chapel", "points", "portfolios", "annunciation", "mgo-analysis"]);
+    assert.equal(leslie.some((n) => n.href === "/advancement/mgo-analysis"), true);
+    assert.deepEqual(reportCrumbs("/advancement/mgo-analysis"), [
+      { href: "/", label: "Reports" },
+      { href: "/advancement", label: "Advancement" },
+      { href: "/advancement/mgo-analysis", label: "MGO Analysis" },
+    ]);
+  });
+
   it("keeps Enrollment Overview exact so nested pages stay distinct", () => {
     const overview = item(ENROLLMENT_NAV, "/enrollment");
     const admissions = item(ENROLLMENT_NAV, "/enrollment/admissions");

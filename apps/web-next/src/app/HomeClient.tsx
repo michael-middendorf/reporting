@@ -112,7 +112,10 @@ export default function HomeClient({ microsoftEnabled }: { microsoftEnabled: boo
     // (cards inside are filtered to what they can open).
     if (
       r.id === "advancement" &&
-      (allowed.includes("chapel") || allowed.includes("points") || allowed.includes("portfolios"))
+      (allowed.includes("chapel") ||
+        allowed.includes("points") ||
+        allowed.includes("portfolios") ||
+        allowed.includes("mgo-analysis"))
     ) {
       return true;
     }
