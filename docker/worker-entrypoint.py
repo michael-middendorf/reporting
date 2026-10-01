@@ -17,6 +17,8 @@ HANDLERS = {
     "alumni": "services.publishers.alumni.handler",
     "institute-process": "services.publishers.institute.process_handler",
     "powercampus": "services.publishers.powercampus.handler",
+    "powerfaids": "services.publishers.powerfaids.handler",
+    "greatplains": "services.publishers.greatplains.handler",
 }
 
 
