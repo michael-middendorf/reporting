@@ -268,10 +268,154 @@ export class ReportingEcsStack extends cdk.Stack {
     // Nightly read-only PowerCampus pull. 07:30 UTC is 03:30 ET in EDT and 02:30 ET in EST,
     // inside the handler's allowed window (it refuses 07:00 to 22:00 America/New_York).
     new events.Rule(this, "PowerCampusSchedule", { enabled: true, schedule: events.Schedule.cron({ minute: "30", hour: "7" }), targets: [new targets.EcsTask({ cluster, taskDefinition: worker, taskCount: 1, subnetSelection: ecsPrivateSubnets, assignPublicIp: false, containerOverrides: [{ containerName: "worker", command: ["powercampus"] }] })] });
+    // PowerFAIDS (financial aid) and Great Plains (finance) nightly pulls. Each source is
+    // isolated from the other and from every other job: its own task definition, execution
+    // role (reads only its own secret), task role (only its own S3 prefix), customer KMS key,
+    // security group (443 + 1433 to its one SQL host), and log group. The bucket policy in
+    // sst.config.ts denies every other principal on these prefixes. Schedules start disabled
+    // until the Firepower rule, SQL logins and secrets exist and a dry run passes.
+    for (const src of isolatedSqlSources) {
+      isolatedSqlSource(this, src, { vpc, cluster, workerImage, ecsPrivateSubnets });
+    }
     new cdk.CfnOutput(this, "AspireduUserPoolId", { value: aspireduUserPool.userPoolId });
     new cdk.CfnOutput(this, "AspireduUserPoolClientId", { value: aspireduClient.userPoolClientId });
     new cdk.CfnOutput(this, "AspireduLoginDomain", { value: aspireduDomain.baseUrl() });
   }
+}
+
+// Break-glass reader for the isolated sources (and the only human allowed by the bucket policy).
+const breakGlassUserArn = `arn:aws:iam::${account}:user/michael-middendorf`;
+
+type IsolatedSqlSourceConfig = {
+  /** Worker action, S3 source name, and resource name stem. */
+  source: "powerfaids" | "greatplains";
+  /** CDK id prefix. */
+  id: string;
+  /** Env prefix the handler reads (PF_HOST, GP_HOST, ...). */
+  envPrefix: string;
+  /** The one SQL Server this job may reach, /32. */
+  sqlHost: string;
+  /** UTC schedule. Handler refuses 07:00 to 22:00 America/New_York. */
+  cron: { minute: string; hour: string };
+};
+
+// Fixed role names: sst.config.ts references these ARNs in the bucket policy.
+export const isolatedSqlSources: IsolatedSqlSourceConfig[] = [
+  // 07:50 UTC = 03:50 EDT / 02:50 EST, after PowerCampus (07:30 UTC).
+  { source: "powerfaids", id: "PowerFaids", envPrefix: "PF", sqlHost: "10.1.27.12/32", cron: { minute: "50", hour: "7" } },
+  // 08:10 UTC = 04:10 EDT / 03:10 EST.
+  { source: "greatplains", id: "GreatPlains", envPrefix: "GP", sqlHost: "10.1.27.211/32", cron: { minute: "10", hour: "8" } },
+];
+
+function isolatedSqlSource(
+  scope: Construct,
+  cfg: IsolatedSqlSourceConfig,
+  ctx: { vpc: ec2.IVpc; cluster: ecs.ICluster; workerImage: ecrAssets.DockerImageAsset; ecsPrivateSubnets: ec2.SubnetSelection },
+) {
+  const prefix = `sources/${cfg.source}`;
+  const sourceSecret = secrets.Secret.fromSecretNameV2(scope, `${cfg.id}Secret`, `amu-reporting/production/${cfg.source}`);
+  const taskRole = new iam.Role(scope, `${cfg.id}TaskRole`, {
+    roleName: `amu-reporting-${cfg.source}-task`,
+    assumedBy: new iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
+    description: `Nightly ${cfg.source} publisher: writes only ${prefix}/ with its own KMS key`,
+  });
+  const executionRole = new iam.Role(scope, `${cfg.id}ExecutionRole`, {
+    roleName: `amu-reporting-${cfg.source}-execution`,
+    assumedBy: new iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
+    description: `Pulls the worker image and reads only amu-reporting/production/${cfg.source}`,
+  });
+  // Key policy: account root (required so the key stays manageable) plus an explicit deny of
+  // data-plane use by anyone except this source's task role and the break-glass user. The deny
+  // means an IAM policy with kms:* on "*" elsewhere in the account still cannot decrypt.
+  const key = new kms.Key(scope, `${cfg.id}Key`, {
+    alias: `alias/amu-reporting-${cfg.source}`,
+    description: `Encrypts ${prefix}/ in the reporting data bucket`,
+    enableKeyRotation: true,
+    removalPolicy: cdk.RemovalPolicy.RETAIN,
+    pendingWindow: cdk.Duration.days(30),
+  });
+  key.addToResourcePolicy(new iam.PolicyStatement({
+    sid: "DenyDataUseExceptSourceRole",
+    effect: iam.Effect.DENY,
+    principals: [new iam.AnyPrincipal()],
+    actions: ["kms:Decrypt", "kms:Encrypt", "kms:ReEncrypt*", "kms:GenerateDataKey*"],
+    resources: ["*"],
+    conditions: { ArnNotEquals: { "aws:PrincipalArn": [taskRole.roleArn, breakGlassUserArn] } },
+  }));
+  key.addToResourcePolicy(new iam.PolicyStatement({
+    sid: "AllowSourceRoleViaS3",
+    principals: [taskRole],
+    actions: ["kms:Decrypt", "kms:GenerateDataKey"],
+    resources: ["*"],
+    conditions: { StringEquals: { "kms:ViaService": `s3.${region}.amazonaws.com` } },
+  }));
+  // S3: own prefix only. Listing is limited to the prefix (pruning old dt= folders).
+  taskRole.addToPolicy(new iam.PolicyStatement({
+    actions: ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+    resources: [`${dataBucketArn}/${prefix}/*`],
+  }));
+  taskRole.addToPolicy(new iam.PolicyStatement({
+    actions: ["s3:ListBucket"],
+    resources: [dataBucketArn],
+    conditions: { StringLike: { "s3:prefix": [`${prefix}/*`] } },
+  }));
+  const logGroup = new logs.LogGroup(scope, `${cfg.id}Logs`, {
+    logGroupName: `/ecs/amu-reporting/${cfg.source}`,
+    retention: logs.RetentionDays.ONE_MONTH,
+    removalPolicy: cdk.RemovalPolicy.RETAIN,
+  });
+  // Egress: HTTPS (S3, KMS, CloudWatch Logs, ECR, GuardDuty agent) and 1433 to its one host.
+  // Amazon-provided DNS is not filtered by security groups.
+  const sg = new ec2.SecurityGroup(scope, `${cfg.id}Sg`, {
+    vpc: ctx.vpc,
+    description: `AMU reporting ${cfg.source} publisher`,
+    allowAllOutbound: false,
+  });
+  sg.addEgressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), "HTTPS to AWS APIs");
+  sg.addEgressRule(ec2.Peer.ipv4(cfg.sqlHost), ec2.Port.tcp(1433), `${cfg.source} SQL Server only`);
+  const taskDef = new ecs.FargateTaskDefinition(scope, `${cfg.id}Task`, {
+    cpu: 512,
+    memoryLimitMiB: 2048,
+    taskRole,
+    executionRole,
+  });
+  sourceSecret.grantRead(executionRole);
+  grantGuardDutyAgentPull(executionRole);
+  taskDef.addVolume({ name: "tmp" });
+  const e = cfg.envPrefix;
+  taskDef.addContainer("worker", {
+    image: ecs.ContainerImage.fromDockerImageAsset(ctx.workerImage),
+    logging: ecs.LogDrivers.awsLogs({ logGroup, streamPrefix: cfg.source }),
+    environment: {
+      DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke",
+      [`${e}_KMS_KEY_ID`]: key.keyArn,
+    },
+    // Only this source's SQL login. No runtimeSecrets (Slate, Virtuous, auth, etc.).
+    secrets: {
+      [`${e}_HOST`]: ecs.Secret.fromSecretsManager(sourceSecret, "host"),
+      [`${e}_PORT`]: ecs.Secret.fromSecretsManager(sourceSecret, "port"),
+      [`${e}_DATABASE`]: ecs.Secret.fromSecretsManager(sourceSecret, "database"),
+      [`${e}_USERNAME`]: ecs.Secret.fromSecretsManager(sourceSecret, "username"),
+      [`${e}_PASSWORD`]: ecs.Secret.fromSecretsManager(sourceSecret, "password"),
+    },
+    readonlyRootFilesystem: true,
+    user: "reporting",
+  }).addMountPoints({ sourceVolume: "tmp", containerPath: "/tmp", readOnly: false });
+  new events.Rule(scope, `${cfg.id}Schedule`, {
+    enabled: false,
+    schedule: events.Schedule.cron(cfg.cron),
+    targets: [new targets.EcsTask({
+      cluster: ctx.cluster,
+      taskDefinition: taskDef,
+      taskCount: 1,
+      subnetSelection: ctx.ecsPrivateSubnets,
+      securityGroups: [sg],
+      assignPublicIp: false,
+      containerOverrides: [{ containerName: "worker", command: [cfg.source] }],
+    })],
+  });
+  new cdk.CfnOutput(scope, `${cfg.id}SecurityGroupId`, { value: sg.securityGroupId });
+  new cdk.CfnOutput(scope, `${cfg.id}TaskDefinitionArn`, { value: taskDef.taskDefinitionArn });
 }
 
 // GuardDuty Runtime Monitoring injects its agent sidecar into every Fargate task and
