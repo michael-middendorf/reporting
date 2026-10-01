@@ -215,7 +215,7 @@ export function buildCalculationCSV(model, { meta = {}, rangeLabel = "All", gene
   }
 
   L.push("");
-  L.push(line(["MGO-CODED GIFTS — listed for review, not in Raised until assigned"]));
+  L.push(line(["MGO-CODED GIFTS — Direct Solicitation uses the same 90-day contact rule"]));
   L.push(line([
     "MA (note owner)", "Date", "Donor", "Contact ID", "Type", "Designation",
     "Amount", "Gift ID", "Open gift in Virtuous", "Status",

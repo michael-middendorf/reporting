@@ -1,7 +1,7 @@
 /**
  * Gifts listed on the MA tracker.
  * Matching is name + amount + date only. A match does not assign Raised;
- * scoreAll requires a donation note or an Incoming / MGO assignment.
+ * scoreAll requires a donation note, a qualifying contact, or an Incoming assignment.
  */
 import { MA_ROSTER } from "./config.js";
 import countedJson from "./counted-gifts.json";

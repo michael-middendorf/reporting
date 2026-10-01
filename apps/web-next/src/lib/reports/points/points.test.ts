@@ -2084,8 +2084,8 @@ describe("a contact within 90 days assigns the gift", () => {
   });
 });
 
-describe("MGO-coded gifts do not credit MAs", () => {
-  it("conversation note plus Direct Solicitation (MGO) gift is $0 for that MA", () => {
+describe("MGO-coded gifts follow the same contact rule", () => {
+  it("conversation note plus Direct Solicitation (MGO) gift is Raised for that MA", () => {
     const gift = postedGift({
       contactId: 84897,
       giftDate: "9/1/2026",
@@ -2093,7 +2093,7 @@ describe("MGO-coded gifts do not credit MAs", () => {
       segment: "Direct Solicitation (MGO)",
     });
     assert.equal(isMgoAttributedGift(gift), true);
-    assert.equal(scoreGift(gift, SEAN), null);
+    assert.equal(scoreGift(gift, SEAN)?.owner, SEAN);
     const { owner, rows } = run(
       [donationNote({
         createdByUser: SEAN,
@@ -2268,14 +2268,14 @@ describe("MGO-coded gifts do not credit MAs", () => {
     assert.equal((model.reviewGifts || []).length, 0);
   });
 
-  it("Direct Solicitation (MGO)-HIST_DS is excluded", () => {
+  it("Direct Solicitation (MGO)-HIST_DS uses the same contact rule", () => {
     const gift = postedGift({
       amount: 100,
       giftDate: "8/11/2026",
       segment: "Direct Solicitation (MGO)-HIST_DS",
     });
     assert.equal(isMgoAttributedGift(gift), true);
-    assert.equal(scoreGift(gift, ALANNA), null);
+    assert.equal(scoreGift(gift, ALANNA)?.owner, ALANNA);
     const { owner } = run(
       [donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026" })],
       [gift],
@@ -2317,7 +2317,7 @@ describe("MGO-coded gifts do not credit MAs", () => {
     assert.equal(owner.points, 100);
   });
 
-  it("non-MA GFT_Solicitor is excluded even on White Mail", () => {
+  it("non-MA GFT_Solicitor still credits when an MA contacted the donor", () => {
     const gift = postedGift({
       amount: 200,
       giftDate: "8/11/2026",
@@ -2334,7 +2334,7 @@ describe("MGO-coded gifts do not credit MAs", () => {
     });
     assert.equal(isMgoAttributedGift(gift), true);
     assert.equal(isMgoAttributedGift(viaField), true);
-    assert.equal(scoreGift(gift, ALANNA), null);
+    assert.equal(scoreGift(gift, ALANNA)?.owner, ALANNA);
     const { owner } = run(
       [
         donationNote({ type: "Mission Advancement Call | Conversation", noteDate: "8/10/2026", contactId: 101, id: 1 }),

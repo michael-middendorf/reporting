@@ -841,15 +841,13 @@ function assignedOwnerForGift(gift, hint, flags) {
  * contact in the gift window (`ownerHint`), or `assignedOwner`. The caller
  * passes the note owner as `assignedOwner` when a qualifying contact assigns
  * the gift. A monthly gift that is not an increase stays on review instead.
- * GFT_Solicitor is never used for owner. Gifts Virtuous coded as MGO work
- * return null unless `assignedOwner` is a roster MA. Returns null when amount
- * is 0 or less.
+ * GFT_Solicitor is never used for owner. Direct Solicitation (MGO) uses the
+ * same owner as any other gift. Returns null when amount is 0 or less.
  */
 export function scoreGift(record, ownerHint = null, assignedOwner = null) {
   const postedAmount = parseAmount(record.amount);
   if (postedAmount <= 0) return null;
   const credited = assignedOwner && rosterSet.has(assignedOwner) ? assignedOwner : null;
-  if (isMgoAttributedGift(record) && !credited) return null;
   const owner = credited || ownerHint;
   if (!owner) return null;
   return donationRow(record, owner);
@@ -932,13 +930,13 @@ function markAssist(gift) {
  * only when an MA had a conversation, two-way email, or meeting on that
  * contact on or before the purchase, within 90 days. Tickets sold to people
  * the MAs did not contact are not listed.
- * An Incoming assignment, or an MGO-coded gift on that MA’s portfolio, also credits it.
+ * An Incoming assignment also credits it. Direct Solicitation (MGO) uses the
+ * same 90-day contact rule as any other gift.
  * `countedGifts` is accepted and ignored so older callers keep working.
  *
- * `flags` is the shared review-flags map (same object aggregate uses). An
- * MGO-coded gift counts when a roster MA was assigned, or when `portfolios`
- * maps that contact to one roster MA. Otherwise it is not listed.
- * `portfolios` is `{ [contactId]: "MA Name" }`.
+ * `flags` is the shared review-flags map (same object aggregate uses).
+ * `portfolios` is `{ [contactId]: "MA Name" }` and still credits an MGO-coded
+ * gift when that donor sits on exactly one MA portfolio.
  */
 export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }) {
   const notesByContact = groupByContact(notes, (n) => n.contactId);
@@ -1043,9 +1041,9 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
           if (!credited.assist) rows.push(credited);
           scoredGifts.push(credited);
           matchGifts.push(credited);
+          continue;
         }
       }
-      continue;
     }
     if (isAssistGiftId(g.id) && reviewHint) {
       const r = scoreGift(g, reviewHint);
@@ -1155,7 +1153,6 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
 
   const raisedById = new Map(scoredGifts.map((g) => [String(g.giftId), g]));
   for (const g of gifts) {
-    if (isMgoAttributedGift(g)) continue;
     const gDate = giftDateOf(g);
     if (!gDate) continue;
     if (g.contactId == null) continue;
