@@ -628,12 +628,6 @@ function PointsPageInner() {
     if (g.owners?.length) return g.owners;
     return g.owner ? [{ name: g.owner, noteType: g.noteType, noteLabel: g.noteLabel, noteDay: g.noteDay, daysAfterNote: g.daysAfterNote }] : [];
   }
-  function incomingAssignOwners(g: GiftRow & Partial<PossibleGiftRow>): IncomingOwner[] {
-    const owners = incomingOwners(g);
-    if (owners.length) return owners;
-    if (g.galaSite && g.contactId != null) return MA_ROSTER.map((m) => ({ name: m.name }));
-    return [];
-  }
   const todoQueue = useMemo(() => {
     return (
       range === "all"
@@ -1200,7 +1194,6 @@ function PointsPageInner() {
                       <tbody>
                   {listedIncoming.map((g, i) => {
                     const owners = incomingOwners(g);
-                    const assignOwners = incomingAssignOwners(g);
                     const review = !!g.needsReview;
                     const flagId = giftFlagId(g);
                     const busy = review
@@ -1277,7 +1270,7 @@ function PointsPageInner() {
                               ) : null
                             ) : (
                               <>
-                                {assignOwners.map((o) => (
+                                {owners.map((o) => (
                                   <button
                                     key={`a-${o.name}`}
                                     type="button"
@@ -1288,7 +1281,7 @@ function PointsPageInner() {
                                     {assignBusy === `${g.giftId}:${o.name}` ? "…" : o.name.split(" ")[0]}
                                   </button>
                                 ))}
-                                {assignOwners.map((o) => (
+                                {owners.map((o) => (
                                   <button
                                     key={`s-${o.name}`}
                                     type="button"
