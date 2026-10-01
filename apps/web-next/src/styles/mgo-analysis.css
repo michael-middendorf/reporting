@@ -1,0 +1,154 @@
+/* MGO Analysis and Management (DST-2830). Builds on the ac-* classes in annunciation.css. */
+
+.mga-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+}
+
+.mga-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ac-dim);
+}
+
+.mga-field select {
+  min-width: 220px;
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--ac-border);
+  border-radius: 8px;
+  background: var(--ac-card);
+  color: var(--ac-text);
+  font-size: 14px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.mga-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--ac-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--ac-card);
+}
+
+.mga-seg button {
+  border: 0;
+  border-right: 1px solid var(--ac-border);
+  background: transparent;
+  color: var(--ac-dim);
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.mga-seg button:last-child { border-right: 0; }
+
+.mga-seg .mga-seg-on {
+  background: var(--ac-text);
+  color: #fff;
+}
+
+.mga-cards { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+
+.mga-card-sub {
+  font-size: 12px;
+  color: var(--ac-dim);
+}
+
+.mga-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 13px;
+  color: var(--ac-text);
+}
+
+.mga-checks label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.mga-table { min-width: 1040px; }
+
+.mga-table thead th { padding: 0; }
+.mga-table thead th:nth-child(3) { cursor: pointer; }
+
+.mga-sort {
+  width: 100%;
+  border: 0;
+  background: none;
+  padding: 12px 14px;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mga-sort:hover { color: var(--ac-text); }
+
+.mga-sort-ind { color: var(--ac-gold); }
+
+.mga-name { min-width: 180px; }
+
+.mga-date {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.mga-plan { min-width: 240px; max-width: 420px; }
+
+.mga-plan-btn {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  white-space: pre-wrap;
+}
+
+.mga-plan-btn:hover { color: var(--ac-gold); }
+
+.mga-foot {
+  margin-top: 24px;
+  font-size: 12px;
+  color: var(--ac-dim);
+}
+
+.mga-foot h2 {
+  font-size: 12px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.mga-foot ul {
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+@media (max-width: 640px) {
+  .mga-field,
+  .mga-field select { width: 100%; }
+  .mga-seg { width: 100%; }
+  .mga-seg button { flex: 1 1 auto; }
+}

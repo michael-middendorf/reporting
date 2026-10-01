@@ -522,6 +522,7 @@ describe("full Advancement grants", () => {
       "points",
       "portfolios",
       "annunciation",
+      "mgo-analysis",
     ]);
   });
 
@@ -531,12 +532,46 @@ describe("full Advancement grants", () => {
       assert.equal(canAccessReport(email, "portfolios"), true, email);
       assert.equal(canAccessReport(email, "housing"), false, email);
       assert.equal(canAccessReport(email, "census"), false, email);
-      assert.deepEqual(
-        reportsForEmail(email),
-        ["advancement", "chapel", "portfolios", "annunciation"],
-        email,
-      );
     }
+    assert.deepEqual(reportsForEmail("Julie.Musselman@avemaria.edu"), [
+      "advancement",
+      "chapel",
+      "portfolios",
+      "annunciation",
+    ]);
+    assert.deepEqual(reportsForEmail("Jim.Thomas@avemaria.edu"), [
+      "advancement",
+      "chapel",
+      "portfolios",
+      "annunciation",
+      "mgo-analysis",
+    ]);
+  });
+});
+
+describe("MGO Analysis grant (DST-2830)", () => {
+  it("lets Leslie and Jim open MGO Analysis", () => {
+    for (const email of ["Leslie.Sonnen@avemaria.edu", "jim.thomas@avemaria.edu"]) {
+      assert.equal(canAccessReport(email, "mgo-analysis"), true, email);
+      assert.equal(canLogin(email), true, email);
+    }
+  });
+
+  it("keeps other Advancement users out", () => {
+    for (const email of [
+      "julie.musselman@avemaria.edu",
+      "becca.kennedy@avemaria.edu",
+      "zena.weist@avemaria.edu",
+    ]) {
+      assert.equal(canAccessReport(email, "advancement"), true, email);
+      assert.equal(canAccessReport(email, "mgo-analysis"), false, email);
+    }
+    assert.equal(canAccessReport("annie.esposito@avemaria.edu", "mgo-analysis"), false);
+  });
+
+  it("lets hub admins open MGO Analysis", () => {
+    assert.equal(canAccessReport("michael.t.middendorf@avemaria.edu", "mgo-analysis"), true);
+    assert.equal(canAccessReport("cole.j.cantu@avemaria.edu", "mgo-analysis"), true);
   });
 
   it("does not promote Becca to MA Points, portfolios, or other folders", () => {
