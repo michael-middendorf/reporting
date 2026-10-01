@@ -3056,7 +3056,7 @@ describe("gala ticket purchases", () => {
     assert.equal(model.possibleGifts?.[0].owners?.[0].name, ELENA);
   });
 
-  it("puts a gala-site ticket with no notes on Incoming", () => {
+  it("omits a gala-site ticket with no MA contact from Incoming", () => {
     const { model, owner } = run(
       [],
       [postedGift({
@@ -3072,12 +3072,10 @@ describe("gala ticket purchases", () => {
       })],
     );
     assert.equal(owner.giftAmount, 0);
-    assert.equal(model.possibleGifts?.length, 1);
-    assert.equal(model.possibleGifts?.[0].contactName, "Jeffrey and Donna Langton");
-    assert.equal((model.possibleGifts?.[0].owners || []).length, 0);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
-  it("does not treat a voicemail as an Incoming assign owner on a gala-site ticket", () => {
+  it("omits a gala-site ticket whose only note is a voicemail", () => {
     const { model } = run(
       [donationNote({
         createdByUser: ELENA,
@@ -3098,11 +3096,10 @@ describe("gala ticket purchases", () => {
         emailMatch: "unique",
       })],
     );
-    assert.equal(model.possibleGifts?.length, 1);
-    assert.equal((model.possibleGifts?.[0].owners || []).length, 0);
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
-  it("lists an unmatched gala-site ticket without a contact id", () => {
+  it("omits an unmatched gala-site ticket with no contact id", () => {
     const { model } = run(
       [],
       [postedGift({
@@ -3117,9 +3114,7 @@ describe("gala ticket purchases", () => {
         emailMatch: "unmatched",
       })],
     );
-    assert.equal(model.possibleGifts?.length, 1);
-    assert.equal(model.possibleGifts?.[0].contactName, "Greg Trum");
-    assert.equal(model.possibleGifts?.[0].emailMatch, "unmatched");
+    assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
   it("credits an assigned gala-site ticket", () => {

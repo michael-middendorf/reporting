@@ -928,9 +928,10 @@ function markAssist(gift) {
  * within 90 days, or a donation note within 90 days before or after the gift
  * (New Donation or New AC, Annunciation Circle updated, or Update Recurring
  * Gift). A gala ticket purchase posted in Virtuous is assigned the same way.
- * A gala-site Stripe ticket that is not yet in Virtuous waits on Incoming.
- * Assign on that ticket is the MA who spoke with the contact on or before
- * the purchase, within 90 days.
+ * A gala-site Stripe ticket that is not yet in Virtuous waits on Incoming
+ * only when an MA had a conversation, two-way email, or meeting on that
+ * contact on or before the purchase, within 90 days. Tickets sold to people
+ * the MAs did not contact are not listed.
  * An Incoming assignment, or an MGO-coded gift on that MA’s portfolio, also credits it.
  * `countedGifts` is accepted and ignored so older callers keep working.
  *
@@ -1157,7 +1158,7 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
     if (isMgoAttributedGift(g)) continue;
     const gDate = giftDateOf(g);
     if (!gDate) continue;
-    if (g.contactId == null && !isGalaGift(g)) continue;
+    if (g.contactId == null) continue;
     const postedAmount = parseAmount(g.amount);
     if (postedAmount <= 0) continue;
     const gid = g.id == null ? "" : String(g.id);
@@ -1180,7 +1181,7 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
     const autoHits = possibleNotesForGift(gDate, notesOnContact);
     const olderHits = autoHits.length ? [] : reviewContacts(gDate, notesOnContact);
     const hits = autoHits.length ? autoHits : olderHits;
-    if (!hits.length && !isGalaGift(g)) continue;
+    if (!hits.length) continue;
     const pendingGalaSite = isPendingGalaSiteTicket(g);
     const reviewWindow = olderHits.length > 0;
     const hit = hits[0];
@@ -1211,7 +1212,7 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
       kindLabel: giftKindLabel(kind, annualized),
       bucket: "possible",
       label: pendingGalaSite
-        ? (hits.length ? "Gala site ticket" : "Gala site ticket — no unique note yet")
+        ? "Gala site ticket"
         : reviewWindow ? "Review — older contact" : "Incoming gift",
       reviewWindow,
       day: isoDay(gDate),
