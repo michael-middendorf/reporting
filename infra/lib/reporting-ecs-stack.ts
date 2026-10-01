@@ -300,14 +300,16 @@ type IsolatedSqlSourceConfig = {
   sqlHost: string;
   /** UTC schedule. Handler refuses 07:00 to 22:00 America/New_York. */
   cron: { minute: string; hour: string };
+  /** Task memory. Each dataset is held in memory before upload (GL history is the largest). */
+  memoryLimitMiB: number;
 };
 
 // Fixed role names: sst.config.ts references these ARNs in the bucket policy.
 export const isolatedSqlSources: IsolatedSqlSourceConfig[] = [
   // 07:50 UTC = 03:50 EDT / 02:50 EST, after PowerCampus (07:30 UTC).
-  { source: "powerfaids", id: "PowerFaids", envPrefix: "PF", sqlHost: "10.1.27.12/32", cron: { minute: "50", hour: "7" } },
+  { source: "powerfaids", id: "PowerFaids", envPrefix: "PF", sqlHost: "10.1.27.12/32", cron: { minute: "50", hour: "7" }, memoryLimitMiB: 2048 },
   // 08:10 UTC = 04:10 EDT / 03:10 EST.
-  { source: "greatplains", id: "GreatPlains", envPrefix: "GP", sqlHost: "10.1.27.211/32", cron: { minute: "10", hour: "8" } },
+  { source: "greatplains", id: "GreatPlains", envPrefix: "GP", sqlHost: "10.1.27.211/32", cron: { minute: "10", hour: "8" }, memoryLimitMiB: 4096 },
 ];
 
 function isolatedSqlSource(
@@ -381,7 +383,7 @@ function isolatedSqlSource(
   sg.addEgressRule(ec2.Peer.ipv4(cfg.sqlHost), ec2.Port.tcp(1433), `${cfg.source} SQL Server only`);
   const taskDef = new ecs.FargateTaskDefinition(scope, `${cfg.id}Task`, {
     cpu: 512,
-    memoryLimitMiB: 2048,
+    memoryLimitMiB: cfg.memoryLimitMiB,
     taskRole,
     executionRole,
   });
