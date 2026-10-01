@@ -219,6 +219,8 @@ export class ReportingEcsStack extends cdk.Stack {
       ALUMNI_PROCESS_FUNCTION: "amu-reporting-production-AlumniProcessFunction-vuhfevxd",
       ADVANCEMENT_OVERVIEW_FN_NAME:
         "amu-reportin-production-AdvancementOverviewDataFunction-bdadrzku",
+      // Fixed name set in sst.config.ts (MgoAnalysisData), DST-2830.
+      MGO_ANALYSIS_FN_NAME: "amu-reporting-production-MgoAnalysisData",
     };
     task.addToTaskRolePolicy(new iam.PolicyStatement({
       actions: ["lambda:InvokeFunction"],

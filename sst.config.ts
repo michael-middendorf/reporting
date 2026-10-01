@@ -323,6 +323,30 @@ export default $config({
       permissions: reportDataPerms,
     });
 
+    // DST-2830 MGO Analysis and Management. Fixed function name so the ECS
+    // stack (infra/lib/reporting-ecs-stack.ts MGO_ANALYSIS_FN_NAME) can
+    // reference it before this stack deploys; CI deploys ECS first.
+    const mgoAnalysis = new sst.aws.Function("MgoAnalysisData", {
+      name: `${$app.name}-${$app.stage}-MgoAnalysisData`,
+      handler: "services/publishers/mgo-analysis/handler.handler",
+      runtime: "python3.12",
+      timeout: "15 minutes",
+      memory: "2048 MB",
+      // FY contact notes are the heaviest pull; a failed cron run waits for
+      // the next tick instead of retrying.
+      retries: 0,
+      link: [data],
+      python: { uv: true },
+      copyFiles: commonFiles,
+      environment: {
+        DATA_BUCKET: data.name,
+        API_KEY: virtuousApiKey.value,
+        VIRTUOUS_API_KEY: virtuousApiKey.value,
+        MGO_ANALYSIS_CACHE_KEY: "mgo-analysis/latest.json",
+      },
+      permissions: reportDataPerms,
+    });
+
     const fallAppeal = new sst.aws.Function("FallAppealData", {
       handler: "services/publishers/fall-appeal/handler.handler",
       runtime: "python3.12",
@@ -571,6 +595,11 @@ export default $config({
       function: portfolios,
     });
 
+    new sst.aws.Cron("MgoAnalysisRefresh", {
+      schedule: "rate(15 minutes)",
+      function: mgoAnalysis,
+    });
+
     new sst.aws.Cron("StainedGlassWindowsRefresh", {
       schedule: "rate(15 minutes)",
       function: stainedGlassWindows,
@@ -630,6 +659,7 @@ export default $config({
       advancementOverview: advancementOverview.name,
       mgoTopProspects: mgoTopProspects.name,
       portfolios: portfolios.name,
+      mgoAnalysis: mgoAnalysis.name,
       stainedGlassWindows: stainedGlassWindows.name,
       fallAppeal: fallAppeal.name,
       springAppeal: springAppeal.name,
