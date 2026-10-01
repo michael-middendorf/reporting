@@ -284,7 +284,10 @@ export class ReportingEcsStack extends cdk.Stack {
 }
 
 // Break-glass reader for the isolated sources (and the only human allowed by the bucket policy).
+// Keep in sync with breakGlassReaders in sst.config.ts.
 const breakGlassUserArn = `arn:aws:iam::${account}:user/michael-middendorf`;
+// AWS-managed prefix list com.amazonaws.us-east-2.s3.
+const s3PrefixListId = "pl-7ba54012";
 
 type IsolatedSqlSourceConfig = {
   /** Worker action, S3 source name, and resource name stem. */
@@ -342,11 +345,11 @@ function isolatedSqlSource(
     resources: ["*"],
     conditions: { ArnNotEquals: { "aws:PrincipalArn": [taskRole.roleArn, breakGlassUserArn] } },
   }));
-  key.addToResourcePolicy(new iam.PolicyStatement({
-    sid: "AllowSourceRoleViaS3",
-    principals: [taskRole],
+  // Granted in the role's IAM policy (the key policy's root statement delegates to IAM) rather
+  // than naming the brand-new role in the key policy, which KMS can reject before IAM propagates.
+  taskRole.addToPolicy(new iam.PolicyStatement({
     actions: ["kms:Decrypt", "kms:GenerateDataKey"],
-    resources: ["*"],
+    resources: [key.keyArn],
     conditions: { StringEquals: { "kms:ViaService": `s3.${region}.amazonaws.com` } },
   }));
   // S3: own prefix only. Listing is limited to the prefix (pruning old dt= folders).
@@ -364,14 +367,17 @@ function isolatedSqlSource(
     retention: logs.RetentionDays.ONE_MONTH,
     removalPolicy: cdk.RemovalPolicy.RETAIN,
   });
-  // Egress: HTTPS (S3, KMS, CloudWatch Logs, ECR, GuardDuty agent) and 1433 to its one host.
+  // Egress: HTTPS only to the VPC (interface endpoints for ECR, Secrets Manager, KMS, Logs,
+  // STS, GuardDuty, all private DNS) and the S3 prefix list (data bucket and ECR layers via the
+  // S3 gateway endpoint), plus 1433 to its one host. No general internet egress.
   // Amazon-provided DNS is not filtered by security groups.
   const sg = new ec2.SecurityGroup(scope, `${cfg.id}Sg`, {
     vpc: ctx.vpc,
     description: `AMU reporting ${cfg.source} publisher`,
     allowAllOutbound: false,
   });
-  sg.addEgressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), "HTTPS to AWS APIs");
+  sg.addEgressRule(ec2.Peer.ipv4(ctx.vpc.vpcCidrBlock), ec2.Port.tcp(443), "HTTPS to VPC interface endpoints");
+  sg.addEgressRule(ec2.Peer.prefixList(s3PrefixListId), ec2.Port.tcp(443), "HTTPS to S3");
   sg.addEgressRule(ec2.Peer.ipv4(cfg.sqlHost), ec2.Port.tcp(1433), `${cfg.source} SQL Server only`);
   const taskDef = new ecs.FargateTaskDefinition(scope, `${cfg.id}Task`, {
     cpu: 512,

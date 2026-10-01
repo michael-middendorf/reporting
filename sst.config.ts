@@ -48,6 +48,7 @@ export default $config({
     // delete under its prefix, and every write must be SSE-KMS. The break-glass user and the
     // account root may read. Everything else (web, the shared worker, these Lambdas) is denied
     // even though their IAM grants cover the whole bucket. SST merges these with the HTTPS deny.
+    // Keep in sync with account / breakGlassUserArn / isolatedSqlSources in infra/lib/reporting-ecs-stack.ts.
     const account = "905418447941";
     const breakGlassReaders = [
       `arn:aws:iam::${account}:user/michael-middendorf`,
@@ -76,6 +77,17 @@ export default $config({
           actions: ["s3:PutObject"],
           paths: [`sources/${source}/*`],
           conditions: [{ test: "StringNotEquals", variable: "s3:x-amz-server-side-encryption", values: ["aws:kms"] }],
+        },
+        // Hide key names (dataset names, dates) under the prefix from everyone else too.
+        {
+          effect: "deny" as const,
+          principals: "*" as const,
+          actions: ["s3:ListBucket"],
+          paths: [""],
+          conditions: [
+            { test: "StringLike", variable: "s3:prefix", values: [`sources/${source}/*`] },
+            { test: "ArnNotEquals", variable: "aws:PrincipalArn", values: [taskRole, ...breakGlassReaders] },
+          ],
         },
       ];
     });
