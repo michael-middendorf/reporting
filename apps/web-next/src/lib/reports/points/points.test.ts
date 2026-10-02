@@ -88,6 +88,8 @@ type ScoredRow = {
   touchLabel?: string;
   noteId?: string | number;
   giftId?: string | number;
+  assist?: boolean;
+  postedAmount?: number;
   removed?: boolean;
   needsReview?: boolean;
   mgoAssigned?: boolean;
@@ -1182,6 +1184,11 @@ describe("gift dollars follow MA activity notes", () => {
     assert.equal(owner.gifts, 0);
     assert.equal(model.gifts.length, 0);
     assert.equal(model.possibleGifts?.length ?? 0, 0);
+    const listed = (model.rows as ScoredRow[]).filter((r) => r.assist && r.giftId != null && !r.removed);
+    assert.equal(listed.length, 1);
+    assert.equal(String(listed[0].giftId), "451486");
+    assert.equal(listed[0].amount, 0);
+    assert.equal(listed[0].postedAmount, 10000);
   });
 
   it("Gift Assist with no posted gift is not counted", () => {

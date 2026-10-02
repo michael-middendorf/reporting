@@ -30,7 +30,7 @@ export function isTaskListRow(r) {
 function rowRemoved(r, flags) {
   if (!flags) return false;
   // Gifts-table Remove uses its own key so it does not overwrite an assign flag.
-  if (r.bucket === "donation" && r.giftId != null && r.giftId !== "") {
+  if (r.giftId != null && r.giftId !== "" && (r.bucket === "donation" || r.assist)) {
     if (flags[`gift-remove:${r.giftId}`]?.status === "removed") return true;
   }
   if (r.bucket === "possible" && r.giftId != null && r.giftId !== "") {

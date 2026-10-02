@@ -1176,6 +1176,10 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
       day: g.day, date: g.date, weekday: g.weekday,
       contactId: g.contactId, contactName: g.contactName || "",
       giftId: g.giftId, giftAmount: g.postedAmount || 0,
+      postedAmount: g.postedAmount || 0,
+      amount: 0,
+      giftType: g.giftType || "",
+      project: g.project || "",
       source: "assist-backfill",
       assist: true,
     });
