@@ -3,7 +3,7 @@ import { requireReportAccess } from "@/lib/s3-proxy";
 import { loadSourceRows, loadSourceRowsOptional } from "@/lib/sources";
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "@/lib/reports/points/counted-gifts.js";
 import { projectProfiles } from "@/lib/reports/points/profiles.js";
-import { contactDisplayName, giftSolicitor, portfolioOwnersFromSnapshot, prepareGifts } from "@/lib/reports/points/scoring";
+import { applyPassthroughCredit, contactDisplayName, giftSolicitor, passthroughContactIds, portfolioOwnersFromSnapshot, prepareGifts } from "@/lib/reports/points/scoring";
 import { isGalaVirtuousGift, mergeGalaSiteTickets } from "@/lib/reports/points/gala-site-tickets.js";
 import { readJson } from "@/lib/sources";
 
@@ -124,16 +124,16 @@ export async function GET(req: Request, ctx: Ctx) {
         const name = contactDisplayName(r);
         if (Number.isFinite(cid) && name) names.set(cid, name);
       }
-      const posted = gifts.rows.filter(
-        (r) =>
-          contactIds.has(Number(r.contactId)) ||
-          onTracker(r, names) ||
-          isGalaVirtuousGift(r),
-      );
+      const posted = gifts.rows.filter((r) => {
+        if (contactIds.has(Number(r.contactId))) return true;
+        if (passthroughContactIds(r).some((id) => contactIds.has(id))) return true;
+        return onTracker(r, names) || isGalaVirtuousGift(r);
+      });
       const namedPosted = posted.map((r) => {
-        const cid = Number(r.contactId);
-        const contactName = contactDisplayName(r) || names.get(cid) || "";
-        return { ...r, contactName };
+        const credited = applyPassthroughCredit(r, names) as Record<string, unknown>;
+        const cid = Number(credited.contactId);
+        const contactName = contactDisplayName(credited) || names.get(cid) || "";
+        return { ...credited, contactName };
       });
       const recRows = (recurring?.rows || [])
         .filter((r) => contactIds.has(Number(r.contactId)) || onTracker(r, names))

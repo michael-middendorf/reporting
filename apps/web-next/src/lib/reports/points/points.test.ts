@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MA_NAMES, SETTINGS, evalStartDate, tierFor } from "./config.js";
-import { assignedNotesFromFlags, contactDisplayName, eventPointsForHours, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, isPendingGalaSiteTicket, outreachBeforeGift, parseDate, portfolioOwnersFromSnapshot, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
+import { applyPassthroughCredit, assignedNotesFromFlags, contactDisplayName, eventPointsForHours, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, isPendingGalaSiteTicket, outreachBeforeGift, parseDate, passthroughContactIds, portfolioOwnersFromSnapshot, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
 import { galaSiteGiftId, mergeGalaSiteTickets, uniqueEmailContactIndex, uniquePersonNameMatch } from "./gala-site-tickets.js";
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "./counted-gifts.js";
 import { aggregate, daysOfWeek, isTaskListRow, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
@@ -2266,6 +2266,62 @@ describe("MGO-coded gifts follow the same contact rule", () => {
     assert.equal(owner.giftAmount, 10000);
     assert.equal(owner.points, 100);
     assert.equal((model.reviewGifts || []).length, 0);
+  });
+
+  it("credits a DAF pass-through gift on the household the MA spoke with", () => {
+    const gift = postedGift({
+      id: 452490,
+      contactId: 131615,
+      contactName: "Vanguard Charitable",
+      giftDate: "10/1/2026",
+      amount: 500,
+      segment: "Direct Solicitation (MGO)",
+      contactPassthroughId: 4825,
+      giftPassthroughs: [{ contactId: 4825, contactName: "Anthony and Cynthia Lesniewski" }],
+    });
+    assert.deepEqual(passthroughContactIds(gift), [4825]);
+    const credited = applyPassthroughCredit(gift) as { contactId: number; contactName: string; legalContactId: number };
+    assert.equal(credited.contactId, 4825);
+    assert.equal(credited.contactName, "Anthony and Cynthia Lesniewski");
+    assert.equal(credited.legalContactId, 131615);
+    const { owner, model } = run(
+      [donationNote({
+        createdByUser: "Elena Barnes",
+        type: "Mission Advancement Call | Conversation",
+        noteDate: "9/18/2026",
+        contactId: 4825,
+        contactName: "Anthony and Cynthia Lesniewski",
+      })],
+      [gift],
+      "Elena Barnes",
+    );
+    assert.equal(owner.giftAmount, 500);
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.points, 110);
+    assert.equal(model.gifts[0].contactId, 4825);
+    assert.equal(model.gifts[0].amount, 500);
+  });
+
+  it("omits a DAF gift when only the legal org is on the gift and the MA noted the household", () => {
+    const { owner } = run(
+      [donationNote({
+        createdByUser: "Elena Barnes",
+        type: "Mission Advancement Call | Conversation",
+        noteDate: "9/18/2026",
+        contactId: 4825,
+      })],
+      [postedGift({
+        id: 452490,
+        contactId: 131615,
+        contactName: "Vanguard Charitable",
+        giftDate: "10/1/2026",
+        amount: 500,
+        segment: "Direct Solicitation (MGO)",
+      })],
+      "Elena Barnes",
+    );
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
   });
 
   it("Direct Solicitation (MGO)-HIST_DS uses the same contact rule", () => {

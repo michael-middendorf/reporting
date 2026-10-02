@@ -74,5 +74,44 @@ class RecurringGiftQueryTests(unittest.TestCase):
         self.assertEqual(by_id[1817]["amount"], 25)
 
 
+class PassthroughGiftTests(unittest.TestCase):
+    def test_passthrough_query_requires_a_passthrough_contact(self):
+        body = handler._passthrough_gift_query(dt.date(2026, 6, 1), dt.date(2026, 10, 2))
+        conds = body["groups"][0]["conditions"]
+        self.assertEqual(
+            [(c["parameter"], c["operator"]) for c in conds],
+            [
+                ("Gift Date", "OnOrAfter"),
+                ("Gift Date", "OnOrBefore"),
+                ("Passthrough Contact", "IsSet"),
+            ],
+        )
+
+    def test_fullgift_passthrough_row_replaces_the_slim_gift(self):
+        merged = handler.merge_passthrough_gifts(
+            [{"id": 452490, "contactId": 131615, "contactName": "Vanguard Charitable"}],
+            [{
+                "id": 452490,
+                "contactId": 131615,
+                "contactName": "Vanguard Charitable",
+                "contactPassthroughId": 4825,
+                "giftPassthroughs": [{"contactId": 4825, "contactName": "Anthony and Cynthia Lesniewski"}],
+            }],
+        )
+        self.assertEqual(len(merged), 1)
+        self.assertEqual(merged[0]["contactPassthroughId"], 4825)
+
+    def test_contact_ids_include_passthrough_households(self):
+        ids = handler._contact_ids(
+            [{
+                "id": 452490,
+                "contactId": 131615,
+                "contactPassthroughId": 4825,
+                "giftPassthroughs": [{"contactId": 4825}],
+            }]
+        )
+        self.assertEqual(ids, [4825, 131615])
+
+
 if __name__ == "__main__":
     unittest.main()
