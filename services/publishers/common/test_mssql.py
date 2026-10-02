@@ -5,6 +5,7 @@ Run from the repo root:
 """
 from __future__ import annotations
 
+import types
 import unittest
 from datetime import datetime, timezone
 from unittest import mock
@@ -46,9 +47,6 @@ class FakeCursor:
         if "sys.dm_exec_sessions" in sql:
             self.description = [("transaction_isolation_level",), ("lock_timeout",), ("deadlock_priority",)]
             self._rows = [self.conn.session_row]
-        elif "CONNECTIONPROPERTY('encrypt_option')" in sql:
-            self.description = [("encrypt_option",)]
-            self._rows = [(self.conn.encrypt_option,)]
         elif sql.startswith("SET "):
             self.description, self._rows = None, []
         elif "@@VERSION" in sql:
@@ -68,8 +66,7 @@ class FakeCursor:
 
 
 class FakeConnection:
-    def __init__(self, *, encrypt_option="TRUE", fail_on=None, session_row=(1, 5000, -5), rows_per_query=3):
-        self.encrypt_option = encrypt_option
+    def __init__(self, *, fail_on=None, session_row=(1, 5000, -5), rows_per_query=3):
         self.executed: list[tuple] = []
         self.fetch_sizes: list[int] = []
         self.fail_on = fail_on or {}
@@ -233,6 +230,10 @@ class ReaderTests(unittest.TestCase):
 
         class FakePytds:
             class tls:  # noqa: N801 - stands in for the pytds.tls module
+                class EncryptedSocket:
+                    def __init__(self):
+                        self._tls_conn = types.SimpleNamespace(get_protocol_version_name=lambda: "TLSv1.2")
+
                 @staticmethod
                 def create_context(cafile):
                     return None
@@ -240,7 +241,13 @@ class ReaderTests(unittest.TestCase):
             @staticmethod
             def connect(**kwargs):
                 captured.update(kwargs)
-                return FakeConnection()
+                conn = FakeConnection()
+                sock = FakePytds.tls.EncryptedSocket()
+                session = types.SimpleNamespace(
+                    _writer=types.SimpleNamespace(_transport=sock), _reader=types.SimpleNamespace(_transport=sock)
+                )
+                conn._tds_socket = types.SimpleNamespace(sock=sock, main_session=session)
+                return conn
 
         with mock.patch.dict("sys.modules", {"pytds": FakePytds}):
             mssql.MssqlReader(mssql.settings_from_env(PREFIX, ENV), app_name=APP).open()
@@ -309,7 +316,7 @@ class JobTests(unittest.TestCase):
         self.assertTrue(result["dry_run"])
         self.assertEqual(result["server_version"], "Microsoft SQL Server 2019")
         sent = [s for s, _ in conn.executed if s not in mssql.SESSION_SETUP_STATEMENTS]
-        self.assertEqual(sent, [mssql.SESSION_CHECK, mssql.ENCRYPTION_CHECK, mssql.VERSION_CHECK])
+        self.assertEqual(sent, [mssql.SESSION_CHECK, mssql.VERSION_CHECK])
 
     def test_partial_failure_records_and_raises(self):
         conn = FakeConnection(fail_on={"dbo.B": RuntimeError("Lock request time out (1222) for fake_user")})
@@ -370,27 +377,55 @@ class JobTests(unittest.TestCase):
 
 
 class TlsTests(unittest.TestCase):
-    """Every connection is TLS-encrypted and the job refuses to read otherwise."""
+    """Every connection is TLS 1.2 for the whole session; anything else is refused."""
 
-    def test_fails_closed_when_connection_not_encrypted(self):
-        conn = FakeConnection(encrypt_option="FALSE")
-        reader = mssql.MssqlReader(mssql.settings_from_env(PREFIX, ENV), app_name=APP, connect=lambda s: conn)
-        with self.assertRaises(mssql.SessionSetupError):
-            reader.open()
-        self.assertTrue(conn.closed)
-        sent = [sql for sql, _ in conn.executed]
-        self.assertEqual(sent[-1], mssql.ENCRYPTION_CHECK)
+    class _Enc:  # stands in for pytds.tls.EncryptedSocket
+        def __init__(self, version="TLSv1.2"):
+            self._tls_conn = types.SimpleNamespace(get_protocol_version_name=lambda: version)
 
-    def test_encryption_check_passes_guard(self):
-        mssql.guard_select(mssql.ENCRYPTION_CHECK)
+    def _fake_tls(self):
+        return types.SimpleNamespace(EncryptedSocket=self._Enc, create_context=lambda cafile: "stock")
 
-    def test_driver_called_with_tls_on(self):
-        fake_pytds = mock.MagicMock()
-        fake_tls = mock.MagicMock()
-        fake_tls.create_context = lambda cafile: "stock"
-        fake_pytds.tls = fake_tls
+    def _conn(self, sock, writer=None, reader=None):
+        session = types.SimpleNamespace(
+            _writer=types.SimpleNamespace(_transport=sock if writer is None else writer),
+            _reader=types.SimpleNamespace(_transport=sock if reader is None else reader),
+        )
+        return types.SimpleNamespace(_tds_socket=types.SimpleNamespace(sock=sock, main_session=session))
+
+    def _assert(self, conn):
+        fake_tls = self._fake_tls()
+        fake_pytds = types.SimpleNamespace(tls=fake_tls)
         with mock.patch.dict("sys.modules", {"pytds": fake_pytds, "pytds.tls": fake_tls}):
-            mssql._pytds_connect(mssql.settings_from_env(PREFIX, ENV), app_name=APP)
+            return mssql.assert_tls_session(conn)
+
+    def test_encrypted_tls12_session_passes(self):
+        self.assertEqual(self._assert(self._conn(self._Enc())), "TLSv1.2")
+
+    def test_plain_socket_refused(self):
+        with self.assertRaises(mssql.SessionSetupError):
+            self._assert(self._conn(object()))
+
+    def test_login_only_encryption_refused(self):
+        sock = self._Enc()
+        with self.assertRaises(mssql.SessionSetupError):
+            self._assert(self._conn(sock, writer=object(), reader=object()))
+
+    def test_other_tls_version_refused(self):
+        with self.assertRaises(mssql.SessionSetupError):
+            self._assert(self._conn(self._Enc("TLSv1.3")))
+
+    def test_driver_called_with_tls_on_and_closed_if_unencrypted(self):
+        fake_tls = self._fake_tls()
+        plain = FakeConnection()
+        plain._tds_socket = types.SimpleNamespace(sock=object(), main_session=None)
+        fake_pytds = mock.MagicMock()
+        fake_pytds.tls = fake_tls
+        fake_pytds.connect.return_value = plain
+        with mock.patch.dict("sys.modules", {"pytds": fake_pytds, "pytds.tls": fake_tls}):
+            with self.assertRaises(mssql.SessionSetupError):
+                mssql._pytds_connect(mssql.settings_from_env(PREFIX, ENV), app_name=APP)
+        self.assertTrue(plain.closed)
         kwargs = fake_pytds.connect.call_args.kwargs
         self.assertEqual(kwargs["cafile"], mssql.ENCRYPT_ONLY_CAFILE)
         self.assertFalse(kwargs["enc_login_only"])

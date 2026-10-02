@@ -82,11 +82,6 @@ VERSION_CHECK = (
     "OPTION (MAXDOP 1)"
 )
 
-# Proves the server sees this connection as TLS-encrypted (any login may call it).
-ENCRYPTION_CHECK = (
-    "SELECT CONVERT(varchar(10), CONNECTIONPROPERTY('encrypt_option')) AS encrypt_option "
-    "OPTION (MAXDOP 1)"
-)
 
 # TLS: every connection is encrypted end to end (TLS 1.2 or newer), on top of the IPsec
 # VPN. The campus SQL servers present SQL Server's auto-generated self-signed certificate,
@@ -311,10 +306,55 @@ def _install_tls_context_factory() -> None:
     pytds_tls.create_context = factory
 
 
+REQUIRED_TLS_VERSION = "TLSv1.2"
+
+
+def assert_tls_session(conn: Any) -> str:
+    """Raise SessionSetupError unless the whole TDS session runs over TLS 1.2.
+
+    Checked on the client: the server-side CONNECTIONPROPERTY('encrypt_option')
+    needs VIEW SERVER STATE, which the read-only logins deliberately lack. pytds
+    swaps the session socket for tls.EncryptedSocket after the handshake and
+    swaps it back (revert_to_clear) if only the login was encrypted.
+    Relies on python-tds internals (_tds_socket, main_session, _tls_conn), so the
+    driver is pinned (python-tds==1.17.1 in Dockerfile.worker); an upgrade that
+    changes them makes every run fail closed rather than read unencrypted.
+    """
+    from pytds import tls as pytds_tls
+
+    tds_socket = getattr(conn, "_tds_socket", None)
+    sock = getattr(tds_socket, "sock", None)
+    session = getattr(tds_socket, "main_session", None)
+    transports = (
+        getattr(getattr(session, "_writer", None), "_transport", None),
+        getattr(getattr(session, "_reader", None), "_transport", None),
+    )
+    if not isinstance(sock, pytds_tls.EncryptedSocket) or not all(t is sock for t in transports):
+        raise SessionSetupError("connection is not TLS-encrypted; refusing to read")
+    version = sock._tls_conn.get_protocol_version_name()
+    if version != REQUIRED_TLS_VERSION:
+        raise SessionSetupError(f"unexpected TLS version {version!r}; refusing to read")
+    return version
+
+
 def _pytds_connect(settings: ConnectionSettings, *, app_name: str) -> Any:
     import pytds  # imported lazily so unit tests never need the driver
 
     _install_tls_context_factory()
+    conn = _pytds_raw_connect(pytds, settings, app_name=app_name)
+    try:
+        version = assert_tls_session(conn)
+    except Exception:
+        try:
+            conn.close()
+        except Exception:  # noqa: BLE001 - never mask the TLS refusal with a shutdown error
+            pass
+        raise
+    print(f"{app_name}: {version} session established (certificate not validated)", flush=True)
+    return conn
+
+
+def _pytds_raw_connect(pytds: Any, settings: ConnectionSettings, *, app_name: str) -> Any:
     return pytds.connect(
         cafile=ENCRYPT_ONLY_CAFILE,
         validate_host=False,
@@ -402,9 +442,6 @@ class MssqlReader:
             raise SessionSetupError(
                 f"session settings not applied (isolation={iso}, lock_timeout={lock}, deadlock_priority={prio})"
             )
-        enc = list(self._iter_rows(ENCRYPTION_CHECK, None))
-        if len(enc) != 1 or str(enc[0]["encrypt_option"]).strip().upper() != "TRUE":
-            raise SessionSetupError("connection is not TLS-encrypted; refusing to read")
 
     def _iter_rows(self, sql: str, params: Mapping[str, Any] | None) -> Iterator[dict[str, Any]]:
         guard_select(sql)

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import pathlib
 import re
+import types
 import unittest
 from datetime import datetime, timezone
 from unittest import mock
@@ -57,9 +58,6 @@ class FakeCursor:
         if "sys.dm_exec_sessions" in sql:
             self.description = [("transaction_isolation_level",), ("lock_timeout",), ("deadlock_priority",)]
             self._rows = [self.conn.session_row]
-        elif "CONNECTIONPROPERTY('encrypt_option')" in sql:
-            self.description = [("encrypt_option",)]
-            self._rows = [(self.conn.encrypt_option,)]
         elif sql.startswith("SET "):
             self.description = None
             self._rows = []
@@ -82,8 +80,7 @@ class FakeCursor:
 
 
 class FakeConnection:
-    def __init__(self, *, encrypt_option="TRUE", fail_on=None, session_row=(1, 5000, -5), rows_per_query=3):
-        self.encrypt_option = encrypt_option
+    def __init__(self, *, fail_on=None, session_row=(1, 5000, -5), rows_per_query=3):
         self.executed: list[tuple] = []
         self.fail_on = fail_on or {}
         self.session_row = session_row
@@ -220,6 +217,10 @@ class SessionTests(unittest.TestCase):
 
         class FakePytds:
             class tls:  # noqa: N801 - stands in for the pytds.tls module
+                class EncryptedSocket:
+                    def __init__(self):
+                        self._tls_conn = types.SimpleNamespace(get_protocol_version_name=lambda: "TLSv1.2")
+
                 @staticmethod
                 def create_context(cafile):
                     return None
@@ -227,7 +228,13 @@ class SessionTests(unittest.TestCase):
             @staticmethod
             def connect(**kwargs):
                 captured.update(kwargs)
-                return FakeConnection()
+                conn = FakeConnection()
+                sock = FakePytds.tls.EncryptedSocket()
+                session = types.SimpleNamespace(
+                    _writer=types.SimpleNamespace(_transport=sock), _reader=types.SimpleNamespace(_transport=sock)
+                )
+                conn._tds_socket = types.SimpleNamespace(sock=sock, main_session=session)
+                return conn
 
         env = {**ENV, f"{UPPER}_QUERY_TIMEOUT_SECONDS": "120"}
         settings = mssql.settings_from_env(PREFIX, env, query_timeout_env=f"{UPPER}_QUERY_TIMEOUT_SECONDS")
@@ -294,7 +301,7 @@ class HandlerTests(unittest.TestCase):
         s3.assert_not_called()
         self.assertTrue(result["dry_run"])
         sent = [sql for sql, _ in conn.executed if sql not in mssql.SESSION_SETUP_STATEMENTS]
-        self.assertEqual(sent, [mssql.SESSION_CHECK, mssql.ENCRYPTION_CHECK, mssql.VERSION_CHECK])
+        self.assertEqual(sent, [mssql.SESSION_CHECK, mssql.VERSION_CHECK])
         self.assertTrue(conn.closed)
 
     def test_missing_kms_key_refuses_before_connect(self):
