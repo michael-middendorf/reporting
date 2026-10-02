@@ -276,7 +276,7 @@ def settings_from_env(
 
 
 def _encrypt_only_tls_context(cafile: str, _original: Callable[[str], Any] | None = None) -> Any:
-    """pytds TLS context factory: TLS 1.2+, no certificate validation for ENCRYPT_ONLY_CAFILE.
+    """pytds TLS context factory: exactly TLS 1.2, no certificate validation for ENCRYPT_ONLY_CAFILE.
 
     python-tds 1.17.1 only enables TLS when given a CA file and always validates
     against it, so the encrypt-only mode swaps in this context. Any other cafile
