@@ -3276,6 +3276,32 @@ describe("gala ticket purchases", () => {
     assert.equal(merged[0].contactName, "Kevin and Lisa Southers");
   });
 
+  it("does not treat PAT as a match for Patricia Kelly", () => {
+    const contacts = [
+      { id: 48437, contactName: "John and Patricia Kelly", email: "unused@example.com" },
+    ];
+    assert.equal(uniquePersonNameMatch(contacts, "PAT", "KELLY"), null);
+    const merged = mergeGalaSiteTickets(
+      [],
+      contacts,
+      [{
+        paymentIntentId: "pi_pat",
+        day: "2026-09-13",
+        firstName: "PAT",
+        lastName: "KELLY",
+        email: "pat@kellyenterprise.com",
+        amountCents: 206004,
+        inVirtuous: false,
+        giftId: null,
+        contactId: null,
+        contactName: "PAT KELLY",
+        emailMatch: "unmatched",
+      }],
+    );
+    assert.equal(merged.length, 1);
+    assert.equal(merged[0].contactId, null);
+  });
+
   it("adds a synthetic gift for a unique email and skips an ambiguous one", () => {
     const contacts = [
       { id: 40026, contactName: "Jay Hamilton", email: "jayhamilton.law@outlook.com" },

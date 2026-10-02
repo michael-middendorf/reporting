@@ -85,17 +85,20 @@ export function uniqueEmailContactIndex(contacts = []) {
   return unique;
 }
 
-/** Stripe first+last → contact when that name sits on exactly one household. */
+function nameTokens(value) {
+  return foldName(value).split(" ").filter(Boolean);
+}
+
+/** Stripe first+last → contact when those whole name tokens sit on exactly one household. */
 export function uniquePersonNameMatch(contacts = [], firstName, lastName) {
-  const first = foldName(firstName);
-  const last = foldName(lastName);
-  if (!first || !last) return null;
+  const needed = [...nameTokens(firstName), ...nameTokens(lastName)];
+  if (needed.length < 2) return null;
   const hits = [];
   for (const contact of contacts || []) {
     const cid = Number(contact.id ?? contact.contactId);
     if (!Number.isFinite(cid)) continue;
-    const blob = foldName(contactNameOf(contact));
-    if (!blob.includes(first) || !blob.includes(last)) continue;
+    const blob = new Set(nameTokens(contactNameOf(contact)));
+    if (!needed.every((token) => blob.has(token))) continue;
     if (!hits.some((row) => row.contactId === cid)) {
       hits.push({ contactId: cid, contactName: contactNameOf(contact) });
     }
