@@ -129,6 +129,8 @@ type GiftRow = {
   galaSite?: boolean;
   inVirtuous?: boolean;
   emailMatch?: string | null;
+  assist?: boolean;
+  giftAmount?: number | null;
 };
 
 type IncomingOwner = {
@@ -577,7 +579,8 @@ function PointsPageInner() {
   const listedGifts = useMemo(() => {
     if (!giftOwner) return [] as GiftRow[];
     return (model.rows as GiftRow[])
-      .filter((r) => r.bucket === "donation" && !r.needsReview && (r.amount || 0) > 0 && !r.removed)
+      .filter((r) => !r.needsReview && !r.removed)
+      .filter((r) => (r.bucket === "donation" && (r.amount || 0) > 0) || (r.assist && r.giftId != null))
       .filter((g) => giftOwner === "all" || g.owner === giftOwner)
       .sort((a, b) => (b.day || "").localeCompare(a.day || ""));
   }, [model.rows, giftOwner]);
@@ -1946,14 +1949,22 @@ function PointsPageInner() {
                               ) : null}
                             </td>
                             <td>
-                              {g.acIncrease ? "AC increase" : g.annualized ? "Monthly ×12" : (g.giftType || "—")}
+                              {g.assist
+                                ? "Assist"
+                                : g.acIncrease
+                                  ? "AC increase"
+                                  : g.annualized
+                                    ? "Monthly ×12"
+                                    : (g.giftType || "—")}
                               {g.project ? (
                                 <span style={{ color: "var(--slate-400)" }}> · {g.project}</span>
                               ) : null}
                             </td>
                             <td className="pts tabular">
-                              {money(g.amount)}
-                              {g.acIncrease && g.priorMonthly != null && g.newMonthly != null ? (
+                              {g.assist ? money(0) : money(g.amount)}
+                              {g.assist && (g.postedAmount || g.giftAmount) ? (
+                                <span className="section-hint"> ({money(g.postedAmount || g.giftAmount)} gift)</span>
+                              ) : g.acIncrease && g.priorMonthly != null && g.newMonthly != null ? (
                                 <span className="section-hint"> ({monthlyRate(g.priorMonthly)} → {monthlyRate(g.newMonthly)}/mo)</span>
                               ) : g.annualized && g.postedAmount != null ? (
                                 <span className="section-hint"> ({money(g.postedAmount)}/mo)</span>
