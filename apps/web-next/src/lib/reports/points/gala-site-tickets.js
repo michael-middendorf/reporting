@@ -23,6 +23,10 @@ function foldEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function foldName(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z]+/g, " ").trim();
+}
+
 function addEmail(set, value) {
   const email = foldEmail(value);
   if (email.includes("@")) set.add(email);
@@ -81,6 +85,24 @@ export function uniqueEmailContactIndex(contacts = []) {
   return unique;
 }
 
+/** Stripe first+last → contact when that name sits on exactly one household. */
+export function uniquePersonNameMatch(contacts = [], firstName, lastName) {
+  const first = foldName(firstName);
+  const last = foldName(lastName);
+  if (!first || !last) return null;
+  const hits = [];
+  for (const contact of contacts || []) {
+    const cid = Number(contact.id ?? contact.contactId);
+    if (!Number.isFinite(cid)) continue;
+    const blob = foldName(contactNameOf(contact));
+    if (!blob.includes(first) || !blob.includes(last)) continue;
+    if (!hits.some((row) => row.contactId === cid)) {
+      hits.push({ contactId: cid, contactName: contactNameOf(contact) });
+    }
+  }
+  return hits.length === 1 ? hits[0] : null;
+}
+
 function postedGalaKeys(gifts = []) {
   const ids = new Set();
   const contactDays = new Set();
@@ -103,7 +125,8 @@ function ticketAmount(ticket) {
 
 /**
  * Append synthetic gala-site gifts for succeeded Stripe tickets that are
- * not already a posted Virtuous gala gift. Unique email match only.
+ * not already a posted Virtuous gala gift. Unique email, snapshot contact id,
+ * or a unique Stripe first+last name on a Virtuous household.
  */
 export function mergeGalaSiteTickets(gifts = [], contacts = [], tickets = GALA_SITE_TICKETS.tickets) {
   const posted = postedGalaKeys(gifts);
@@ -129,6 +152,14 @@ export function mergeGalaSiteTickets(gifts = [], contacts = [], tickets = GALA_S
       contactId = hit.contactId;
       contactName = hit.contactName || contactName;
       emailMatch = "unique";
+    }
+    if (!contactId) {
+      const byName = uniquePersonNameMatch(contacts, ticket.firstName, ticket.lastName);
+      if (byName) {
+        contactId = byName.contactId;
+        contactName = byName.contactName || contactName;
+        emailMatch = "unique";
+      }
     }
     if (contactId && posted.contactDays.has(`${contactId}|${day}|${Math.round(amount * 100)}`)) {
       continue;
