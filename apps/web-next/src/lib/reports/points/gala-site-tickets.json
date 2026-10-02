@@ -83,9 +83,9 @@
       "amountCents": 300500,
       "inVirtuous": false,
       "giftId": null,
-      "contactId": null,
-      "contactName": "Norine Lozon",
-      "emailMatch": "ambiguous",
+      "contactId": 130304,
+      "contactName": "Ronald and Norine Michalak",
+      "emailMatch": "unique",
       "stripeName": "Norine Lozon"
     },
     {
@@ -97,9 +97,9 @@
       "amountCents": 200000,
       "inVirtuous": false,
       "giftId": null,
-      "contactId": null,
-      "contactName": "Christopher Daniel",
-      "emailMatch": "unmatched",
+      "contactId": 129903,
+      "contactName": "Chris Daniel and Deidra Casaus",
+      "emailMatch": "unique",
       "stripeName": "Christopher Daniel"
     },
     {
@@ -125,9 +125,9 @@
       "amountCents": 85000,
       "inVirtuous": false,
       "giftId": null,
-      "contactId": null,
-      "contactName": "Anthony DeGregoria",
-      "emailMatch": "ambiguous",
+      "contactId": 36499,
+      "contactName": "Anthony and Julie DeGregoria",
+      "emailMatch": "unique",
       "stripeName": "Anthony DeGregoria"
     },
     {
@@ -139,9 +139,9 @@
       "amountCents": 103018,
       "inVirtuous": false,
       "giftId": null,
-      "contactId": null,
+      "contactId": 7782,
       "contactName": "Jeanne Rush",
-      "emailMatch": "ambiguous",
+      "emailMatch": "unique",
       "stripeName": "Jeanne Rush"
     },
     {
@@ -321,9 +321,9 @@
       "amountCents": 43800,
       "inVirtuous": false,
       "giftId": null,
-      "contactId": null,
+      "contactId": 36510,
       "contactName": "Lisa Napier",
-      "emailMatch": "unmatched",
+      "emailMatch": "unique",
       "stripeName": "Lisa Napier"
     },
     {
@@ -349,9 +349,9 @@
       "amountCents": 170000,
       "inVirtuous": false,
       "giftId": null,
-      "contactId": null,
-      "contactName": "Marcia Nawrocki-Verburgt",
-      "emailMatch": "ambiguous",
+      "contactId": 21427,
+      "contactName": "John and Marcia Verburgt",
+      "emailMatch": "unique",
       "stripeName": "Marcia Nawrocki-Verburgt"
     },
     {
@@ -531,9 +531,9 @@
       "amountCents": 206004,
       "inVirtuous": false,
       "giftId": null,
-      "contactId": null,
-      "contactName": "Dianne Nutt",
-      "emailMatch": "unmatched",
+      "contactId": 120484,
+      "contactName": "Roger and Dianne Nutt",
+      "emailMatch": "unique",
       "stripeName": "Dianne Nutt"
     },
     {
@@ -559,9 +559,9 @@
       "amountCents": 200000,
       "inVirtuous": false,
       "giftId": null,
-      "contactId": null,
-      "contactName": "Kathleen Young",
-      "emailMatch": "unmatched",
+      "contactId": 13966,
+      "contactName": "Thomas and Kathleen Owens",
+      "emailMatch": "unique",
       "stripeName": "Kathleen Young"
     },
     {
@@ -573,9 +573,9 @@
       "amountCents": 43800,
       "inVirtuous": false,
       "giftId": null,
-      "contactId": null,
-      "contactName": "Mike Esposito",
-      "emailMatch": "unmatched",
+      "contactId": 107978,
+      "contactName": "Mike and Annie Esposito",
+      "emailMatch": "unique",
       "stripeName": "Mike Esposito"
     },
     {
@@ -587,9 +587,9 @@
       "amountCents": 200000,
       "inVirtuous": false,
       "giftId": null,
-      "contactId": null,
-      "contactName": "Lisa Southers",
-      "emailMatch": "ambiguous",
+      "contactId": 54040,
+      "contactName": "Kevin and Lisa Southers",
+      "emailMatch": "unique",
       "stripeName": "Lisa Southers"
     },
     {
@@ -643,9 +643,9 @@
       "amountCents": 206004,
       "inVirtuous": false,
       "giftId": null,
-      "contactId": null,
-      "contactName": "Katrina Dale",
-      "emailMatch": "ambiguous",
+      "contactId": 26485,
+      "contactName": "David and Katrina Dale",
+      "emailMatch": "unique",
       "stripeName": "Katrina Dale"
     },
     {
@@ -699,9 +699,9 @@
       "amountCents": 87570,
       "inVirtuous": false,
       "giftId": null,
-      "contactId": null,
-      "contactName": "Jill Striz",
-      "emailMatch": "unmatched",
+      "contactId": 45024,
+      "contactName": "Ethan and Jill Striz",
+      "emailMatch": "unique",
       "stripeName": "Jill Striz"
     },
     {
@@ -713,9 +713,9 @@
       "amountCents": 411977,
       "inVirtuous": false,
       "giftId": null,
-      "contactId": null,
-      "contactName": "Sydney McManus",
-      "emailMatch": "ambiguous",
+      "contactId": 125504,
+      "contactName": "Jeffrey and Sydney McManus",
+      "emailMatch": "unique",
       "stripeName": "Sydney McManus"
     },
     {
@@ -741,9 +741,9 @@
       "amountCents": 103018,
       "inVirtuous": false,
       "giftId": null,
-      "contactId": null,
+      "contactId": 129693,
       "contactName": "Michelle Viegas",
-      "emailMatch": "unmatched",
+      "emailMatch": "unique",
       "stripeName": "Michelle Viegas"
     },
     {
@@ -755,9 +755,9 @@
       "amountCents": 200000,
       "inVirtuous": false,
       "giftId": null,
-      "contactId": null,
-      "contactName": "Sam Semaan",
-      "emailMatch": "unmatched",
+      "contactId": 11225,
+      "contactName": "Sam and Claudia Semaan",
+      "emailMatch": "unique",
       "stripeName": "Sam Semaan"
     },
     {

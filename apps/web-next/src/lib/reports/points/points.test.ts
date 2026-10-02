@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MA_NAMES, SETTINGS, evalStartDate, tierFor } from "./config.js";
 import { assignedNotesFromFlags, contactDisplayName, eventPointsForHours, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, isPendingGalaSiteTicket, outreachBeforeGift, parseDate, portfolioOwnersFromSnapshot, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
-import { galaSiteGiftId, mergeGalaSiteTickets, uniqueEmailContactIndex } from "./gala-site-tickets.js";
+import { galaSiteGiftId, mergeGalaSiteTickets, uniqueEmailContactIndex, uniquePersonNameMatch } from "./gala-site-tickets.js";
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "./counted-gifts.js";
 import { aggregate, daysOfWeek, isTaskListRow, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
 import { buildCalculationCSV, statusOf, virtuousGiftUrl } from "./report.js";
@@ -3245,6 +3245,35 @@ describe("gala ticket purchases", () => {
     );
     assert.equal(merged.length, 1);
     assert.equal(merged[0].id, 451459);
+  });
+
+  it("resolves an ambiguous email when the Stripe name is unique", () => {
+    const contacts = [
+      { id: 54040, contactName: "Kevin and Lisa Southers", email: "lsouthers13@gmail.com" },
+      { id: 5854, contactName: "Delaney Southers", email: "lsouthers13@gmail.com" },
+    ];
+    assert.equal(uniqueEmailContactIndex(contacts).has("lsouthers13@gmail.com"), false);
+    assert.equal(uniquePersonNameMatch(contacts, "Lisa", "Southers")?.contactId, 54040);
+    const merged = mergeGalaSiteTickets(
+      [],
+      contacts,
+      [{
+        paymentIntentId: "pi_lisa",
+        day: "2026-09-24",
+        firstName: "Lisa",
+        lastName: "Southers",
+        email: "lsouthers13@gmail.com",
+        amountCents: 200000,
+        inVirtuous: false,
+        giftId: null,
+        contactId: null,
+        contactName: "Lisa Southers",
+        emailMatch: "ambiguous",
+      }],
+    );
+    assert.equal(merged.length, 1);
+    assert.equal(merged[0].contactId, 54040);
+    assert.equal(merged[0].contactName, "Kevin and Lisa Southers");
   });
 
   it("adds a synthetic gift for a unique email and skips an ambiguous one", () => {
