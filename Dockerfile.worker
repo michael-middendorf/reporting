@@ -6,7 +6,8 @@ RUN apk add --no-cache --upgrade su-exec openssl libssl3 libcrypto3 libuuid tzda
 # read-only PowerCampus publisher. Pinned exactly; bump deliberately.
 # pyOpenSSL: TLS for the PowerFAIDS and Great Plains SQL connections (common/mssql.py).
 # cryptography ships musllinux wheels, so no native build is needed.
-RUN pip install --no-cache-dir 'boto3>=1.34.0' 'websockets>=12.0' 'python-tds==1.17.1' 'pyOpenSSL==26.4.0'
+RUN pip install --no-cache-dir 'boto3>=1.34.0' 'websockets>=12.0' 'python-tds==1.17.1' 'pyOpenSSL==26.4.0' \
+ && python -c "import OpenSSL.SSL, pytds.tls; assert pytds.tls.OPENSSL_AVAILABLE, 'pyOpenSSL not usable by pytds'"
 COPY services/publishers ./services/publishers
 COPY docker/worker-entrypoint.py ./worker-entrypoint.py
 COPY docker/worker-docker-entrypoint.sh /docker-entrypoint.sh

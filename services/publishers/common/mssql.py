@@ -91,9 +91,11 @@ ENCRYPTION_CHECK = (
 # TLS: every connection is encrypted end to end (TLS 1.2 or newer), on top of the IPsec
 # VPN. The campus SQL servers present SQL Server's auto-generated self-signed certificate,
 # which is regenerated on every service restart, so the certificate is not validated
-# (encrypt-only; pinning it would break the pull after each patch reboot). This protects
+# (encrypt-only, TLS 1.2; pinning it would break the pull after each patch reboot). This protects
 # against passive capture on the campus network. Moving to a CA-issued server certificate
 # plus validation is the planned follow-up (pass a real CA bundle path as cafile).
+# Sentinel, not a path. If the context factory were ever not installed, pytds would try to
+# load it as a CA file and fail closed (no connection), never fall back to plaintext.
 ENCRYPT_ONLY_CAFILE = "encrypt-only:no-certificate-validation"
 
 FORBIDDEN_KEYWORDS: tuple[str, ...] = (
@@ -287,7 +289,10 @@ def _encrypt_only_tls_context(cafile: str, _original: Callable[[str], Any] | Non
     from OpenSSL import SSL
 
     ctx = SSL.Context(SSL.TLS_CLIENT_METHOD)
+    # Exactly TLS 1.2: TDS 7 wraps TLS in PRELOGIN packets and pytds has only been
+    # exercised with 1.2 there (stock pytds uses TLSv1_2_METHOD).
     ctx.set_min_proto_version(SSL.TLS1_2_VERSION)
+    ctx.set_max_proto_version(SSL.TLS1_2_VERSION)
     ctx.set_verify(SSL.VERIFY_NONE, lambda *_: True)
     return ctx
 

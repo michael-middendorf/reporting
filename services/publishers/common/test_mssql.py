@@ -398,7 +398,7 @@ class TlsTests(unittest.TestCase):
         self.assertTrue(getattr(fake_tls.create_context, "_amu_encrypt_only", False))
         self.assertEqual(fake_tls.create_context("/real/ca.pem"), "stock")
 
-    def test_encrypt_only_context_requires_tls12(self):
+    def test_encrypt_only_context_skips_validation_only_for_sentinel(self):
         try:
             from OpenSSL import SSL
         except ImportError:
