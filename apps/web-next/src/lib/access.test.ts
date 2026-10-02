@@ -377,6 +377,28 @@ describe("census grant for Gallagher, Nutt, and Davy", () => {
   });
 });
 
+describe("census grant for Fier and Logan", () => {
+  const people = ["Luke.Fier@avemaria.edu", "Steve.Logan@avemaria.edu"];
+
+  it("lets Luke and Steve sign in and open census only", () => {
+    for (const email of people) {
+      assert.equal(canLogin(email), true, email);
+      assert.equal(canAccessReport(email, "census"), true, email);
+      assert.equal(isAdmin(email), false, email);
+      assert.equal(canAccessReport(email, "enrollment"), false, email);
+      assert.equal(canAccessReport(email, "athletics"), false, email);
+      assert.equal(canAccessReport(email, "housing"), false, email);
+      assert.equal(canAccessReport(email, "institute"), false, email);
+      assert.equal(canAccessReport(email, "advancement"), false, email);
+      assert.equal(canAccessReport(email, "chapel"), false, email);
+      assert.equal(canAccessReport(email, "points"), false, email);
+      assert.equal(canAccessReport(email, "annunciation"), false, email);
+      assert.equal(canAccessReport(email, "aspiredu"), false, email);
+      assert.deepEqual(reportsForEmail(email), ["census"], email);
+    }
+  });
+});
+
 describe("aspiredu grant for Daniel Davy", () => {
   const DANIEL = "Daniel.Davy@avemaria.edu";
   const DAN = "Dan.Donaldson@avemaria.edu";
