@@ -316,6 +316,9 @@ def assert_tls_session(conn: Any) -> str:
     needs VIEW SERVER STATE, which the read-only logins deliberately lack. pytds
     swaps the session socket for tls.EncryptedSocket after the handshake and
     swaps it back (revert_to_clear) if only the login was encrypted.
+    Relies on python-tds internals (_tds_socket, main_session, _tls_conn), so the
+    driver is pinned (python-tds==1.17.1 in Dockerfile.worker); an upgrade that
+    changes them makes every run fail closed rather than read unencrypted.
     """
     from pytds import tls as pytds_tls
 
@@ -342,7 +345,10 @@ def _pytds_connect(settings: ConnectionSettings, *, app_name: str) -> Any:
     try:
         version = assert_tls_session(conn)
     except Exception:
-        conn.close()
+        try:
+            conn.close()
+        except Exception:  # noqa: BLE001 - never mask the TLS refusal with a shutdown error
+            pass
         raise
     print(f"{app_name}: {version} session established (certificate not validated)", flush=True)
     return conn
