@@ -82,6 +82,22 @@ VERSION_CHECK = (
     "OPTION (MAXDOP 1)"
 )
 
+# Proves the server sees this connection as TLS-encrypted (any login may call it).
+ENCRYPTION_CHECK = (
+    "SELECT CONVERT(varchar(10), CONNECTIONPROPERTY('encrypt_option')) AS encrypt_option "
+    "OPTION (MAXDOP 1)"
+)
+
+# TLS: every connection is encrypted end to end (TLS 1.2 or newer), on top of the IPsec
+# VPN. The campus SQL servers present SQL Server's auto-generated self-signed certificate,
+# which is regenerated on every service restart, so the certificate is not validated
+# (encrypt-only, TLS 1.2; pinning it would break the pull after each patch reboot). This protects
+# against passive capture on the campus network. Moving to a CA-issued server certificate
+# plus validation is the planned follow-up (pass a real CA bundle path as cafile).
+# Sentinel, not a path. If the context factory were ever not installed, pytds would try to
+# load it as a CA file and fail closed (no connection), never fall back to plaintext.
+ENCRYPT_ONLY_CAFILE = "encrypt-only:no-certificate-validation"
+
 FORBIDDEN_KEYWORDS: tuple[str, ...] = (
     "INSERT", "UPDATE", "DELETE", "MERGE", "EXEC", "EXECUTE", "DROP", "ALTER",
     "CREATE", "TRUNCATE", "GRANT", "REVOKE", "DENY", "INTO", "BACKUP",
@@ -259,10 +275,50 @@ def settings_from_env(
     )
 
 
+def _encrypt_only_tls_context(cafile: str, _original: Callable[[str], Any] | None = None) -> Any:
+    """pytds TLS context factory: exactly TLS 1.2, no certificate validation for ENCRYPT_ONLY_CAFILE.
+
+    python-tds 1.17.1 only enables TLS when given a CA file and always validates
+    against it, so the encrypt-only mode swaps in this context. Any other cafile
+    (a real CA bundle) gets pytds' stock validating context.
+    """
+    if cafile != ENCRYPT_ONLY_CAFILE:
+        if _original is None:
+            raise RuntimeError("no validating TLS context factory available")
+        return _original(cafile)
+    from OpenSSL import SSL
+
+    ctx = SSL.Context(SSL.TLS_CLIENT_METHOD)
+    # Exactly TLS 1.2: TDS 7 wraps TLS in PRELOGIN packets and pytds has only been
+    # exercised with 1.2 there (stock pytds uses TLSv1_2_METHOD).
+    ctx.set_min_proto_version(SSL.TLS1_2_VERSION)
+    ctx.set_max_proto_version(SSL.TLS1_2_VERSION)
+    ctx.set_verify(SSL.VERIFY_NONE, lambda *_: True)
+    return ctx
+
+
+def _install_tls_context_factory() -> None:
+    from pytds import tls as pytds_tls
+
+    if getattr(pytds_tls.create_context, "_amu_encrypt_only", False):
+        return
+    original = pytds_tls.create_context
+
+    def factory(cafile: str) -> Any:
+        return _encrypt_only_tls_context(cafile, original)
+
+    factory._amu_encrypt_only = True  # type: ignore[attr-defined]
+    pytds_tls.create_context = factory
+
+
 def _pytds_connect(settings: ConnectionSettings, *, app_name: str) -> Any:
     import pytds  # imported lazily so unit tests never need the driver
 
+    _install_tls_context_factory()
     return pytds.connect(
+        cafile=ENCRYPT_ONLY_CAFILE,
+        validate_host=False,
+        enc_login_only=False,
         server=settings.host,
         port=settings.port,
         database=settings.database,
@@ -346,6 +402,9 @@ class MssqlReader:
             raise SessionSetupError(
                 f"session settings not applied (isolation={iso}, lock_timeout={lock}, deadlock_priority={prio})"
             )
+        enc = list(self._iter_rows(ENCRYPTION_CHECK, None))
+        if len(enc) != 1 or str(enc[0]["encrypt_option"]).strip().upper() != "TRUE":
+            raise SessionSetupError("connection is not TLS-encrypted; refusing to read")
 
     def _iter_rows(self, sql: str, params: Mapping[str, Any] | None) -> Iterator[dict[str, Any]]:
         guard_select(sql)
