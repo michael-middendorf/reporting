@@ -827,7 +827,10 @@ function PointsPageInner() {
   async function assignIncoming(g: GiftRow & { kind?: string }, owner: string, assist: boolean, opts?: { skipConfirm?: boolean }) {
     if (g.giftId == null || g.giftId === "" || g.contactId == null || !g.day) return;
     const kindLabel = assist ? "Gift Assist" : (noteTypeForIncoming(g.kind) || "gift note");
-    if (!opts?.skipConfirm && !window.confirm(`Assign this ${kindLabel} to ${owner}? It scores 100 points and counts in Raised. It does not add a note in Virtuous.`)) return;
+    const effect = assist
+      ? "It scores 100 Assist points and $0 Raised. It does not add a note in Virtuous."
+      : "It scores 100 points and counts in Raised. It does not add a note in Virtuous.";
+    if (!opts?.skipConfirm && !window.confirm(`Assign this ${kindLabel} to ${owner}? ${effect}`)) return;
     setAssignBusy(`${g.giftId}:${owner}`);
     setFlagError(null);
     try {
@@ -1977,8 +1980,18 @@ function PointsPageInner() {
                                   Gift ↗
                                 </a>
                               ) : null}
-                              {removeId ? (
-                                <div style={{ marginTop: virtuousGiftUrl(g.contactId) ? 6 : 0 }}>
+                              <div style={{ marginTop: virtuousGiftUrl(g.contactId) ? 6 : 0, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                {!g.assist && g.giftId != null && g.giftId !== "" && g.contactId != null && g.day ? (
+                                  <button
+                                    type="button"
+                                    className="mini-btn"
+                                    disabled={assignBusy === `${g.giftId}:${g.owner}` || flagBusy === giftFlagId(g)}
+                                    onClick={() => assignIncoming(g, g.owner, true)}
+                                  >
+                                    {assignBusy === `${g.giftId}:${g.owner}` ? "…" : "Gift assist"}
+                                  </button>
+                                ) : null}
+                                {removeId ? (
                                   <button
                                     type="button"
                                     className="mini-btn danger"
@@ -1987,10 +2000,10 @@ function PointsPageInner() {
                                   >
                                     {flagBusy === removeId ? "…" : "Remove"}
                                   </button>
-                                </div>
-                              ) : (
-                                "—"
-                              )}
+                                ) : !g.assist ? (
+                                  "—"
+                                ) : null}
+                              </div>
                             </td>
                           </tr>
                           );
