@@ -57,6 +57,9 @@ class FakeCursor:
         if "sys.dm_exec_sessions" in sql:
             self.description = [("transaction_isolation_level",), ("lock_timeout",), ("deadlock_priority",)]
             self._rows = [self.conn.session_row]
+        elif "CONNECTIONPROPERTY('encrypt_option')" in sql:
+            self.description = [("encrypt_option",)]
+            self._rows = [(self.conn.encrypt_option,)]
         elif sql.startswith("SET "):
             self.description = None
             self._rows = []
@@ -79,7 +82,8 @@ class FakeCursor:
 
 
 class FakeConnection:
-    def __init__(self, *, fail_on=None, session_row=(1, 5000, -5), rows_per_query=3):
+    def __init__(self, *, encrypt_option="TRUE", fail_on=None, session_row=(1, 5000, -5), rows_per_query=3):
+        self.encrypt_option = encrypt_option
         self.executed: list[tuple] = []
         self.fail_on = fail_on or {}
         self.session_row = session_row
@@ -215,6 +219,11 @@ class SessionTests(unittest.TestCase):
         captured = {}
 
         class FakePytds:
+            class tls:  # noqa: N801 - stands in for the pytds.tls module
+                @staticmethod
+                def create_context(cafile):
+                    return None
+
             @staticmethod
             def connect(**kwargs):
                 captured.update(kwargs)
@@ -285,7 +294,7 @@ class HandlerTests(unittest.TestCase):
         s3.assert_not_called()
         self.assertTrue(result["dry_run"])
         sent = [sql for sql, _ in conn.executed if sql not in mssql.SESSION_SETUP_STATEMENTS]
-        self.assertEqual(sent, [mssql.SESSION_CHECK, mssql.VERSION_CHECK])
+        self.assertEqual(sent, [mssql.SESSION_CHECK, mssql.ENCRYPTION_CHECK, mssql.VERSION_CHECK])
         self.assertTrue(conn.closed)
 
     def test_missing_kms_key_refuses_before_connect(self):
