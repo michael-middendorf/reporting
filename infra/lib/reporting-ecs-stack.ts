@@ -272,8 +272,8 @@ export class ReportingEcsStack extends cdk.Stack {
     // isolated from the other and from every other job: its own task definition, execution
     // role (reads only its own secret), task role (only its own S3 prefix), customer KMS key,
     // security group (443 + 1433 to its one SQL host), and log group. The bucket policy in
-    // sst.config.ts denies every other principal on these prefixes. Schedules start disabled
-    // until the Firepower rule, SQL logins and secrets exist and a dry run passes.
+    // sst.config.ts denies every other principal on these prefixes. Schedules enabled
+    // 2026-10-02 after the Firepower rules, SQL logins, secrets and dry runs all passed.
     for (const src of isolatedSqlSources) {
       isolatedSqlSource(this, src, { vpc, cluster, workerImage, ecsPrivateSubnets });
     }
@@ -410,7 +410,7 @@ function isolatedSqlSource(
     user: "reporting",
   }).addMountPoints({ sourceVolume: "tmp", containerPath: "/tmp", readOnly: false });
   new events.Rule(scope, `${cfg.id}Schedule`, {
-    enabled: false,
+    enabled: true,
     schedule: events.Schedule.cron(cfg.cron),
     targets: [new targets.EcsTask({
       cluster: ctx.cluster,
