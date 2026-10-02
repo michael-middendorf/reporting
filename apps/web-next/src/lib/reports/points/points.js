@@ -123,6 +123,57 @@ function incomingFacts(record, notesByContact, giftsByContact) {
   return { schedule, lastGiftDay, lastGiftSchedule, lastNoteDay, lastNoteType: lastNoteType || null };
 }
 
+/** Household ids Virtuous soft-credits on a DAF / foundation gift. */
+export function passthroughContactIds(record) {
+  if (!record || typeof record !== "object") return [];
+  const ids = [];
+  const seen = new Set();
+  const add = (value) => {
+    const cid = Number(value);
+    if (!Number.isFinite(cid) || seen.has(cid)) return;
+    seen.add(cid);
+    ids.push(cid);
+  };
+  add(record.contactPassthroughId);
+  const people = record.giftPassthroughs;
+  if (Array.isArray(people)) {
+    for (const person of people) {
+      if (person && typeof person === "object") add(person.contactId);
+    }
+  }
+  return ids;
+}
+
+/** First passthrough household on a gift, if Virtuous attached one. */
+export function passthroughHousehold(record) {
+  const ids = passthroughContactIds(record);
+  if (!ids.length) return null;
+  const people = Array.isArray(record?.giftPassthroughs) ? record.giftPassthroughs : [];
+  const named = people.find((p) => Number(p?.contactId) === ids[0]);
+  const contactName = String(named?.contactName || "").trim();
+  return { contactId: ids[0], contactName };
+}
+
+/**
+ * Score a pass-through gift on the household the MA spoke with, not the DAF.
+ * Idempotent when `legalContactId` is already set.
+ */
+export function applyPassthroughCredit(record, names = null) {
+  if (!record || typeof record !== "object") return record;
+  if (record.legalContactId != null) return record;
+  const household = passthroughHousehold(record);
+  if (!household) return record;
+  const fromMap = names && typeof names.get === "function" ? names.get(household.contactId) : "";
+  const contactName = household.contactName || fromMap || "";
+  return {
+    ...record,
+    legalContactId: record.contactId,
+    legalContactName: record.contactName || "",
+    contactId: household.contactId,
+    contactName: contactName || record.contactName || "",
+  };
+}
+
 /** Virtuous Gift Query, FullContact, and notes use different name fields. */
 export function contactDisplayName(record) {
   if (!record || typeof record !== "object") return "";
@@ -939,6 +990,7 @@ function markAssist(gift) {
  * gift when that donor sits on exactly one MA portfolio.
  */
 export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }) {
+  gifts = (gifts || []).map((g) => applyPassthroughCredit(g));
   const notesByContact = groupByContact(notes, (n) => n.contactId);
   const giftsForFacts = groupByContact(gifts, (g) => g.contactId);
   const factsFor = (record) => incomingFacts(record, notesByContact, giftsForFacts);

@@ -125,6 +125,37 @@ def _gift_query(start: dt.date, end: dt.date) -> dict[str, Any]:
     }
 
 
+def _passthrough_gift_query(start: dt.date, end: dt.date) -> dict[str, Any]:
+    """DAF / foundation gifts that Virtuous soft-credits to a household."""
+    return {
+        "groups": [
+            {
+                "conditions": [
+                    {"parameter": "Gift Date", "operator": "OnOrAfter", "value": start.isoformat()},
+                    {"parameter": "Gift Date", "operator": "OnOrBefore", "value": end.isoformat()},
+                    {"parameter": "Passthrough Contact", "operator": "IsSet"},
+                ]
+            }
+        ]
+    }
+
+
+def merge_passthrough_gifts(gifts: list[dict], passthrough_full: list[dict]) -> list[dict]:
+    """Replace slim Gift/Query rows with FullGift rows that carry passthrough contacts."""
+    by_id: dict[Any, dict] = {}
+    for row in gifts:
+        rid = row.get("id")
+        if rid is None:
+            continue
+        by_id[rid] = row
+    for row in passthrough_full:
+        rid = row.get("id")
+        if rid is None:
+            continue
+        by_id[rid] = row
+    return list(by_id.values())
+
+
 def _recurring_gift_query(start: dt.date, end: dt.date) -> dict[str, Any]:
     """New monthly commitments in the same window as posted gifts."""
     return {
@@ -206,6 +237,14 @@ def _dedupe(rows: list[dict], key: str = "id") -> list[dict]:
     return list(out.values())
 
 
+def _add_contact_id(ids: set[int], cid: Any) -> None:
+    try:
+        if cid is not None:
+            ids.add(int(cid))
+    except (TypeError, ValueError):
+        return
+
+
 def _contact_ids(*row_sets: list[dict]) -> list[int]:
     ids: set[int] = set()
     for rows in row_sets:
@@ -213,11 +252,11 @@ def _contact_ids(*row_sets: list[dict]) -> list[int]:
             cid = row.get("contactId") or row.get("contact_id")
             if cid is None and isinstance(row.get("contact"), dict):
                 cid = row["contact"].get("id")
-            try:
-                if cid is not None:
-                    ids.add(int(cid))
-            except (TypeError, ValueError):
-                continue
+            _add_contact_id(ids, cid)
+            _add_contact_id(ids, row.get("contactPassthroughId"))
+            for passthrough in row.get("giftPassthroughs") or []:
+                if isinstance(passthrough, dict):
+                    _add_contact_id(ids, passthrough.get("contactId"))
     return sorted(ids)
 
 
@@ -252,12 +291,22 @@ def handler(event, context):  # noqa: ANN001, ARG001
 
     print(f"Fetching gifts {start} → {today}", flush=True)
     gifts = _dedupe(client.paged_query("/api/Gift/Query", _gift_query(start, today), page_size))
+    print(f"Fetching passthrough gifts {start} → {today}", flush=True)
+    passthrough_gifts = client.paged_query(
+        "/api/Gift/Query/FullGift", _passthrough_gift_query(start, today), page_size
+    )
+    gifts = _dedupe(merge_passthrough_gifts(gifts, passthrough_gifts))
     published.append(
         publish_dataset(
             source="virtuous",
             dataset="gifts",
             rows=gifts,
-            provenance={"system": "virtuous", "path": "/api/Gift/Query", "window_days": window},
+            provenance={
+                "system": "virtuous",
+                "path": "/api/Gift/Query",
+                "passthrough_path": "/api/Gift/Query/FullGift",
+                "window_days": window,
+            },
         )
     )
 
