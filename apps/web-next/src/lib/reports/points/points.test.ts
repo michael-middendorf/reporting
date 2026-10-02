@@ -3128,6 +3128,53 @@ describe("gala ticket purchases", () => {
     assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
+  it("keeps a snapshot contact id when the checkout email is unmatched", () => {
+    const merged = mergeGalaSiteTickets(
+      [],
+      [{ id: 64738, contactName: "Don and Mary Huffines", email: "rhuffines@hotmail.com" }],
+      [{
+        paymentIntentId: "pi_3UKiFEQNgURefLuY1vB1MFud",
+        day: "2026-09-28",
+        email: "attach257@yahoo.com",
+        amountCents: 455747,
+        inVirtuous: false,
+        giftId: null,
+        contactId: 64738,
+        contactName: "Don and Mary Huffines",
+        emailMatch: "unique",
+      }],
+    );
+    assert.equal(merged.length, 1);
+    assert.equal(merged[0].contactId, 64738);
+    assert.equal(merged[0].contactName, "Don and Mary Huffines");
+  });
+
+  it("lists Huffines on Incoming when Elena spoke the same day as the unmatched-email checkout", () => {
+    const { model } = run(
+      [donationNote({
+        createdByUser: ELENA,
+        type: "Mission Advancement Call | Conversation",
+        noteDate: "9/28/2026",
+        contactId: 64738,
+        contactName: "Don and Mary Huffines",
+      })],
+      [postedGift({
+        id: "gala-stripe-pi_3UKiFEQNgURefLuY1vB1MFud",
+        contactId: 64738,
+        contactName: "Don and Mary Huffines",
+        giftDate: "2026-09-28",
+        amount: 4557.47,
+        segment: "26-27 Chancellor's Gala",
+        galaSite: true,
+        inVirtuous: false,
+        emailMatch: "unique",
+      })],
+    );
+    assert.equal(model.possibleGifts?.length, 1);
+    assert.equal(model.possibleGifts?.[0].contactName, "Don and Mary Huffines");
+    assert.equal(model.possibleGifts?.[0].owners?.[0].name, ELENA);
+  });
+
   it("omits an unmatched gala-site ticket with no contact id", () => {
     const { model } = run(
       [],
