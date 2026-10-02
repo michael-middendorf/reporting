@@ -1191,6 +1191,31 @@ describe("gift dollars follow MA activity notes", () => {
     assert.equal(listed[0].postedAmount, 10000);
   });
 
+  it("a Gift Assist assignment on a posted gift is 100 pts and $0 Raised", () => {
+    const flags = {
+      "gift:77": {
+        status: "assigned",
+        owner: ALANNA,
+        contactId: "101",
+        contactName: "Jane Donor",
+        day: "2026-08-11",
+        type: "Mission Advancement | Gift Assist",
+        noteId: "gift:77",
+      },
+    };
+    const extra = assignedNotesFromFlags(flags);
+    const { owner, model } = run(
+      extra,
+      [postedGift({ id: 77, giftDate: "8/11/2026", amount: 500, contactName: "Jane Donor" })],
+    );
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.gifts, 0);
+    assert.equal(owner.points, 100);
+    const listed = (model.rows as ScoredRow[]).filter((r) => r.assist && String(r.giftId) === "77");
+    assert.equal(listed.length, 1);
+    assert.equal(listed[0].amount || 0, 0);
+  });
+
   it("Gift Assist with no posted gift is not counted", () => {
     const { owner, rows } = run(
       [donationNote({ type: "Mission Advancement | Gift Assist" })],
