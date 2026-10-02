@@ -1962,8 +1962,8 @@ function PointsPageInner() {
                             </td>
                             <td className="pts tabular">
                               {g.assist ? money(0) : money(g.amount)}
-                              {g.assist && (g.postedAmount || g.giftAmount) ? (
-                                <span className="section-hint"> ({money(g.postedAmount || g.giftAmount)} gift)</span>
+                              {g.assist && Number(g.postedAmount ?? g.giftAmount ?? 0) > 0 ? (
+                                <span className="section-hint"> ({money(Number(g.postedAmount ?? g.giftAmount))} gift)</span>
                               ) : g.acIncrease && g.priorMonthly != null && g.newMonthly != null ? (
                                 <span className="section-hint"> ({monthlyRate(g.priorMonthly)} → {monthlyRate(g.newMonthly)}/mo)</span>
                               ) : g.annualized && g.postedAmount != null ? (
