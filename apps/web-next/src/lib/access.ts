@@ -77,6 +77,7 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
     "colleen.carney@avemaria.edu",
     "nate.byers@avemaria.edu",
     "claudia.gerbic@avemaria.edu",
+    "eric.vanheusen@avemaria.edu",
   ].join(","),
   institute:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,liam.j.orourke@avemaria.edu,garrett.j.hallinan@avemaria.edu,gabriel.f.mellino@avemaria.edu",
