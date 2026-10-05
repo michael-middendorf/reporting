@@ -382,7 +382,7 @@ export const TRACKING_CHART = {
     {
       label: "Dollars received",
       detail:
-        "A voicemail, email, letter, visit, conversation, or general note on or before the gift assigns it within 90 days: the dollars and 100 points. A New Donation note within 90 days before or after the gift also assigns it. A note after the gift does not, except that New Donation note. A contact older than 90 days is not listed. A monthly gift with a qualifying contact waits on review. Direct Solicitation (MGO) uses that same 90-day contact rule. A pass-through (DAF) gift counts on the household Virtuous soft-credits, with the same 90-day contact rule. A tracker row does not assign a gift by itself.",
+        "A voicemail, email, letter, visit, conversation, or general note on or before the gift assigns it within 90 days: the dollars and 100 points. A New Donation note within 90 days before or after the gift also assigns it. A note after the gift does not, except that New Donation note. An Incoming assignment credits that MA even when another officer has a qualifying contact on the same gift. A contact older than 90 days is not listed. A monthly gift with a qualifying contact waits on review. Direct Solicitation (MGO) uses that same 90-day contact rule. A pass-through (DAF) gift counts on the household Virtuous soft-credits, with the same 90-day contact rule. A tracker row does not assign a gift by itself.",
     },
     {
       label: "Secured gift · 100 pts",
@@ -526,7 +526,7 @@ export const DEFINITIONS = [
   {
     term: "Dollars received",
     text:
-      "A posted Virtuous gift counts in Raised only with 100 points: a qualifying contact on or before the gift within 90 days, a donation note on that contact within 90 days before or after the gift, or an Incoming assignment. Direct Solicitation (MGO) uses that same rule. " +
+      "A posted Virtuous gift counts in Raised only with 100 points: a qualifying contact on or before the gift within 90 days, a donation note on that contact within 90 days before or after the gift, or an Incoming assignment. Incoming Assign credits that MA even when another officer has a qualifying contact on the same gift. Direct Solicitation (MGO) uses that same rule. " +
       "A pass-through gift (Vanguard Charitable, Fidelity, a family foundation) posts on the legal sender and is scored on the household Virtuous marks as the passthrough, using that household’s MA notes. " +
       "A gala ticket posted in Virtuous counts the same way when an MA has a conversation, two-way email, or meeting on that contact within 90 days of the gift. A gala-site Stripe ticket that is not yet in Virtuous shows on Incoming only when an MA contacted that person on or before the purchase, within 90 days, and stays out of Raised until Assign or the gift posts in Virtuous. Tickets with no MA contact are omitted. A gala invitation does not claim a different gift. " +
       "A voicemail, email, letter, visit, or general note on or before the gift within 90 days claims the gift. A note after the gift does not. A row on the MA gift tracker does not assign the gift by itself. Gift Assist notes do not count dollars. " +

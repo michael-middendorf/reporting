@@ -2080,6 +2080,68 @@ describe("possible gifts", () => {
     assert.equal(owner.giftAmount, 51.01);
     assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
+
+  it("Incoming Assign credits that MA over another officer's same-day conversation", () => {
+    const ELENA = "Elena Barnes";
+    const flags = {
+      "gift:451506": {
+        status: "assigned",
+        owner: ELENA,
+        contactId: "6556",
+        contactName: "Mike and Carla Pellegrini",
+        day: "2026-08-31",
+        type: "Mission Advancement | New Donation or New AC",
+        noteId: "gift:451506",
+      },
+    };
+    const extra = assignedNotesFromFlags(flags);
+    const { model } = run(
+      [
+        donationNote({
+          createdByUser: ELENA,
+          type: "Mission Advancement Call | Conversation",
+          noteDate: "8/31/2026",
+          contactId: 6556,
+          contactName: "Mike and Carla Pellegrini",
+          id: 11,
+        }),
+        donationNote({
+          createdByUser: ALANNA,
+          type: "Mission Advancement Call | Conversation",
+          noteDate: "8/31/2026",
+          contactId: 6556,
+          contactName: "Mike and Carla Pellegrini",
+          id: 12,
+        }),
+        ...extra,
+      ],
+      [
+        postedGift({
+          id: 451506,
+          contactId: 6556,
+          contactName: "Mike and Carla Pellegrini",
+          giftDate: "8/31/2026",
+          amount: 721.22,
+          segment: "Gyrene Booster Club",
+        }),
+      ],
+      ELENA,
+      flags,
+    );
+    const elena = model.tableOwners.find((o) => o.name === ELENA);
+    const alanna = model.tableOwners.find((o) => o.name === ALANNA);
+    assert.ok(elena);
+    assert.ok(alanna);
+    assert.equal(elena.gifts, 1);
+    assert.equal(elena.giftAmount, 721.22);
+    assert.equal(elena.points, 110);
+    assert.equal(alanna.gifts, 0);
+    assert.equal(alanna.giftAmount, 0);
+    const gift = model.gifts.find((g) => String(g.giftId) === "451506");
+    assert.ok(gift);
+    assert.equal(gift.owner, ELENA);
+    assert.equal(gift.removed, false);
+  });
 });
 
 describe("a contact within 90 days assigns the gift", () => {

@@ -1015,8 +1015,9 @@ function markAssist(gift) {
  * only when an MA had a conversation, two-way email, or meeting on that
  * contact on or before the purchase, within 90 days. Tickets sold to people
  * the MAs did not contact are not listed.
- * An Incoming assignment also credits it. Direct Solicitation (MGO) uses the
- * same 90-day contact rule as any other gift.
+ * An Incoming assignment also credits it, and that assigned owner wins over
+ * another MA's qualifying contact on the same gift. Direct Solicitation (MGO)
+ * uses the same 90-day contact rule as any other gift.
  * `countedGifts` is accepted and ignored so older callers keep working.
  *
  * `flags` is the shared review-flags map (same object aggregate uses).
@@ -1062,16 +1063,17 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
       ? attributingContacts(gDate, notesOnContact)
       : [];
     if (contacts[0]) {
-      const r = scoreGift(g, contacts[0].note.owner, contacts[0].note.owner);
+      const assigned = assignedOwnerForGift(g, contacts[0].note.owner, flags);
+      const owner = assigned || contacts[0].note.owner;
+      const r = scoreGift(g, contacts[0].note.owner, owner);
       if (r) {
         const credited = {
           ...r,
-          source: "contact",
+          source: assigned ? "assigned" : "contact",
           contactName: r.contactName || contacts[0].note.contactName || "",
           mgoAssigned: isMgoAttributedGift(g) ? true : undefined,
         };
-        const flagId = g.id != null && g.id !== "" ? `gift:${g.id}` : "";
-        const assignedFlag = flagId && flags[flagId]?.status === "assigned";
+        const assignedFlag = !!assigned;
         if (isMonthlyRecurring(g) && !g.acIncrease && !assignedFlag) {
           rows.push({
             ...credited,
