@@ -27,6 +27,10 @@ Operational limits (run_publisher):
     the others still run (at most MAX_RECONNECTS reconnects after a dropped
     socket). Raises PartialFailure if any dataset failed.
   * {SOURCE}_DRY_RUN=1: session check and version check only; writes nothing.
+  * Optional derived extracts (DerivedDataset) run after every raw dataset
+    succeeded, each published under its own source prefix and KMS key. A
+    derived failure is recorded in the manifest ("derived", "derived_failed")
+    but never marks a raw dataset failed or fails the run.
   * Every object written (data, meta, _latest, run manifests) is encrypted
     with the source's own KMS key, and the shared catalog is not refreshed.
 """
@@ -548,6 +552,24 @@ def _connection_broken(exc: BaseException) -> bool:
 Dataset = tuple[str, str, tuple[str, ...]]
 
 
+@dataclass(frozen=True)
+class DerivedDataset:
+    """A narrow extract published under its own source prefix and KMS key.
+
+    kms_key_id empty means the extract is skipped (recorded in the manifest).
+    """
+
+    source: str
+    dataset: str
+    sql: str
+    param_names: tuple[str, ...]
+    kms_key_id: str
+
+    @property
+    def label(self) -> str:
+        return f"{self.source}/{self.dataset}"
+
+
 def run_publisher(
     source: str,
     datasets: Sequence[Dataset],
@@ -560,6 +582,7 @@ def run_publisher(
     connect: Callable[[ConnectionSettings], Any] | None = None,
     now_utc: datetime | None = None,
     watchdog_factory: Callable[[int], Any] | None = None,
+    derived: Sequence[DerivedDataset] = (),
 ) -> dict[str, Any]:
     """Run one SQL Server source end to end (see the module docstring)."""
     env = dict(os.environ) if env is None else env
@@ -585,6 +608,11 @@ def run_publisher(
         unknown = [p for p in param_names if p not in params]
         if unknown:
             raise ValueError(f"{source}/{name}: unknown parameter(s) {', '.join(unknown)}")
+    for d in derived:
+        guard_select(d.sql)
+        unknown = [p for p in d.param_names if p not in params]
+        if unknown:
+            raise ValueError(f"{source} derived {d.label}: unknown parameter(s) {', '.join(unknown)}")
 
     factory = watchdog_factory or functools.partial(_Watchdog, label=source)
     watchdog = factory(max_runtime).start()
@@ -593,7 +621,7 @@ def run_publisher(
         reader.open()
         if dry_run:
             return _dry_run(source, reader, log_target)
-        return _publish_all(source, datasets, params, reader, settings, log_target, watchdog, kms_key_id)
+        return _publish_all(source, datasets, params, reader, settings, log_target, watchdog, kms_key_id, derived)
     finally:
         reader.close()
         watchdog.cancel()
@@ -623,6 +651,7 @@ def _publish_all(
     log_target: str,
     watchdog: Any,
     kms_key_id: str,
+    derived: Sequence[DerivedDataset] = (),
 ) -> dict[str, Any]:
     started = _now()
     started_mono = time.monotonic()
@@ -682,6 +711,8 @@ def _publish_all(
             results.append({"dataset": dataset, "ok": False, "error": "not run: job hard cap reached"})
 
     failed = [r["dataset"] for r in results if not r.get("ok")]
+    derived_results = _publish_derived(source, derived, params, reader, settings, watchdog, raw_failed=bool(failed))
+    derived_failed = [r["dataset"] for r in derived_results if r.get("error")]
     manifest = {
         "schema_version": 1,
         "source": source,
@@ -694,10 +725,76 @@ def _publish_all(
         "ok": not failed,
         "failed": failed,
         "datasets": results,
+        "derived": derived_results,
+        "derived_failed": derived_failed,
     }
     day = started[:10]
     put_json(f"sources/{source}/_runs/dt={day}/manifest.json", manifest, kms_key_id=kms_key_id)
     put_json(f"sources/{source}/_runs/latest.json", manifest, kms_key_id=kms_key_id)
     if failed:
         raise PartialFailure(f"{len(failed)} dataset(s) failed: {', '.join(failed)}")
-    return {"ok": True, "source": source, "datasets": results}
+    return {"ok": True, "source": source, "datasets": results, "derived": derived_results}
+
+
+def _publish_derived(
+    source: str,
+    derived: Sequence[DerivedDataset],
+    params: Mapping[str, Any],
+    reader: MssqlReader,
+    settings: ConnectionSettings,
+    watchdog: Any,
+    *,
+    raw_failed: bool,
+) -> list[dict[str, Any]]:
+    """Run each derived extract after the raw datasets. Never raises."""
+    results: list[dict[str, Any]] = []
+    for d in derived:
+        entry: dict[str, Any] = {"dataset": d.label, "ok": False}
+        if not (d.kms_key_id or "").strip():
+            entry["skipped"] = "KMS key not set"
+            print(f"{source}: WARNING derived {d.label} skipped (KMS key not set)", flush=True)
+            results.append(entry)
+            continue
+        if raw_failed:
+            entry["skipped"] = "raw datasets failed"
+            print(f"{source}: derived {d.label} skipped (raw datasets failed)", flush=True)
+            results.append(entry)
+            continue
+        entry["started_at"] = _now()
+        t0 = time.monotonic()
+        try:
+            watchdog.check()
+            if not reader.is_open:
+                reader.open()
+            bound = {name: params[name] for name in d.param_names}
+            rows = reader.fetch_all(d.sql, bound or None, check_deadline=watchdog.check)
+            query_seconds = round(time.monotonic() - t0, 3)
+            latest = publish_dataset(
+                source=d.source,
+                dataset=d.dataset,
+                rows=rows,
+                provenance={
+                    "system": source,
+                    "database": settings.database,
+                    "dataset": d.dataset,
+                    "derived_from": source,
+                    "params": {k: str(v) for k, v in bound.items()},
+                },
+                kms_key_id=d.kms_key_id,
+                refresh_catalog=False,
+            )
+            entry.update(
+                ok=True,
+                record_count=latest["record_count"],
+                prefix=latest["prefix"],
+                query_seconds=query_seconds,
+            )
+            print(f"{source} derived {d.label}: {latest['record_count']} rows in {query_seconds}s", flush=True)
+        except Exception as exc:  # noqa: BLE001 - a derived extract must not fail the raw run
+            entry.update(ok=False, error=settings.redact(f"{type(exc).__name__}: {exc}")[:1000])
+            print(f"{source} derived {d.label}: FAILED {entry['error']}", flush=True)
+            if _connection_broken(exc):
+                reader.close()
+        entry["duration_seconds"] = round(time.monotonic() - t0, 3)
+        results.append(entry)
+    return results

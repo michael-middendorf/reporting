@@ -10,7 +10,8 @@ test_handler.py):
   * Every statement ends with OPTION (MAXDOP 1).
   * Values are bound parameters (pytds pyformat, e.g. %(min_year)s), never
     string-formatted into the SQL. Available parameters come from
-    handler.window_params: min_year (str), min_date (date), current_year (str).
+    handler.window_params: min_year (str), min_date (date), current_year (str),
+    today (date).
   * No selected column may match EXCLUDED_COLUMN_SUBSTRINGS (SSN, tax and
     income data, parent data, contact details). Enforced by test_handler.py.
 """
@@ -70,10 +71,15 @@ FUNDS = (
 # alternate_id is published only when it is a PowerCampus ID (P + 9 digits).
 # Discovery on 2026-10-01 found 21 rows where alternate_id equals the SSN and
 # 163 other 9-digit values, so anything else is returned as NULL.
+_CAMPUS_ID_PATTERN = "'P[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'"
+CAMPUS_ID_EXPR = (
+    f"CASE WHEN s.alternate_id LIKE {_CAMPUS_ID_PATTERN} "
+    "THEN s.alternate_id END AS campus_id"
+)
+
 STUDENTS = (
     "SELECT s.student_token, "
-    "CASE WHEN s.alternate_id LIKE 'P[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' "
-    "THEN s.alternate_id END AS campus_id, s.restricted_access "
+    f"{CAMPUS_ID_EXPR}, s.restricted_access "
     "FROM dbo.student AS s "
     "WHERE s.student_token IN (SELECT say.student_token FROM dbo.stu_award_year AS say "
     f"WHERE say.award_year_token IN ({_YEAR_WINDOW})) "
@@ -160,6 +166,55 @@ PELL = (
     "OPTION (MAXDOP 1)"
 )
 
+# ---------------------------------------------------------------------------
+# Scholarship need extract (derived, NOT a raw dataset). Published to
+# sources/scholarship-need/need/ under its own KMS key so the scholarship app
+# can read financial need for incoming applicants without any access to the
+# raw sources/powerfaids/ prefix. One row per student per current or future
+# aid year (award_year_defn.date_end on/after today), only for students whose
+# alternate_id is a PowerCampus ID (same masking as STUDENTS; non-matching
+# rows are excluded, never published with a NULL key).
+#
+# Every column (selected or joined on) is already selected by a DATASETS
+# query, because the SQL login has column-level grants generated from those
+# queries. test_handler.py enforces this. The output aliases are the contract
+# with the scholarship app: do not rename them.
+# ---------------------------------------------------------------------------
+
+NEED_EXTRACT_SOURCE = "scholarship-need"
+NEED_EXTRACT_DATASET = "need"
+
+NEED_EXTRACT = (
+    f"SELECT {CAMPUS_ID_EXPR}, "
+    "say.award_year_token AS award_year_token, ayd.award_year_name AS award_year_name, "
+    "ayd.date_begin AS ay_begin, ayd.date_end AS ay_end, "
+    "say.packaging_status AS packaging_status, "
+    "fm.primary_sai AS primary_sai, fm.federal_sai AS federal_sai, fm.primary_efc AS primary_efc, "
+    "pd.pell_status AS pell_status, pd.award_amt AS pell_award_amt, "
+    "sd.tot_budget AS coa_total, sd.tot_fed_funds_awd AS fed_awarded, "
+    "sd.tot_state_funds_awd AS state_awarded, sd.tot_inst_funds_awd AS inst_awarded, "
+    "sd.tot_private_funds_awd AS private_awarded, sd.tot_external_aid AS external_aid, "
+    "sd.tot_aid AS total_aid, sd.percent_need AS percent_need "
+    "FROM dbo.student AS s "
+    "JOIN dbo.stu_award_year AS say ON say.student_token = s.student_token "
+    "JOIN dbo.award_year_defn AS ayd ON ayd.award_year_token = say.award_year_token "
+    "LEFT JOIN dbo.stu_ay_sum_data AS sd ON sd.stu_award_year_token = say.stu_award_year_token "
+    "LEFT JOIN dbo.say_fm_stu AS fm ON fm.stu_award_year_token = say.stu_award_year_token "
+    "LEFT JOIN dbo.stu_pell_data AS pd ON pd.stu_award_year_token = say.stu_award_year_token "
+    f"WHERE s.alternate_id LIKE {_CAMPUS_ID_PATTERN} "
+    "AND ayd.date_end >= %(today)s "
+    "OPTION (MAXDOP 1)"
+)
+
+# Output columns, in order. The contract with the scholarship app.
+NEED_EXTRACT_COLUMNS: tuple[str, ...] = (
+    "campus_id", "award_year_token", "award_year_name", "ay_begin", "ay_end",
+    "packaging_status", "primary_sai", "federal_sai", "primary_efc", "pell_status",
+    "pell_award_amt", "coa_total", "fed_awarded", "state_awarded", "inst_awarded",
+    "private_awarded", "external_aid", "total_aid", "percent_need",
+)
+NEED_EXTRACT_PARAMS: tuple[str, ...] = ("today",)
+
 DATASETS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("award_years", AWARD_YEARS, ()),
     ("periods_of_enrollment", PERIODS_OF_ENROLLMENT, ("min_date",)),
@@ -179,4 +234,5 @@ ALL_STATEMENTS: tuple[str, ...] = (
     SESSION_CHECK,
     VERSION_CHECK,
     *(sql for _, sql, _ in DATASETS),
+    NEED_EXTRACT,
 )

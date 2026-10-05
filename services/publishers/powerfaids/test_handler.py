@@ -350,6 +350,181 @@ class CampusIdMaskTests(unittest.TestCase):
         self.assertNotIn("%", sql.replace("%(min_date)s", ""))
 
 
+
+NEED_KMS_KEY = "arn:aws:kms:us-east-2:000000000000:key/11111111-1111-1111-1111-111111111111"
+NEED_LABEL = f"{queries.NEED_EXTRACT_SOURCE}/{queries.NEED_EXTRACT_DATASET}"
+
+
+def _table_columns(sql):
+    """(table, column) pairs referenced as alias.column anywhere in sql."""
+    aliases = {a.lower(): t.lower() for t, a in re.findall(r"\bdbo\.(\w+)\s+AS\s+(\w+)", sql, re.IGNORECASE)}
+    pairs = set()
+    for alias, col in re.findall(r"\b(\w+)\.(\w+)\b", sql):
+        if alias.lower() in aliases:
+            pairs.add((aliases[alias.lower()], col.lower()))
+    return pairs
+
+
+class NeedExtractQueryTests(unittest.TestCase):
+    def test_not_a_raw_dataset(self):
+        self.assertNotIn(queries.NEED_EXTRACT, [sql for _, sql, _ in queries.DATASETS])
+        self.assertIn(queries.NEED_EXTRACT, queries.ALL_STATEMENTS)
+
+    def test_passes_guard_and_exclusions(self):
+        sql = queries.NEED_EXTRACT
+        self.assertEqual(mssql.guard_select(sql), sql)
+        self.assertRegex(sql, r"OPTION \(MAXDOP 1\)$")
+        self.assertEqual(
+            mssql.excluded_column_hits(sql, queries.EXCLUDED_COLUMN_SUBSTRINGS, queries.WHOLE_IDENTIFIER_TOKENS), []
+        )
+        # Bound parameters only, and only the ones declared.
+        self.assertEqual(re.findall(r"%\((\w+)\)s", sql), list(queries.NEED_EXTRACT_PARAMS))
+        self.assertEqual(sql.count("%"), len(queries.NEED_EXTRACT_PARAMS))
+        params = handler.window_params(7)
+        for p in queries.NEED_EXTRACT_PARAMS:
+            self.assertIn(p, params)
+
+    def test_only_already_granted_columns(self):
+        """The SQL login's column grants come from DATASETS; any new column would be denied."""
+        granted = set()
+        for _, sql, _ in queries.DATASETS:
+            granted |= _table_columns(sql)
+        used = _table_columns(queries.NEED_EXTRACT)
+        self.assertGreater(len(used), 20)
+        self.assertEqual(sorted(used - granted), [])
+
+    def test_output_columns_are_the_contract(self):
+        expected = (
+            "campus_id", "award_year_token", "award_year_name", "ay_begin", "ay_end",
+            "packaging_status", "primary_sai", "federal_sai", "primary_efc", "pell_status",
+            "pell_award_amt", "coa_total", "fed_awarded", "state_awarded", "inst_awarded",
+            "private_awarded", "external_aid", "total_aid", "percent_need",
+        )
+        self.assertEqual(queries.NEED_EXTRACT_COLUMNS, expected)
+        select_list = queries.NEED_EXTRACT.split(" FROM ", 1)[0]
+        self.assertEqual(tuple(re.findall(r"\bAS (\w+)", select_list)), expected)
+
+    def test_campus_id_masking_identical_to_students(self):
+        self.assertIn(queries.CAMPUS_ID_EXPR, queries.STUDENTS)
+        self.assertTrue(queries.NEED_EXTRACT.startswith(f"SELECT {queries.CAMPUS_ID_EXPR}, "))
+        # Rows without a PowerCampus ID are excluded, not published with a NULL key.
+        self.assertIn(
+            "WHERE s.alternate_id LIKE 'P[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' ", queries.NEED_EXTRACT
+        )
+        self.assertNotRegex(queries.NEED_EXTRACT, r"s\.alternate_id\s*,")
+        self.assertIn("ayd.date_end >= %(today)s", queries.NEED_EXTRACT)
+
+
+class NeedExtractHandlerTests(unittest.TestCase):
+    def _run(self, *, env=None, fail_on=None, publish=_fake_publish):
+        conn = FakeConnection(fail_on=fail_on)
+        with mock.patch.object(queries, "DATASETS", FAKE_DATASETS), mock.patch.object(
+            mssql, "publish_dataset", side_effect=publish
+        ) as pub, mock.patch.object(mssql, "put_json") as put:
+            try:
+                result = run(conn, env={f"{PREFIX}_NEED_KMS_KEY_ID": NEED_KMS_KEY, **(env or {})})
+            except mssql.PartialFailure as exc:
+                result = exc
+        manifest = put.call_args_list[-1].args[1] if put.call_args_list else None
+        return conn, pub, put, result, manifest
+
+    def test_published_with_need_key_after_raw(self):
+        conn, pub, put, result, manifest = self._run()
+        self.assertTrue(result["ok"])
+        calls = pub.call_args_list
+        self.assertEqual([c.kwargs["dataset"] for c in calls], ["fake_reference", "fake_windowed", "need"])
+        need = calls[-1].kwargs
+        self.assertEqual(need["source"], "scholarship-need")
+        self.assertEqual(need["kms_key_id"], NEED_KMS_KEY)
+        self.assertIs(need["refresh_catalog"], False)
+        for c in calls[:-1]:
+            self.assertEqual(c.kwargs["source"], SOURCE)
+            self.assertEqual(c.kwargs["kms_key_id"], KMS_KEY)
+        by_sql = {sql: params for sql, params in conn.executed}
+        self.assertEqual(by_sql[queries.NEED_EXTRACT], {"today": NIGHT.date()})
+        # The run manifest stays under the raw prefix and raw key, and records the extract.
+        for c in put.call_args_list:
+            self.assertTrue(c.args[0].startswith(f"sources/{SOURCE}/_runs/"))
+            self.assertEqual(c.kwargs["kms_key_id"], KMS_KEY)
+        self.assertTrue(manifest["ok"])
+        self.assertEqual(manifest["derived_failed"], [])
+        self.assertEqual(len(manifest["derived"]), 1)
+        self.assertEqual(manifest["derived"][0]["dataset"], NEED_LABEL)
+        self.assertTrue(manifest["derived"][0]["ok"])
+        self.assertEqual(manifest["derived"][0]["record_count"], 3)
+
+    def test_blank_need_key_skips_without_failing(self):
+        for value in ("", "   "):
+            with self.subTest(value=value):
+                conn, pub, _, result, manifest = self._run(env={f"{PREFIX}_NEED_KMS_KEY_ID": value})
+                self.assertTrue(result["ok"])
+                self.assertEqual([c.kwargs["source"] for c in pub.call_args_list], [SOURCE, SOURCE])
+                self.assertNotIn(queries.NEED_EXTRACT, [sql for sql, _ in conn.executed])
+                self.assertTrue(manifest["ok"])
+                self.assertEqual(manifest["derived"][0]["skipped"], "KMS key not set")
+                self.assertEqual(manifest["derived_failed"], [])
+
+    def test_unset_need_key_skips_without_failing(self):
+        self.assertNotIn(f"{PREFIX}_NEED_KMS_KEY_ID", ENV)
+        conn = FakeConnection()
+        with mock.patch.object(queries, "DATASETS", FAKE_DATASETS), mock.patch.object(
+            mssql, "publish_dataset", side_effect=_fake_publish
+        ) as pub, mock.patch.object(mssql, "put_json"):
+            result = run(conn)
+        self.assertTrue(result["ok"])
+        self.assertEqual(pub.call_count, 2)
+        self.assertNotIn(queries.NEED_EXTRACT, [sql for sql, _ in conn.executed])
+
+    def test_dry_run_writes_nothing(self):
+        conn = FakeConnection()
+        with mock.patch.object(mssql, "publish_dataset") as pub, mock.patch.object(
+            mssql, "put_json"
+        ) as put, mock.patch("common.s3util.s3") as s3:
+            result = run(conn, env={f"{UPPER}_DRY_RUN": "1", f"{PREFIX}_NEED_KMS_KEY_ID": NEED_KMS_KEY})
+        self.assertTrue(result["dry_run"])
+        pub.assert_not_called()
+        put.assert_not_called()
+        s3.assert_not_called()
+        self.assertNotIn(queries.NEED_EXTRACT, [sql for sql, _ in conn.executed])
+
+    def test_extract_query_failure_recorded_without_failing_raw(self):
+        conn, pub, _, result, manifest = self._run(fail_on={"dbo.stu_pell_data AS pd ON": RuntimeError("boom")})
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result["ok"])
+        self.assertTrue(manifest["ok"])
+        self.assertEqual(manifest["failed"], [])
+        self.assertTrue(all(d["ok"] for d in manifest["datasets"]))
+        self.assertEqual(manifest["derived_failed"], [NEED_LABEL])
+        self.assertIn("boom", manifest["derived"][0]["error"])
+        self.assertEqual([c.kwargs["source"] for c in pub.call_args_list], [SOURCE, SOURCE])
+
+    def test_extract_publish_failure_recorded_without_failing_raw(self):
+        def publish(**kwargs):
+            if kwargs["source"] == "scholarship-need":
+                raise PermissionError("AccessDenied on need key")
+            return _fake_publish(**kwargs)
+
+        _, _, _, result, manifest = self._run(publish=publish)
+        self.assertTrue(result["ok"])
+        self.assertTrue(manifest["ok"])
+        self.assertEqual(manifest["derived_failed"], [NEED_LABEL])
+
+    def test_extract_skipped_when_a_raw_dataset_fails(self):
+        conn, pub, _, result, manifest = self._run(fail_on={"dbo.FAKE_WIN": RuntimeError("raw boom")})
+        self.assertIsInstance(result, mssql.PartialFailure)
+        self.assertEqual(manifest["failed"], ["fake_windowed"])
+        self.assertEqual(manifest["derived"][0]["skipped"], "raw datasets failed")
+        self.assertEqual(manifest["derived_failed"], [])
+        self.assertNotIn(queries.NEED_EXTRACT, [sql for sql, _ in conn.executed])
+        self.assertNotIn("scholarship-need", [c.kwargs["source"] for c in pub.call_args_list])
+
+    def test_extract_error_is_redacted(self):
+        _, _, _, _, manifest = self._run(
+            fail_on={"dbo.stu_pell_data AS pd ON": RuntimeError("login fake-password-value")}
+        )
+        self.assertNotIn("fake-password-value", manifest["derived"][0]["error"])
+
+
 if __name__ == "__main__":
     unittest.main()
 

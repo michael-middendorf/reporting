@@ -92,7 +92,48 @@ export default $config({
       ];
     });
 
-    const data = new sst.aws.Bucket("ReportData", { policy: isolatedSourcePolicy });
+    // Scholarship need extract (derived from PowerFAIDS, written by the PowerFAIDS task role,
+    // read only by the scholarship app). Same isolated pattern as above. Keep in sync with
+    // scholarshipNeedExtract in infra/lib/reporting-ecs-stack.ts.
+    const scholarshipNeedWriter = `arn:aws:iam::${account}:role/amu-reporting-powerfaids-task`;
+    const scholarshipNeedReader = `arn:aws:iam::${account}:role/scholarship-app-task-role`;
+    const scholarshipNeedPolicy = [
+      {
+        effect: "deny" as const,
+        principals: "*" as const,
+        actions: ["s3:PutObject", "s3:DeleteObject", "s3:DeleteObjectVersion", "s3:PutObjectAcl"],
+        paths: ["sources/scholarship-need/*"],
+        conditions: [{ test: "ArnNotEquals", variable: "aws:PrincipalArn", values: [scholarshipNeedWriter] }],
+      },
+      {
+        effect: "deny" as const,
+        principals: "*" as const,
+        actions: ["s3:GetObject", "s3:GetObjectVersion"],
+        paths: ["sources/scholarship-need/*"],
+        conditions: [
+          { test: "ArnNotEquals", variable: "aws:PrincipalArn", values: [scholarshipNeedReader, scholarshipNeedWriter, ...breakGlassReaders] },
+        ],
+      },
+      {
+        effect: "deny" as const,
+        principals: "*" as const,
+        actions: ["s3:PutObject"],
+        paths: ["sources/scholarship-need/*"],
+        conditions: [{ test: "StringNotEquals", variable: "s3:x-amz-server-side-encryption", values: ["aws:kms"] }],
+      },
+      {
+        effect: "deny" as const,
+        principals: "*" as const,
+        actions: ["s3:ListBucket"],
+        paths: [""],
+        conditions: [
+          { test: "StringLike", variable: "s3:prefix", values: ["sources/scholarship-need/*"] },
+          { test: "ArnNotEquals", variable: "aws:PrincipalArn", values: [scholarshipNeedWriter, ...breakGlassReaders] },
+        ],
+      },
+    ];
+
+    const data = new sst.aws.Bucket("ReportData", { policy: [...isolatedSourcePolicy, ...scholarshipNeedPolicy] });
 
     // Magic-link nonce table lives in infra/lib/reporting-ecs-stack.ts (deployed
     // before "Deploy SST runtime"). ECS is the only web runtime that writes it.

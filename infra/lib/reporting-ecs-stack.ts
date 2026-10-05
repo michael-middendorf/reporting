@@ -275,7 +275,10 @@ export class ReportingEcsStack extends cdk.Stack {
     // sst.config.ts denies every other principal on these prefixes. Schedules enabled
     // 2026-10-02 after the Firepower rules, SQL logins, secrets and dry runs all passed.
     for (const src of isolatedSqlSources) {
-      isolatedSqlSource(this, src, { vpc, cluster, workerImage, ecsPrivateSubnets });
+      const { taskRole, container } = isolatedSqlSource(this, src, { vpc, cluster, workerImage, ecsPrivateSubnets });
+      if (src.source === "powerfaids") {
+        scholarshipNeedExtract(this, taskRole, container);
+      }
     }
     new cdk.CfnOutput(this, "AspireduUserPoolId", { value: aspireduUserPool.userPoolId });
     new cdk.CfnOutput(this, "AspireduUserPoolClientId", { value: aspireduClient.userPoolClientId });
@@ -391,7 +394,7 @@ function isolatedSqlSource(
   grantGuardDutyAgentPull(executionRole);
   taskDef.addVolume({ name: "tmp" });
   const e = cfg.envPrefix;
-  taskDef.addContainer("worker", {
+  const container = taskDef.addContainer("worker", {
     image: ecs.ContainerImage.fromDockerImageAsset(ctx.workerImage),
     logging: ecs.LogDrivers.awsLogs({ logGroup, streamPrefix: cfg.source }),
     environment: {
@@ -408,7 +411,8 @@ function isolatedSqlSource(
     },
     readonlyRootFilesystem: true,
     user: "reporting",
-  }).addMountPoints({ sourceVolume: "tmp", containerPath: "/tmp", readOnly: false });
+  });
+  container.addMountPoints({ sourceVolume: "tmp", containerPath: "/tmp", readOnly: false });
   new events.Rule(scope, `${cfg.id}Schedule`, {
     enabled: true,
     schedule: events.Schedule.cron(cfg.cron),
@@ -424,6 +428,74 @@ function isolatedSqlSource(
   });
   new cdk.CfnOutput(scope, `${cfg.id}SecurityGroupId`, { value: sg.securityGroupId });
   new cdk.CfnOutput(scope, `${cfg.id}TaskDefinitionArn`, { value: taskDef.taskDefinitionArn });
+  return { taskRole, container };
+}
+
+// Scholarship need extract: a narrow derived dataset (SAI, Pell, COA, aid totals keyed by
+// campus_id) that the nightly PowerFAIDS job writes to sources/scholarship-need/ under its own
+// KMS key. The raw sources/powerfaids/ prefix and its key are unchanged and stay closed to the
+// scholarship app. Keep scholarshipAppTaskRoleArn in sync with sst.config.ts.
+const scholarshipAppTaskRoleArn = `arn:aws:iam::${account}:role/scholarship-app-task-role`;
+const scholarshipNeedPrefix = "sources/scholarship-need";
+
+function scholarshipNeedExtract(scope: Construct, powerfaidsTaskRole: iam.Role, container: ecs.ContainerDefinition) {
+  const key = new kms.Key(scope, "ScholarshipNeedKey", {
+    alias: "alias/amu-reporting-scholarship-need",
+    description: `Encrypts ${scholarshipNeedPrefix}/ in the reporting data bucket`,
+    enableKeyRotation: true,
+    removalPolicy: cdk.RemovalPolicy.RETAIN,
+    pendingWindow: cdk.Duration.days(30),
+  });
+  // Same pattern as the per-source keys: root administers (CDK default), and data-plane use is
+  // denied to everyone except the writer (PowerFAIDS task role), the one reader (scholarship
+  // app task role) and the break-glass user.
+  key.addToResourcePolicy(new iam.PolicyStatement({
+    sid: "DenyDataUseExceptWriterReaderBreakGlass",
+    effect: iam.Effect.DENY,
+    principals: [new iam.AnyPrincipal()],
+    actions: ["kms:Decrypt", "kms:Encrypt", "kms:ReEncrypt*", "kms:GenerateDataKey*"],
+    resources: ["*"],
+    conditions: { ArnNotEquals: { "aws:PrincipalArn": [powerfaidsTaskRole.roleArn, scholarshipAppTaskRoleArn, breakGlassUserArn] } },
+  }));
+
+  // Writer: the PowerFAIDS task role. Get/Delete/List are needed by publish_dataset, which
+  // prunes old dt= folders under the dataset prefix.
+  powerfaidsTaskRole.addToPolicy(new iam.PolicyStatement({
+    actions: ["kms:Decrypt", "kms:GenerateDataKey"],
+    resources: [key.keyArn],
+    conditions: { StringEquals: { "kms:ViaService": `s3.${region}.amazonaws.com` } },
+  }));
+  powerfaidsTaskRole.addToPolicy(new iam.PolicyStatement({
+    actions: ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+    resources: [`${dataBucketArn}/${scholarshipNeedPrefix}/*`],
+  }));
+  powerfaidsTaskRole.addToPolicy(new iam.PolicyStatement({
+    actions: ["s3:ListBucket"],
+    resources: [dataBucketArn],
+    conditions: { StringLike: { "s3:prefix": [`${scholarshipNeedPrefix}/*`] } },
+  }));
+  container.addEnvironment("PF_NEED_KMS_KEY_ID", key.keyArn);
+
+  // Reader: scholarship-app-task-role is owned by the scholarship-app stack, not this one. This
+  // policy is the only grant this stack gives it: read objects under sources/scholarship-need/
+  // and decrypt with the need key through S3. No ListBucket, no other prefix, no other key.
+  const scholarshipAppRole = iam.Role.fromRoleArn(scope, "ScholarshipAppTaskRole", scholarshipAppTaskRoleArn, { mutable: true });
+  new iam.Policy(scope, "ScholarshipNeedReadPolicy", {
+    policyName: "amu-reporting-scholarship-need-read",
+    roles: [scholarshipAppRole],
+    statements: [
+      new iam.PolicyStatement({
+        actions: ["s3:GetObject"],
+        resources: [`${dataBucketArn}/${scholarshipNeedPrefix}/*`],
+      }),
+      new iam.PolicyStatement({
+        actions: ["kms:Decrypt"],
+        resources: [key.keyArn],
+        conditions: { StringEquals: { "kms:ViaService": `s3.${region}.amazonaws.com` } },
+      }),
+    ],
+  });
+  new cdk.CfnOutput(scope, "ScholarshipNeedKeyArn", { value: key.keyArn });
 }
 
 // GuardDuty Runtime Monitoring injects its agent sidecar into every Fargate task and
