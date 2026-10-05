@@ -1051,12 +1051,6 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
     const notesOnContact = ck ? (activityByContact.get(ck) || []) : [];
     const reviewHint = gDate ? ownerHintForReview(gDate, notesOnContact) : null;
     const giftHint = gDate ? ownerHintForGift(gDate, notesOnContact) : null;
-    const donationInWindow = gDate && notesOnContact.some((n) => {
-      if (n.assist || n.bucket !== "gift") return false;
-      const delta = daysFromNoteToGift(n.date, gDate);
-      const window = SETTINGS.giftNoteDaysBefore ?? 90;
-      return delta != null && Math.abs(delta) <= window;
-    });
     const assistInWindow = gDate && notesOnContact.some((n) => {
       if (!n.assist) return false;
       const delta = daysFromNoteToGift(n.date, gDate);
@@ -1064,7 +1058,7 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
       return delta != null && Math.abs(delta) <= window;
     });
     const pendingGalaSite = isPendingGalaSiteTicket(g);
-    const contacts = gDate && !pendingGalaSite && !donationInWindow && !assistInWindow && !isAssistGiftId(g.id)
+    const contacts = gDate && !pendingGalaSite && !assistInWindow && !isAssistGiftId(g.id)
       ? attributingContacts(gDate, notesOnContact)
       : [];
     if (contacts[0]) {
@@ -1256,15 +1250,6 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
       const ck = contactKey(g.contactId);
       return ck ? (activityByContact.get(ck) || []) : [];
     })();
-    const donationOnContact = notesOnContact.some((n) => {
-      if (n.assist) return false;
-      const mapped = mapNoteType(n.type);
-      if (!POINTS_MAP[mapped] || POINTS_MAP[mapped].bucket !== "gift") return false;
-      const delta = daysFromNoteToGift(n.date, gDate);
-      const window = SETTINGS.giftNoteDaysBefore ?? 90;
-      return delta != null && Math.abs(delta) <= window;
-    });
-    if (donationOnContact) continue;
     const autoHits = possibleNotesForGift(gDate, notesOnContact);
     const olderHits = autoHits.length ? [] : reviewContacts(gDate, notesOnContact);
     const hits = autoHits.length ? autoHits : olderHits;

@@ -264,6 +264,83 @@ describe("MA points require a posted gift with dollars", () => {
     assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
+  it("a later one-time gift still scores after an assigned monthly gift on the same contact", () => {
+    const merged = prepareGifts(
+      [
+        postedGift({
+          id: 451107,
+          contactId: 70510,
+          contactName: "Dustin and Margaret Hamacher",
+          giftDate: "8/11/2026",
+          amount: 51.01,
+          segment: "Annunciation Circle",
+        }),
+        postedGift({
+          id: 452566,
+          contactId: 70510,
+          contactName: "Dustin and Margaret Hamacher",
+          giftDate: "10/4/2026",
+          amount: 257.78,
+          segment: "FYE27 Fall 2026 Appeal Active Direct Mail 1",
+        }),
+      ],
+      [
+        {
+          id: 3834,
+          contactId: 70510,
+          contactName: "Dustin and Margaret Hamacher",
+          startDate: "2026-08-11",
+          amount: 51.01,
+          frequency: "Monthly",
+          segment: "Annunciation Circle",
+          designations: [{ project: "Annunciation Circle" }],
+        },
+      ],
+    );
+    const flags = {
+      "gift:rg-3834": {
+        noteId: "gift:rg-3834",
+        contactId: "70510",
+        contactName: "Dustin and Margaret Hamacher",
+        owner: ALANNA,
+        day: "2026-08-11",
+        type: "Mission Advancement | New Donation or New AC",
+        status: "assigned",
+      },
+    };
+    const extra = assignedNotesFromFlags(flags);
+    const { owner, rows } = run(
+      [
+        donationNote({
+          type: "Mission Advancement Call | Conversation",
+          noteDate: "8/10/2026",
+          contactId: 70510,
+          contactName: "Dustin and Margaret Hamacher",
+          id: 269450,
+        }),
+        donationNote({
+          type: "Mission Advancement Call | Conversation",
+          noteDate: "9/22/2026",
+          contactId: 70510,
+          contactName: "Dustin and Margaret Hamacher",
+          id: 285092,
+        }),
+        ...extra,
+      ],
+      merged,
+      ALANNA,
+      flags,
+    );
+    assert.equal(owner.gifts, 2);
+    assert.equal(owner.giftAmount, 869.9);
+    const appeal = rows.find((r) => String(r.giftId) === "452566");
+    assert.ok(appeal);
+    assert.equal(appeal.bucket, "donation");
+    assert.equal(appeal.amount, 257.78);
+    assert.equal(appeal.day, "2026-10-04");
+    assert.equal(appeal.points, 100);
+  });
+
   it("note plus amount > 0 gift in the same week is 1 gift, $X, 100 pts", () => {
     const { model, owner, rows } = run(
       [donationNote()],
