@@ -128,13 +128,13 @@ describe("athletics-only grant", () => {
   const ERIC = "Eric.Vanheusen@avemaria.edu";
   const COACH = "Jamon.Copeland@avemaria.edu";
 
-  it("lets Eric sign in and open Athletics Master, coaching, and housing", () => {
+  it("lets Eric sign in and open Athletics Master, coaching, housing, and census", () => {
     assert.equal(canLogin(ERIC), true);
     assert.equal(canAccessReport(ERIC, "athletics"), true);
     assert.equal(canAccessReport(ERIC, "athletics-coaching"), true);
     assert.equal(canAccessReport(ERIC, "housing"), true);
+    assert.equal(canAccessReport(ERIC, "census"), true);
     assert.equal(canAccessReport(ERIC, "enrollment"), false);
-    assert.equal(canAccessReport(ERIC, "census"), false);
     assert.equal(canAccessReport(ERIC, "institute"), false);
     assert.equal(canAccessReport(ERIC, "advancement"), false);
     assert.equal(canAccessReport(ERIC, "chapel"), false);
@@ -142,7 +142,7 @@ describe("athletics-only grant", () => {
     assert.equal(canAccessReport(ERIC, "portfolios"), false);
     assert.equal(canAccessReport(ERIC, "annunciation"), false);
     assert.equal(canAccessReport(ERIC, "aspiredu"), false);
-    assert.deepEqual(reportsForEmail(ERIC), ["athletics", "athletics-coaching", "housing"]);
+    assert.deepEqual(reportsForEmail(ERIC), ["census", "athletics", "athletics-coaching", "housing"]);
   });
 
   it("lets Feger and Weisbrod open every Athletics department report", () => {
