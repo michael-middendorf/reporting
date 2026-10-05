@@ -466,6 +466,32 @@ function priorCancelledMonthly(recurring, contactId, startRaw, excludeId) {
   return bestAmt;
 }
 
+/**
+ * Earliest posted installment at this RecurringGift's current monthly amount.
+ * When Virtuous edits the amount on an existing RG, startDate stays the old
+ * start and this installment is the first charge at the new rate.
+ */
+function firstInstallmentAtAmount(posted, record) {
+  const cid = Number(record.contactId);
+  const amt = parseAmount(record.amount);
+  if (!Number.isFinite(cid) || amt <= 0) return null;
+  const acOnly = isAcGift(record);
+  let best = null;
+  let bestDay = "";
+  for (const g of posted || []) {
+    if (Number(g.contactId) !== cid) continue;
+    if (acOnly && !isAcGift(g)) continue;
+    if (Math.abs(parseAmount(g.amount) - amt) > INSTALLMENT_TOLERANCE) continue;
+    const d = isoDay(parseDate(g.giftDate || g.giftDateFormatted));
+    if (!d) continue;
+    if (!bestDay || d < bestDay) {
+      bestDay = d;
+      best = g;
+    }
+  }
+  return best;
+}
+
 /** Map a Virtuous RecurringGift onto the gift shape the scorer already uses. */
 export function recurringToGift(record, posted = [], recurring = []) {
   const des = (record.designations && record.designations[0])
@@ -473,18 +499,26 @@ export function recurringToGift(record, posted = [], recurring = []) {
   const start = record.startDate || record.recurringGiftDate || record.giftDate;
   const startDay = calendarDay(start);
   const newAmt = parseAmount(record.amount);
+  const firstNew = firstInstallmentAtAmount(posted, record);
+  const firstNewDay = firstNew
+    ? isoDay(parseDate(firstNew.giftDate || firstNew.giftDateFormatted))
+    : null;
+  const raiseDay = firstNewDay && startDay && firstNewDay > startDay ? firstNewDay : startDay;
   const prior = Math.max(
-    priorAcMonthly(posted, record.contactId, startDay),
-    priorCancelledMonthly(recurring, record.contactId, start, record.id),
+    priorAcMonthly(posted, record.contactId, raiseDay),
+    priorCancelledMonthly(recurring, record.contactId, raiseDay || start, record.id),
   );
   const increase = prior > 0 && newAmt > prior;
   const continuation = prior > 0 && newAmt <= prior;
   const creditMonthly = increase ? roundCents(newAmt - prior) : continuation ? 0 : newAmt;
+  const inPlaceRaise = !!(firstNew && raiseDay && startDay && raiseDay > startDay && increase);
   return {
-    id: record.id != null ? `rg-${record.id}` : record.id,
+    id: inPlaceRaise && firstNew.id != null
+      ? firstNew.id
+      : (record.id != null ? `rg-${record.id}` : record.id),
     contactId: record.contactId,
     contactName: contactDisplayName(record),
-    giftDate: start,
+    giftDate: inPlaceRaise ? (firstNew.giftDate || raiseDay) : start,
     amount: creditMonthly,
     newMonthly: newAmt,
     priorMonthly: prior || null,
@@ -1017,12 +1051,6 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
     const notesOnContact = ck ? (activityByContact.get(ck) || []) : [];
     const reviewHint = gDate ? ownerHintForReview(gDate, notesOnContact) : null;
     const giftHint = gDate ? ownerHintForGift(gDate, notesOnContact) : null;
-    const donationInWindow = gDate && notesOnContact.some((n) => {
-      if (n.assist || n.bucket !== "gift") return false;
-      const delta = daysFromNoteToGift(n.date, gDate);
-      const window = SETTINGS.giftNoteDaysBefore ?? 90;
-      return delta != null && Math.abs(delta) <= window;
-    });
     const assistInWindow = gDate && notesOnContact.some((n) => {
       if (!n.assist) return false;
       const delta = daysFromNoteToGift(n.date, gDate);
@@ -1030,7 +1058,7 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
       return delta != null && Math.abs(delta) <= window;
     });
     const pendingGalaSite = isPendingGalaSiteTicket(g);
-    const contacts = gDate && !pendingGalaSite && !donationInWindow && !assistInWindow && !isAssistGiftId(g.id)
+    const contacts = gDate && !pendingGalaSite && !assistInWindow && !isAssistGiftId(g.id)
       ? attributingContacts(gDate, notesOnContact)
       : [];
     if (contacts[0]) {
@@ -1222,15 +1250,6 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
       const ck = contactKey(g.contactId);
       return ck ? (activityByContact.get(ck) || []) : [];
     })();
-    const donationOnContact = notesOnContact.some((n) => {
-      if (n.assist) return false;
-      const mapped = mapNoteType(n.type);
-      if (!POINTS_MAP[mapped] || POINTS_MAP[mapped].bucket !== "gift") return false;
-      const delta = daysFromNoteToGift(n.date, gDate);
-      const window = SETTINGS.giftNoteDaysBefore ?? 90;
-      return delta != null && Math.abs(delta) <= window;
-    });
-    if (donationOnContact) continue;
     const autoHits = possibleNotesForGift(gDate, notesOnContact);
     const olderHits = autoHits.length ? [] : reviewContacts(gDate, notesOnContact);
     const hits = autoHits.length ? autoHits : olderHits;

@@ -264,6 +264,83 @@ describe("MA points require a posted gift with dollars", () => {
     assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
+  it("a later one-time gift still scores after an assigned monthly gift on the same contact", () => {
+    const merged = prepareGifts(
+      [
+        postedGift({
+          id: 451107,
+          contactId: 70510,
+          contactName: "Dustin and Margaret Hamacher",
+          giftDate: "8/11/2026",
+          amount: 51.01,
+          segment: "Annunciation Circle",
+        }),
+        postedGift({
+          id: 452566,
+          contactId: 70510,
+          contactName: "Dustin and Margaret Hamacher",
+          giftDate: "10/4/2026",
+          amount: 257.78,
+          segment: "FYE27 Fall 2026 Appeal Active Direct Mail 1",
+        }),
+      ],
+      [
+        {
+          id: 3834,
+          contactId: 70510,
+          contactName: "Dustin and Margaret Hamacher",
+          startDate: "2026-08-11",
+          amount: 51.01,
+          frequency: "Monthly",
+          segment: "Annunciation Circle",
+          designations: [{ project: "Annunciation Circle" }],
+        },
+      ],
+    );
+    const flags = {
+      "gift:rg-3834": {
+        noteId: "gift:rg-3834",
+        contactId: "70510",
+        contactName: "Dustin and Margaret Hamacher",
+        owner: ALANNA,
+        day: "2026-08-11",
+        type: "Mission Advancement | New Donation or New AC",
+        status: "assigned",
+      },
+    };
+    const extra = assignedNotesFromFlags(flags);
+    const { owner, rows } = run(
+      [
+        donationNote({
+          type: "Mission Advancement Call | Conversation",
+          noteDate: "8/10/2026",
+          contactId: 70510,
+          contactName: "Dustin and Margaret Hamacher",
+          id: 269450,
+        }),
+        donationNote({
+          type: "Mission Advancement Call | Conversation",
+          noteDate: "9/22/2026",
+          contactId: 70510,
+          contactName: "Dustin and Margaret Hamacher",
+          id: 285092,
+        }),
+        ...extra,
+      ],
+      merged,
+      ALANNA,
+      flags,
+    );
+    assert.equal(owner.gifts, 2);
+    assert.equal(owner.giftAmount, 869.9);
+    const appeal = rows.find((r) => String(r.giftId) === "452566");
+    assert.ok(appeal);
+    assert.equal(appeal.bucket, "donation");
+    assert.equal(appeal.amount, 257.78);
+    assert.equal(appeal.day, "2026-10-04");
+    assert.equal(appeal.points, 100);
+  });
+
   it("note plus amount > 0 gift in the same week is 1 gift, $X, 100 pts", () => {
     const { model, owner, rows } = run(
       [donationNote()],
@@ -729,6 +806,77 @@ describe("monthly AC annualization", () => {
       merged,
     );
     assert.equal(owner.giftAmount, 90);
+  });
+
+  it("an in-place AC amount change uses the first new-rate installment", () => {
+    const merged = prepareGifts(
+      [
+        postedGift({
+          id: 450038,
+          contactId: 95157,
+          contactName: "Edward Rebholz",
+          giftDate: "7/2/2026",
+          amount: "$21.80",
+          segment: "Annunciation Circle",
+        }),
+        postedGift({
+          id: 450700,
+          contactId: 95157,
+          contactName: "Edward Rebholz",
+          giftDate: "8/2/2026",
+          amount: "$100.00",
+          segment: "Annunciation Circle",
+        }),
+      ],
+      [
+        {
+          id: 3390,
+          contactId: 95157,
+          contactName: "Edward Rebholz",
+          startDate: "2026-01-03T00:00:00",
+          amount: 100,
+          frequency: "Monthly",
+          segment: "Annunciation Circle",
+          designations: [{ project: "Annunciation Circle" }],
+        },
+      ],
+    );
+    const monthly = merged.find((g: { acIncrease?: boolean }) => g.acIncrease) as {
+      id: number | string;
+      amount: number;
+      giftDate: string;
+      priorMonthly?: number;
+      newMonthly?: number;
+    };
+    assert.ok(monthly);
+    assert.equal(monthly.id, 450700);
+    assert.equal(monthly.amount, 78.2);
+    assert.equal(monthly.priorMonthly, 21.8);
+    assert.equal(monthly.newMonthly, 100);
+    assert.equal(merged.some((g: { id?: number | string }) => g.id === "rg-3390"), false);
+
+    const { owner, rows } = run(
+      [
+        donationNote({
+          createdByUser: NATALIA,
+          type: "Mission Advancement Call | Conversation",
+          noteDate: "7/27/2026",
+          contactId: 95157,
+          contactName: "Edward Rebholz",
+          id: 264894,
+        }),
+      ],
+      merged,
+      NATALIA,
+    );
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 938.4);
+    const giftRow = rows.find((r) => r.bucket === "donation");
+    assert.ok(giftRow);
+    assert.equal(giftRow.giftId, 450700);
+    assert.equal(giftRow.day, "2026-08-02");
+    assert.equal(giftRow.amount, 938.4);
+    assert.equal(giftRow.points, 100);
   });
 
   it("a lapsed AC who signs up again is the full monthly amount × 12", () => {
