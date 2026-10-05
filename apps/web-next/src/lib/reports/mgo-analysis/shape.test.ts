@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  PERIOD_LABELS,
   countNotes,
   filterDonors,
   kpisFor,
@@ -14,7 +15,7 @@ import {
   type MgoNote,
 } from "./shape";
 
-function win(asOf: string, period: "week" | "month" | "quarter") {
+function win(asOf: string, period: "week" | "month" | "quarter" | "fy") {
   const w = periodWindow(asOf, period);
   return [w.start, w.end];
 }
@@ -43,6 +44,16 @@ describe("periodWindow", () => {
     assert.deepEqual(win("2026-09-30", "quarter"), ["2026-07-01", "2026-09-30"]);
     assert.deepEqual(win("2027-03-31", "quarter"), ["2027-01-01", "2027-03-31"]);
     assert.deepEqual(win("2027-04-01", "quarter"), ["2027-04-01", "2027-06-30"]);
+  });
+
+  it("uses the full fiscal year, Jul 1 through Jun 30", () => {
+    assert.deepEqual(win("2026-10-01", "fy"), ["2026-07-01", "2027-06-30"]);
+    assert.deepEqual(win("2026-07-01", "fy"), ["2026-07-01", "2027-06-30"]);
+    assert.deepEqual(win("2027-06-30", "fy"), ["2026-07-01", "2027-06-30"]);
+    assert.deepEqual(win("2027-01-15", "fy"), ["2026-07-01", "2027-06-30"]);
+    assert.deepEqual(win("2026-06-30", "fy"), ["2025-07-01", "2026-06-30"]);
+    assert.equal(periodWindow("2026-10-01", "fy").label, "7/1/2026 to 6/30/2027");
+    assert.equal(PERIOD_LABELS.fy, "Full FY");
   });
 
   it("labels the window with M/D/YYYY dates", () => {

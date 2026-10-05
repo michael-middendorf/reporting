@@ -15,6 +15,7 @@ from handler import (
     fiscal_year_window,
     is_funded_ask,
     is_open_ask,
+    is_open_ask_in_fy,
     is_top_prospect,
     map_user_to_mgo,
 )
@@ -48,7 +49,9 @@ class NoteTypeTests(unittest.TestCase):
             "In Person": "face_to_face",
             "MGO Plan for FY27": "plan",
             "FY27 MGO Plan": "plan",
-            "FY27 MGO Goal Activity": None,
+            "FY27 MGO Goal Activity": "plan",
+            "Goal Activity": None,
+            "Mission Advancement Call | Goal": None,
             "Planned Gift / Bequest Documentation": None,
             "AS - Invalid Phone/Email Address": None,
             "Thank You": "outreach",
@@ -73,6 +76,9 @@ class NoteTypeTests(unittest.TestCase):
     def test_whitespace_and_case_are_normalized(self):
         self.assertEqual(classify_note_type("  mgo   plan for fy 27 "), "plan")
         self.assertEqual(classify_note_type("Mission Advancement In Person"), None)
+
+    def test_goal_activity_is_case_and_space_insensitive(self):
+        self.assertEqual(classify_note_type("  fy27   mgo  GOAL   activity "), "plan")
 
     def test_plan_without_year_is_not_plan(self):
         self.assertNotEqual(classify_note_type("Estate Plan Review"), "plan")
@@ -103,6 +109,22 @@ class AskStatusTests(unittest.TestCase):
         self.assertFalse(is_funded_ask({"status": received, "askDate": "2026-01-01"}, FY_START, FY_END))
         self.assertTrue(is_funded_ask({"status": received, "modifiedDateTimeUtc": "2026-09-01T10:00:00"}, FY_START, FY_END))
         self.assertFalse(is_funded_ask({"status": "Pending (MGO)", "askDate": "2026-08-01"}, FY_START, FY_END))
+
+    def test_open_ask_requires_expected_date_in_fy(self):
+        pending = "Pending (MGO)"
+        self.assertTrue(is_open_ask_in_fy({"status": pending, "expectedFulfillmentDate": "2026-12-01"}, FY_START, FY_END))
+        # Formatted fallback.
+        self.assertTrue(is_open_ask_in_fy({"status": pending, "expectedFulfillmentDateFormatted": "7/1/2026"}, FY_START, FY_END))
+        # Boundaries: Jul 1 and Jun 30 in; Jun 30 of prior FY and Jul 1 of next FY out.
+        self.assertTrue(is_open_ask_in_fy({"status": pending, "expectedFulfillmentDate": "2026-07-01"}, FY_START, FY_END))
+        self.assertTrue(is_open_ask_in_fy({"status": pending, "expectedFulfillmentDate": "2027-06-30"}, FY_START, FY_END))
+        self.assertFalse(is_open_ask_in_fy({"status": pending, "expectedFulfillmentDate": "2026-06-30"}, FY_START, FY_END))
+        self.assertFalse(is_open_ask_in_fy({"status": pending, "expectedFulfillmentDate": "2027-07-01"}, FY_START, FY_END))
+        # No date: not open.
+        self.assertFalse(is_open_ask_in_fy({"status": pending}, FY_START, FY_END))
+        # Excluded statuses stay excluded even with an in-FY date.
+        self.assertFalse(is_open_ask_in_fy({"status": "Declined (MGO)", "expectedFulfillmentDate": "2026-12-01"}, FY_START, FY_END))
+        self.assertFalse(is_open_ask_in_fy({"status": "", "expectedFulfillmentDate": "2026-12-01"}, FY_START, FY_END))
 
 
 class AuthorMappingTests(unittest.TestCase):
@@ -146,8 +168,8 @@ def _fixture():
         3: [{"id": 999, "name": "MA Donor", "tags": []}],
     }
     asks = [
-        {"id": 1, "contactId": 101, "askAmount": 25000, "status": "Solicitation / Ask (MGO)", "assignedUser": "Jim Thomas"},
-        {"id": 2, "contactId": 102, "askAmount": 1000, "status": "Pending Installment  / Annual Gift (MGO)", "assignedUser": "Patrick OConnell"},
+        {"id": 1, "contactId": 101, "askAmount": 25000, "status": "Solicitation / Ask (MGO)", "expectedFulfillmentDate": "2026-12-01", "assignedUser": "Jim Thomas"},
+        {"id": 2, "contactId": 102, "askAmount": 1000, "status": "Pending Installment  / Annual Gift (MGO)", "expectedFulfillmentDateFormatted": "6/30/2027", "assignedUser": "Patrick OConnell"},
         {"id": 3, "contactId": 103, "askAmount": 500, "status": "Gift Received (Adv Svcs)", "askDate": "2026-08-01", "assignedUser": "Jim Thomas"},
         {"id": 4, "contactId": 103, "askAmount": 700, "status": "Declined (MGO)", "assignedUser": "Jim Thomas"},
         {"id": 5, "contactId": 555, "askAmount": 300, "status": "Pending (MGO)", "assignedUser": "Someone Else"},
@@ -287,6 +309,101 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(b["planDate"], "2026-05-01")
         # Pre-FY plan notes do not become FY note rows (KPIs stay FY-only).
         self.assertNotIn(303, [r["noteId"] for r in self.snap["notes"]])
+
+
+class GoalActivityPlanTests(unittest.TestCase):
+    def _snap(self, fy_notes, creator_notes=None):
+        contacts_by_group, asks, gifts, _notes, _creator = _fixture()
+        return build_snapshot(
+            today=TODAY,
+            groups=GROUPS,
+            contacts_by_group=contacts_by_group,
+            asks=asks,
+            gifts=gifts,
+            fy_notes=fy_notes,
+            creator_notes=creator_notes or [],
+            generated_at="2026-10-01T18:00:00Z",
+        )
+
+    @staticmethod
+    def _donor(snap, mgo, cid):
+        return next(d for d in snap["donors"] if d["assignedMgo"] == mgo and d["contactId"] == cid)
+
+    def test_non_mgo_goal_activity_fills_plan(self):
+        snap = self._snap([
+            {"id": 401, "contactId": 101, "noteDate": "2026-09-10", "type": "FY27 MGO Goal Activity",
+             "createdByUser": "Staff Writer", "note": "<p>Goal: two visits</p>"},
+        ])
+        d = self._donor(snap, "James Thomas", 101)
+        self.assertEqual(d["planFy27"], "Goal: two visits")
+        self.assertEqual(d["planDate"], "2026-09-10")
+        self.assertEqual(snap["definitions"]["planTypes"], ["FY27 MGO Goal Activity"])
+
+    def test_latest_of_plan_and_goal_activity_wins(self):
+        snap = self._snap([
+            {"id": 402, "contactId": 101, "noteDate": "2026-08-01", "type": "FY27 MGO Plan",
+             "createdByUser": "Jim Thomas", "note": "older plan"},
+            {"id": 403, "contactId": 101, "noteDate": "2026-09-15", "type": "FY27 MGO Goal Activity",
+             "createdByUser": "Staff Writer", "note": "newer goal"},
+        ])
+        self.assertEqual(self._donor(snap, "James Thomas", 101)["planFy27"], "newer goal")
+        snap = self._snap([
+            {"id": 404, "contactId": 101, "noteDate": "2026-09-15", "type": "FY27 MGO Goal Activity",
+             "createdByUser": "Staff Writer", "note": "goal"},
+            {"id": 405, "contactId": 101, "noteDate": "2026-09-20", "type": "FY27 MGO Plan",
+             "createdByUser": "Jim Thomas", "note": "newer plan"},
+        ])
+        self.assertEqual(self._donor(snap, "James Thomas", 101)["planFy27"], "newer plan")
+
+    def test_goal_activity_does_not_inflate_activity_counts(self):
+        snap = self._snap([
+            {"id": 406, "contactId": 101, "noteDate": "2026-09-10", "type": "FY27 MGO Goal Activity",
+             "createdByUser": "Jim Thomas", "note": "goal"},
+        ])
+        kinds = [r["kind"] for r in snap["notes"] if r["noteId"] == 406]
+        self.assertEqual(kinds, ["plan"])
+
+    def test_creator_notes_path_accepts_roster_author_goal_activity(self):
+        snap = self._snap([], [
+            {"id": 407, "contactId": 102, "noteDate": "2026-05-01", "type": "FY27 MGO Goal Activity",
+             "createdByUser": "Patrick OConnell", "note": "spring goal"},
+        ])
+        self.assertEqual(self._donor(snap, "Patrick J. O'Connell", 102)["planFy27"], "spring goal")
+        self.assertIn("FY27 MGO Goal Activity", snap["definitions"]["planTypes"])
+
+
+class OpenAskGateSnapshotTests(unittest.TestCase):
+    def test_out_of_fy_and_undated_open_asks_excluded_from_kpis_and_donors(self):
+        contacts_by_group, _asks, _gifts, _notes, _creator = _fixture()
+        pending = "Pending (MGO)"
+        asks = [
+            {"id": 1, "contactId": 101, "askAmount": 100, "status": pending, "expectedFulfillmentDate": "2026-07-01", "assignedUser": "Jim Thomas"},
+            {"id": 2, "contactId": 101, "askAmount": 200, "status": pending, "expectedFulfillmentDate": "2027-06-30", "assignedUser": "Jim Thomas"},
+            {"id": 3, "contactId": 101, "askAmount": 400, "status": pending, "expectedFulfillmentDate": "2026-06-30", "assignedUser": "Jim Thomas"},
+            {"id": 4, "contactId": 101, "askAmount": 800, "status": pending, "expectedFulfillmentDate": "2027-07-01", "assignedUser": "Jim Thomas"},
+            {"id": 5, "contactId": 101, "askAmount": 1600, "status": pending, "assignedUser": "Jim Thomas"},
+            {"id": 6, "contactId": 101, "askAmount": 3200, "status": "Declined (MGO)", "expectedFulfillmentDate": "2026-12-01", "assignedUser": "Jim Thomas"},
+            # Funded logic is unchanged: no expected date needed.
+            {"id": 7, "contactId": 101, "askAmount": 50, "status": "Gift Received (Adv Svcs)", "askDate": "2026-08-01", "assignedUser": "Jim Thomas"},
+        ]
+        snap = build_snapshot(
+            today=TODAY,
+            groups=GROUPS,
+            contacts_by_group=contacts_by_group,
+            asks=asks,
+            gifts=[],
+            fy_notes=[],
+            creator_notes=[],
+            generated_at="2026-10-01T18:00:00Z",
+        )
+        jim = snap["kpisByMgo"]["James Thomas"]
+        self.assertEqual(jim["openAskAmount"], 300.0)
+        self.assertEqual(jim["openAskCount"], 2)
+        self.assertEqual(jim["fundedAmount"], 50.0)
+        self.assertEqual(snap["kpisByMgo"][TEAM_KEY]["openAskAmount"], 300.0)
+        donor = next(d for d in snap["donors"] if d["assignedMgo"] == "James Thomas" and d["contactId"] == 101)
+        self.assertEqual(donor["openAskAmount"], 300.0)
+        self.assertEqual(donor["openAskCount"], 2)
 
 
 class DiscoveryTests(unittest.TestCase):

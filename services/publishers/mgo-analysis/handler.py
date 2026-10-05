@@ -9,9 +9,10 @@ Virtuous data:
   Contact Note the assigned MGO authored for that contact (all time).
 * notes[]: slim FY Contact Note rows (no text) classified by note type into
   outreach / face_to_face / proposal / plan, so the page can count by week,
-  month, and fiscal quarter.
+  month, fiscal quarter, and full fiscal year.
 * kpisByMgo: FY raised (same gift crediting rule as advancement-overview),
-  open and funded Gift Asks, and donor counts, plus a deduped ``__team__`` row.
+  open Gift Asks (expected fulfillment in the FY, like mgo-top-prospects),
+  funded Gift Asks, and donor counts, plus a deduped ``__team__`` row.
 
 ``event={"mode": "discover"}`` is a read-only check for post-deploy
 verification: it returns note type, tag, and ask status counts and writes
@@ -71,8 +72,9 @@ FUNDED_STATUSES = ["Gift Received (Adv Svcs)"]
 NOTE_KIND_ORDER = ["plan", "proposal", "face_to_face", "outreach"]
 # Substring phrases (not single "plan") so "planned giving" or "estate plan" do
 # not qualify alone. Live type is "FY27 MGO Plan" (discover mode, 2026-10-01);
-# the year words below are still required.
-PLAN_WORDS = ["mgo plan", "plan for", "activity plan"]
+# the year words below are still required. "FY27 MGO Goal Activity" notes
+# (written by Advancement staff, not always the MGO) also feed the plan column.
+PLAN_WORDS = ["mgo plan", "plan for", "activity plan", "goal activity"]
 PLAN_YEAR_WORDS = ["fy27", "fy 27", "2027"]
 PROPOSAL_WORDS = ["proposal"]
 FACE_TO_FACE_WORDS = ["in person", "face to face", "face-to-face", "meeting", "visit"]
@@ -596,6 +598,15 @@ def is_open_ask(ask: dict[str, Any]) -> bool:
     return bool(status) and status not in _EXCLUDED_NORMS
 
 
+def is_open_ask_in_fy(ask: dict[str, Any], fy_start: dt.date, fy_end: dt.date) -> bool:
+    """Open ask whose expected fulfillment date falls in the fiscal year.
+    No expected date means not open here (same gate as mgo-top-prospects)."""
+    if not is_open_ask(ask):
+        return False
+    expected = _parse_date(ask.get("expectedFulfillmentDate") or ask.get("expectedFulfillmentDateFormatted"))
+    return expected is not None and fy_start <= expected <= fy_end
+
+
 def ask_funded_date(ask: dict[str, Any]) -> dt.date | None:
     """Date used to place a funded ask in a FY. Ask date or expected
     fulfillment date; the modified date only when both are missing."""
@@ -774,7 +785,7 @@ def build_snapshot(
     # Gift Asks.
     donor_open: dict[int, list[Decimal]] = defaultdict(list)
     for ask in dedupe_by_id(asks):
-        open_ = is_open_ask(ask)
+        open_ = is_open_ask_in_fy(ask, fy_start, fy_end)
         funded = is_funded_ask(ask, fy_start, fy_end)
         if not open_ and not funded:
             continue

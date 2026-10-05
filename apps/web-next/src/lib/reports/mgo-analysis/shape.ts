@@ -73,12 +73,13 @@ export type MgoAnalysisSnapshot = {
 
 export const TEAM_KEY = "__team__";
 
-export type Period = "week" | "month" | "quarter";
+export type Period = "week" | "month" | "quarter" | "fy";
 
 export const PERIOD_LABELS: Record<Period, string> = {
   week: "This week",
   month: "This month",
   quarter: "This fiscal quarter",
+  fy: "Full FY",
 };
 
 export type DateWindow = { start: string; end: string; label: string };
@@ -108,7 +109,8 @@ export function mdy(iso: string | null | undefined): string {
 /**
  * Window containing `asOf`:
  * week = Monday through Sunday; month = calendar month;
- * quarter = fiscal quarter (Jul-Sep, Oct-Dec, Jan-Mar, Apr-Jun).
+ * quarter = fiscal quarter (Jul-Sep, Oct-Dec, Jan-Mar, Apr-Jun);
+ * fy = full fiscal year (Jul 1 through Jun 30).
  */
 export function periodWindow(asOf: string, period: Period): DateWindow {
   const day = parseIso(asOf);
@@ -121,6 +123,10 @@ export function periodWindow(asOf: string, period: Period): DateWindow {
   } else if (period === "month") {
     start = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), 1));
     end = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth() + 1, 0));
+  } else if (period === "fy") {
+    const fyStartYear = day.getUTCMonth() >= 6 ? day.getUTCFullYear() : day.getUTCFullYear() - 1;
+    start = new Date(Date.UTC(fyStartYear, 6, 1));
+    end = new Date(Date.UTC(fyStartYear + 1, 6, 0));
   } else {
     const m = day.getUTCMonth(); // 0 = Jan
     const qStart = m >= 6 ? (m >= 9 ? 9 : 6) : m >= 3 ? 3 : 0;

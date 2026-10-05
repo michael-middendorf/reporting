@@ -34,7 +34,7 @@ const COLUMNS: { key: DonorSortKey; label: string; num?: boolean; firstDir: Sort
   { key: "lastMgoActivityDate", label: "Last Activity by MGO", firstDir: "desc" },
 ];
 
-const PERIODS: Period[] = ["week", "month", "quarter"];
+const PERIODS: Period[] = ["week", "month", "quarter", "fy"];
 
 /** Footer type list; a kind with no notes yet says so instead of rendering empty. */
 function typeList(types: string[] | undefined): string {
@@ -340,18 +340,19 @@ export default function MgoAnalysisPage() {
                   {typeList(defs.proposalTypes)} this fiscal year.
                 </li>
                 <li>
-                  <strong>Plan for FY27</strong>: the latest note of type {typeList(defs.planTypes)}. The type name sets the
-                  year, so plan notes written before July 1 still count.
+                  <strong>Plan for FY27</strong>: the latest FY27 MGO Plan or FY27 MGO Goal Activity note by any author (types seen:{" "}
+                  {typeList(defs.planTypes)}). The type name sets the year, so plan notes written before July 1 still count.
                 </li>
                 <li>
                   <strong>Top FY27 Prospect</strong>: contact tag {defs.topProspectTag}.
                 </li>
                 <li>
-                  <strong>Open Asks</strong>: gift asks not in status {defs.openAskExcludedStatuses.join(", ")}.{" "}
+                  <strong>Open Asks</strong>: gift asks not in status {defs.openAskExcludedStatuses.join(", ")} with an expected
+                  fulfillment date in the fiscal year (asks with no expected date are not counted).{" "}
                   <strong>Funded</strong>: gift asks in status {defs.fundedStatuses.join(", ")}.
                 </li>
                 <li>
-                  Weeks run Monday through Sunday. Fiscal quarters are Jul-Sep, Oct-Dec, Jan-Mar, and Apr-Jun. Team
+                  Weeks run Monday through Sunday. Fiscal quarters are Jul-Sep, Oct-Dec, Jan-Mar, and Apr-Jun. Full FY runs Jul 1 through Jun 30. Team
                   totals count each donor and gift once; the donor list shows a donor once per assigned MGO.
                 </li>
               </ul>
