@@ -358,9 +358,10 @@ export const SETTINGS = {
    */
   assistGiftIds: ["451486"],
   /**
-   * Monday of the first All / leaderboard week. June 1, 2026.
-   * Weeks before this are not listed. An officer with a later roster
-   * startDate is still scored only from that day.
+   * First All / leaderboard calendar day. June 1, 2026.
+   * Weeks run Saturday through Friday, so the first listed week is
+   * Sat May 30 (activity still starts Jun 1). An officer with a later
+   * roster startDate is still scored only from that day.
    */
   evalStart: "2026-06-01",
 };
@@ -544,7 +545,7 @@ export const DEFINITIONS = [
   {
     term: "Leaderboard period",
     text:
-      "All-weeks ranks, totals, and personal bests start on Monday of the second week of August (Aug 10, 2026) and run forward. " +
-      "Activity before that week is not on the All leaderboard. Pick a single week to see only that week.",
+      "All-weeks ranks, totals, and personal bests start on June 1, 2026 and run forward. " +
+      "Weeks run Saturday through Friday to match the MA tracker. Pick a single week to see only that week.",
   },
 ];
