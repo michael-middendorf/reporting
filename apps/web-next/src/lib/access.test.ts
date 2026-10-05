@@ -460,6 +460,30 @@ describe("aspiredu grant for Daniel Davy", () => {
   });
 });
 
+describe("Academic Affairs grant for Julie Musselman (DST-2907)", () => {
+  const JULIE = "Julie.Musselman@avemaria.edu";
+
+  it("adds Academic Affairs while preserving Julie's exact existing report set", () => {
+    assert.equal(canLogin(JULIE), true);
+    assert.equal(isAdmin(JULIE), false);
+    assert.equal(canAccessReport(JULIE, "aspiredu"), true);
+    assert.equal(canAccessReport(JULIE, "athletics-coaching"), false);
+    assert.deepEqual(reportsForEmail(JULIE), [
+      "advancement",
+      "chapel",
+      "portfolios",
+      "annunciation",
+      "aspiredu",
+    ]);
+  });
+
+  it("requires MFA on a new link even when Julie already has a session", () => {
+    assert.equal(needsMfaAtSignIn(JULIE), true);
+    assert.equal(sessionDecisionAtComplete(JULIE, false), "mfa_pending");
+    assert.equal(sessionDecisionAtComplete(JULIE, true), "mfa_pending");
+  });
+});
+
 describe("aspiredu grant for Maria Gomez", () => {
   const MARIA = "Maria.T.Gomez@avemaria.edu";
 
@@ -560,6 +584,7 @@ describe("full Advancement grants", () => {
       "chapel",
       "portfolios",
       "annunciation",
+      "aspiredu",
     ]);
     assert.deepEqual(reportsForEmail("Jim.Thomas@avemaria.edu"), [
       "advancement",
