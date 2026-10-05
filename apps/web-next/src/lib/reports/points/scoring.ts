@@ -32,7 +32,7 @@ const aggregateMod = require("./aggregate.js") as {
   isTaskListRow: (r: unknown) => boolean;
   weekKey: (d: Date) => string;
   weekLabel: (key: string) => string;
-  daysOfWeek: (mondayKey: string) => string[];
+  daysOfWeek: (saturdayKey: string) => string[];
   trackerBreakdown: (
     rows: unknown[],
     layout?: unknown,
