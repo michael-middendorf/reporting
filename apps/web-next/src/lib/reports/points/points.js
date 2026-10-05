@@ -466,6 +466,32 @@ function priorCancelledMonthly(recurring, contactId, startRaw, excludeId) {
   return bestAmt;
 }
 
+/**
+ * Earliest posted installment at this RecurringGift's current monthly amount.
+ * When Virtuous edits the amount on an existing RG, startDate stays the old
+ * start and this installment is the first charge at the new rate.
+ */
+function firstInstallmentAtAmount(posted, record) {
+  const cid = Number(record.contactId);
+  const amt = parseAmount(record.amount);
+  if (!Number.isFinite(cid) || amt <= 0) return null;
+  const acOnly = isAcGift(record);
+  let best = null;
+  let bestDay = "";
+  for (const g of posted || []) {
+    if (Number(g.contactId) !== cid) continue;
+    if (acOnly && !isAcGift(g)) continue;
+    if (Math.abs(parseAmount(g.amount) - amt) > INSTALLMENT_TOLERANCE) continue;
+    const d = isoDay(parseDate(g.giftDate || g.giftDateFormatted));
+    if (!d) continue;
+    if (!bestDay || d < bestDay) {
+      bestDay = d;
+      best = g;
+    }
+  }
+  return best;
+}
+
 /** Map a Virtuous RecurringGift onto the gift shape the scorer already uses. */
 export function recurringToGift(record, posted = [], recurring = []) {
   const des = (record.designations && record.designations[0])
@@ -473,18 +499,26 @@ export function recurringToGift(record, posted = [], recurring = []) {
   const start = record.startDate || record.recurringGiftDate || record.giftDate;
   const startDay = calendarDay(start);
   const newAmt = parseAmount(record.amount);
+  const firstNew = firstInstallmentAtAmount(posted, record);
+  const firstNewDay = firstNew
+    ? isoDay(parseDate(firstNew.giftDate || firstNew.giftDateFormatted))
+    : null;
+  const raiseDay = firstNewDay && startDay && firstNewDay > startDay ? firstNewDay : startDay;
   const prior = Math.max(
-    priorAcMonthly(posted, record.contactId, startDay),
-    priorCancelledMonthly(recurring, record.contactId, start, record.id),
+    priorAcMonthly(posted, record.contactId, raiseDay),
+    priorCancelledMonthly(recurring, record.contactId, raiseDay || start, record.id),
   );
   const increase = prior > 0 && newAmt > prior;
   const continuation = prior > 0 && newAmt <= prior;
   const creditMonthly = increase ? roundCents(newAmt - prior) : continuation ? 0 : newAmt;
+  const inPlaceRaise = !!(firstNew && raiseDay && startDay && raiseDay > startDay && increase);
   return {
-    id: record.id != null ? `rg-${record.id}` : record.id,
+    id: inPlaceRaise && firstNew.id != null
+      ? firstNew.id
+      : (record.id != null ? `rg-${record.id}` : record.id),
     contactId: record.contactId,
     contactName: contactDisplayName(record),
-    giftDate: start,
+    giftDate: inPlaceRaise ? (firstNew.giftDate || raiseDay) : start,
     amount: creditMonthly,
     newMonthly: newAmt,
     priorMonthly: prior || null,

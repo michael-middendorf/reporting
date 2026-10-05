@@ -478,6 +478,7 @@ export const DEFINITIONS = [
       "A donation note with no matching posted gift scores 0 points and is not counted as a secured gift. " +
       "A new monthly commitment is one gift (annualized dollars) and one 100-pt credit; later installments of that same commitment are not counted again. " +
       "A monthly increase counts only the difference (new monthly − prior monthly) × 12, not the new full amount. The prior monthly can be Annunciation Circle or another fund cancelled within 45 days. " +
+      "If Virtuous edits the amount on an existing RecurringGift, the increase is the first posted installment at the new rate, not the original start date. " +
       "Points are attributed to whoever authored the note (Virtuous `createdByUser`). " +
       "Only notes and gifts on or after the author's roster start date count.",
   },

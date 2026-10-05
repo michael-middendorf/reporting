@@ -731,6 +731,77 @@ describe("monthly AC annualization", () => {
     assert.equal(owner.giftAmount, 90);
   });
 
+  it("an in-place AC amount change uses the first new-rate installment", () => {
+    const merged = prepareGifts(
+      [
+        postedGift({
+          id: 450038,
+          contactId: 95157,
+          contactName: "Edward Rebholz",
+          giftDate: "7/2/2026",
+          amount: "$21.80",
+          segment: "Annunciation Circle",
+        }),
+        postedGift({
+          id: 450700,
+          contactId: 95157,
+          contactName: "Edward Rebholz",
+          giftDate: "8/2/2026",
+          amount: "$100.00",
+          segment: "Annunciation Circle",
+        }),
+      ],
+      [
+        {
+          id: 3390,
+          contactId: 95157,
+          contactName: "Edward Rebholz",
+          startDate: "2026-01-03T00:00:00",
+          amount: 100,
+          frequency: "Monthly",
+          segment: "Annunciation Circle",
+          designations: [{ project: "Annunciation Circle" }],
+        },
+      ],
+    );
+    const monthly = merged.find((g: { acIncrease?: boolean }) => g.acIncrease) as {
+      id: number | string;
+      amount: number;
+      giftDate: string;
+      priorMonthly?: number;
+      newMonthly?: number;
+    };
+    assert.ok(monthly);
+    assert.equal(monthly.id, 450700);
+    assert.equal(monthly.amount, 78.2);
+    assert.equal(monthly.priorMonthly, 21.8);
+    assert.equal(monthly.newMonthly, 100);
+    assert.equal(merged.some((g: { id?: number | string }) => g.id === "rg-3390"), false);
+
+    const { owner, rows } = run(
+      [
+        donationNote({
+          createdByUser: NATALIA,
+          type: "Mission Advancement Call | Conversation",
+          noteDate: "7/27/2026",
+          contactId: 95157,
+          contactName: "Edward Rebholz",
+          id: 264894,
+        }),
+      ],
+      merged,
+      NATALIA,
+    );
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 938.4);
+    const giftRow = rows.find((r) => r.bucket === "donation");
+    assert.ok(giftRow);
+    assert.equal(giftRow.giftId, 450700);
+    assert.equal(giftRow.day, "2026-08-02");
+    assert.equal(giftRow.amount, 938.4);
+    assert.equal(giftRow.points, 100);
+  });
+
   it("a lapsed AC who signs up again is the full monthly amount × 12", () => {
     const merged = prepareGifts(
       [
