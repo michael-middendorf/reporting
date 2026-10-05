@@ -4,7 +4,7 @@ import { MA_NAMES, SETTINGS, evalStartDate, tierFor } from "./config.js";
 import { applyPassthroughCredit, assignedNotesFromFlags, contactDisplayName, eventPointsForHours, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, isPendingGalaSiteTicket, outreachBeforeGift, parseDate, passthroughContactIds, portfolioOwnersFromSnapshot, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
 import { galaSiteGiftId, mergeGalaSiteTickets, uniqueEmailContactIndex, uniquePersonNameMatch } from "./gala-site-tickets.js";
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "./counted-gifts.js";
-import { aggregate, daysOfWeek, isTaskListRow, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey, weekLabel } from "./aggregate.js";
+import { aggregate, daysOfWeek, isTaskListRow, listedGiftRows, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey, weekLabel } from "./aggregate.js";
 import { buildCalculationCSV, statusOf, virtuousGiftUrl } from "./report.js";
 import { projectTypeFor } from "./tracked-events";
 
@@ -1715,8 +1715,9 @@ describe("tracker category layout", () => {
     assert.equal(weekOf("9/19/2026"), "2026-09-19");
   });
 
-  it("weekLabel is Saturday through Friday", () => {
-    assert.equal(weekLabel("2026-09-12"), "Sep 12–Sep 18");
+  it("weekLabel is the Saturday the week starts", () => {
+    assert.equal(weekLabel("2026-09-12"), "Sep 12");
+    assert.equal(weekLabel("2026-05-30"), "May 30");
   });
 });
 
@@ -1814,6 +1815,12 @@ describe("count/remove overrides", () => {
     const row = dropped.model.rows.find((r) => String(r.giftId) === "501");
     assert.ok(row);
     assert.equal(row.removed, true);
+    const hidden = listedGiftRows(dropped.model.rows);
+    const trash = listedGiftRows(dropped.model.rows, { removed: true });
+    assert.equal(hidden.length, 0);
+    assert.equal(trash.length, 1);
+    assert.equal(String(trash[0].giftId), "501");
+    assert.equal(listedGiftRows(dropped.model.rows, { owner: SEAN, removed: true }).length, 0);
   });
 
   it("removing a portfolio gift drops it and leaves the row to count again", () => {
@@ -2090,6 +2097,68 @@ describe("possible gifts", () => {
     assert.equal(owner.gifts, 1);
     assert.equal(owner.giftAmount, 51.01);
     assert.equal(model.possibleGifts?.length ?? 0, 0);
+  });
+
+  it("Incoming Assign credits that MA over another officer's same-day conversation", () => {
+    const ELENA = "Elena Barnes";
+    const flags = {
+      "gift:451506": {
+        status: "assigned",
+        owner: ELENA,
+        contactId: "6556",
+        contactName: "Mike and Carla Pellegrini",
+        day: "2026-08-31",
+        type: "Mission Advancement | New Donation or New AC",
+        noteId: "gift:451506",
+      },
+    };
+    const extra = assignedNotesFromFlags(flags);
+    const { model } = run(
+      [
+        donationNote({
+          createdByUser: ELENA,
+          type: "Mission Advancement Call | Conversation",
+          noteDate: "8/31/2026",
+          contactId: 6556,
+          contactName: "Mike and Carla Pellegrini",
+          id: 11,
+        }),
+        donationNote({
+          createdByUser: ALANNA,
+          type: "Mission Advancement Call | Conversation",
+          noteDate: "8/31/2026",
+          contactId: 6556,
+          contactName: "Mike and Carla Pellegrini",
+          id: 12,
+        }),
+        ...extra,
+      ],
+      [
+        postedGift({
+          id: 451506,
+          contactId: 6556,
+          contactName: "Mike and Carla Pellegrini",
+          giftDate: "8/31/2026",
+          amount: 721.22,
+          segment: "Gyrene Booster Club",
+        }),
+      ],
+      ELENA,
+      flags,
+    );
+    const elena = model.tableOwners.find((o) => o.name === ELENA);
+    const alanna = model.tableOwners.find((o) => o.name === ALANNA);
+    assert.ok(elena);
+    assert.ok(alanna);
+    assert.equal(elena.gifts, 1);
+    assert.equal(elena.giftAmount, 721.22);
+    assert.equal(elena.points, 110);
+    assert.equal(alanna.gifts, 0);
+    assert.equal(alanna.giftAmount, 0);
+    const gift = model.gifts.find((g) => String(g.giftId) === "451506");
+    assert.ok(gift);
+    assert.equal(gift.owner, ELENA);
+    assert.equal(gift.removed, false);
   });
 });
 
