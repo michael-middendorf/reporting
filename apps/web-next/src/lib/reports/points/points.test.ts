@@ -4,7 +4,7 @@ import { MA_NAMES, SETTINGS, evalStartDate, tierFor } from "./config.js";
 import { applyPassthroughCredit, assignedNotesFromFlags, contactDisplayName, eventPointsForHours, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, isPendingGalaSiteTicket, outreachBeforeGift, parseDate, passthroughContactIds, portfolioOwnersFromSnapshot, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
 import { galaSiteGiftId, mergeGalaSiteTickets, uniqueEmailContactIndex, uniquePersonNameMatch } from "./gala-site-tickets.js";
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "./counted-gifts.js";
-import { aggregate, daysOfWeek, isTaskListRow, listedGiftRows, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
+import { aggregate, daysOfWeek, isTaskListRow, listedGiftRows, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey, weekLabel } from "./aggregate.js";
 import { buildCalculationCSV, statusOf, virtuousGiftUrl } from "./report.js";
 import { projectTypeFor } from "./tracked-events";
 
@@ -1696,16 +1696,27 @@ describe("tracker category layout", () => {
     assert.equal(letters.length, 2);
   });
 
-  it("daysOfWeek is Monday through Sunday", () => {
-    assert.deepEqual(daysOfWeek("2026-08-31"), [
-      "2026-08-31",
-      "2026-09-01",
-      "2026-09-02",
-      "2026-09-03",
-      "2026-09-04",
-      "2026-09-05",
-      "2026-09-06",
+  it("daysOfWeek is Saturday through Friday", () => {
+    assert.deepEqual(daysOfWeek("2026-09-12"), [
+      "2026-09-12",
+      "2026-09-13",
+      "2026-09-14",
+      "2026-09-15",
+      "2026-09-16",
+      "2026-09-17",
+      "2026-09-18",
     ]);
+  });
+
+  it("weekKey anchors Saturday through Friday", () => {
+    assert.equal(weekOf("9/12/2026"), "2026-09-12");
+    assert.equal(weekOf("9/14/2026"), "2026-09-12");
+    assert.equal(weekOf("9/18/2026"), "2026-09-12");
+    assert.equal(weekOf("9/19/2026"), "2026-09-19");
+  });
+
+  it("weekLabel is Saturday through Friday", () => {
+    assert.equal(weekLabel("2026-09-12"), "Sep 12–Sep 18");
   });
 });
 
@@ -1721,10 +1732,10 @@ describe("sheet tier names", () => {
 });
 
 describe("leaderboard period", () => {
-  it("All range starts Monday June 1, 2026", () => {
+  it("All range starts June 1, 2026 (Saturday-anchored week is May 30)", () => {
     assert.equal(SETTINGS.evalStart, "2026-06-01");
     const start = evalStartDate();
-    assert.equal(weekKey(start), "2026-06-01");
+    assert.equal(weekKey(start), "2026-05-30");
     const scored = scoreAll({
       notes: [
         donationNote({ type: "Letter", noteDate: "5/31/2026", id: 1 }),
@@ -1741,17 +1752,17 @@ describe("leaderboard period", () => {
 });
 
 describe("week range bounds", () => {
-  it("includes Sunday of the To week and excludes the next Monday", () => {
+  it("includes Friday of the To week and excludes the next Saturday", () => {
     const scored = scoreAll({
       notes: [
-        donationNote({ type: "Letter", noteDate: "8/3/2026", id: 1 }),
-        donationNote({ type: "Letter", noteDate: "8/9/2026", id: 2 }),
-        donationNote({ type: "Letter", noteDate: "8/10/2026", id: 3 }),
+        donationNote({ type: "Letter", noteDate: "8/1/2026", id: 1 }),
+        donationNote({ type: "Letter", noteDate: "8/7/2026", id: 2 }),
+        donationNote({ type: "Letter", noteDate: "8/8/2026", id: 3 }),
       ],
     }) as ScoredRow[];
     const model = aggregate(scored, {
-      start: parseDate("8/3/2026"),
-      end: parseDate("8/9/2026"),
+      start: parseDate("8/1/2026"),
+      end: parseDate("8/7/2026"),
     }) as Model;
     const owner = model.tableOwners.find((o) => o.name === ALANNA);
     assert.ok(owner);
@@ -1860,8 +1871,8 @@ describe("team bests", () => {
     const model = aggregate(scored) as Model;
     const weekA = weekOf("8/3/2026");
     const weekB = weekOf("8/11/2026");
-    assert.equal(weekA, "2026-08-03");
-    assert.equal(weekB, "2026-08-10");
+    assert.equal(weekA, "2026-08-01");
+    assert.equal(weekB, "2026-08-08");
     assert.equal(model.bests?.teamWeek, weekB);
     assert.equal(model.bests?.team.points.value, 300);
     assert.equal(model.bests?.team.points.week, weekB);

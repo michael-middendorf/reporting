@@ -54,27 +54,33 @@ function rowRemoved(r, flags) {
   return flags[id]?.status === "removed";
 }
 
-/** Monday-anchored week key for a Date. */
+/** Saturday-anchored week key for a Date (Sat through Fri). */
 export function weekKey(d) {
   const t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const day = (t.getDay() + 6) % 7; // Mon=0
+  const day = (t.getDay() + 1) % 7; // Sat=0
   t.setDate(t.getDate() - day);
   return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
 }
 
 export function weekLabel(key) {
-  const d = new Date(key + "T00:00:00");
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const days = daysOfWeek(key);
+  const start = new Date((days[0] || key) + "T00:00:00");
+  if (Number.isNaN(+start)) return "";
+  const startText = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (days.length < 7) return startText;
+  const end = new Date(days[6] + "T00:00:00");
+  const endText = end.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return `${startText}–${endText}`;
 }
 
-/** Seven YYYY-MM-DD days, Monday through Sunday, for a Monday week key. */
-export function daysOfWeek(mondayKey) {
-  if (!mondayKey) return [];
-  const mon = new Date(mondayKey + "T00:00:00");
-  if (Number.isNaN(+mon)) return [];
+/** Seven YYYY-MM-DD days, Saturday through Friday, for a Saturday week key. */
+export function daysOfWeek(saturdayKey) {
+  if (!saturdayKey) return [];
+  const sat = new Date(saturdayKey + "T00:00:00");
+  if (Number.isNaN(+sat)) return [];
   const out = [];
   for (let i = 0; i < 7; i++) {
-    const d = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + i);
+    const d = new Date(sat.getFullYear(), sat.getMonth(), sat.getDate() + i);
     out.push(
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
     );

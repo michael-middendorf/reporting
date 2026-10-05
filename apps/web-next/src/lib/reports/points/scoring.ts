@@ -36,7 +36,7 @@ const aggregateMod = require("./aggregate.js") as {
   ) => unknown[];
   weekKey: (d: Date) => string;
   weekLabel: (key: string) => string;
-  daysOfWeek: (mondayKey: string) => string[];
+  daysOfWeek: (saturdayKey: string) => string[];
   trackerBreakdown: (
     rows: unknown[],
     layout?: unknown,
