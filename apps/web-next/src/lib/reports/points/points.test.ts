@@ -4,7 +4,7 @@ import { MA_NAMES, SETTINGS, evalStartDate, tierFor } from "./config.js";
 import { applyPassthroughCredit, assignedNotesFromFlags, contactDisplayName, eventPointsForHours, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, isPendingGalaSiteTicket, outreachBeforeGift, parseDate, passthroughContactIds, portfolioOwnersFromSnapshot, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
 import { galaSiteGiftId, mergeGalaSiteTickets, uniqueEmailContactIndex, uniquePersonNameMatch } from "./gala-site-tickets.js";
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "./counted-gifts.js";
-import { aggregate, daysOfWeek, isTaskListRow, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
+import { aggregate, daysOfWeek, isTaskListRow, listedGiftRows, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey } from "./aggregate.js";
 import { buildCalculationCSV, statusOf, virtuousGiftUrl } from "./report.js";
 import { projectTypeFor } from "./tracked-events";
 
@@ -1803,6 +1803,12 @@ describe("count/remove overrides", () => {
     const row = dropped.model.rows.find((r) => String(r.giftId) === "501");
     assert.ok(row);
     assert.equal(row.removed, true);
+    const hidden = listedGiftRows(dropped.model.rows);
+    const trash = listedGiftRows(dropped.model.rows, { removed: true });
+    assert.equal(hidden.length, 0);
+    assert.equal(trash.length, 1);
+    assert.equal(String(trash[0].giftId), "501");
+    assert.equal(listedGiftRows(dropped.model.rows, { owner: SEAN, removed: true }).length, 0);
   });
 
   it("removing a portfolio gift drops it and leaves the row to count again", () => {

@@ -521,7 +521,7 @@ export const DEFINITIONS = [
   {
     term: "Count / Remove",
     text:
-      "Every scored task is counted in the totals by default. Remove drops that task from points, activity counts, and gift totals. Count puts it back. The choice is shared for everyone looking at the dashboard.",
+      "Every scored task is counted in the totals by default. Remove drops that task from points, activity counts, and gift totals. Count puts it back. Gifts Remove drops a counted gift from Raised; the trash can on Gifts lists those gifts so Restore can put them back. The choice is shared for everyone looking at the dashboard.",
   },
   {
     term: "Dollars received",

@@ -288,6 +288,26 @@ main.wrap.dash.points-method { max-width: 1080px; }
 .section { margin-bottom: 22px; }
 .section > h2 { display: flex; align-items: baseline; gap: 10px; margin: 0 0 14px; }
 .section > h2 .hint { font-family: var(--sans); font-weight: 300; font-size: .85rem; color: var(--slate-400); }
+.trash-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  align-self: center;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--navy);
+  border-radius: 999px;
+  padding: 5px 10px;
+  cursor: pointer;
+  line-height: 1;
+}
+.trash-btn svg { width: 15px; height: 15px; display: block; }
+.trash-btn:hover { border-color: var(--gold); }
+.trash-btn.open { border-color: var(--navy); background: var(--gold-soft); }
+.trash-count { font-family: var(--sans); font-size: .78rem; font-weight: 600; }
+.removed-gifts h3 { margin: 0 0 4px; font-size: 1.05rem; }
+.removed-gifts .footnote { margin: 0 0 12px; }
 
 /* ---- Leaderboard cards ---- */
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }

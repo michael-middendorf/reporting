@@ -12,6 +12,7 @@ import {
   downloadText,
   rowId,
   isTaskListRow,
+  listedGiftRows,
   scoreAll,
   assignedNotesFromFlags,
   scoreTrackedEvents,
@@ -377,6 +378,7 @@ function PointsPageInner() {
   const [pickedDay, setPickedDay] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [giftOwner, setGiftOwner] = useState<string | null>(null);
+  const [showRemovedGifts, setShowRemovedGifts] = useState(false);
   const [possibleOwner, setPossibleOwner] = useState<string>("all");
   const [meName, setMeName] = useState<string | null>(null);
   const [undo, setUndo] = useState<{ flagId: string; message: string } | null>(null);
@@ -578,12 +580,12 @@ function PointsPageInner() {
         : "Categories";
   const listedGifts = useMemo(() => {
     if (!giftOwner) return [] as GiftRow[];
-    return (model.rows as GiftRow[])
-      .filter((r) => !r.needsReview && !r.removed)
-      .filter((r) => (r.bucket === "donation" && (r.amount || 0) > 0) || (r.assist && r.giftId != null))
-      .filter((g) => giftOwner === "all" || g.owner === giftOwner)
-      .sort((a, b) => (b.day || "").localeCompare(a.day || ""));
+    return listedGiftRows(model.rows as GiftRow[], { owner: giftOwner }) as GiftRow[];
   }, [model.rows, giftOwner]);
+  const removedGifts = useMemo(
+    () => listedGiftRows(model.rows as GiftRow[], { owner: giftOwner || "all", removed: true }) as GiftRow[],
+    [model.rows, giftOwner],
+  );
   const giftTouches = useMemo(() => {
     const map = new Map<string, { count: number; amount: number; touches: number }>();
     for (const g of model.gifts || []) {
@@ -788,6 +790,16 @@ function PointsPageInner() {
       return false;
     } finally {
       setFlagBusy(null);
+    }
+  }
+
+  async function restoreCountedGift(g: GiftRow) {
+    const id = giftRemoveId(g);
+    if (!id) return;
+    const ok = await deleteFlag(id);
+    if (ok) {
+      if (!giftOwner) setGiftOwner("all");
+      setShowRemovedGifts(true);
     }
   }
 
@@ -1864,7 +1876,29 @@ function PointsPageInner() {
           <section className="section">
             <h2>
               Gifts{" "}
-              <span className="section-hint">contacts before they gave · Remove drops a gift from Raised and this list</span>
+              <span className="section-hint">contacts before they gave · Remove drops a gift from Raised · trash restores it</span>
+              <button
+                type="button"
+                className={`trash-btn${showRemovedGifts ? " open" : ""}`}
+                aria-pressed={showRemovedGifts}
+                aria-label={
+                  removedGifts.length
+                    ? `Removed gifts, ${removedGifts.length}`
+                    : "Removed gifts"
+                }
+                title="Removed gifts"
+                onClick={() => {
+                  setShowRemovedGifts((open) => !open);
+                  if (!giftOwner) setGiftOwner("all");
+                }}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                {removedGifts.length > 0 ? (
+                  <span className="trash-count">{removedGifts.length}</span>
+                ) : null}
+              </button>
             </h2>
             <div className="panel">
                   <table className="grid" style={{ marginBottom: 18 }}>
@@ -1923,6 +1957,70 @@ function PointsPageInner() {
                       </tr>
                     </tbody>
                   </table>
+                  {showRemovedGifts ? (
+                    <div className="removed-gifts">
+                      <h3>Removed gifts</h3>
+                      <p className="footnote">Restore puts the gift back on Raised. This is shared for everyone on the dashboard.</p>
+                      {removedGifts.length === 0 ? (
+                        <p className="footnote">No removed gifts in this range.</p>
+                      ) : (
+                        <table className="grid" style={{ marginBottom: 18 }}>
+                          <thead>
+                            <tr>
+                              <th>Gift date</th>
+                              <th>Kind</th>
+                              <th>Amount</th>
+                              <th>MA</th>
+                              <th></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {removedGifts.map((g, i) => {
+                              const restoreId = giftRemoveId(g);
+                              return (
+                                <tr key={g.giftId != null && g.giftId !== "" ? `removed-${g.giftId}` : `removed-${i}`}>
+                                  <td style={{ whiteSpace: "nowrap" }}>
+                                    {g.day ? formatDay(g.day) : "—"}
+                                    {g.contactName ? (
+                                      <div style={{ color: "var(--slate-400)", fontWeight: 400 }}>{g.contactName}</div>
+                                    ) : null}
+                                  </td>
+                                  <td>
+                                    {g.assist
+                                      ? "Assist"
+                                      : g.acIncrease
+                                        ? "AC increase"
+                                        : g.annualized
+                                          ? "Monthly ×12"
+                                          : (g.giftType || "—")}
+                                    {g.project ? (
+                                      <span style={{ color: "var(--slate-400)" }}> · {g.project}</span>
+                                    ) : null}
+                                  </td>
+                                  <td className="pts tabular">
+                                    {g.assist ? money(0) : money(g.amount)}
+                                  </td>
+                                  <td>{g.owner}</td>
+                                  <td>
+                                    {restoreId ? (
+                                      <button
+                                        type="button"
+                                        className="mini-btn solid"
+                                        disabled={flagBusy === restoreId}
+                                        onClick={() => restoreCountedGift(g)}
+                                      >
+                                        {flagBusy === restoreId ? "…" : "Restore"}
+                                      </button>
+                                    ) : "—"}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  ) : null}
                   {!giftOwner ? (
                     <p className="footnote">Click a name or All to see the gifts.</p>
                   ) : listedGifts.length === 0 ? (

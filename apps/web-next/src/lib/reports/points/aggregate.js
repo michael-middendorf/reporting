@@ -27,6 +27,19 @@ export function isTaskListRow(r) {
   return true;
 }
 
+/**
+ * Counted gift rows for the Gifts table (`removed: false`) or the trash
+ * Restore list (`removed: true`). Assist rows stay on the list at $0.
+ */
+export function listedGiftRows(rows, { owner = "all", removed = false } = {}) {
+  const wantRemoved = !!removed;
+  return (rows || [])
+    .filter((r) => !r.needsReview && !!r.removed === wantRemoved)
+    .filter((r) => (r.bucket === "donation" && (r.amount || 0) > 0) || (r.assist && r.giftId != null))
+    .filter((g) => !owner || owner === "all" || g.owner === owner)
+    .sort((a, b) => String(b.day || "").localeCompare(String(a.day || "")));
+}
+
 function rowRemoved(r, flags) {
   if (!flags) return false;
   // Gifts-table Remove uses its own key so it does not overwrite an assign flag.
