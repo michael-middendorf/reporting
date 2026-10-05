@@ -1715,8 +1715,9 @@ describe("tracker category layout", () => {
     assert.equal(weekOf("9/19/2026"), "2026-09-19");
   });
 
-  it("weekLabel is Saturday through Friday", () => {
-    assert.equal(weekLabel("2026-09-12"), "Sep 12–Sep 18");
+  it("weekLabel is the Saturday the week starts", () => {
+    assert.equal(weekLabel("2026-09-12"), "Sep 12");
+    assert.equal(weekLabel("2026-05-30"), "May 30");
   });
 });
 

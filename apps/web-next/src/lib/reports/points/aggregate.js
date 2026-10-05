@@ -62,15 +62,12 @@ export function weekKey(d) {
   return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
 }
 
+/** Saturday start of the week, e.g. "Sep 12". */
 export function weekLabel(key) {
   const days = daysOfWeek(key);
   const start = new Date((days[0] || key) + "T00:00:00");
   if (Number.isNaN(+start)) return "";
-  const startText = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  if (days.length < 7) return startText;
-  const end = new Date(days[6] + "T00:00:00");
-  const endText = end.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  return `${startText}–${endText}`;
+  return start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 /** Seven YYYY-MM-DD days, Saturday through Friday, for a Saturday week key. */
