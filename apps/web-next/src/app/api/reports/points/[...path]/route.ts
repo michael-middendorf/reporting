@@ -36,10 +36,12 @@ function isoGiftDay(r: Record<string, unknown>): string {
   return iso ? iso[1] : "";
 }
 
+type GalaSiteTicket = (typeof GALA_SITE_TICKETS.tickets)[number];
+
 /** Daily Stripe pull, then the committed September snapshot. */
-async function galaSiteTickets(): Promise<unknown[]> {
+async function galaSiteTickets(): Promise<GalaSiteTicket[]> {
   try {
-    const doc = await readJson<{ tickets?: unknown[] }>("points/gala-site-tickets.json");
+    const doc = await readJson<{ tickets?: GalaSiteTicket[] }>("points/gala-site-tickets.json");
     if (Array.isArray(doc?.tickets) && doc.tickets.length > 0) return doc.tickets;
   } catch (error) {
     if (!isMissingSource(error)) console.error("gala site tickets", error);
