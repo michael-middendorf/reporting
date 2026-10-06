@@ -209,9 +209,13 @@ function formatDay(iso: string) {
 function RaisedTrendChart({
   weeks,
   incomingAmount,
+  selectedKey,
+  onSelectWeek,
 }: {
   weeks: Array<{ key: string; label: string; amount: number }>;
   incomingAmount: number;
+  selectedKey?: string;
+  onSelectWeek?: (key: string) => void;
 }) {
   const [hover, setHover] = useState<number | null>(null);
   if (!weeks.length) return null;
@@ -229,7 +233,8 @@ function RaisedTrendChart({
     .join(" ");
   const raised = weeks.reduce((s, w) => s + w.amount, 0);
   const labelEvery = weeks.length > 8 ? Math.ceil(weeks.length / 6) : 1;
-  const active = hover != null ? weeks[hover] : null;
+  const selectedIndex = selectedKey ? weeks.findIndex((w) => w.key === selectedKey) : -1;
+  const active = hover != null ? weeks[hover] : selectedIndex >= 0 ? weeks[selectedIndex] : null;
   return (
     <div className="raised-trend-compact">
       <div className="raised-trend-meta">
@@ -249,26 +254,45 @@ function RaisedTrendChart({
       <svg
         className="chart-svg"
         viewBox={`0 0 ${W} ${H}`}
-        role="img"
-        aria-label="Raised amount each week. Only assigned gifts."
+        role="group"
+        aria-label="Raised amount each week. Click a week to filter the board."
         onMouseLeave={() => setHover(null)}
       >
         <path d={d} fill="none" className="trend-line" />
         {weeks.map((w, i) => {
           const slot = weeks.length === 1 ? innerW : innerW / Math.max(1, weeks.length - 1);
+          const selected = w.key === selectedKey;
+          const hot = hover === i || selected;
           return (
             <g key={w.key}>
               <rect
+                className="trend-hit"
                 x={x(i) - slot / 2}
-                y={pad.t}
+                y={0}
                 width={slot}
-                height={innerH}
+                height={H}
                 fill="transparent"
+                role="button"
+                tabIndex={0}
+                aria-pressed={selected}
+                aria-label={`Week of ${w.label}, ${money(w.amount)}`}
                 onMouseEnter={() => setHover(i)}
+                onClick={() => onSelectWeek?.(w.key)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelectWeek?.(w.key);
+                  }
+                }}
               />
-              <circle cx={x(i)} cy={y(w.amount)} r={hover === i ? 4 : 2.5} className="trend-dot" />
+              <circle
+                cx={x(i)}
+                cy={y(w.amount)}
+                r={hot ? 4.5 : 2.5}
+                className={`trend-dot${selected ? " selected" : ""}`}
+              />
               {i % labelEvery === 0 || i === weeks.length - 1 ? (
-                <text x={x(i)} y={H - 4} textAnchor="middle" className="trend-tick">
+                <text x={x(i)} y={H - 4} textAnchor="middle" className={`trend-tick${selected ? " selected" : ""}`}>
                   {w.label}
                 </text>
               ) : null}
@@ -1027,6 +1051,27 @@ function PointsPageInner() {
     }
   }
 
+  function applyWeekFilter(key: string) {
+    const already = (range === "custom" || range === "week") && (selectedWeek === key || selectWeek === key);
+    if (!key || already) {
+      setSelectedWeek("");
+      setDateFrom("");
+      setDateTo("");
+      setRange("all");
+      setPickedWeek(null);
+      setPickedDay(null);
+      setCategoryFilter(null);
+      return;
+    }
+    setSelectedWeek(key);
+    setDateFrom("");
+    setDateTo("");
+    setRange("custom");
+    setPickedWeek(key);
+    setPickedDay(null);
+    setCategoryFilter(null);
+  }
+
   function exportCalculation() {
     const now = new Date();
     const generatedOn = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -1073,16 +1118,7 @@ function PointsPageInner() {
                 <select
                   aria-label="Week"
                   value={selectWeek}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setSelectedWeek(v);
-                    setDateFrom("");
-                    setDateTo("");
-                    setRange(v ? "custom" : "all");
-                    setPickedWeek(v || null);
-                    setPickedDay(null);
-                    setCategoryFilter(null);
-                  }}
+                  onChange={(e) => applyWeekFilter(e.target.value)}
                 >
                   <option value="">{range === "dates" ? "Custom dates" : `All weeks (from ${evalStartDate().toLocaleDateString("en-US", { month: "short", day: "numeric" })})`}</option>
                   {weekOptions.map((k) => (
@@ -1366,7 +1402,12 @@ function PointsPageInner() {
           <>
           {tab === "points" ? (
           <>
-          <RaisedTrendChart weeks={weeklyRaised} incomingAmount={todoAllAmount} />
+          <RaisedTrendChart
+            weeks={weeklyRaised}
+            incomingAmount={todoAllAmount}
+            selectedKey={selectWeek}
+            onSelectWeek={applyWeekFilter}
+          />
 
           <section className="section">
             <h2>
