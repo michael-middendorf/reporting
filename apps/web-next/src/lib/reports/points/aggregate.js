@@ -15,14 +15,14 @@ export function rowId(r) {
 }
 
 /**
- * Tasks Count/Remove list. Assigned or unassigned MGO gift dollar rows use
- * the Assign checkbox on Donations Received, not this list (same `gift:{id}`
- * key as Assign; Remove would overwrite status and un-credit the gift).
- * Auto-credited (non-MGO) gift dollar rows stay on Tasks.
+ * Rows on an MA's week mix and Tasks list. Credited Direct Solicitation (MGO)
+ * gifts stay here so the 100 points show in the week (Lesniewski). Count/Remove
+ * on Tasks still skip those rows so they do not overwrite an Assign flag.
+ * Unassigned MGO review and Incoming possible rows stay off this list.
  */
 export function isTaskListRow(r) {
   if (r == null) return false;
-  if (r.mgoAssigned || r.needsReview) return false;
+  if (r.needsReview) return false;
   if (r.bucket === "possible" || r.bucket === "commitment" || r.bucket === "general") return false;
   return true;
 }

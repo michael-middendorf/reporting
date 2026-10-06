@@ -318,8 +318,44 @@ main.wrap.dash.points-method { max-width: 1080px; }
 .trash-btn.open { background: var(--navy); color: #fff; border-color: var(--navy); }
 .trash-btn.open svg { stroke: #fff; }
 .trash-count { font-variant-numeric: tabular-nums; }
-.removed-gifts h3 { margin: 0 0 4px; font-size: 1.05rem; }
-.removed-gifts .footnote { margin: 0 0 12px; }
+.removed-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(12, 35, 63, 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 16px 24px;
+  overflow: auto;
+}
+.removed-modal {
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  width: min(920px, 100%);
+  max-height: calc(100vh - 72px);
+  overflow: auto;
+  padding: 18px 20px 20px;
+}
+.removed-modal-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.removed-modal-head h3 { margin: 0; flex: 1; font-size: 1.15rem; }
+.removed-modal-close {
+  border: 0;
+  background: transparent;
+  color: var(--slate-400);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.removed-modal-close:hover { color: var(--navy); }
+.removed-modal .footnote { margin: 0 0 14px; }
 
 /* ---- Leaderboard cards ---- */
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }

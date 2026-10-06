@@ -2428,8 +2428,56 @@ describe("MGO-coded gifts follow the same contact rule", () => {
     const credited = model.rows.find((r) => r.giftId === 9001) as ScoredRow | undefined;
     assert.ok(credited);
     assert.equal(credited.removed, false);
-    assert.equal(isTaskListRow(credited), false);
+    assert.equal(credited.mgoAssigned, true);
+    assert.equal(isTaskListRow(credited), true);
+    const mix = trackerBreakdown([credited]);
+    const dollars = mix.lines.find((l) => l.id === "donation");
+    assert.ok(dollars);
+    assert.equal(dollars.count, 1);
+    assert.equal(dollars.points, 100);
     assert.equal(scoreGift(gift, SEAN, SEAN)?.owner, SEAN);
+  });
+
+  it("Elena's Oct 1 Direct Solicitation $500 is 100 pts in the Sat Sep 26 week", () => {
+    const ELENA = "Elena Barnes";
+    const { owner, model } = run(
+      [
+        donationNote({
+          createdByUser: ELENA,
+          type: "Mission Advancement Call | Conversation",
+          noteDate: "9/18/2026",
+          contactId: 4825,
+          contactName: "Anthony and Cynthia Lesniewski",
+          id: 21,
+        }),
+      ],
+      [
+        postedGift({
+          id: 452490,
+          contactId: 4825,
+          contactName: "Anthony and Cynthia Lesniewski",
+          giftDate: "10/1/2026",
+          amount: 500,
+          segment: "Direct Solicitation (MGO)",
+        }),
+      ],
+      ELENA,
+    );
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 500);
+    assert.equal(owner.points, 110);
+    const donation = model.rows.find((r) => String(r.giftId) === "452490") as ScoredRow | undefined;
+    assert.ok(donation);
+    assert.equal(donation.mgoAssigned, true);
+    assert.equal(isTaskListRow(donation), true);
+    assert.equal(weekKey(parseDate("10/1/2026") as Date), "2026-09-26");
+    const week = owner.weekList.find((w) => w.key === "2026-09-26");
+    assert.ok(week);
+    assert.equal(week.gifts, 1);
+    assert.equal(week.giftAmount, 500);
+    assert.ok(week.points >= 100);
+    const mix = trackerBreakdown([donation]);
+    assert.equal(mix.lines.find((l) => l.id === "donation")?.points, 100);
   });
 
   it("auto-credited gift dollar rows stay on the Tasks list", () => {
@@ -2755,7 +2803,7 @@ describe("MGO-coded gifts follow the same contact rule", () => {
     assert.equal(assigned.owner.giftAmount, 612.12);
     assert.equal(assigned.owner.gifts, 1);
     assert.equal(assigned.model.gifts[0].mgoAssigned, true);
-    assert.equal(isTaskListRow(assigned.model.rows.find((r) => r.giftId === "rg-3834") as ScoredRow), false);
+    assert.equal(isTaskListRow(assigned.model.rows.find((r) => r.giftId === "rg-3834") as ScoredRow), true);
   });
 });
 
