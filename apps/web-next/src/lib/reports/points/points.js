@@ -893,7 +893,9 @@ function donationRow(record, owner) {
     contactId: record.contactId, contactName: contactDisplayName(record),
     giftId: record.id, giftType: record.giftType || "",
     frequency: record.frequency || (monthly ? "Monthly" : ""),
-    project: giftProject(record), solicitor: solicitor || "",
+    project: giftProject(record),
+    segment: record.segment || "",
+    solicitor: solicitor || "",
     source: "gift", assist,
   };
 }

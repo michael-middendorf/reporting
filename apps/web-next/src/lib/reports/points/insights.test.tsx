@@ -4,7 +4,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { InsightsPanel } from "../../../app/advancement/points/insights-panel";
 import { POINTS_MAP } from "./config.js";
-import { CHANNELS, buildInsights } from "./insights.js";
+import { CHANNELS, buildInsights, campaignOf } from "./insights.js";
 import { ageFromPerson, projectProfile, projectProfiles } from "./profiles.js";
 
 const AS_OF = new Date(2026, 8, 28);
@@ -249,5 +249,41 @@ describe("gift insights", () => {
     assert.match(html, /No counted gifts in this range/);
     assert.doesNotMatch(html, /the most of any generation/);
     assert.doesNotMatch(html, /Email reach-out/);
+  });
+
+  it("rolls a Virtuous segment into a campaign", () => {
+    assert.equal(campaignOf({ segment: "FYE27 Fall 2026 Appeal Active Direct Mail 1" }).id, "fall");
+    assert.equal(campaignOf({ project: "Annunciation Circle" }).id, "ac");
+    assert.equal(campaignOf({ segment: "26-27 Chancellor's Gala" }).id, "gala");
+    assert.equal(campaignOf({ segment: "Direct Solicitation (MGO)" }).id, "mgo");
+    assert.equal(campaignOf({ segment: "White Mail" }).id, "white");
+    assert.equal(campaignOf({ segment: "Gyrene Booster Club" }).id, "athletics");
+    assert.equal(campaignOf({ segment: "Mission Fund" }).label, "Mission Fund");
+  });
+
+  it("groups counted gifts by campaign and names the contact that reached them", () => {
+    const insights = buildInsights({
+      profiles,
+      gifts: [
+        { contactId: 1, giftId: 11, amount: 100, touchLabel: "Phone conversation", segment: "FYE27 Fall 2026 Appeal Active Direct Mail 1" },
+        { contactId: 2, giftId: 21, amount: 400, touchLabel: "Handwritten note / letter", segment: "Annunciation Circle" },
+        { contactId: 2, giftId: 22, amount: 50, touchLabel: "Phone conversation", project: "Annunciation Circle" },
+      ],
+      notes: [],
+    });
+    const fall = insights.campaigns.find((group) => group.id === "fall");
+    const ac = insights.campaigns.find((group) => group.id === "ac");
+    assert.ok(fall);
+    assert.ok(ac);
+    assert.equal(fall.gifts, 1);
+    assert.equal(fall.amount, 100);
+    assert.equal(fall.best?.label, "Phone conversation");
+    assert.equal(ac.gifts, 2);
+    assert.equal(ac.amount, 450);
+    assert.equal(ac.best?.label, "Handwritten note / letter");
+    const html = renderToStaticMarkup(<InsightsPanel insights={insights} />);
+    assert.match(html, /Reached by campaign/);
+    assert.match(html, /Fall Appeal/);
+    assert.match(html, /Annunciation Circle/);
   });
 });

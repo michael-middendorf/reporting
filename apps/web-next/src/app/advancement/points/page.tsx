@@ -39,6 +39,8 @@ import type { TrackedEvent } from "@/lib/reports/points/tracked-events";
 import "@/styles/points.css";
 import { InsightsPanel } from "./insights-panel";
 import { buildInsights } from "@/lib/reports/points/insights.js";
+import { matchingMonth, monthBounds, monthOptions } from "@/lib/reports/points/month-range.js";
+import { sortTrackedEventsByMa, summarizeTrackedEventTypes } from "@/lib/reports/points/tracked-events";
 
 type RangeKey = "week" | "all" | "custom" | "dates";
 
@@ -105,6 +107,7 @@ type GiftRow = {
   contactId?: string | number | null;
   day?: string;
   giftType?: string;
+  segment?: string;
   project?: string;
   amount?: number;
   postedAmount?: number;
@@ -262,7 +265,6 @@ function RaisedTrendChart({
         {weeks.map((w, i) => {
           const slot = weeks.length === 1 ? innerW : innerW / Math.max(1, weeks.length - 1);
           const selected = w.key === selectedKey;
-          const hot = hover === i || selected;
           return (
             <g key={w.key}>
               <rect
@@ -288,8 +290,9 @@ function RaisedTrendChart({
               <circle
                 cx={x(i)}
                 cy={y(w.amount)}
-                r={hot ? 4.5 : 2.5}
+                r={selected ? 6 : hover === i ? 4 : 2.5}
                 className={`trend-dot${selected ? " selected" : ""}`}
+                pointerEvents="none"
               />
               {i % labelEvery === 0 || i === weeks.length - 1 ? (
                 <text x={x(i)} y={H - 4} textAnchor="middle" className={`trend-tick${selected ? " selected" : ""}`}>
@@ -419,6 +422,8 @@ function PointsPageInner() {
   const [flagError, setFlagError] = useState<string | null>(null);
   const [assignBusy, setAssignBusy] = useState<string | null>(null);
   const [trackedEvents, setTrackedEvents] = useState<TrackedEvent[]>([]);
+  const [eventOwner, setEventOwner] = useState("all");
+  const [eventTypeFilter, setEventTypeFilter] = useState("");
   const [eventBusy, setEventBusy] = useState(false);
   const [eventForm, setEventForm] = useState({
     owner: "",
@@ -644,18 +649,6 @@ function PointsPageInner() {
     () => listedGiftRows(model.rows as GiftRow[], { owner: giftOwner || "all", removed: true }) as GiftRow[],
     [model.rows, giftOwner],
   );
-  const giftTouches = useMemo(() => {
-    const map = new Map<string, { count: number; amount: number; touches: number }>();
-    for (const g of model.gifts || []) {
-      const key = g.touchLabel || "No contact logged";
-      const rec = map.get(key) || { count: 0, amount: 0, touches: 0 };
-      rec.count += 1;
-      rec.amount += g.amount || 0;
-      rec.touches += g.touchCount || 0;
-      map.set(key, rec);
-    }
-    return [...map.entries()].sort((a, b) => b[1].amount - a[1].amount);
-  }, [model.gifts]);
   const followUps = useMemo(() => {
     const nameByContact = new Map<string, string>();
     for (const r of rows || []) {
@@ -748,20 +741,37 @@ function PointsPageInner() {
     }));
   }, [range, model, rows, flags, weekOptions]);
 
-  const listedTracked = useMemo(() => {
+  const rangedEvents = useMemo(() => {
     const { start, end } = bounds(range, selectedWeek || null, dateFrom, dateTo);
     const includePast = tab === "events" && range === "all";
-    return trackedEvents
-      .filter((e) => {
-        if (!e.day) return false;
-        const d = parseDay(e.day);
-        if (Number.isNaN(+d)) return false;
-        if (!includePast && start && d < start) return false;
-        if (end && d > end) return false;
-        return true;
-      })
-      .sort((a, b) => (b.day || "").localeCompare(a.day || ""));
+    return trackedEvents.filter((e) => {
+      if (!e.day) return false;
+      const d = parseDay(e.day);
+      if (Number.isNaN(+d)) return false;
+      if (!includePast && start && d < start) return false;
+      if (end && d > end) return false;
+      return true;
+    });
   }, [trackedEvents, range, selectedWeek, dateFrom, dateTo, tab]);
+  const scopedEvents = useMemo(
+    () => rangedEvents.filter((e) => eventOwner === "all" || e.owner === eventOwner),
+    [rangedEvents, eventOwner],
+  );
+  const eventTypeTotals = useMemo(
+    () =>
+      summarizeTrackedEventTypes(
+        scopedEvents,
+        [...TRACKED_EVENT_TYPES, ...RETIRED_TRACKED_EVENT_TYPES],
+        EVENT_POINTS_PER_HOUR,
+      ),
+    [scopedEvents],
+  );
+  const listedTracked = useMemo(() => {
+    const src = eventTypeFilter
+      ? scopedEvents.filter((e) => e.eventType === eventTypeFilter)
+      : scopedEvents;
+    return sortTrackedEventsByMa(src, MA_ROSTER);
+  }, [scopedEvents, eventTypeFilter]);
 
   function clearUndoTimer() {
     if (undoTimer.current) {
@@ -1095,6 +1105,27 @@ function PointsPageInner() {
     setCategoryFilter(null);
   }
 
+  function applyMonthFilter(key: string) {
+    if (!key) {
+      setDateFrom("");
+      setDateTo("");
+      setSelectedWeek("");
+      setRange("all");
+      setPickedWeek(null);
+      setPickedDay(null);
+      setCategoryFilter(null);
+      return;
+    }
+    const { from, to } = monthBounds(key);
+    setDateFrom(from);
+    setDateTo(to);
+    setSelectedWeek("");
+    setRange("dates");
+    setPickedWeek(null);
+    setPickedDay(null);
+    setCategoryFilter(null);
+  }
+
   function exportCalculation() {
     const now = new Date();
     const generatedOn = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -1147,6 +1178,24 @@ function PointsPageInner() {
                   {weekOptions.map((k) => (
                     <option key={k} value={k}>
                       Week of {weekLabel(k)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <span className="daterange-sep" aria-hidden="true">|</span>
+              <label>
+                Month
+                <select
+                  aria-label="Month"
+                  value={range === "dates" ? matchingMonth(orderedFrom, orderedTo) : ""}
+                  onChange={(e) => applyMonthFilter(e.target.value)}
+                >
+                  <option value="">
+                    {range === "dates" && !matchingMonth(orderedFrom, orderedTo) ? "Custom dates" : "All months"}
+                  </option>
+                  {monthOptions(SETTINGS.evalStart).map((m) => (
+                    <option key={m.key} value={m.key}>
+                      {m.label}
                     </option>
                   ))}
                 </select>
@@ -1925,8 +1974,67 @@ function PointsPageInner() {
                   </button>
                 </div>
               </form>
-              {listedTracked.length === 0 ? (
+              {eventTypeTotals.length > 0 ? (
+                <table className="grid" style={{ marginBottom: 18 }}>
+                  <thead>
+                    <tr>
+                      <th>Event type</th>
+                      <th>Events</th>
+                      <th>Hours</th>
+                      <th>Pts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {eventTypeTotals.map((rec) => (
+                      <tr
+                        key={rec.id}
+                        className={`clickable${eventTypeFilter === rec.id ? " selected" : ""}`}
+                        onClick={() => setEventTypeFilter((cur) => (cur === rec.id ? "" : rec.id))}
+                      >
+                        <td>{rec.label}</td>
+                        <td className="tabular">{rec.count}</td>
+                        <td className="tabular">{rec.hours}</td>
+                        <td className="pts tabular">{rec.points.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                    <tr
+                      className={`grand clickable${eventTypeFilter ? "" : " selected"}`}
+                      onClick={() => setEventTypeFilter("")}
+                    >
+                      <td>All types</td>
+                      <td className="tabular">{eventTypeTotals.reduce((s, rec) => s + rec.count, 0)}</td>
+                      <td className="tabular">{eventTypeTotals.reduce((s, rec) => s + rec.hours, 0)}</td>
+                      <td className="pts tabular">
+                        {eventTypeTotals.reduce((s, rec) => s + rec.points, 0).toLocaleString()}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              ) : null}
+              <div className="event-form" style={{ marginBottom: 18 }}>
+                <label>
+                  Filter MA
+                  <select
+                    aria-label="Filter events by MA"
+                    value={eventOwner}
+                    onChange={(e) => {
+                      setEventOwner(e.target.value);
+                      setEventTypeFilter("");
+                    }}
+                  >
+                    <option value="all">All MAs</option>
+                    {MA_ROSTER.map((m) => (
+                      <option key={m.name} value={m.name}>
+                        {m.short || m.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {rangedEvents.length === 0 ? (
                 <p className="footnote">No events yet. Add one above. All is every event logged on this dashboard, including past dates.</p>
+              ) : listedTracked.length === 0 ? (
+                <p className="footnote">No events for this MA or type in the selected range.</p>
               ) : (
                 <table className="grid">
                   <thead>
@@ -2006,32 +2114,6 @@ function PointsPageInner() {
               </button>
             </div>
             <div className="panel">
-                  <table className="grid" style={{ marginBottom: 18 }}>
-                    <thead>
-                      <tr>
-                        <th>Reached by</th>
-                        <th>Gifts</th>
-                        <th>Raised</th>
-                        <th>Avg contacts</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {giftTouches.length === 0 ? (
-                        <tr>
-                          <td colSpan={4}>No counted gifts in this range.</td>
-                        </tr>
-                      ) : giftTouches.map(([source, rec]) => (
-                        <tr key={source}>
-                          <td>{source}</td>
-                          <td className="tabular">{rec.count}</td>
-                          <td className="pts tabular">{money(rec.amount)}</td>
-                          <td className="tabular">
-                            {rec.count ? (Number.isInteger(rec.touches / rec.count) ? String(rec.touches / rec.count) : (rec.touches / rec.count).toFixed(1)) : "—"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
                   <table className="grid" style={{ marginBottom: 18 }}>
                     <thead>
                       <tr>
