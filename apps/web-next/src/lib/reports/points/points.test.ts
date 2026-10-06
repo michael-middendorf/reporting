@@ -3591,6 +3591,52 @@ describe("gala ticket purchases", () => {
     assert.equal(model.possibleGifts?.length ?? 0, 0);
   });
 
+  it("assigns the gala ticket that was clicked when the donor has another same-day ticket", () => {
+    const flags = {
+      "gift:gala-stripe-pi_1159": {
+        status: "assigned",
+        owner: ELENA,
+        contactId: "25510",
+        contactName: "Beth Drost",
+        day: "2026-10-06",
+        type: "Mission Advancement | New Donation or New AC",
+        noteId: "gift:gala-stripe-pi_1159",
+      },
+    };
+    const ticket = (id: string, amount: number) => postedGift({
+      id,
+      contactId: 25510,
+      contactName: "Beth Drost",
+      giftDate: "2026-10-06",
+      amount,
+      segment: "26-27 Chancellor's Gala",
+      galaSite: true,
+      inVirtuous: false,
+    });
+    const { owner, model, rows } = run(
+      [
+        donationNote({
+          createdByUser: ELENA,
+          type: "Mission Advancement Call | Conversation",
+          noteDate: "10/6/2026",
+          contactId: 25510,
+          contactName: "Beth Drost",
+        }),
+        ...assignedNotesFromFlags(flags),
+      ],
+      [ticket("gala-stripe-pi_875", 875.7), ticket("gala-stripe-pi_1159", 1158.91)],
+      ELENA,
+      flags,
+    );
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 1158.91);
+    assert.equal(model.possibleGifts?.length, 1);
+    assert.equal(model.possibleGifts?.[0].giftId, "gala-stripe-pi_875");
+    const raised = rows.find((r) => r.bucket === "donation" && r.giftId === "gala-stripe-pi_1159");
+    assert.equal(raised?.owner, ELENA);
+    assert.equal(raised?.amount, 1158.91);
+  });
+
   it("skips a Stripe ticket already posted in Virtuous", () => {
     const merged = mergeGalaSiteTickets(
       [{ id: 451459, contactId: 54618, giftDate: "2026-08-28", amount: 875.7, segment: "26-27 Chancellor's Gala" }],

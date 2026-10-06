@@ -255,6 +255,7 @@ export function assignedNotesFromFlags(flags = {}) {
       contactId: /^\d+$/.test(String(f.contactId)) ? Number(f.contactId) : f.contactId,
       contactName: f.contactName || "",
       id: giftId ? `assign-${giftId}` : f.noteId,
+      assignsGiftId: giftId || null,
     });
   }
   return out;
@@ -305,6 +306,7 @@ export function scoreNote(record) {
     noteId: record.id, source: rule.source, conflict: rule.conflict || null,
     assist: !!rule.assist,
     text: plainNote(record.note),
+    assignsGiftId: record.assignsGiftId || null,
   };
 }
 
@@ -966,6 +968,15 @@ function matchableGift(record) {
  * closest date; a gift on or after the note wins ties.
  */
 function pickDonationMatch(note, candidates, used, window) {
+  if (note?.assignsGiftId) {
+    const pinned = candidates.find(
+      (g) => String(g.giftId) === String(note.assignsGiftId) && !used.has(g),
+    );
+    if (!pinned) return null;
+    const delta = daysFromNoteToGift(note.date, pinned.date);
+    if (delta == null || Math.abs(delta) > window) return null;
+    return pinned;
+  }
   let best = null;
   let bestScore = Infinity;
   for (const g of candidates) {
@@ -1154,9 +1165,11 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
   }
 
   const used = new Set();
-  const notesInOrder = [...donationNotes].sort(
-    (a, b) => sortByDayThenId(a.date, a.noteId, b.date, b.noteId),
-  );
+  const notesInOrder = [...donationNotes].sort((a, b) => {
+    const pin = (b.assignsGiftId ? 1 : 0) - (a.assignsGiftId ? 1 : 0);
+    if (pin) return pin;
+    return sortByDayThenId(a.date, a.noteId, b.date, b.noteId);
+  });
   for (const note of notesInOrder) {
     const candidates = (() => {
       const ck = contactKey(note.contactId);
