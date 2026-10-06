@@ -9,3 +9,11 @@
 # drop. Both containers do run as non-root in practice - verify with
 # `ps aux` inside a running task, not by grepping the Dockerfile.
 DS-0002
+
+# braces 3.0.3 (GHSA-vfj7-8cjw-p6xm / CVE-2026-93687)
+# No published patched release. npm latest is still 3.0.3.
+# Parent chain: @next/eslint-plugin-next -> fast-glob 3.3.1 -> micromatch 4.0.8 -> braces.
+# Lint-time file globs, not request input. The app does not import braces.
+# Dependabot was not dismissed. Remove this ignore when upstream publishes a fix.
+CVE-2026-93687
+GHSA-vfj7-8cjw-p6xm
