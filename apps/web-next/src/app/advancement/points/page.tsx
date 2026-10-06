@@ -2099,7 +2099,11 @@ function PointsPageInner() {
                     ? `Removed gifts, ${removedGifts.length}`
                     : "Removed gifts"
                 }
-                title="Open removed gifts and Restore them to Raised"
+                title={
+                  removedGifts.length
+                    ? `Removed gifts (${removedGifts.length}). Open to restore them to Raised.`
+                    : "Removed gifts. Open to restore them to Raised."
+                }
                 onClick={() => {
                   setShowRemovedGifts((open) => !open);
                   if (!giftOwner) setGiftOwner("all");
@@ -2108,10 +2112,6 @@ function PointsPageInner() {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
-                Removed
-                {removedGifts.length > 0 ? (
-                  <span className="trash-count">{removedGifts.length}</span>
-                ) : null}
               </button>
             </div>
             <div className="panel">
