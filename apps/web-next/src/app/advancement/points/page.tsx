@@ -404,6 +404,10 @@ function PointsPageInner() {
   const [pickedDay, setPickedDay] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [giftOwner, setGiftOwner] = useState<string | null>(null);
+  const [boardSort, setBoardSort] = useState<{ key: "points" | "gifts" | "giftAmount"; dir: "desc" | "asc" }>({
+    key: "points",
+    dir: "desc",
+  });
   const [showRemovedGifts, setShowRemovedGifts] = useState(false);
   const [possibleOwner, setPossibleOwner] = useState<string>("all");
   const [meName, setMeName] = useState<string | null>(null);
@@ -547,6 +551,25 @@ function PointsPageInner() {
   }, [model.gifts, model.rows, raw]);
 
   const selectedOwner = model.owners.find((o) => o.name === selected);
+  const rankedOwners = useMemo(() => {
+    const list = [...(model.owners || [])];
+    const value = (o: Owner) => {
+      if (boardSort.key === "gifts") return o.gifts || 0;
+      if (boardSort.key === "giftAmount") return o.giftAmount || 0;
+      return o.points || 0;
+    };
+    list.sort((a, b) => {
+      const d = boardSort.dir === "desc" ? value(b) - value(a) : value(a) - value(b);
+      return d || a.name.localeCompare(b.name);
+    });
+    return list;
+  }, [model.owners, boardSort]);
+
+  function toggleBoardSort(key: "points" | "gifts" | "giftAmount") {
+    setBoardSort((cur) =>
+      cur.key === key ? { key, dir: cur.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" },
+    );
+  }
 
   const boundWindow = bounds(range, selectedWeek || null, dateFrom, dateTo);
   const selectWeek = range === "custom" || range === "week"
@@ -1425,18 +1448,45 @@ function PointsPageInner() {
                 <thead>
                   <tr>
                     <th>Mission Advancement</th>
-                    <th>Points</th>
+                    <th>
+                      <button
+                        type="button"
+                        className={`sort-th${boardSort.key === "points" ? " active" : ""}`}
+                        aria-pressed={boardSort.key === "points"}
+                        onClick={() => toggleBoardSort("points")}
+                      >
+                        Points{boardSort.key === "points" ? (boardSort.dir === "desc" ? " ↓" : " ↑") : ""}
+                      </button>
+                    </th>
                     <th>Avg/wkdy</th>
                     <th>Tier</th>
                     <th>Convos</th>
                     <th>Dials</th>
                     <th>Rate</th>
-                    <th>Gifts</th>
-                    <th>Raised</th>
+                    <th>
+                      <button
+                        type="button"
+                        className={`sort-th${boardSort.key === "gifts" ? " active" : ""}`}
+                        aria-pressed={boardSort.key === "gifts"}
+                        onClick={() => toggleBoardSort("gifts")}
+                      >
+                        Gifts{boardSort.key === "gifts" ? (boardSort.dir === "desc" ? " ↓" : " ↑") : ""}
+                      </button>
+                    </th>
+                    <th>
+                      <button
+                        type="button"
+                        className={`sort-th${boardSort.key === "giftAmount" ? " active" : ""}`}
+                        aria-pressed={boardSort.key === "giftAmount"}
+                        onClick={() => toggleBoardSort("giftAmount")}
+                      >
+                        Raised{boardSort.key === "giftAmount" ? (boardSort.dir === "desc" ? " ↓" : " ↑") : ""}
+                      </button>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {model.owners.map((o) => {
+                  {rankedOwners.map((o) => {
                     const tier = o.tier || tierFor(o.avgPerWeekday || 0);
                     return (
                       <tr
