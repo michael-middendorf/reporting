@@ -29,8 +29,10 @@ export type InsightsModel = {
   generations: Group[];
   relationships: Group[];
   donorTags: Group[];
+  campaigns: Group[];
   generationChannels: Channel[];
   relationshipChannels: Channel[];
+  campaignChannels: Channel[];
   conversations: Conversation[];
 };
 
@@ -161,11 +163,11 @@ function Matrix({ groups, channels }: { groups: Group[]; channels: Channel[] }) 
 }
 
 export function InsightsPanel({ insights }: { insights: InsightsModel }) {
-  const hasRows = insights.generations.length > 0 || insights.relationships.length > 0 || insights.donorTags.length > 0;
+  const hasRows = insights.generations.length > 0 || insights.relationships.length > 0 || insights.donorTags.length > 0 || (insights.campaigns || []).length > 0;
   return (
     <section className="section" aria-labelledby="insights-heading">
       <h2 id="insights-heading">
-        Insights <span className="section-hint">who gave, and which contact came before the gift</span>
+        Insights <span className="section-hint">who gave, which campaign, and which contact came before the gift</span>
       </h2>
       <div className="panel">
         {hasRows ? null : <p className="footnote">No counted gifts in this range.</p>}
@@ -188,6 +190,16 @@ export function InsightsPanel({ insights }: { insights: InsightsModel }) {
             <SummaryTable groups={insights.relationships} />
             <h3 className="insight-head">Dollars by relationship and contact type</h3>
             <Matrix groups={insights.relationships} channels={insights.relationshipChannels} />
+          </>
+        ) : null}
+
+        {(insights.campaigns || []).length > 0 ? (
+          <>
+            <h3 className="insight-head">Reached by campaign</h3>
+            <p className="footnote">Counted gifts by Virtuous campaign, and the contact that came before the gift.</p>
+            <SummaryTable groups={insights.campaigns} />
+            <h3 className="insight-head">Dollars by campaign and contact type</h3>
+            <Matrix groups={insights.campaigns} channels={insights.campaignChannels || []} />
           </>
         ) : null}
 

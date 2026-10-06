@@ -48,3 +48,49 @@ export function projectTypeFor(eventType: string, value: unknown): string {
   if (eventType !== "projects" && eventType !== "Projects") return "";
   return String(value ?? "").trim().replace(/\s+/g, " ");
 }
+
+export type EventTypeTotal = {
+  id: string;
+  label: string;
+  count: number;
+  hours: number;
+  points: number;
+};
+
+/** Hours and points by dashboard event type. */
+export function summarizeTrackedEventTypes(
+  events: Array<{ eventType?: string; hours?: number }>,
+  types: Array<{ id: string; label: string; type?: string }>,
+  pointsPerHour: number,
+): EventTypeTotal[] {
+  const labelOf = (id: string) =>
+    types.find((t) => t.id === id || t.type === id)?.label || id;
+  const map = new Map<string, EventTypeTotal>();
+  for (const event of events || []) {
+    const id = String(event.eventType || "event");
+    const rec = map.get(id) || { id, label: labelOf(id), count: 0, hours: 0, points: 0 };
+    const hours = Number(event.hours) || 0;
+    rec.count += 1;
+    rec.hours += hours;
+    rec.points += hours * pointsPerHour;
+    map.set(id, rec);
+  }
+  return [...map.values()].sort((a, b) => b.hours - a.hours || a.label.localeCompare(b.label));
+}
+
+/** Roster table order, then newest date. */
+export function sortTrackedEventsByMa<T extends { owner?: string; day?: string; name?: string }>(
+  events: T[],
+  roster: Array<{ name: string; tableOrder?: number }>,
+): T[] {
+  const order = new Map(roster.map((m, i) => [m.name, m.tableOrder ?? i]));
+  return [...(events || [])].sort((a, b) => {
+    const ao = order.has(a.owner || "") ? (order.get(a.owner || "") as number) : 99;
+    const bo = order.has(b.owner || "") ? (order.get(b.owner || "") as number) : 99;
+    return (
+      ao - bo ||
+      String(b.day || "").localeCompare(String(a.day || "")) ||
+      String(a.name || "").localeCompare(String(b.name || ""))
+    );
+  });
+}

@@ -1,6 +1,6 @@
 /**
- * Director view of counted gifts: age, university relationship, and which
- * contact type those dollars followed. This does not assign gifts.
+ * Director view of counted gifts: age, university relationship, campaign,
+ * and which contact type those dollars followed. This does not assign gifts.
  */
 import { DONOR_TAGS, GENERATIONS, RELATIONSHIPS, generationForYear } from "./profiles.js";
 
@@ -37,6 +37,32 @@ const SKIP_LABELS = new Set(["Email bounced"]);
 const UNKNOWN_GENERATION = { id: "unknown", label: "Age unknown", born: "no birth year" };
 const UNTAGGED_RELATIONSHIP = { id: "untagged", label: "Not tagged", born: "" };
 const UNTAGGED_DONOR = { id: "untagged", label: "Not tagged", born: "" };
+
+const CAMPAIGNS = [
+  { id: "ac", label: "Annunciation Circle" },
+  { id: "fall", label: "Fall Appeal" },
+  { id: "spring", label: "Spring Appeal" },
+  { id: "gala", label: "Chancellor's Gala" },
+  { id: "mgo", label: "Direct Solicitation" },
+  { id: "white", label: "White Mail" },
+  { id: "athletics", label: "Athletics" },
+  { id: "other", label: "Other" },
+];
+
+/** Roll a Virtuous segment/project into a campaign row on Insights. */
+export function campaignOf(gift) {
+  const blob = `${gift?.segment || ""} ${gift?.project || ""} ${gift?.kindLabel || ""} ${gift?.kind || ""} ${gift?.giftType || ""}`;
+  if (/gala/i.test(blob)) return CAMPAIGNS[3];
+  if (/annunciation|ac increase|ac \(monthly/i.test(blob)) return CAMPAIGNS[0];
+  if (/fall 20\d\d appeal|fall appeal/i.test(blob)) return CAMPAIGNS[1];
+  if (/spring 20\d\d appeal|spring appeal/i.test(blob)) return CAMPAIGNS[2];
+  if (/direct solicitation|\(mgo\)/i.test(blob)) return CAMPAIGNS[4];
+  if (/white mail/i.test(blob)) return CAMPAIGNS[5];
+  if (/gyrene|booster|athletics/i.test(blob)) return CAMPAIGNS[6];
+  const name = String(gift?.segment || gift?.project || "").trim();
+  if (name) return { id: `seg:${name.toLowerCase()}`, label: name };
+  return CAMPAIGNS[7];
+}
 const PHONE_CONVERSATION = "Phone conversation";
 const EMAIL_CONVERSATION = "Email conversation";
 /** Shown even at zero so each named generation has an answer. */
@@ -268,6 +294,7 @@ export function buildInsights(input = {}) {
   const donorTags = new Map(
     [...DONOR_TAGS, UNTAGGED_DONOR].map((group) => [group.id, createBucket(group.id, group.label, "")]),
   );
+  const campaigns = new Map(CAMPAIGNS.map((group) => [group.id, createBucket(group.id, group.label, "")]));
 
   const seenDonors = new Set();
   let knownAge = 0;
@@ -288,6 +315,9 @@ export function buildInsights(input = {}) {
       const bucket = donorTags.get(tag);
       if (bucket) addGift(bucket, channel, gift, key);
     }
+    const campaign = campaignOf(gift);
+    if (!campaigns.has(campaign.id)) campaigns.set(campaign.id, createBucket(campaign.id, campaign.label, ""));
+    addGift(campaigns.get(campaign.id), channel, gift, key);
     if (seenDonors.has(key)) continue;
     seenDonors.add(key);
     if (profile?.birthYear) knownAge += 1;
@@ -318,6 +348,11 @@ export function buildInsights(input = {}) {
   const generationViews = [...generations.values()].map(view).filter((group) => group.donors > 0);
   const relationshipViews = [...relationships.values()].map(view).filter((group) => group.donors > 0);
   const donorTagViews = [...donorTags.values()].map(view).filter((group) => group.donors > 0);
+  const campaignOrder = new Map(CAMPAIGNS.map((group, i) => [group.id, i]));
+  const campaignViews = [...campaigns.values()]
+    .map(view)
+    .filter((group) => group.donors > 0)
+    .sort((a, b) => (campaignOrder.get(a.id) ?? 99) - (campaignOrder.get(b.id) ?? 99) || a.label.localeCompare(b.label));
   const summary = {
     donors: seenDonors.size,
     gifts: (gifts || []).filter((gift) => (Number(gift.amount) || 0) > 0).length,
@@ -328,12 +363,14 @@ export function buildInsights(input = {}) {
     generations: generationViews,
     relationships: relationshipViews,
     donorTags: donorTagViews,
+    campaigns: campaignViews,
   };
   return {
     ...summary,
     findings: findingsFor(summary),
     generationChannels: channelsUsed(generationViews),
     relationshipChannels: channelsUsed(relationshipViews),
+    campaignChannels: channelsUsed(campaignViews),
     conversations: conversationPopularity(notes, profileOf),
   };
 }
