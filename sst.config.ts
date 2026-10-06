@@ -669,6 +669,42 @@ export default $config({
       function: springAppeal,
     });
 
+    // Chancellor's Gala giving-site tickets. Stripe is not posting these to
+    // Virtuous. 11:15 UTC is 7:15am Eastern during daylight time.
+    const galaTickets = new sst.aws.Function("GalaTickets", {
+      handler: "services/publishers/gala-tickets/handler.handler",
+      runtime: "python3.12",
+      timeout: "2 minutes",
+      memory: "512 MB",
+      link: [data],
+      python: { uv: true },
+      copyFiles: [
+        ...commonFiles,
+        {
+          from: "apps/web-next/src/lib/reports/points/gala-site-tickets.json",
+          to: "gala-site-tickets.seed.json",
+        },
+      ],
+      environment: {
+        DATA_BUCKET: data.name,
+        GIVING_STRIPE_SECRET_ID: "giving/app-iu1cSf",
+      },
+      permissions: [
+        ...reportDataPerms,
+        {
+          actions: ["secretsmanager:GetSecretValue"],
+          resources: [
+            "arn:aws:secretsmanager:us-east-2:905418447941:secret:giving/app-iu1cSf*",
+          ],
+        },
+      ],
+    });
+
+    new sst.aws.Cron("GalaTicketsRefresh", {
+      schedule: "cron(15 11 * * ? *)",
+      function: galaTickets,
+    });
+
     // DST-627. The public POW production export returns HMAC keys plus
     // aggregates, never plaintext identities.
     new sst.aws.Cron("PursuitOfWisdomRefresh", {
@@ -707,6 +743,7 @@ export default $config({
       springAppeal: springAppeal.name,
       athleticsCoachingFundraising: athleticsCoachingFundraising.name,
       athleticsGiving: athleticsGiving.name,
+      galaTickets: galaTickets.name,
     };
   },
 });

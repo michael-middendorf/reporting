@@ -4,8 +4,8 @@ import { loadSourceRows, loadSourceRowsOptional } from "@/lib/sources";
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "@/lib/reports/points/counted-gifts.js";
 import { projectProfiles } from "@/lib/reports/points/profiles.js";
 import { applyPassthroughCredit, contactDisplayName, giftSolicitor, passthroughContactIds, portfolioOwnersFromSnapshot, prepareGifts } from "@/lib/reports/points/scoring";
-import { isGalaVirtuousGift, mergeGalaSiteTickets } from "@/lib/reports/points/gala-site-tickets.js";
-import { readJson } from "@/lib/sources";
+import { GALA_SITE_TICKETS, isGalaVirtuousGift, mergeGalaSiteTickets } from "@/lib/reports/points/gala-site-tickets.js";
+import { isMissingSource, readJson } from "@/lib/sources";
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
@@ -34,6 +34,17 @@ function isoGiftDay(r: Record<string, unknown>): string {
   if (mdy) return `${mdy[3]}-${mdy[1].padStart(2, "0")}-${mdy[2].padStart(2, "0")}`;
   const iso = raw.match(/^(\d{4}-\d{2}-\d{2})/);
   return iso ? iso[1] : "";
+}
+
+/** Daily Stripe pull, then the committed September snapshot. */
+async function galaSiteTickets(): Promise<unknown[]> {
+  try {
+    const doc = await readJson<{ tickets?: unknown[] }>("points/gala-site-tickets.json");
+    if (Array.isArray(doc?.tickets) && doc.tickets.length > 0) return doc.tickets;
+  } catch (error) {
+    if (!isMissingSource(error)) console.error("gala site tickets", error);
+  }
+  return GALA_SITE_TICKETS.tickets || [];
 }
 
 function onTracker(r: Record<string, unknown>, names: Map<number, string>): boolean {
@@ -145,6 +156,7 @@ export async function GET(req: Request, ctx: Ctx) {
       const prepared = mergeGalaSiteTickets(
         prepareGifts(namedPosted, recRows) as Record<string, unknown>[],
         contacts?.rows || [],
+        await galaSiteTickets(),
       );
       const kept = prepared.map((r) => {
         const lean: Record<string, unknown> = {};

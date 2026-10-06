@@ -1,7 +1,8 @@
 /**
  * Chancellor's Gala tickets paid on the giving site.
- * stripe-virtuous-sync is not posting these gifts, so the points board
- * reads a snapshot of succeeded Stripe checkouts. Comp tickets are omitted.
+ * stripe-virtuous-sync is not posting these gifts. The gifts API prefers
+ * the daily Stripe pull at points/gala-site-tickets.json and falls back to
+ * this committed snapshot. Comp tickets are omitted.
  * A unique checkout email can name the Virtuous contact for Incoming.
  * Unsynced Stripe dollars stay off Raised until Assign or a Virtuous post.
  */
