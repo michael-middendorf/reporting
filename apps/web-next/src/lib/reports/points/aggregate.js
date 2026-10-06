@@ -18,12 +18,15 @@ export function rowId(r) {
  * Rows on an MA's week mix and Tasks list. Credited Direct Solicitation (MGO)
  * gifts stay here so the 100 points show in the week (Lesniewski). Count/Remove
  * on Tasks still skip those rows so they do not overwrite an Assign flag.
+ * A removed gift stays off this list. Restore it from the Gifts trash popup.
  * Unassigned MGO review and Incoming possible rows stay off this list.
  */
 export function isTaskListRow(r) {
   if (r == null) return false;
   if (r.needsReview) return false;
   if (r.bucket === "possible" || r.bucket === "commitment" || r.bucket === "general") return false;
+  // Removed gifts are restored from the trash popup, not the week Tasks list.
+  if (r.removed && (r.bucket === "donation" || r.assist)) return false;
   return true;
 }
 
