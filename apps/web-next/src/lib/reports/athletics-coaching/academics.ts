@@ -228,6 +228,12 @@ export function isAB(letter: string): boolean {
   return letter.startsWith("A") || letter.startsWith("B");
 }
 
+/** True when the letter is worse than C (C-, D range, or F). */
+export function isBelowC(letter: string): boolean {
+  const points = LETTER_POINTS[letter];
+  return points !== undefined && points < LETTER_POINTS.C;
+}
+
 export function officeHoursLedgerObjectKey(sport: string): string {
   const safe = (sport || "").trim().toLowerCase().replace(/[^a-z0-9-]+/g, "") || "unknown";
   return `athletics-coaching-academics/office-hours-below-ab/${safe}.json`;

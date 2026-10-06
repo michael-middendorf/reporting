@@ -131,6 +131,16 @@ describe("athletics coaching enrollment sport filter", () => {
 
     const women = normalizeRosterRow({ Sport: "Basketball", Gender: "F" });
     assert.equal(women.sportKey, "womens-basketball");
+    assert.equal(
+      normalizeRosterRow({ CurrentSport: "Basketball", MF: "F" }).sportKey,
+      "womens-basketball",
+    );
+    assert.equal(
+      normalizeRosterRow({ CurrentSport: "Basketball", MF: "M" }).sportKey,
+      "mens-basketball",
+    );
+    assert.equal(normalizeRosterRow({ CurrentSport: "Soccer", MF: "F" }).sportKey, "womens-soccer");
+    assert.equal(normalizeRosterRow({ CurrentSport: "Golf", MF: "M" }).sportKey, "mens-golf");
     assert.equal(normalizeRosterRow({ Sport: "Basketball" }).sportKey, null);
     assert.equal(normalizeRosterRow({ Sport: "Soccer", Gender: "Male" }).sportKey, "mens-soccer");
     assert.equal(normalizeRosterRow({ Sport: "Golf", Gender: "Female" }).sportKey, "womens-golf");
@@ -184,6 +194,44 @@ describe("athletics coaching enrollment sport filter", () => {
     assert.equal(summary.signed.count, 1);
     assert.equal(applicationMatchesSport(application({ sport: "Basketball", gender: "M" }), "mens-basketball"), true);
     assert.equal(applicationMatchesSport(application({ sport: "Basketball", gender: "F" }), "mens-basketball"), false);
+  });
+
+  it("splits live roster Basketball/Soccer/Golf using MF", () => {
+    const wbb = buildEnrollmentSummary({
+      sport: "womens-basketball",
+      rosterRows: [
+        { personreferenceid: "w1", CurrentSport: "Basketball", MF: "F", classyear: "Sophomore" },
+        { personreferenceid: "m1", CurrentSport: "Basketball", MF: "M", classyear: "Junior" },
+        { personreferenceid: "w2", CurrentSport: "Soccer", MF: "F" },
+      ],
+      applicationRows: [],
+    });
+    assert.equal(wbb.roster.count, 1);
+    assert.deepEqual(wbb.roster.classYearMix, [{ label: "Sophomore", count: 1 }]);
+
+    const mbb = buildEnrollmentSummary({
+      sport: "mens-basketball",
+      rosterRows: [
+        { personreferenceid: "w1", CurrentSport: "Basketball", MF: "F" },
+        { personreferenceid: "m1", CurrentSport: "Basketball", MF: "M" },
+      ],
+      applicationRows: [],
+    });
+    assert.equal(mbb.roster.count, 1);
+
+    const wsoc = buildEnrollmentSummary({
+      sport: "womens-soccer",
+      rosterRows: [{ personreferenceid: "s1", CurrentSport: "Soccer", MF: "F" }],
+      applicationRows: [],
+    });
+    assert.equal(wsoc.roster.count, 1);
+
+    const mgolf = buildEnrollmentSummary({
+      sport: "mens-golf",
+      rosterRows: [{ personreferenceid: "g1", CurrentSport: "Golf", MF: "M" }],
+      applicationRows: [],
+    });
+    assert.equal(mgolf.roster.count, 1);
   });
 
   it("counts signed / deposited for Fall 2027 only", () => {

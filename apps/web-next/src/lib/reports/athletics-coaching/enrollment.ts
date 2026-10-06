@@ -91,7 +91,7 @@ export function normalizeRosterRow(row: SlateRow): NormalizedRosterRow {
     "CurrentSport2",
     "PersonSport2",
   );
-  const gender = field(row, "gender", "Gender", "PersonGender", "Sex");
+  const gender = field(row, "MF", "mf", "gender", "Gender", "PersonGender", "Sex");
   return {
     email: field(row, "email", "amuemail", "Email", "PersonEmail"),
     pcid: field(row, "pcid", "PCID", "PcId"),
