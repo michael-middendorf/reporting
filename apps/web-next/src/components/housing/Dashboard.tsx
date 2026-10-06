@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { apiFetch } from "@/lib/api";
 import {
   HALL_CHARTS,
@@ -25,38 +25,59 @@ import styles from "./housing.module.css";
 type View = "overview" | "floor" | "movein" | "verify";
 type FloorMode = "chart" | "list";
 
+type UrlState = {
+  view: View;
+  hall: string;
+  floor: number | null;
+  asof: string | null;
+  selectedRoom: string | null;
+  mode: FloorMode;
+};
+
+/** Deep-link state (?view=&hall=&floor=&asof=&room=&mode=); invalid values fall back to defaults. */
+function readUrlState(search: string): UrlState {
+  const params = new URLSearchParams(search);
+  const hallParam = params.get("hall");
+  const floorParam = params.get("floor");
+  const asofParam = params.get("asof");
+  const viewParam = params.get("view");
+  const modeParam = params.get("mode");
+  return {
+    view: viewParam === "floor" || viewParam === "movein" || viewParam === "verify" ? viewParam : "overview",
+    hall: hallParam && META[hallParam] ? hallParam : "JPII",
+    floor: floorParam ? Number(floorParam) : null,
+    asof: asofParam && isIsoDate(asofParam) ? asofParam : null,
+    selectedRoom: params.get("room") || null,
+    mode: modeParam === "list" || modeParam === "chart" ? modeParam : "chart",
+  };
+}
+
+const subscribeNoop = () => () => {};
+
+/**
+ * Reads the URL once on the client (null during server render and hydration),
+ * then mounts the dashboard with its initial state taken from the deep link.
+ * This replaces a mount effect that copied URL params into state.
+ */
 export function HousingDashboard() {
+  const search = useSyncExternalStore(subscribeNoop, () => window.location.search, () => null);
+  if (search === null) return null;
+  return <HousingDashboardView initial={readUrlState(search)} />;
+}
+
+function HousingDashboardView({ initial }: { initial: UrlState }) {
   const [payload, setPayload] = useState<ResidentsPayload | null>(null);
   const [error, setError] = useState("");
   const [studyAbroad, setStudyAbroad] = useState<StudyAbroad | null>(null);
   const [edits, setEdits] = useState<RoomVerificationState["edits"]>({});
-  const [view, setView] = useState<View>("overview");
-  const [hall, setHall] = useState("JPII");
-  const [floor, setFloor] = useState<number | null>(null);
-  const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
-  const [asof, setAsof] = useState<string | null>(null);
-  const [mode, setMode] = useState<FloorMode>("chart");
-  const [urlReady, setUrlReady] = useState(false);
+  const [view, setView] = useState<View>(initial.view);
+  const [hall, setHall] = useState(initial.hall);
+  const [floor, setFloor] = useState<number | null>(initial.floor);
+  const [selectedRoom, setSelectedRoom] = useState<string | null>(initial.selectedRoom);
+  const [asof, setAsof] = useState<string | null>(initial.asof);
+  const [mode, setMode] = useState<FloorMode>(initial.mode);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const hallParam = params.get("hall");
-    if (hallParam && META[hallParam]) setHall(hallParam);
-    const floorParam = params.get("floor");
-    if (floorParam) setFloor(Number(floorParam));
-    const asofParam = params.get("asof");
-    if (asofParam && isIsoDate(asofParam)) setAsof(asofParam);
-    const viewParam = params.get("view");
-    if (viewParam === "floor" || viewParam === "movein" || viewParam === "verify") setView(viewParam);
-    const roomParam = params.get("room");
-    if (roomParam) setSelectedRoom(roomParam);
-    const modeParam = params.get("mode");
-    if (modeParam === "list" || modeParam === "chart") setMode(modeParam);
-    setUrlReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (!urlReady) return;
     const params = new URLSearchParams();
     if (view !== "overview") params.set("view", view);
     if (view === "floor") {
@@ -70,7 +91,7 @@ export function HousingDashboard() {
     const next = `${window.location.pathname}${qs ? `?${qs}` : ""}`;
     const cur = `${window.location.pathname}${window.location.search}`;
     if (next !== cur) window.history.replaceState(null, "", next);
-  }, [urlReady, view, hall, floor, asof, selectedRoom, mode]);
+  }, [view, hall, floor, asof, selectedRoom, mode]);
 
   useEffect(() => {
     let cancelled = false;

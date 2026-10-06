@@ -161,7 +161,7 @@ export default function EventsPage() {
       <div className="rpt-hdr">
         <div>
           <h1 className="rpt-title">Events & Campus Visits</h1>
-          <p className="rpt-sub">AME, President's Scholarship Weekend, and Summer Leadership Conference</p>
+          <p className="rpt-sub">AME, President&apos;s Scholarship Weekend, and Summer Leadership Conference</p>
         </div>
       </div>
 

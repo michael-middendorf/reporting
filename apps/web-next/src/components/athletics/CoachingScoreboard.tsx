@@ -1,64 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { apiFetch } from "@/lib/api";
 import type { AcademicsSummary } from "@/lib/reports/athletics-coaching/academics";
 import type { EnrollmentSummary } from "@/lib/reports/athletics-coaching/enrollment";
 import type { SportFundraising } from "@/lib/reports/athletics-coaching/fundraising";
 import { formatCount, formatMoney } from "./CoachingHub";
+import { useSportFetch } from "./useSportFetch";
 
-type LoadState<T> = {
-  data: T | null;
-  error: string | null;
-  loading: boolean;
-  mfaUrl?: string | null;
-};
-
-function useSportFetch<T>(url: string): LoadState<T> {
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [mfaUrl, setMfaUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setMfaUrl(null);
-    apiFetch(url, { cache: "no-store" })
-      .then(async (response) => {
-        const body = await response.json();
-        if (response.status === 401 && body.mfaUrl) {
-          if (!cancelled) setMfaUrl(String(body.mfaUrl));
-          return;
-        }
-        if (!response.ok) throw new Error(body.error || "Unable to load");
-        if (!cancelled) setData(body as T);
-      })
-      .catch((reason) => {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [url]);
-
-  return { data, error, loading, mfaUrl };
-}
+const SPORT_FETCH = { noStore: true, mfa: true } as const;
 
 export function CoachingScoreboard({ sportKey }: { sportKey: string }) {
   const fundraising = useSportFetch<SportFundraising>(
     `/api/athletics-coaching/fundraising?sport=${encodeURIComponent(sportKey)}`,
+    SPORT_FETCH,
   );
   const enrollment = useSportFetch<EnrollmentSummary>(
     `/api/athletics-coaching/enrollment?sport=${encodeURIComponent(sportKey)}`,
+    SPORT_FETCH,
   );
   const academics = useSportFetch<AcademicsSummary>(
     `/api/athletics-coaching/academics?sport=${encodeURIComponent(sportKey)}`,
+    SPORT_FETCH,
   );
 
   const fundraisingValue = (() => {

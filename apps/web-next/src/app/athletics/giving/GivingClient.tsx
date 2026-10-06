@@ -41,8 +41,9 @@ export function GivingClient() {
   const [fund, setFund] = useState("all");
   const [search, setSearch] = useState("");
 
-  function load() {
-    setLoading(true);
+  // Fetch only: state is set in the promise callbacks, so the mount effect never
+  // sets state synchronously. `loading` already starts true for the first fetch.
+  function fetchSnapshot() {
     apiFetch("/api/athletics-giving-data")
       .then(async (response) => {
         const json = (await response.json()) as AthleticsGivingSnapshot;
@@ -55,7 +56,12 @@ export function GivingClient() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(load, []);
+  function load() {
+    setLoading(true);
+    fetchSnapshot();
+  }
+
+  useEffect(fetchSnapshot, []);
 
   const asOf = data?.asOf?.slice(0, 10) || "";
   const thisFyStart = data?.fyStart?.slice(0, 10) || "";

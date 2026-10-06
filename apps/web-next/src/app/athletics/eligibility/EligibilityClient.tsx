@@ -27,8 +27,9 @@ export function EligibilityClient() {
   const [sportKey, setSportKey] = useState("all");
   const [search, setSearch] = useState("");
 
-  function load() {
-    setLoading(true);
+  // Fetch only: state is set in the promise callbacks, so the mount effect never
+  // sets state synchronously. `loading` already starts true for the first fetch.
+  function fetchSnapshot() {
     apiFetch("/api/athletics-eligibility-data")
       .then(async (response) => {
         const json = await response.json();
@@ -50,9 +51,12 @@ export function EligibilityClient() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(() => {
-    load();
-  }, []);
+  function load() {
+    setLoading(true);
+    fetchSnapshot();
+  }
+
+  useEffect(fetchSnapshot, []);
 
   const sports = useMemo(() => {
     const seen = new Map<string, string>();

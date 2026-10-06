@@ -75,7 +75,7 @@ export default function WithdrawalsPage() {
   const [sortK, setSortK] = useState<SortKey>("withdrawnDate");
   const [sortDir, setSortDir] = useState<-1 | 1>(-1);
 
-  const cur = data ? cycleBundle(data, cycle) : null;
+  const cur = useMemo(() => (data ? cycleBundle(data, cycle) : null), [data, cycle]);
   const cohort = cur ? cur[kind] : null;
   const emptyCopy =
     kind === "deposits"

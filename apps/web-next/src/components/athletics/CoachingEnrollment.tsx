@@ -1,35 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { apiFetch } from "@/lib/api";
+import { useSportFetch } from "./useSportFetch";
 import type { EnrollmentSummary } from "@/lib/reports/athletics-coaching/enrollment";
 import { formatAsOf, formatCount } from "./CoachingHub";
 
 export function EnrollmentBand({ sportKey }: { sportKey: string }) {
-  const [data, setData] = useState<EnrollmentSummary | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    apiFetch(`/api/athletics-coaching/enrollment?sport=${encodeURIComponent(sportKey)}`)
-      .then(async (response) => {
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.error || "Unable to load enrollment");
-        if (!cancelled) setData(body as EnrollmentSummary);
-      })
-      .catch((reason) => {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [sportKey]);
+  const { data, error, loading } = useSportFetch<EnrollmentSummary>(
+    `/api/athletics-coaching/enrollment?sport=${encodeURIComponent(sportKey)}`,
+    { fallbackError: "Unable to load enrollment" },
+  );
 
   return (
     <section className="ath-coach-band">

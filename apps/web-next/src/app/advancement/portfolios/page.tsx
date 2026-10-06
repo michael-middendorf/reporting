@@ -34,8 +34,9 @@ export default function PortfoliosPage() {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<Record<string, boolean>>({});
 
-  function load() {
-    setLoading(true);
+  // Fetch only: state is set in the promise callbacks, so the mount effect never
+  // sets state synchronously. `loading` already starts true for the first fetch.
+  function fetchSnapshot() {
     apiFetch("/api/portfolios-data")
       .then(async (r) => {
         const json = (await r.json()) as PortfoliosSnapshot;
@@ -54,7 +55,12 @@ export default function PortfoliosPage() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(load, []);
+  function load() {
+    setLoading(true);
+    fetchSnapshot();
+  }
+
+  useEffect(fetchSnapshot, []);
 
   const solicitors = data?.solicitors ?? [];
   const mgo = solicitors.filter((s) => s.team === "mgo");

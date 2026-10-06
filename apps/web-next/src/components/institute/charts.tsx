@@ -66,8 +66,15 @@ export function Donut({
     r = 31,
     cx = 60,
     cy = 60;
-  let a0 = -Math.PI / 2;
+  // Start angle of each segment from a running total, computed up front so the
+  // render callback does not reassign an outer variable (react-hooks/immutability).
+  const starts: number[] = [];
+  items.reduce((angle, it) => {
+    starts.push(angle);
+    return angle + (it.v / total) * 2 * Math.PI;
+  }, -Math.PI / 2);
   const segs = items.map((it, i) => {
+    const a0 = starts[i];
     const f = it.v / total;
     const a1 = a0 + f * 2 * Math.PI;
     const col = colorMap ? colorMap(it.k) || colorFor(i) : colorFor(i);
@@ -77,7 +84,6 @@ export function Donut({
     } ${cy + R * Math.sin(a1)} L${cx + r * Math.cos(a1)} ${cy + r * Math.sin(a1)} A${r} ${r} 0 ${lg} 0 ${
       cx + r * Math.cos(a0)
     } ${cy + r * Math.sin(a0)} Z`;
-    a0 = a1;
     return <path key={i} d={p} fill={col} />;
   });
   return (

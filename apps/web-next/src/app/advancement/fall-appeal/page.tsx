@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, type MouseEvent } from "react";
 import { apiFetch, fetchMe, getBearer } from "@/lib/api";
 import {
   addDaysIso,
@@ -23,6 +23,16 @@ import "@/styles/annunciation.css";
 import "@/styles/fall-appeal.css";
 
 type Payload = FallAppealSnapshot & { error?: string };
+
+function campaignSlugFromUrl(): AppealSlug {
+  const requested = new URLSearchParams(window.location.search).get("campaign");
+  return appealCampaign(requested)?.slug ?? DEFAULT_APPEAL_SLUG;
+}
+
+function subscribeToUrl(onChange: () => void) {
+  window.addEventListener("popstate", onChange);
+  return () => window.removeEventListener("popstate", onChange);
+}
 
 const usd2 = (n: number) =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -281,10 +291,21 @@ export default function FallAppealPage() {
   const [error, setError] = useState<string | null>(null);
   const [canImport, setCanImport] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
-  const [campaignSlug, setCampaignSlug] = useState<AppealSlug>(DEFAULT_APPEAL_SLUG);
+  // The ?campaign= URL param picks the initial report; the dropdown overrides it.
+  // Reading the URL through useSyncExternalStore keeps hydration consistent
+  // (server snapshot is the default) without setting state inside an effect.
+  const urlSlug = useSyncExternalStore(subscribeToUrl, campaignSlugFromUrl, () => DEFAULT_APPEAL_SLUG);
+  const [pickedSlug, setPickedSlug] = useState<AppealSlug | null>(null);
+  const campaignSlug = pickedSlug ?? urlSlug;
 
   function load(slug = campaignSlug) {
     setLoading(true);
+    fetchAppeal(slug);
+  }
+
+  // Fetch only: state is set in the promise callbacks, so the mount effect never
+  // sets state synchronously. `loading` already starts true for the first fetch.
+  function fetchAppeal(slug: AppealSlug) {
     apiFetch(`/api/appeals-data?campaign=${encodeURIComponent(slug)}`)
       .then(async (r) => {
         const json = (await r.json()) as Payload;
@@ -300,13 +321,8 @@ export default function FallAppealPage() {
   }
 
   useEffect(() => {
-    const requested = new URLSearchParams(window.location.search).get("campaign");
-    const campaign = appealCampaign(requested);
-    const slug = (campaign?.slug ?? DEFAULT_APPEAL_SLUG) as AppealSlug;
-    setCampaignSlug(slug);
-    load(slug);
+    fetchAppeal(campaignSlugFromUrl());
   // Initial URL determines the report. Subsequent refreshes use selected state.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => { void fetchMe().then((me) => setCanImport(Boolean(me.admin))); }, []);
 
@@ -332,7 +348,7 @@ export default function FallAppealPage() {
   const campaignEnd = data?.campaignEnd || selectedCampaign?.end;
 
   function selectCampaign(nextSlug: AppealSlug) {
-    setCampaignSlug(nextSlug);
+    setPickedSlug(nextSlug);
     window.history.replaceState(null, "", `/advancement/appeals?campaign=${nextSlug}`);
     load(nextSlug);
   }

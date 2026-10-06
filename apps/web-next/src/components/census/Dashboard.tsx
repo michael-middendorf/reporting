@@ -767,7 +767,7 @@ function GraduateTab({ year, blocks }: { year: number; blocks: GraduateProgramSt
         <p className="sheet-n">{fmtN(overall?.n ?? 0)} graduate students</p>
       </div>
       <p className="note">
-        Alumni admits / External admits are incoming only. AMU Alumni includes returning students with an AMU bachelor's.
+        Alumni admits / External admits are incoming only. AMU Alumni includes returning students with an AMU bachelor&apos;s.
         Athlete includes Post Grad roster and Associated.
       </p>
       <SheetTable

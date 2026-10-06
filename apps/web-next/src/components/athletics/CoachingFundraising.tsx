@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { apiFetch } from "@/lib/api";
+import { useSportFetch } from "./useSportFetch";
 import type { FundraisingGift, SportFundraising } from "@/lib/reports/athletics-coaching/fundraising";
 import { formatAsOf, formatCount, formatMoney } from "./CoachingHub";
 
@@ -35,30 +34,10 @@ function GiftTable({ gifts }: { gifts: FundraisingGift[] }) {
 }
 
 export function FundraisingBand({ sportKey }: { sportKey: string }) {
-  const [data, setData] = useState<SportFundraising | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    apiFetch(`/api/athletics-coaching/fundraising?sport=${encodeURIComponent(sportKey)}`)
-      .then(async (response) => {
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.error || "Unable to load fundraising");
-        if (!cancelled) setData(body as SportFundraising);
-      })
-      .catch((reason) => {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [sportKey]);
+  const { data, error, loading } = useSportFetch<SportFundraising>(
+    `/api/athletics-coaching/fundraising?sport=${encodeURIComponent(sportKey)}`,
+    { fallbackError: "Unable to load fundraising" },
+  );
 
   const unmapped = Boolean(data && !data.mapped);
   const unavailable = Boolean(data && data.reason === "unavailable");

@@ -31,8 +31,9 @@ export default function StainedGlassWindowsPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [open, setOpen] = useState<string | null>(null);
 
-  function load() {
-    setLoading(true);
+  // Fetch only: state is set in the promise callbacks, so the mount effect never
+  // sets state synchronously. `loading` already starts true for the first fetch.
+  function fetchSnapshot() {
     apiFetch("/api/stained-glass-windows-data")
       .then(async (r) => {
         const json = (await r.json()) as StainedGlassSnapshot;
@@ -44,7 +45,12 @@ export default function StainedGlassWindowsPage() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(load, []);
+  function load() {
+    setLoading(true);
+    fetchSnapshot();
+  }
+
+  useEffect(fetchSnapshot, []);
 
   const groups = data?.groups ?? [];
   const summary = data?.summary;

@@ -135,8 +135,9 @@ function AnnunciationInner() {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
-  function load() {
-    setLoading(true);
+  // Fetch only: state is set in the promise callbacks, so the mount effect never
+  // sets state synchronously. `loading` already starts true for the first fetch.
+  function fetchSnapshot() {
     apiFetch("/api/annunciation-data")
       .then(async (r) => {
         const json = (await r.json()) as Payload;
@@ -148,7 +149,12 @@ function AnnunciationInner() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(load, []);
+  function load() {
+    setLoading(true);
+    fetchSnapshot();
+  }
+
+  useEffect(fetchSnapshot, []);
 
   const members = useMemo(() => data?.members ?? [], [data]);
 

@@ -1,27 +1,38 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { AthleticsPage, useAthletics } from "@/components/athletics/AthleticsShell";
 import { eligibleSigned, STAGE_COLORS, stageName } from "@/lib/reports/athletics/normalize";
 import { formatCurrency } from "@/components/athletics/DataTable";
 
 const AWARD_DETAILS_KEY = "ath-show-award-details";
 
+// Saved preference read through useSyncExternalStore: the server snapshot is the
+// default (shown), and the client value applies after hydration without an effect.
+function subscribeToStorage(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  return () => window.removeEventListener("storage", onChange);
+}
+
+function storedShowAwards(): boolean {
+  try {
+    return window.localStorage.getItem(AWARD_DETAILS_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
 export default function AthleticsOverviewPage() {
   const { filteredApplications: applications, filteredProspects: prospects } = useAthletics();
-  const [showAwards, setShowAwards] = useState(true);
-
-  useEffect(() => {
-    setShowAwards(window.localStorage.getItem(AWARD_DETAILS_KEY) !== "0");
-  }, []);
+  const savedShowAwards = useSyncExternalStore(subscribeToStorage, storedShowAwards, () => true);
+  const [toggledShowAwards, setToggledShowAwards] = useState<boolean | null>(null);
+  const showAwards = toggledShowAwards ?? savedShowAwards;
 
   function toggleAwards() {
-    setShowAwards((current) => {
-      const next = !current;
-      window.localStorage.setItem(AWARD_DETAILS_KEY, next ? "1" : "0");
-      return next;
-    });
+    const next = !showAwards;
+    window.localStorage.setItem(AWARD_DETAILS_KEY, next ? "1" : "0");
+    setToggledShowAwards(next);
   }
   const signed = applications.filter(eligibleSigned);
   const signedScholarships = signed.filter((record) => record.athleticScholarship > 0);

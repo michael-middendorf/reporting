@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useEffect, useState } from "react";
-import { apiFetch } from "@/lib/api";
+import { Fragment, useState } from "react";
+import { useSportFetch } from "./useSportFetch";
 import {
   isBelowC,
   letterFromPercent,
@@ -117,37 +117,11 @@ function formatPercent(value: number | null): string {
 }
 
 export function AcademicsPage({ sportKey }: { sportKey: string }) {
-  const [data, setData] = useState<AcademicsSummary | null>(null);
-  const [mfaUrl, setMfaUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, error, loading, mfaUrl } = useSportFetch<AcademicsSummary>(
+    `/api/athletics-coaching/academics?sport=${encodeURIComponent(sportKey)}`,
+    { noStore: true, mfa: true, fallbackError: "Unable to load academics" },
+  );
   const [open, setOpen] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setMfaUrl(null);
-    apiFetch(`/api/athletics-coaching/academics?sport=${encodeURIComponent(sportKey)}`, { cache: "no-store" })
-      .then(async (response) => {
-        const body = await response.json();
-        if (response.status === 401 && body.mfaUrl) {
-          if (!cancelled) setMfaUrl(String(body.mfaUrl));
-          return;
-        }
-        if (!response.ok) throw new Error(body.error || "Unable to load academics");
-        if (!cancelled) setData(body as AcademicsSummary);
-      })
-      .catch((reason) => {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [sportKey]);
 
   return (
     <section className="ath-coach-band">

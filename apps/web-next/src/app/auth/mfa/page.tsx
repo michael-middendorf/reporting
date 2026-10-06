@@ -83,7 +83,7 @@ export default function AuthMfaPage() {
     }
   }
 
-  async function usePasskey() {
+  async function signInWithPasskey() {
     setBusy(true);
     setError("");
     try {
@@ -155,7 +155,7 @@ export default function AuthMfaPage() {
         </p>
       ) : null}
       {hasPasskey && enrolled ? (
-        <button type="button" disabled={busy} onClick={() => void usePasskey()}>
+        <button type="button" disabled={busy} onClick={() => void signInWithPasskey()}>
           {busy ? "Waiting for passkey…" : "Use passkey"}
         </button>
       ) : null}

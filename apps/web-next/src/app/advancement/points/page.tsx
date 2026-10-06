@@ -396,7 +396,6 @@ function PointsPageInner() {
   const rawTab = searchParams.get("tab");
   const tab = rawTab === "incoming" ? "incoming" : rawTab === "events" ? "events" : rawTab === "insights" ? "insights" : "points";
   const [raw, setRaw] = useState<{ notes: unknown[]; gifts: unknown[]; profiles: unknown[]; portfolios: Record<string, string>; meta: Record<string, unknown> } | null>(null);
-  const [rows, setRows] = useState<Array<Record<string, unknown>> | null>(null);
   const [meta, setMeta] = useState<Record<string, unknown>>({});
   const [range, setRange] = useState<RangeKey>("all");
   const [selectedWeek, setSelectedWeek] = useState("");
@@ -449,12 +448,14 @@ function PointsPageInner() {
       .catch((e) => setError(String(e)));
   }, []);
 
-  useEffect(() => {
-    if (!raw) return;
+  // Scored rows are derived from raw data, flags, and tracked events, so compute
+  // them during render instead of copying them into state from an effect.
+  const rows = useMemo<Array<Record<string, unknown>> | null>(() => {
+    if (!raw) return null;
     const extra = assignedNotesFromFlags(flags) as unknown[];
     const scored = scoreAll({ notes: [...raw.notes, ...extra], gifts: raw.gifts, flags, portfolios: raw.portfolios }) as unknown as Array<Record<string, unknown>>;
     const eventRows = scoreTrackedEvents(trackedEvents) as unknown as Array<Record<string, unknown>>;
-    setRows([...scored, ...eventRows]);
+    return [...scored, ...eventRows];
   }, [raw, flags, trackedEvents]);
 
   // Shared count/remove overrides (persisted in S3; see /api/reports/points/flags).
@@ -607,7 +608,7 @@ function PointsPageInner() {
       : ownerWeeks.length
         ? ownerWeeks[ownerWeeks.length - 1].key
         : null;
-  const weekDayList = activeWeek ? daysOfWeek(activeWeek) : [];
+  const weekDayList = useMemo(() => (activeWeek ? daysOfWeek(activeWeek) : []), [activeWeek]);
   const weekRows = useMemo(
     () =>
       ownerRows.filter((r) => {

@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, setBearer } from "@/lib/api";
 import styles from "../../auth.module.css";
@@ -30,6 +31,8 @@ function tokenFromHash(): string | null {
   return t?.trim() ? t : null;
 }
 
+const subscribeNoop = () => () => {};
+
 function goTo(dest: string, router: { replace: (href: string) => void }) {
   if (dest === "/auth/mfa") {
     window.location.replace(dest);
@@ -41,8 +44,14 @@ function goTo(dest: string, router: { replace: (href: string) => void }) {
 function MagicInner() {
   const params = useSearchParams();
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
-  const [resolved, setResolved] = useState(false);
+  // The #token= fragment is captured once on the first client render (the effect
+  // below strips it from the address bar), so the token is derived instead of
+  // being copied into state from the effect.
+  const [hashToken] = useState(tokenFromHash);
+  const token = (hashToken || params.get("token") || "").trim() || null;
+  // False for the server render and hydration pass, true after: keeps the
+  // missing-token message from flashing before the client has read the URL.
+  const resolved = useSyncExternalStore(subscribeNoop, () => true, () => false);
   const [status, setStatus] = useState({ kind: "", text: "" });
   const [busy, setBusy] = useState(false);
   const startedRef = useRef(false);
@@ -107,14 +116,11 @@ function MagicInner() {
   );
 
   useEffect(() => {
-    const hashToken = tokenFromHash();
-    if (hashToken) {
+    if (tokenFromHash()) {
       const { pathname, search } = window.location;
       window.history.replaceState(null, "", `${pathname}${search}`);
     }
-    const resolvedToken = (hashToken || params.get("token") || "").trim() || null;
-    setToken(resolvedToken);
-    setResolved(true);
+    const resolvedToken = token;
     if (!resolvedToken) return;
 
     // GET must not consume the nonce. Auto-POST once the tab is visible so
@@ -137,7 +143,7 @@ function MagicInner() {
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [params, confirm]);
+  }, [token, confirm]);
 
   const missingToken = resolved && !token;
   const failed = status.kind === "err";
@@ -162,9 +168,9 @@ function MagicInner() {
         {status.text}
       </div>
       {showHubCta && (
-        <a className={styles.hubLink} href="/">
+        <Link className={styles.hubLink} href="/">
           Sign in at AMU Reporting
-        </a>
+        </Link>
       )}
     </main>
   );

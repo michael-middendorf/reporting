@@ -40,8 +40,9 @@ export default function ChapelNamingPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [open, setOpen] = useState<string | null>(null);
 
-  function load() {
-    setLoading(true);
+  // Fetch only: state is set in the promise callbacks, so the mount effect never
+  // sets state synchronously. `loading` already starts true for the first fetch.
+  function fetchSnapshot() {
     apiFetch("/api/chapel-naming-data")
       .then(async (r) => {
         const json = (await r.json()) as ChapelNamingSnapshot;
@@ -53,7 +54,12 @@ export default function ChapelNamingPage() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(load, []);
+  function load() {
+    setLoading(true);
+    fetchSnapshot();
+  }
+
+  useEffect(fetchSnapshot, []);
 
   const items = data?.items ?? [];
   const summary = data?.summary;

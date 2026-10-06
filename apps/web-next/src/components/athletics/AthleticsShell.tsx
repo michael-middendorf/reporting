@@ -137,9 +137,12 @@ export function AthleticsProvider({ children }: { children: ReactNode }) {
   const [canLoadRecruiting, setCanLoadRecruiting] = useState(false);
   const [payload, setPayload] = useState<AthleticsPayload | null>(null);
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
-  const [loading, setLoading] = useState(true);
+  const [recruitingLoading, setRecruitingLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
+  // Users without the athletics (recruiting) report never fetch Slate data, so
+  // they are never loading. Derived here instead of set from the effect.
+  const loading = canLoadRecruiting ? recruitingLoading : false;
 
   useEffect(() => {
     fetchMe().then((me) => {
@@ -172,11 +175,7 @@ export function AthleticsProvider({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   useEffect(() => {
-    if (access !== "allowed") return;
-    if (!canLoadRecruiting) {
-      setLoading(false);
-      return;
-    }
+    if (access !== "allowed" || !canLoadRecruiting) return;
     let cancelled = false;
     apiFetch("/api/athletics-data")
       .then(async (response) => {
@@ -188,7 +187,7 @@ export function AthleticsProvider({ children }: { children: ReactNode }) {
         if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setRecruitingLoading(false);
       });
     return () => { cancelled = true; };
   }, [access, canLoadRecruiting, tick]);
@@ -264,7 +263,7 @@ export function AthleticsProvider({ children }: { children: ReactNode }) {
     loading,
     error,
     refresh: () => {
-      setLoading(true);
+      setRecruitingLoading(true);
       setError(null);
       setTick((current) => current + 1);
     },
@@ -307,10 +306,9 @@ export function AthleticsChrome({ children }: { children: ReactNode }) {
   const [coachingLeadership, setCoachingLeadership] = useState(false);
 
   useEffect(() => {
-    if (!isCoaching) {
-      setCoachingLeadership(false);
-      return;
-    }
+    // Only coaching pages read the role; the nav below already gates on isCoaching,
+    // so there is nothing to reset when leaving them.
+    if (!isCoaching) return;
     let cancelled = false;
     apiFetch("/api/athletics-coaching/me")
       .then(async (response) => (response.ok ? response.json() : null))

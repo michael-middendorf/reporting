@@ -20,8 +20,9 @@ export default function MgoTopProspectsPage() {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [openDonor, setOpenDonor] = useState<string | null>(null);
 
-  function load() {
-    setLoading(true);
+  // Fetch only: state is set in the promise callbacks, so the mount effect never
+  // sets state synchronously. `loading` already starts true for the first fetch.
+  function fetchSnapshot() {
     apiFetch("/api/mgo-top-prospects-data")
       .then(async (r) => {
         const json = (await r.json()) as MgoTopProspectsSnapshot;
@@ -36,7 +37,12 @@ export default function MgoTopProspectsPage() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(load, []);
+  function load() {
+    setLoading(true);
+    fetchSnapshot();
+  }
+
+  useEffect(fetchSnapshot, []);
 
   const portfolios = data?.portfolios ?? [];
   const summary = data?.summary;

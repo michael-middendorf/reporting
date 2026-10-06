@@ -3,54 +3,14 @@
 import Link from "next/link";
 import { useAthletics } from "@/components/athletics/AthleticsShell";
 import { formatCount, formatMoney } from "@/components/athletics/CoachingHub";
-import { apiFetch } from "@/lib/api";
 import { recruitingOverviewStats } from "@/lib/reports/athletics/overview-stats";
 import type { AcademicsSummary } from "@/lib/reports/athletics-coaching/academics";
 import type { SportFundraising } from "@/lib/reports/athletics-coaching/fundraising";
 import { formatCurrency } from "@/components/athletics/DataTable";
-import { useEffect, useMemo, useState } from "react";
+import { useSportFetch } from "@/components/athletics/useSportFetch";
+import { useMemo } from "react";
 
-type LoadState<T> = {
-  data: T | null;
-  error: string | null;
-  loading: boolean;
-  mfaUrl?: string | null;
-};
-
-function useSportFetch<T>(url: string): LoadState<T> {
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [mfaUrl, setMfaUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setMfaUrl(null);
-    apiFetch(url, { cache: "no-store" })
-      .then(async (response) => {
-        const body = await response.json();
-        if (response.status === 401 && body.mfaUrl) {
-          if (!cancelled) setMfaUrl(String(body.mfaUrl));
-          return;
-        }
-        if (!response.ok) throw new Error(body.error || "Unable to load");
-        if (!cancelled) setData(body as T);
-      })
-      .catch((reason) => {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [url]);
-
-  return { data, error, loading, mfaUrl };
-}
+const SPORT_FETCH = { noStore: true, mfa: true } as const;
 
 function Metric({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
@@ -70,9 +30,11 @@ export function MasterOverviewSheet({ sportKey }: { sportKey: string }) {
   );
   const fundraising = useSportFetch<SportFundraising>(
     `/api/athletics-coaching/fundraising?sport=${encodeURIComponent(sportKey)}`,
+    SPORT_FETCH,
   );
   const academics = useSportFetch<AcademicsSummary>(
     `/api/athletics-coaching/academics?sport=${encodeURIComponent(sportKey)}`,
+    SPORT_FETCH,
   );
   const academicsReady =
     !academics.loading && !academics.error && !academics.mfaUrl && academics.data?.rosterAvailable;

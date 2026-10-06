@@ -79,9 +79,9 @@ export function EnrollmentProvider({ children }: { children: ReactNode }) {
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
+    // loading starts true and refresh() resets loading/error before bumping tick,
+    // so the effect only sets state from the promise callbacks.
     let cancelled = false;
-    setLoading(true);
-    setError(null);
     loadEnrollmentBundle()
       .then((b) => {
         if (!cancelled) setData(b);
@@ -104,7 +104,11 @@ export function EnrollmentProvider({ children }: { children: ReactNode }) {
       loading,
       cycle,
       setCycle,
-      refresh: () => setTick((t) => t + 1),
+      refresh: () => {
+        setLoading(true);
+        setError(null);
+        setTick((t) => t + 1);
+      },
     }),
     [data, error, loading, cycle],
   );

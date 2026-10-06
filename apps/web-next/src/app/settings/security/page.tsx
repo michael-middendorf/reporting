@@ -22,6 +22,18 @@ function formatWhen(value: number) {
   return new Date(value * 1000).toLocaleString();
 }
 
+async function fetchSecurityState(): Promise<{ enrolled: boolean; passkeys: Passkey[] }> {
+  const [totpRes, passkeyRes] = await Promise.all([
+    apiFetch("/aspiredu/api/mfa/status", { cache: "no-store" }),
+    apiFetch("/api/auth/passkey", { cache: "no-store" }),
+  ]);
+  const totpBody = (await totpRes.json()) as { enrolled?: boolean; error?: string };
+  const passkeyBody = (await passkeyRes.json()) as { passkeys?: Passkey[]; error?: string };
+  if (!totpRes.ok) throw new Error(totpBody.error || "Could not load authenticator status");
+  if (!passkeyRes.ok) throw new Error(passkeyBody.error || "Could not load passkeys");
+  return { enrolled: Boolean(totpBody.enrolled), passkeys: passkeyBody.passkeys || [] };
+}
+
 export default function SecurityPage() {
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
   const [passkeys, setPasskeys] = useState<Passkey[]>([]);
@@ -29,23 +41,21 @@ export default function SecurityPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
-    setError("");
-    try {
-      const [totpRes, passkeyRes] = await Promise.all([
-        apiFetch("/aspiredu/api/mfa/status", { cache: "no-store" }),
-        apiFetch("/api/auth/passkey", { cache: "no-store" }),
-      ]);
-      const totpBody = (await totpRes.json()) as { enrolled?: boolean; error?: string };
-      const passkeyBody = (await passkeyRes.json()) as { passkeys?: Passkey[]; error?: string };
-      if (!totpRes.ok) throw new Error(totpBody.error || "Could not load authenticator status");
-      if (!passkeyRes.ok) throw new Error(passkeyBody.error || "Could not load passkeys");
-      setEnrolled(Boolean(totpBody.enrolled));
-      setPasskeys(passkeyBody.passkeys || []);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Could not load security settings");
-    }
-  }, []);
+  // State is set only in the promise callbacks so the mount effect never sets
+  // state synchronously. error starts empty on mount, and the add/remove
+  // handlers clear it themselves before calling load().
+  const load = useCallback(
+    () =>
+      fetchSecurityState()
+        .then(({ enrolled: nextEnrolled, passkeys: nextPasskeys }) => {
+          setEnrolled(nextEnrolled);
+          setPasskeys(nextPasskeys);
+        })
+        .catch((err: unknown) => {
+          setError(err instanceof Error ? err.message : "Could not load security settings");
+        }),
+    [],
+  );
 
   useEffect(() => {
     void load();

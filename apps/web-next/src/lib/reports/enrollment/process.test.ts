@@ -24,6 +24,12 @@ function row(partial: Record<string, unknown> = {}) {
   };
 }
 
+// Since #92 (Qlik alignment) the undergraduate student-type filter lives in
+// _procAdm, and _termStats counts "created" only for rows with a CreatedDate.
+// Fixtures carry a CreatedDate and the UG filter is exercised through _procAdm.
+const CREATED = "2026-08-01";
+const AS_OF = "2026-08-20";
+
 test("UG student types count; Graduate and Dual Enrollment do not", () => {
   const rows = [
     row({ ApplicationStudentType: "First-Year" }),
@@ -39,8 +45,8 @@ test("UG student types count; Graduate and Dual Enrollment do not", () => {
       ApplicationStudentType: "Dual Enrollment",
       ApplicationACAssignment: "georgiana.e.depugh",
     }),
-  ];
-  const stats = _termStats(rows, 2027, new Date("2026-08-20"));
+  ].map((r) => ({ ...r, CreatedDate: CREATED }));
+  const stats = _procAdm(rows, AS_OF).fa27;
   assert.equal(stats.created, 4);
   assert.equal(stats.accepted, 0);
   assert.equal(stats.byAC["abel.cordero"].created, 1);
@@ -51,6 +57,12 @@ test("UG student types count; Graduate and Dual Enrollment do not", () => {
   assert.equal(stats.byAC["georgiana.e.depugh"], undefined);
 });
 
+test("_termStats created counts only rows with a CreatedDate (Qlik present-field rule)", () => {
+  const rows = [row({ CreatedDate: CREATED }), row()];
+  const stats = _termStats(rows, 2027, new Date(2026, 7, 20));
+  assert.equal(stats.created, 1);
+});
+
 test("current UG roster is always present in byAC; leftover assignees are omitted", () => {
   const rows = [
     row({ ApplicationACAssignment: "abel.cordero" }),
@@ -58,15 +70,17 @@ test("current UG roster is always present in byAC; leftover assignees are omitte
     row({ ApplicationACAssignment: "annie.esposito" }),
     row({ ApplicationACAssignment: "anna.kaminski", ApplicationStudentType: "Graduate" }),
     row({ ApplicationACAssignment: "" }),
-  ];
-  const stats = _termStats(rows, 2027, new Date("2026-08-20"));
-  assert.ok(stats.byAC["abel.cordero"]);
-  assert.ok(stats.byAC["katherine.n.lyons"]); // zero-filled current AC
-  assert.equal(stats.byAC["katherine.n.lyons"].created, 0);
-  assert.equal(stats.byAC[""].created, 1);
-  assert.equal(stats.byAC["dan.donaldson"], undefined);
-  assert.equal(stats.byAC["annie.esposito"], undefined);
-  assert.equal(stats.byAC["anna.kaminski"], undefined);
+  ].map((r) => ({ ...r, CreatedDate: CREATED }));
+  const stats = _procAdm(rows, AS_OF).fa27;
+  // Roster zero-fill and leftover filtering belong to the Activity view (activityByAC).
+  const view = activityByAC(stats.byAC);
+  assert.ok(view["abel.cordero"]);
+  assert.ok(view["katherine.n.lyons"]); // zero-filled current AC
+  assert.equal(view["katherine.n.lyons"].created, 0);
+  assert.equal(view[""].created, 1);
+  assert.equal(view["dan.donaldson"], undefined);
+  assert.equal(view["annie.esposito"], undefined);
+  assert.equal(view["anna.kaminski"], undefined);
   // leftover UG assignee is still in the funnel total
   assert.equal(stats.created, 4);
 });
@@ -75,8 +89,8 @@ test("allRows stays unfiltered so the Fall report can apply its own type filter"
   const rows = [
     row({ ApplicationStudentType: "Graduate", ApplicationACAssignment: "danielle.d.domino" }),
     row({ ApplicationStudentType: "First-Year" }),
-  ];
-  const adm = _procAdm(rows, "2026-08-20");
+  ].map((r) => ({ ...r, CreatedDate: CREATED }));
+  const adm = _procAdm(rows, AS_OF);
   assert.equal(adm.allRows.length, 2);
   assert.equal(adm.fa27.created, 1);
 });

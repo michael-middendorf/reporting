@@ -75,7 +75,8 @@ export function Floors({
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const chart = HALL_CHARTS[hall];
   const meta = META[hall];
-  const floors = chart?.floors || [];
+  // Memoized so the list memo below sees a stable array (React Compiler preserve-manual-memoization).
+  const floors = useMemo(() => chart?.floors || [], [chart]);
   const activeFloor = floors.find((f) => f.level === floor) || floors[0];
   const asofSum = useMemo(() => {
     if (!asof) return "";
