@@ -1820,6 +1820,7 @@ describe("count/remove overrides", () => {
     assert.equal(hidden.length, 0);
     assert.equal(trash.length, 1);
     assert.equal(String(trash[0].giftId), "501");
+    assert.equal(isTaskListRow(row), false);
     assert.equal(listedGiftRows(dropped.model.rows, { owner: SEAN, removed: true }).length, 0);
   });
 
