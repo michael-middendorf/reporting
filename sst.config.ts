@@ -687,7 +687,7 @@ export default $config({
       ],
       environment: {
         DATA_BUCKET: data.name,
-        GIVING_STRIPE_SECRET_ID: "giving/app-iu1cSf",
+        GIVING_STRIPE_SECRET_ID: "giving/app",
       },
       permissions: [
         ...reportDataPerms,

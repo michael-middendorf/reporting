@@ -28,7 +28,7 @@ KEEP_FIELDS = ("contactId", "contactName", "emailMatch", "giftId", "inVirtuous")
 
 
 def stripe_secret() -> str:
-    secret_id = os.environ.get("GIVING_STRIPE_SECRET_ID", "giving/app-iu1cSf")
+    secret_id = os.environ.get("GIVING_STRIPE_SECRET_ID", "giving/app")
     raw = s3_secrets().get_secret_value(SecretId=secret_id)["SecretString"]
     data = json.loads(raw)
     key = str(data.get("MAIN_STRIPE_KEY_SECRET") or "").strip()
