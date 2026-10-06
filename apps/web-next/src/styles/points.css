@@ -382,9 +382,15 @@ button.macard { font: inherit; color: inherit; width: 100%; text-align: left; }
 .panel { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
 .chart { width: 100%; overflow-x: auto; }
 svg.chart-svg { display: block; width: 100%; height: auto; font-family: var(--sans); }
-.trend-hit { cursor: pointer; }
-.trend-dot.selected { fill: var(--gold); }
-.trend-tick.selected { fill: var(--navy); font-weight: 600; }
+.trend-hit { cursor: pointer; outline: none; }
+.trend-hit:focus,
+.trend-hit:focus-visible { outline: none; }
+.trend-dot.selected {
+  fill: var(--navy);
+  stroke: var(--navy);
+  stroke-width: 3;
+}
+.trend-tick.selected { fill: var(--navy); font-weight: 700; }
 .bar { fill: var(--navy); }
 .bar.wknd { fill: var(--navy-100); }
 .axis text { fill: var(--slate-400); font-size: 11px; }

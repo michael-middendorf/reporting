@@ -265,7 +265,6 @@ function RaisedTrendChart({
         {weeks.map((w, i) => {
           const slot = weeks.length === 1 ? innerW : innerW / Math.max(1, weeks.length - 1);
           const selected = w.key === selectedKey;
-          const hot = hover === i || selected;
           return (
             <g key={w.key}>
               <rect
@@ -291,8 +290,9 @@ function RaisedTrendChart({
               <circle
                 cx={x(i)}
                 cy={y(w.amount)}
-                r={hot ? 4.5 : 2.5}
+                r={selected ? 6 : hover === i ? 4 : 2.5}
                 className={`trend-dot${selected ? " selected" : ""}`}
+                pointerEvents="none"
               />
               {i % labelEvery === 0 || i === weeks.length - 1 ? (
                 <text x={x(i)} y={H - 4} textAnchor="middle" className={`trend-tick${selected ? " selected" : ""}`}>
