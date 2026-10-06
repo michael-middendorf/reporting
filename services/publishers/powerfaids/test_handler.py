@@ -5,6 +5,7 @@ Run from the repo root:
 """
 from __future__ import annotations
 
+import json
 import pathlib
 import re
 import types
@@ -523,6 +524,114 @@ class NeedExtractHandlerTests(unittest.TestCase):
             fail_on={"dbo.stu_pell_data AS pd ON": RuntimeError("login fake-password-value")}
         )
         self.assertNotIn("fake-password-value", manifest["derived"][0]["error"])
+
+
+class _EmptyPaginator:
+    def paginate(self, **kwargs):
+        return iter([{}])
+
+
+class RecordingS3:
+    """Fake S3 client: records put_object calls in order; no network."""
+
+    def __init__(self, fail_keys=()):
+        self.puts: list[dict] = []
+        self.fail_keys = tuple(fail_keys)
+
+    def put_object(self, **kwargs):
+        if kwargs["Key"] in self.fail_keys:
+            raise PermissionError(f"AccessDenied on {kwargs['Key']}")
+        self.puts.append(kwargs)
+        return {}
+
+    def get_paginator(self, name):
+        return _EmptyPaginator()
+
+    def delete_objects(self, **kwargs):  # pragma: no cover - nothing to prune
+        raise AssertionError("nothing should be pruned")
+
+
+class WriteOrderTests(unittest.TestCase):
+    """Real publish_dataset / put_json path with a recording fake S3 client.
+
+    The run manifest (sources/powerfaids/_runs/...) must only be written after
+    the derived extract's data.jsonl.gz and its _latest.json pointer have
+    landed (or failed), so the manifest never claims an output that is not
+    there yet. Within the extract, data lands before the pointer.
+    """
+
+    DAY = NIGHT.date().isoformat()
+    NEED_DATA = f"sources/scholarship-need/need/dt={DAY}/data.jsonl.gz"
+    NEED_META = f"sources/scholarship-need/need/dt={DAY}/meta.json"
+    NEED_POINTER = "sources/scholarship-need/need/_latest.json"
+    RUN_MANIFEST = f"sources/{SOURCE}/_runs/dt={DAY}/manifest.json"
+    RUN_LATEST = f"sources/{SOURCE}/_runs/latest.json"
+
+    def _run(self, fail_keys=()):
+        client = RecordingS3(fail_keys)
+        conn = FakeConnection()
+        # sources.utc_today and the manifest day both come from wall-clock UTC;
+        # pin them to NIGHT so the expected keys are stable.
+        fixed_now = mock.Mock(wraps=datetime)
+        fixed_now.now.return_value = NIGHT
+        with mock.patch.object(queries, "DATASETS", FAKE_DATASETS), mock.patch(
+            "common.s3util.s3", return_value=client
+        ), mock.patch("common.sources.s3", return_value=client), mock.patch(
+            "common.sources.datetime", fixed_now
+        ), mock.patch.object(mssql, "_now", return_value=NIGHT.isoformat()), mock.patch.dict(
+            "os.environ", {"DATA_BUCKET": "fake-bucket"}
+        ):
+            result = run(conn, env={f"{PREFIX}_NEED_KMS_KEY_ID": NEED_KMS_KEY})
+        keys = [p["Key"] for p in client.puts]
+        return client, keys, result
+
+    def _manifest(self, client, key):
+        body = next(p["Body"] for p in client.puts if p["Key"] == key)
+        return json.loads(body)
+
+    def test_extract_data_then_pointer_then_manifest(self):
+        client, keys, result = self._run()
+        self.assertTrue(result["ok"])
+        raw = []
+        for name, _, _ in FAKE_DATASETS:
+            raw += [
+                f"sources/{SOURCE}/{name}/dt={self.DAY}/data.jsonl.gz",
+                f"sources/{SOURCE}/{name}/dt={self.DAY}/meta.json",
+                f"sources/{SOURCE}/{name}/_latest.json",
+            ]
+        self.assertEqual(
+            keys,
+            raw + [self.NEED_DATA, self.NEED_META, self.NEED_POINTER, self.RUN_MANIFEST, self.RUN_LATEST],
+        )
+        # Encryption is unchanged: extract under the need key, everything else under the raw key.
+        for p in client.puts:
+            expected = NEED_KMS_KEY if p["Key"].startswith("sources/scholarship-need/") else KMS_KEY
+            self.assertEqual(p["SSEKMSKeyId"], expected, p["Key"])
+        for key in (self.RUN_MANIFEST, self.RUN_LATEST):
+            manifest = self._manifest(client, key)
+            self.assertTrue(manifest["ok"])
+            self.assertEqual(manifest["derived_failed"], [])
+            self.assertTrue(manifest["derived"][0]["ok"])
+            self.assertEqual(manifest["derived"][0]["prefix"], f"sources/scholarship-need/need/dt={self.DAY}")
+
+    def test_extract_write_failure_still_writes_manifest_last(self):
+        for failing in (self.NEED_DATA, self.NEED_POINTER):
+            with self.subTest(failing=failing):
+                client, keys, result = self._run(fail_keys=(failing,))
+                self.assertTrue(result["ok"])
+                self.assertEqual(keys[-2:], [self.RUN_MANIFEST, self.RUN_LATEST])
+                self.assertNotIn(self.NEED_POINTER, keys)
+                if failing == self.NEED_POINTER:
+                    # Data landed first; only the pointer failed.
+                    self.assertLess(keys.index(self.NEED_DATA), keys.index(self.RUN_MANIFEST))
+                else:
+                    self.assertNotIn(self.NEED_DATA, keys)
+                manifest = self._manifest(client, self.RUN_LATEST)
+                self.assertTrue(manifest["ok"])
+                self.assertEqual(manifest["failed"], [])
+                self.assertEqual(manifest["derived_failed"], [NEED_LABEL])
+                self.assertFalse(manifest["derived"][0]["ok"])
+                self.assertIn("AccessDenied", manifest["derived"][0]["error"])
 
 
 if __name__ == "__main__":
