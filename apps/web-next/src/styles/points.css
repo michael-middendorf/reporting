@@ -300,24 +300,22 @@ main.wrap.dash.points-method { max-width: 1080px; }
 .trash-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
   flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
   border: 1px solid var(--navy);
   background: #fff;
   color: var(--navy);
-  font-family: var(--sans);
-  font-size: .82rem;
-  font-weight: 600;
   border-radius: 999px;
-  padding: 6px 12px;
+  padding: 0;
   cursor: pointer;
   line-height: 1;
 }
-.trash-btn svg { width: 15px; height: 15px; display: block; }
+.trash-btn svg { width: 16px; height: 16px; display: block; }
 .trash-btn:hover { border-color: var(--gold); color: var(--navy); background: var(--gold-soft); }
 .trash-btn.open { background: var(--navy); color: #fff; border-color: var(--navy); }
 .trash-btn.open svg { stroke: #fff; }
-.trash-count { font-variant-numeric: tabular-nums; }
 .removed-overlay {
   position: fixed;
   inset: 0;
