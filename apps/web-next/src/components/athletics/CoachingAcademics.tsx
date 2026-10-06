@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Fragment, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import {
+  isBelowC,
   letterFromPercent,
   officeHoursDurationLabel,
   type AcademicsSummary,
@@ -12,8 +13,6 @@ import {
   type OfficeHoursSource,
 } from "@/lib/reports/athletics-coaching/academics";
 import { formatCount, formatWhen } from "./CoachingHub";
-
-const OFFICE_HOURS_SPORT = "ultimate-frisbee";
 
 type OfficeHoursCourse = {
   course: string;
@@ -188,61 +187,58 @@ export function AcademicsPage({ sportKey }: { sportKey: string }) {
               </strong>
               <small>2 or more session absences</small>
             </div>
-            {sportKey === OFFICE_HOURS_SPORT ? (
-              <div className="ath-kpi">
-                <span>Courses without an A or B</span>
-                <strong>{formatCount(data.officeHours.length)}</strong>
-                <small>Send these athletes to office hours</small>
-              </div>
-            ) : null}
+            <div className="ath-kpi">
+              <span>Courses without an A or B</span>
+              <strong>{formatCount(data.officeHours.length)}</strong>
+              <small>Send these athletes to office hours</small>
+            </div>
           </div>
 
-          {sportKey === OFFICE_HOURS_SPORT ? (
-            <>
-              <h3>Needs office hours</h3>
-              <p>Athletes with a course that is not an A or B.</p>
-              {data.officeHours.length ? (
-                <div className="ath-table-scroll ath-coach-academics">
-                  <table className="ath-table">
-                    <thead>
-                      <tr>
-                        <th>Athlete</th>
-                        <th>Classes</th>
-                        <th>Below A/B</th>
-                        <th>Copy</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {groupOfficeHoursByAthlete(data.officeHours).map((row) => (
-                        <tr key={row.key}>
-                          <td>{row.name}</td>
-                          <td>
-                            {row.courses.map((course, index) => (
-                              <div key={`${row.key}-class-${course.course}-${index}`}>
-                                {officeHoursClassLabel(course)}
-                              </div>
-                            ))}
-                          </td>
-                          <td>
-                            {row.courses.map((course, index) => (
-                              <div key={`${row.key}-below-${course.course}-${index}`}>
-                                {officeHoursDurationLabel(course.daysBelow, course)}
-                              </div>
-                            ))}
-                          </td>
-                          <td>
-                            <CopyOfficeHoursButton courseNames={row.courses.map((course) => course.course)} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p>Every graded course is an A or B.</p>
-              )}
-            </>
-          ) : null}
+          <h3>Needs office hours</h3>
+          <p>Athletes with a course that is not an A or B. Classes below a C are flagged in the roster.</p>
+          {data.officeHours.length ? (
+            <div className="ath-table-scroll ath-coach-academics">
+              <table className="ath-table">
+                <thead>
+                  <tr>
+                    <th>Athlete</th>
+                    <th>Classes</th>
+                    <th>Below A/B</th>
+                    <th>Copy</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupOfficeHoursByAthlete(data.officeHours).map((row) => (
+                    <tr key={row.key}>
+                      <td>{row.name}</td>
+                      <td>
+                        {row.courses.map((course, index) => (
+                          <div
+                            key={`${row.key}-class-${course.course}-${index}`}
+                            className={isBelowC(course.letter) ? "ath-grade-below-c" : undefined}
+                          >
+                            {officeHoursClassLabel(course)}
+                          </div>
+                        ))}
+                      </td>
+                      <td>
+                        {row.courses.map((course, index) => (
+                          <div key={`${row.key}-below-${course.course}-${index}`}>
+                            {officeHoursDurationLabel(course.daysBelow, course)}
+                          </div>
+                        ))}
+                      </td>
+                      <td>
+                        <CopyOfficeHoursButton courseNames={row.courses.map((course) => course.course)} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p>Every graded course is an A or B.</p>
+          )}
 
           <h3>Missing class</h3>
           {data.missingClass.length ? (
@@ -319,17 +315,27 @@ export function AcademicsPage({ sportKey }: { sportKey: string }) {
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {athlete.courses.map((course, index) => (
-                                      <tr key={`${key}-course-${index}`}>
-                                        <td>{course.course}</td>
-                                        <td>{formatGrade(course.grade)}</td>
-                                        <td>{course.missing ?? "—"}</td>
-                                        <td title={course.timesAbsent === null ? "No roll-call for this course" : undefined}>
-                                          {course.timesAbsent ?? "n/a"}
-                                        </td>
-                                        <td>{formatWhen(course.lastAccess)}</td>
-                                      </tr>
-                                    ))}
+                                    {athlete.courses.map((course, index) => {
+                                      const letter = letterFromPercent(course.grade);
+                                      const belowC = isBelowC(letter);
+                                      return (
+                                        <tr
+                                          key={`${key}-course-${index}`}
+                                          className={belowC ? "ath-grade-below-c" : undefined}
+                                        >
+                                          <td>{course.course}</td>
+                                          <td>
+                                            {formatGrade(course.grade, letter)}
+                                            {belowC ? <span className="ath-badge">below C</span> : null}
+                                          </td>
+                                          <td>{course.missing ?? "—"}</td>
+                                          <td title={course.timesAbsent === null ? "No roll-call for this course" : undefined}>
+                                            {course.timesAbsent ?? "n/a"}
+                                          </td>
+                                          <td>{formatWhen(course.lastAccess)}</td>
+                                        </tr>
+                                      );
+                                    })}
                                   </tbody>
                                 </table>
                               ) : (

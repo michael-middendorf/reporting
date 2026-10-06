@@ -18,6 +18,7 @@ import {
   gpaPointsFromPercent,
   isAB,
   isAspireduCallerDenied,
+  isBelowC,
   isCoachingActionUnavailable,
   letterFromPercent,
   matchedRosterRows,
@@ -341,6 +342,13 @@ describe("letter grades and GPA points", () => {
     assert.equal(isAB("B"), true);
     assert.equal(isAB("C+"), false);
     assert.equal(isAB("None"), false);
+    assert.equal(isBelowC("C"), false);
+    assert.equal(isBelowC("C+"), false);
+    assert.equal(isBelowC("C-"), true);
+    assert.equal(isBelowC("D"), true);
+    assert.equal(isBelowC("F"), true);
+    assert.equal(isBelowC("B-"), false);
+    assert.equal(isBelowC("None"), false);
   });
 });
 
