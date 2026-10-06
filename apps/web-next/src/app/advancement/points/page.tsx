@@ -452,6 +452,15 @@ function PointsPageInner() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (!showRemovedGifts) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowRemovedGifts(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showRemovedGifts]);
+
   const weekOptions = useMemo(() => {
     const floorKey = weekKey(evalStartDate());
     const keys = new Set<string>([weekKey(thisSaturday()), floorKey]);
@@ -1962,70 +1971,6 @@ function PointsPageInner() {
                       </tr>
                     </tbody>
                   </table>
-                  {showRemovedGifts ? (
-                    <div className="removed-gifts">
-                      <h3>Removed gifts</h3>
-                      <p className="footnote">Restore puts the gift back on Raised. This is shared for everyone on the dashboard.</p>
-                      {removedGifts.length === 0 ? (
-                        <p className="footnote">No removed gifts in this range.</p>
-                      ) : (
-                        <table className="grid" style={{ marginBottom: 18 }}>
-                          <thead>
-                            <tr>
-                              <th>Gift date</th>
-                              <th>Kind</th>
-                              <th>Amount</th>
-                              <th>MA</th>
-                              <th></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {removedGifts.map((g, i) => {
-                              const restoreId = giftRemoveId(g);
-                              return (
-                                <tr key={g.giftId != null && g.giftId !== "" ? `removed-${g.giftId}` : `removed-${i}`}>
-                                  <td style={{ whiteSpace: "nowrap" }}>
-                                    {g.day ? formatDay(g.day) : "—"}
-                                    {g.contactName ? (
-                                      <div style={{ color: "var(--slate-400)", fontWeight: 400 }}>{g.contactName}</div>
-                                    ) : null}
-                                  </td>
-                                  <td>
-                                    {g.assist
-                                      ? "Assist"
-                                      : g.acIncrease
-                                        ? "AC increase"
-                                        : g.annualized
-                                          ? "Monthly ×12"
-                                          : (g.giftType || "—")}
-                                    {g.project ? (
-                                      <span style={{ color: "var(--slate-400)" }}> · {g.project}</span>
-                                    ) : null}
-                                  </td>
-                                  <td className="pts tabular">
-                                    {g.assist ? money(0) : money(g.amount)}
-                                  </td>
-                                  <td>{g.owner}</td>
-                                  <td>
-                                    {restoreId ? (
-                                      <button
-                                        type="button"
-                                        className="mini-btn solid"
-                                        disabled={flagBusy === restoreId}
-                                        onClick={() => restoreCountedGift(g)}
-                                      >
-                                        {flagBusy === restoreId ? "…" : "Restore"}
-                                      </button>
-                                    ) : "—"}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      )}
-                    </div>
-                  ) : null}
                   {!giftOwner ? (
                     <p className="footnote">Click a name or All to see the gifts.</p>
                   ) : listedGifts.length === 0 ? (
@@ -2116,7 +2061,92 @@ function PointsPageInner() {
                   )}
             </div>
           </section>
-
+          {showRemovedGifts ? (
+            <div
+              className="removed-overlay"
+              role="presentation"
+              onClick={() => setShowRemovedGifts(false)}
+            >
+              <div
+                className="removed-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="removed-gifts-title"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="removed-modal-head">
+                  <h3 id="removed-gifts-title">Removed gifts</h3>
+                  <button
+                    type="button"
+                    className="removed-modal-close"
+                    aria-label="Close"
+                    onClick={() => setShowRemovedGifts(false)}
+                  >
+                    ×
+                  </button>
+                </div>
+                <p className="footnote">Restore puts the gift back on Raised. This is shared for everyone on the dashboard.</p>
+                {removedGifts.length === 0 ? (
+                  <p className="footnote">No removed gifts in this range.</p>
+                ) : (
+                  <table className="grid">
+                    <thead>
+                      <tr>
+                        <th>Gift date</th>
+                        <th>Kind</th>
+                        <th>Amount</th>
+                        <th>MA</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {removedGifts.map((g, i) => {
+                        const restoreId = giftRemoveId(g);
+                        return (
+                          <tr key={g.giftId != null && g.giftId !== "" ? `removed-${g.giftId}` : `removed-${i}`}>
+                            <td style={{ whiteSpace: "nowrap" }}>
+                              {g.day ? formatDay(g.day) : "—"}
+                              {g.contactName ? (
+                                <div style={{ color: "var(--slate-400)", fontWeight: 400 }}>{g.contactName}</div>
+                              ) : null}
+                            </td>
+                            <td>
+                              {g.assist
+                                ? "Assist"
+                                : g.acIncrease
+                                  ? "AC increase"
+                                  : g.annualized
+                                    ? "Monthly ×12"
+                                    : (g.giftType || "—")}
+                              {g.project ? (
+                                <span style={{ color: "var(--slate-400)" }}> · {g.project}</span>
+                              ) : null}
+                            </td>
+                            <td className="pts tabular">
+                              {g.assist ? money(0) : money(g.amount)}
+                            </td>
+                            <td>{g.owner}</td>
+                            <td>
+                              {restoreId ? (
+                                <button
+                                  type="button"
+                                  className="mini-btn solid"
+                                  disabled={flagBusy === restoreId}
+                                  onClick={() => restoreCountedGift(g)}
+                                >
+                                  {flagBusy === restoreId ? "…" : "Restore"}
+                                </button>
+                              ) : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          ) : null}
 
           <section className="section">
             <h3>Tiers</h3>
