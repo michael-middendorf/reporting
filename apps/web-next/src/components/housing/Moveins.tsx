@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { META, fmtDate, srcLabel, statusLabel } from "@/lib/reports/housing/model";
+import { META, fmtDate, moveinDays, moveinResidents, srcLabel, statusLabel } from "@/lib/reports/housing/model";
 import type { Resident } from "@/lib/reports/housing/types";
 import styles from "./housing.module.css";
 
@@ -20,20 +20,11 @@ export function Moveins({
 }) {
   const [day, setDay] = useState("");
   const [q, setQ] = useState("");
-  const days = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const p of residents) {
-      if (!p.move_in) continue;
-      m[p.move_in] = (m[p.move_in] || 0) + 1;
-    }
-    return Object.keys(m)
-      .sort()
-      .map((d) => ({ date: d, count: m[d] }));
-  }, [residents]);
+  const days = useMemo(() => moveinDays(residents), [residents]);
   const total = days.reduce((a, d) => a + d.count, 0);
 
   const rows = useMemo(() => {
-    let list = residents.filter((p) => p.building && p.room);
+    let list = moveinResidents(residents);
     if (day) list = list.filter((p) => p.move_in === day);
     const needle = q.toLowerCase();
     if (needle) {

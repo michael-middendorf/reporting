@@ -20,6 +20,8 @@ import {
   isOffLimits,
   isRome,
   isUnassigned,
+  moveinDays,
+  moveinResidents,
   fmtBirthdate,
   fmtIsoDate,
   genderLabel,
@@ -309,4 +311,27 @@ test("roomFill and list rows use peopleIn + effCap for filled/open", () => {
   assert.equal(all[1].room, "201");
   assert.equal(all[1].filled, 1);
   assert.equal(all[1].open, 3);
+});
+
+test("move-in day chips count the same rows the Move-ins table shows", () => {
+  const residents = [
+    { pcid: "1", building: "JPII", room: "101", move_in: "2026-08-17" },
+    { pcid: "2", building: "TERESA", room: "201", move_in: "2026-08-19" },
+    { pcid: "3", building: "Commuter", room: "C1", move_in: "2026-08-19" },
+    { pcid: "4", building: "CIARA", move_in: "2026-08-19" },
+    { pcid: "5", price_type: "RSTA", move_in: "2026-08-19" },
+    { pcid: "6", price_type: "CSTA", move_in: "2026-08-19" },
+    { pcid: "7", building: "MBK", move_in: "2026-08-19" },
+  ];
+  const rows = moveinResidents(residents);
+  assert.deepEqual(rows.map((r) => r.pcid), ["1", "2", "3"]);
+  const days = moveinDays(residents);
+  assert.deepEqual(days, [
+    { date: "2026-08-17", count: 1 },
+    { date: "2026-08-19", count: 2 },
+  ]);
+  assert.equal(days.reduce((a, d) => a + d.count, 0), rows.length);
+  for (const d of days) {
+    assert.equal(rows.filter((r) => r.move_in === d.date).length, d.count);
+  }
 });

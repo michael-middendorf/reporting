@@ -334,6 +334,29 @@ export function remainingMelt(
   return Math.round((currentOcc * rate) / 100);
 }
 
+/**
+ * Rows on the Move-ins tab: residents with both a building and a room (residence halls
+ * plus eRez Commuter placements).
+ * Ireland, Rome, commuter-abroad, and Middle Brook rows have no room and are not on the
+ * on-campus move-in schedule. The day chips and the table both use this base so a chip's
+ * count always equals the rows shown when it is selected.
+ */
+export function moveinResidents(residents: Resident[]): Resident[] {
+  return residents.filter((p) => Boolean(p.building && p.room));
+}
+
+/** Move-in day chips (ascending date) counted from the same base as the Move-ins table. */
+export function moveinDays(residents: Resident[]): { date: string; count: number }[] {
+  const m: Record<string, number> = {};
+  for (const p of moveinResidents(residents)) {
+    if (!p.move_in) continue;
+    m[p.move_in] = (m[p.move_in] || 0) + 1;
+  }
+  return Object.keys(m)
+    .sort()
+    .map((date) => ({ date, count: m[date] }));
+}
+
 export function isEarly(p: Resident): boolean {
   return Boolean(p.move_in && p.move_in < MAIN_MOVEIN);
 }
