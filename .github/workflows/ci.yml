@@ -2,10 +2,6 @@ name: CI
 
 on:
   pull_request:
-    paths:
-      - "services/publishers/**"
-      - "pyproject.toml"
-      - ".github/workflows/ci.yml"
 
 permissions:
   contents: read
@@ -16,8 +12,47 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+
+      # This job is about to become a required status check on main. A required
+      # check that never starts (the old `paths:` filter on the trigger above)
+      # blocks every PR that doesn't touch these files, so the trigger now fires
+      # on every PR and this step decides whether the real test steps below need
+      # to run. No third-party action: just a plain `git diff` against the PR
+      # base, matched against the same paths the old filter used.
+      #
+      # The two SHAs come in via `env:` rather than being interpolated straight
+      # into the script by `${{ }}`, and the match reads `$changed` through a
+      # here-string (`<<<`), not a pipe. `echo "$changed" | grep -Eq ...` would
+      # pipe into a `grep -q`, which exits as soon as it finds the first match
+      # and closes its stdin. On a large diff, `echo` can still be mid-write
+      # when that happens: it gets SIGPIPE and exits 141, which, under
+      # `bash -eo pipefail`, becomes the pipeline's exit status even though
+      # grep itself matched. A real match then reads as a failed `if`, so
+      # Python changes go undetected and the test steps below are silently
+      # skipped. A here-string has no second process and no pipe to break.
+      - name: Detect relevant changes
+        id: changes
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          changed="$(git diff --no-renames --name-only "$BASE_SHA" "$HEAD_SHA")"
+          echo "Changed files:"
+          echo "$changed"
+          python_changed=false
+          if grep -Eq '^(services/publishers/|pyproject\.toml$|\.github/workflows/ci\.yml$)' <<<"$changed"; then
+            python_changed=true
+          fi
+          if [ "$python_changed" = false ]; then
+            echo "::notice::No Python-relevant changes; Python tests skipped"
+          fi
+          echo "python=$python_changed" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        if: steps.changes.outputs.python == 'true'
         with:
           # Matches `requires-python = "==3.12.*"` in pyproject.toml and the
           # python:3.12-alpine base in Dockerfile.worker.
@@ -30,6 +65,7 @@ jobs:
       # sys.modules patching in the tests, so they are deliberately not installed here.
       # No network, no AWS credentials, no SQL Server: everything is fakes/mocks.
       - name: Install test dependencies
+        if: steps.changes.outputs.python == 'true'
         run: pip install "boto3>=1.34.0"
 
       # Each publisher's tests are plain unittest, documented (in their own docstrings)
@@ -39,6 +75,7 @@ jobs:
       # *_test.py file and run it the same way, so new publisher tests are picked up
       # automatically without editing this workflow.
       - name: Run Python unit tests
+        if: steps.changes.outputs.python == 'true'
         shell: bash
         env:
           PYTHONPATH: services/publishers
