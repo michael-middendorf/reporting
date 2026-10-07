@@ -416,6 +416,7 @@ function PointsPageInner() {
     dir: "desc",
   });
   const [showRemovedGifts, setShowRemovedGifts] = useState(false);
+  const [galaOpen, setGalaOpen] = useState(true);
   const [possibleOwner, setPossibleOwner] = useState<string>("all");
   const [meName, setMeName] = useState<string | null>(null);
   const [undo, setUndo] = useState<{ flagId: string; message: string } | null>(null);
@@ -2135,14 +2136,15 @@ function PointsPageInner() {
           {tab === "points" ? (
           <>
           <section className="section" id="gala-gifts">
-            <h2>
+            <details className="fold" open={galaOpen} onToggle={(e) => setGalaOpen(e.currentTarget.open)}>
+            <summary>
               Gala{" "}
               <span className="section-hint">
                 {galaGifts.length
                   ? `${galaGifts.length} tied to an MA · Raised ${money(galaRaisedTotal)} · Incoming ${money(galaIncomingTotal)}`
                   : "tied to an MA"}
               </span>
-            </h2>
+            </summary>
             <div className="panel">
               {!raw ? (
                 <p className="footnote">Loading donor records…</p>
@@ -2192,6 +2194,7 @@ function PointsPageInner() {
                 </div>
               )}
             </div>
+            </details>
           </section>
           <section className="section">
             <div className="gifts-head">
