@@ -83,7 +83,7 @@ export const CONFLICTS = {
     pdf: "Email / text counts as 1 pt.",
     spreadsheet: "‘Email Sent’ is given 2 points.",
     resolved: "2 points",
-    note: "Counted at 2 points to match the tracker (confirmed 2026-09-09). Logged as ‘Mission Advancement Call | Email Reach Out’. Text message uses the same 2 pts (it sits in the tracker’s Sent row).",
+    note: "Counted at 2 points to match the tracker (confirmed 2026-09-09). Logged as ‘Mission Advancement Call | Email Reach Out’. Text message and Mission Advancement Text use the same 2 pts (they sit in the tracker’s Sent row).",
   },
   email_bounced: {
     title: "Email bounced",
@@ -97,7 +97,7 @@ export const CONFLICTS = {
     pdf: "Email counts as 1 pt (‘email / text’). Only a phone conversation earns 10.",
     spreadsheet: "‘Response Rec’d’ is given 3 points.",
     resolved: "3 points",
-    note: "Counted at 3 points to match the tracker (confirmed 2026-09-09). Logged as ‘Mission Advancement Call | Email Conversation’.",
+    note: "Counted at 3 points to match the tracker (confirmed 2026-09-09). Logged as ‘Mission Advancement Call | Email Conversation’. MA Text Returned uses the same 3 pts (Response Rec’d).",
   },
   event_subtype: {
     title: "Event points (300 vs 75)",
@@ -160,6 +160,10 @@ export const POINTS_MAP = {
     { points: 1, bucket: "email", label: "Email bounced", source: "spreadsheet", conflict: "email_bounced" },
   "mission advancement call | email conversation":
     { points: 3, bucket: "email", label: "Email conversation", source: "spreadsheet", conflict: "email_conversation" },
+  "mission advancement text":
+    { points: 2, bucket: "email", label: "Text sent", source: "spreadsheet", conflict: "email_sent" },
+  "ma text returned":
+    { points: 3, bucket: "email", label: "Text returned", source: "spreadsheet", conflict: "email_conversation" },
   "mission advancement call | invalid number":
     { points: 1, bucket: "failed", label: "Invalid number", source: "pdf+spreadsheet" },
 
@@ -244,6 +248,7 @@ export const TRACKER_LAYOUT = [
         types: [
           "mission advancement call | email reach out",
           "text message",
+          "mission advancement text",
         ],
       },
       {
@@ -254,7 +259,10 @@ export const TRACKER_LAYOUT = [
       {
         id: "email_response",
         label: "Response Rec'd",
-        types: ["mission advancement call | email conversation"],
+        types: [
+          "mission advancement call | email conversation",
+          "ma text returned",
+        ],
       },
     ],
   },
@@ -418,8 +426,10 @@ export const TRACKING_CHART = {
     { tracker: "Conversation", type: "Mission Advancement Call | Conversation", pts: 10 },
     { tracker: "Email Sent", type: "Mission Advancement Call | Email Reach Out", pts: 2 },
     { tracker: "Email Sent", type: "Text Message", pts: 2 },
+    { tracker: "Email Sent", type: "Mission Advancement Text", pts: 2 },
     { tracker: "Bounced", type: "Mission Advancement Call | Email Inactive", pts: 1 },
     { tracker: "Response Rec’d", type: "Mission Advancement Call | Email Conversation", pts: 3 },
+    { tracker: "Response Rec’d", type: "MA Text Returned", pts: 3 },
     { tracker: "Letter Sent", type: "Letter", pts: 5 },
     { tracker: "Obituaries", type: "Obituary", pts: 3 },
     { tracker: "Invalid Address", type: "Invalid Mailing Address · Address Change/Update", pts: 1 },
