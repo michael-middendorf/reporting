@@ -571,3 +571,20 @@ export function priorTerm(
   const pt = term.replace(m[1], String(+m[1] - 1));
   return q1Summary[pt] ? pt : null;
 }
+
+/* ---------- athletic donut ---------- */
+/** Donut label for applicants whose Slate ApplicationAthleticDecision is blank. */
+export const ATH_NOT_SET = "Not set";
+
+/**
+ * Athletic-status split for the donut. Every applicant in `rows` is counted,
+ * so the donut total matches the funnel's Applicants dial and the Gender donut.
+ * A blank ApplicationAthleticDecision (no athletic review recorded) is shown as
+ * its own "Not set" slice, last, instead of being dropped.
+ */
+export function athleticItems(rows: Applicant[]): Item[] {
+  const items = countBy(rows, "ath");
+  const named = items.filter((x) => x.k !== BLANK);
+  const blank = items.find((x) => x.k === BLANK);
+  return blank ? [...named, { k: ATH_NOT_SET, v: blank.v }] : named;
+}

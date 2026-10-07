@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  ATH_NOT_SET,
+  athleticItems,
+  emptyFilters,
   emptyProspectFilters,
   isPurchased,
+  normalizeApplicants,
+  passes,
   normalizeProspects,
   passesProspect,
   prospectsToCsv,
@@ -88,4 +93,21 @@ test("prospectsToCsv includes purchased-list column and escapes commas", () => {
   assert.match(header, /Purchased List/);
   assert.match(line, /Yes/);
   assert.match(line, /"St. Mary's, Naples"/);
+});
+
+test("athleticItems keeps blank athletic decisions as a Not set slice so the donut reconciles", () => {
+  const decisions = ["Athlete", "Athlete", "Non-Athlete", "Need to Review", "", "", "  "];
+  const apps = normalizeApplicants(
+    decisions.map((d) => ({ ApplicationTerm: "Fall 2026", Gender: "F", ApplicationAthleticDecision: d })),
+  );
+  const rows = apps.filter((d) => passes(d, emptyFilters("Fall 2026")));
+  const items = athleticItems(rows);
+  assert.equal(items.reduce((s, x) => s + x.v, 0), rows.length);
+  assert.deepEqual(items[items.length - 1], { k: ATH_NOT_SET, v: 3 });
+  assert.equal(items.find((x) => x.k === "Athlete")?.v, 2);
+});
+
+test("athleticItems adds no Not set slice when every applicant has a decision", () => {
+  const rows = normalizeApplicants([{ ApplicationAthleticDecision: "Athlete" }]);
+  assert.deepEqual(athleticItems(rows), [{ k: "Athlete", v: 1 }]);
 });

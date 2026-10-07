@@ -24,6 +24,7 @@ import {
   clean,
   COLORS,
   countBy,
+  athleticItems,
   ctxData,
   defaultTerm,
   emptyFilters,
@@ -372,7 +373,7 @@ function InstituteDashboard() {
     k: x.k === "M" ? "Male" : x.k === "F" ? "Female" : x.k,
     v: x.v,
   }));
-  const athItems = countBy(rows, "ath").filter((x) => x.k !== BLANK);
+  const athItems = athleticItems(rows);
   const stateItems = countBy(DATA.filter((d) => passes(d, F, "state")), "state")
     .filter((x) => x.k !== BLANK)
     .slice(0, 12);
@@ -578,8 +579,8 @@ function InstituteDashboard() {
             <br />
             Generated: <b>{payload.generated_at || ""}</b>
             <br />
-            <span>
-              <b>{DATA.length}</b> applicants · <b>{(COUNTS.q2 || 0).toLocaleString()}</b> prospects ·{" "}
+            <span title="Whole dataset, every term, ignoring the filters below">
+              All terms: <b>{DATA.length}</b> applicants · <b>{(COUNTS.q2 || 0).toLocaleString()}</b> prospects ·{" "}
               <b>{(COUNTS.q1 || 0).toLocaleString()}</b> AMU apps
             </span>
           </div>
@@ -811,7 +812,7 @@ function InstituteDashboard() {
                   Athletic
                   <InfoTip
                     flip
-                    text="Institute applicants in the current filter, split by athlete vs non-athlete."
+                    text="Institute applicants in the current filter, split by Slate athletic decision. Not set means no athletic decision is recorded on the application."
                   />
                 </h3>
                 <div className="chint">Athlete vs not</div>
