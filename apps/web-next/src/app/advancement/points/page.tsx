@@ -13,6 +13,7 @@ import {
   rowId,
   isTaskListRow,
   listedGiftRows,
+  maGalaGifts,
   scoreAll,
   assignedNotesFromFlags,
   scoreTrackedEvents,
@@ -646,6 +647,18 @@ function PointsPageInner() {
     if (!giftOwner) return [] as GiftRow[];
     return listedGiftRows(model.rows as GiftRow[], { owner: giftOwner }) as GiftRow[];
   }, [model.rows, giftOwner]);
+  const galaGifts = useMemo(
+    () => maGalaGifts(model.rows) as Array<GiftRow & { owners?: IncomingOwner[] }>,
+    [model.rows],
+  );
+  const galaRaisedTotal = galaGifts.reduce(
+    (sum, g) => sum + (g.bucket === "donation" ? (g.amount || 0) : 0),
+    0,
+  );
+  const galaIncomingTotal = galaGifts.reduce(
+    (sum, g) => sum + (g.bucket === "possible" ? (g.amount || 0) : 0),
+    0,
+  );
   const removedGifts = useMemo(
     () => listedGiftRows(model.rows as GiftRow[], { owner: giftOwner || "all", removed: true }) as GiftRow[],
     [model.rows, giftOwner],
@@ -2084,6 +2097,65 @@ function PointsPageInner() {
 
           {tab === "points" ? (
           <>
+          <section className="section" id="gala-gifts">
+            <h2>
+              Gala{" "}
+              <span className="section-hint">
+                {galaGifts.length
+                  ? `${galaGifts.length} tied to an MA · Raised ${money(galaRaisedTotal)} · Incoming ${money(galaIncomingTotal)}`
+                  : "tied to an MA"}
+              </span>
+            </h2>
+            <div className="panel">
+              {!raw ? (
+                <p className="footnote">Loading donor records…</p>
+              ) : galaGifts.length === 0 ? (
+                <p className="footnote">No gala gifts tied to an MA in this range.</p>
+              ) : (
+                <div className="gala-table-wrap">
+                  <table className="grid">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Donor</th>
+                        <th>Amount</th>
+                        <th>MA</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {galaGifts.map((g, i) => {
+                        const names = (g.owners?.map((o) => o.name).filter(Boolean) || []);
+                        const ma = names.length ? names.join(", ") : (g.owner || "—");
+                        const status = g.bucket === "donation"
+                          ? "Raised"
+                          : g.galaSite && !g.inVirtuous
+                            ? "Incoming · site"
+                            : "Incoming";
+                        return (
+                          <tr key={g.giftId != null && g.giftId !== "" ? `gala-${g.giftId}` : `gala-${i}`}>
+                            <td className="nowrap">{g.day ? formatDay(g.day) : "—"}</td>
+                            <td>
+                              {g.contactName || "Unknown donor"}
+                              {virtuousGiftUrl(g.contactId) ? (
+                                <>
+                                  {" "}
+                                  <a href={virtuousGiftUrl(g.contactId)} target="_blank" rel="noopener noreferrer">↗</a>
+                                </>
+                              ) : null}
+                            </td>
+                            <td className="pts tabular">{money(g.amount)}</td>
+                            <td>{ma}</td>
+                            <td>{status}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </section>
           <section className="section">
             <div className="gifts-head">
               <h2>
