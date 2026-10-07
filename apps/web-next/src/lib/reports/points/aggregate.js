@@ -43,6 +43,34 @@ export function listedGiftRows(rows, { owner = "all", removed = false } = {}) {
     .sort((a, b) => String(b.day || "").localeCompare(String(a.day || "")));
 }
 
+/**
+ * A scored row is a gala gift when its kind, site flag, segment, or project
+ * says so. Raised rows often keep the gala name only on the segment.
+ */
+export function isGalaGiftRow(row) {
+  if (!row) return false;
+  if (row.kind === "gala" || row.galaSite) return true;
+  return /gala/i.test(`${row.segment || ""} ${row.project || ""}`);
+}
+
+/**
+ * Gala gifts tied to an MA. Raised rows are credited. Incoming rows are
+ * waiting because an MA spoke. A ticket with no MA contact is not in `rows`.
+ * Assist rows are omitted so the same gift is not listed twice at $0.
+ */
+export function maGalaGifts(rows) {
+  return (rows || [])
+    .filter((r) => {
+      if (!r || r.removed || r.needsReview || r.assist) return false;
+      if (!isGalaGiftRow(r)) return false;
+      const named = (r.owners || []).some((o) => o && o.name) || !!r.owner;
+      if (!named) return false;
+      if (r.bucket === "donation") return (r.amount || 0) > 0;
+      return r.bucket === "possible";
+    })
+    .sort((a, b) => String(b.day || "").localeCompare(String(a.day || "")) || (b.amount || 0) - (a.amount || 0));
+}
+
 function rowRemoved(r, flags) {
   if (!flags) return false;
   // Gifts-table Remove uses its own key so it does not overwrite an assign flag.

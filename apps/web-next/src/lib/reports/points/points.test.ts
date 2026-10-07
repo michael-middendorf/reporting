@@ -4,7 +4,7 @@ import { MA_NAMES, SETTINGS, evalStartDate, tierFor } from "./config.js";
 import { applyPassthroughCredit, assignedNotesFromFlags, contactDisplayName, eventPointsForHours, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, isPendingGalaSiteTicket, outreachBeforeGift, parseDate, passthroughContactIds, portfolioOwnersFromSnapshot, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
 import { galaSiteGiftId, mergeGalaSiteTickets, uniqueEmailContactIndex, uniquePersonNameMatch } from "./gala-site-tickets.js";
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "./counted-gifts.js";
-import { aggregate, daysOfWeek, isTaskListRow, listedGiftRows, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey, weekLabel } from "./aggregate.js";
+import { aggregate, daysOfWeek, isTaskListRow, listedGiftRows, maGalaGifts, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey, weekLabel } from "./aggregate.js";
 import { buildCalculationCSV, statusOf, virtuousGiftUrl } from "./report.js";
 import { projectTypeFor } from "./tracked-events";
 
@@ -3448,6 +3448,96 @@ describe("gala ticket purchases", () => {
     assert.equal(model.possibleGifts?.[0].contactName, "Jay Hamilton");
     assert.equal(model.possibleGifts?.[0].owners?.[0].name, ELENA);
     assert.equal(model.possibleGifts?.[0].owners?.[0].daysAfterNote, 0);
+  });
+
+  it("lists only gala gifts tied to an MA", () => {
+    const { model } = run(
+      [
+        donationNote({
+          type: "Mission Advancement Call | Conversation",
+          noteDate: "9/1/2026",
+          contactId: 40026,
+          contactName: "Jay Hamilton",
+          id: 11,
+        }),
+        donationNote({
+          type: "Mission Advancement Call | Conversation",
+          noteDate: "9/16/2026",
+          contactId: 50001,
+          contactName: "Site Donor",
+          id: 12,
+        }),
+        donationNote({
+          type: "Letter",
+          noteDate: "8/1/2026",
+          contactId: 101,
+          id: 13,
+        }),
+      ],
+      [
+        postedGift({
+          id: 880,
+          contactId: 40026,
+          contactName: "Jay Hamilton",
+          giftDate: "9/10/2026",
+          amount: 500,
+          segment: "26-27 Chancellor's Gala",
+        }),
+        postedGift({
+          id: "gala-stripe-pi_site",
+          contactId: 50001,
+          contactName: "Site Donor",
+          giftDate: "9/18/2026",
+          amount: 1275,
+          segment: "26-27 Chancellor's Gala",
+          galaSite: true,
+          inVirtuous: false,
+        }),
+        postedGift({
+          id: "gala-stripe-pi_open",
+          contactId: 37276,
+          contactName: "No Contact",
+          giftDate: "9/29/2026",
+          amount: 2000,
+          segment: "26-27 Chancellor's Gala",
+          galaSite: true,
+          inVirtuous: false,
+        }),
+        postedGift({ id: 501, giftDate: "8/4/2026", amount: 80 }),
+      ],
+    );
+    const list = maGalaGifts(model.rows);
+    const byId = Object.fromEntries(list.map((g) => [String(g.giftId), g]));
+    assert.deepEqual(Object.keys(byId).sort(), ["880", "gala-stripe-pi_site"]);
+    assert.equal(byId["880"].bucket, "donation");
+    assert.equal(byId["880"].owner, ALANNA);
+    assert.equal(byId["880"].amount, 500);
+    assert.equal(byId["gala-stripe-pi_site"].bucket, "possible");
+    assert.equal(byId["gala-stripe-pi_site"].owner, ALANNA);
+    assert.equal(byId["gala-stripe-pi_site"].galaSite, true);
+  });
+
+  it("drops a removed gala gift from the MA gala list", () => {
+    const { model } = run(
+      [donationNote({
+        type: "Mission Advancement Call | Conversation",
+        noteDate: "9/1/2026",
+        contactId: 40026,
+        contactName: "Jay Hamilton",
+        id: 11,
+      })],
+      [postedGift({
+        id: 880,
+        contactId: 40026,
+        contactName: "Jay Hamilton",
+        giftDate: "9/10/2026",
+        amount: 500,
+        segment: "26-27 Chancellor's Gala",
+      })],
+      ALANNA,
+      { "gift-remove:880": { status: "removed" } },
+    );
+    assert.equal(maGalaGifts(model.rows).length, 0);
   });
 
   it("omits a gala-site ticket with no MA contact from Incoming", () => {

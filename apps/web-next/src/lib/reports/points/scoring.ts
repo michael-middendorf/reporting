@@ -34,6 +34,7 @@ const aggregateMod = require("./aggregate.js") as {
     rows: unknown[],
     opts?: { owner?: string | null; removed?: boolean },
   ) => unknown[];
+  maGalaGifts: (rows: unknown[]) => unknown[];
   weekKey: (d: Date) => string;
   weekLabel: (key: string) => string;
   daysOfWeek: (saturdayKey: string) => string[];
@@ -107,6 +108,7 @@ export const dailyTotals = aggregateMod.dailyTotals;
 export const rowId = aggregateMod.rowId;
 export const isTaskListRow = aggregateMod.isTaskListRow;
 export const listedGiftRows = aggregateMod.listedGiftRows;
+export const maGalaGifts = aggregateMod.maGalaGifts;
 export const weekKey = aggregateMod.weekKey;
 export const weekLabel = aggregateMod.weekLabel;
 export const daysOfWeek = aggregateMod.daysOfWeek;
