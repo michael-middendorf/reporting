@@ -644,12 +644,13 @@ const RAISED_HINT_BUCKETS = new Set(["gift"]);
 
 /**
  * A "contact" that can surface a possible gift: they spoke with the donor
- * (phone, two-way email, or a meeting). Voicemail, letter, and email-sent
- * do not count — those are not a conversation.
+ * (phone, two-way email, a text reply, or a meeting). Voicemail, letter,
+ * email-sent, and an outbound text do not count — those are not a conversation.
  */
 export const POSSIBLE_GIFT_TYPES = new Set([
   "mission advancement call | conversation",
   "mission advancement call | email conversation",
+  "ma text returned",
   "in person",
   "mission advancement | meeting",
 ]);
@@ -790,9 +791,9 @@ export function isPendingGalaSiteTicket(record) {
 }
 
 /**
- * Conversation, two-way email, or meeting within 90 days of a gala gift.
+ * Conversation, two-way email, text reply, or meeting within 90 days of a gala gift.
  * The gift is the ticket purchase, so that conversation secures it.
- * A voicemail, letter, or email-sent does not. One closest note per MA.
+ * A voicemail, letter, email-sent, or outbound text does not. One closest note per MA.
  */
 export function galaSecuringNotes(giftDate, notesOnContact) {
   const window = SETTINGS.giftNoteDaysBefore ?? 90;

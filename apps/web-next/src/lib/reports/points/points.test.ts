@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MA_NAMES, SETTINGS, evalStartDate, tierFor } from "./config.js";
-import { applyPassthroughCredit, assignedNotesFromFlags, contactDisplayName, eventPointsForHours, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, isPendingGalaSiteTicket, outreachBeforeGift, parseDate, passthroughContactIds, portfolioOwnersFromSnapshot, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
+import { applyPassthroughCredit, assignedNotesFromFlags, contactDisplayName, eventPointsForHours, galaSecuringNotes, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, isPendingGalaSiteTicket, outreachBeforeGift, parseDate, passthroughContactIds, portfolioOwnersFromSnapshot, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
 import { galaSiteGiftId, mergeGalaSiteTickets, uniqueEmailContactIndex, uniquePersonNameMatch } from "./gala-site-tickets.js";
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "./counted-gifts.js";
 import { aggregate, daysOfWeek, isTaskListRow, listedGiftRows, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey, weekLabel } from "./aggregate.js";
@@ -1474,6 +1474,51 @@ describe("email points follow the tracker sheet", () => {
     assert.equal(row.points, 3);
     assert.equal(row.bucket, "email");
     assert.equal(owner.points, 3);
+  });
+
+  it("Mission Advancement Text scores 2 pts like Email Reach Out", () => {
+    const scored = scoreAll({
+      notes: [donationNote({ type: "Mission Advancement Text", id: 26 })],
+    }) as ScoredRow[];
+    const row = scored.find((r) => r.noteId === 26);
+    assert.ok(row);
+    assert.equal(row.points, 2);
+    assert.equal(row.bucket, "email");
+    assert.equal(row.label, "Text sent");
+    const mix = trackerBreakdown(scored);
+    const byId = Object.fromEntries(mix.lines.map((l) => [l.id, l]));
+    assert.equal(byId.email_sent.count, 1);
+    assert.equal(byId.email_sent.points, 2);
+    assert.equal(byId.email_response.count, 0);
+  });
+
+  it("MA Text Returned scores 3 pts like Email Conversation", () => {
+    const scored = scoreAll({
+      notes: [donationNote({ type: "MA Text Returned", id: 27 })],
+    }) as ScoredRow[];
+    const row = scored.find((r) => r.noteId === 27);
+    assert.ok(row);
+    assert.equal(row.points, 3);
+    assert.equal(row.bucket, "email");
+    assert.equal(row.label, "Text returned");
+    const mix = trackerBreakdown(scored);
+    const byId = Object.fromEntries(mix.lines.map((l) => [l.id, l]));
+    assert.equal(byId.email_response.count, 1);
+    assert.equal(byId.email_response.points, 3);
+    assert.equal(byId.email_sent.count, 0);
+  });
+
+  it("a text reply can secure a gala ticket and an outbound text cannot", () => {
+    const giftDay = parseDate("9/12/2026");
+    const reply = galaSecuringNotes(giftDay, [
+      { type: "MA Text Returned", date: parseDate("9/8/2026"), owner: ALANNA },
+    ]);
+    const sent = galaSecuringNotes(giftDay, [
+      { type: "Mission Advancement Text", date: parseDate("9/8/2026"), owner: ALANNA },
+    ]);
+    assert.equal(reply.length, 1);
+    assert.equal(reply[0].note.owner, ALANNA);
+    assert.equal(sent.length, 0);
   });
 
   it("Email Inactive is Bounced at 1 pt", () => {
