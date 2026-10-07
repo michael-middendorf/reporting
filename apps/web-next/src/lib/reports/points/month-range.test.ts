@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { matchingMonth, monthBounds, monthLabel, monthOptions } from "./month-range.js";
 import { EVENT_POINTS_PER_HOUR, MA_ROSTER, TRACKED_EVENT_TYPES } from "./config.js";
-import { sortTrackedEventsByMa, summarizeTrackedEventTypes } from "./tracked-events";
+import { sortTrackedEventsByMa, summarizeTrackedEventsByMa, summarizeTrackedEventTypes } from "./tracked-events";
 
 describe("month range", () => {
   it("uses the first and last calendar day of the month", () => {
@@ -44,6 +44,28 @@ describe("tracked event types", () => {
     assert.equal(rows[1].count, 2);
     assert.equal(rows[1].hours, 3.5);
     assert.equal(rows[1].points, 87.5);
+  });
+
+  it("totals events by roster MA, including officers with none", () => {
+    const rows = summarizeTrackedEventsByMa(
+      [
+        { owner: "Natalia Abrams", hours: 2 },
+        { owner: "Alanna McCann", hours: 1 },
+        { owner: "Alanna McCann", hours: 0.5 },
+        { owner: "Guest Officer", hours: 4 },
+      ],
+      MA_ROSTER,
+      EVENT_POINTS_PER_HOUR,
+    );
+    assert.equal(rows[0].name, "Alanna McCann");
+    assert.equal(rows[0].count, 2);
+    assert.equal(rows[0].hours, 1.5);
+    assert.equal(rows[0].points, 37.5);
+    assert.equal(rows.find((row) => row.name === "Sean Kelly")?.count, 0);
+    const guest = rows.find((row) => row.name === "Guest Officer");
+    assert.equal(guest?.count, 1);
+    assert.equal(guest?.hours, 4);
+    assert.ok(rows.indexOf(guest!) > rows.findIndex((row) => row.name === "Natalia Abrams"));
   });
 
   it("sorts events by roster MA then newest day", () => {

@@ -621,6 +621,14 @@ table.grid tr.grand td { font-weight: 600; color: var(--navy); background: var(-
 .muted { color: var(--slate-400); font-weight: 400; font-size: .8em; }
 .section-hint { font-family: var(--sans); font-weight: 300; font-size: .85rem; color: var(--slate-400); }
 
+.event-ma-filter { margin-bottom: 18px; }
+@media (max-width: 820px) {
+  table.grid.event-ma-filter { table-layout: fixed; }
+  table.grid.event-ma-filter th,
+  table.grid.event-ma-filter td { padding: 8px 6px; }
+  table.grid.event-ma-filter th:first-child,
+  table.grid.event-ma-filter td:first-child { width: 42%; white-space: normal; }
+}
 .event-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));

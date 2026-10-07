@@ -41,7 +41,7 @@ import "@/styles/points.css";
 import { InsightsPanel } from "./insights-panel";
 import { buildInsights } from "@/lib/reports/points/insights.js";
 import { matchingMonth, monthBounds, monthOptions } from "@/lib/reports/points/month-range.js";
-import { sortTrackedEventsByMa, summarizeTrackedEventTypes } from "@/lib/reports/points/tracked-events";
+import { sortTrackedEventsByMa, summarizeTrackedEventsByMa, summarizeTrackedEventTypes } from "@/lib/reports/points/tracked-events";
 
 type RangeKey = "week" | "all" | "custom" | "dates";
 
@@ -183,6 +183,10 @@ type Bests = {
 };
 
 const money = (n: number | undefined) => `$${Math.round(n || 0).toLocaleString()}`;
+const formatHours = (n: number) => {
+  const rounded = Math.round((Number(n) || 0) * 100) / 100;
+  return rounded.toLocaleString("en-US", { maximumFractionDigits: 2 });
+};
 const monthlyRate = (n: number | null | undefined) => {
   const v = Math.round(Number(n) * 100) / 100;
   if (!Number.isFinite(v)) return "";
@@ -779,6 +783,18 @@ function PointsPageInner() {
         EVENT_POINTS_PER_HOUR,
       ),
     [scopedEvents],
+  );
+  const eventMaTotals = useMemo(
+    () => summarizeTrackedEventsByMa(rangedEvents, MA_ROSTER, EVENT_POINTS_PER_HOUR),
+    [rangedEvents],
+  );
+  const eventMaAll = eventMaTotals.reduce(
+    (sum, row) => ({
+      count: sum.count + row.count,
+      hours: sum.hours + row.hours,
+      points: sum.points + row.points,
+    }),
+    { count: 0, hours: 0, points: 0 },
   );
   const listedTracked = useMemo(() => {
     const src = eventTypeFilter
@@ -1988,6 +2004,47 @@ function PointsPageInner() {
                   </button>
                 </div>
               </form>
+              {rangedEvents.length > 0 ? (
+                <table className="grid event-ma-filter" aria-label="Filter events by MA">
+                  <thead>
+                    <tr>
+                      <th>MA</th>
+                      <th>Events</th>
+                      <th>Hours</th>
+                      <th>Pts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {eventMaTotals.map((row) => (
+                      <tr
+                        key={row.name}
+                        className={`clickable${eventOwner === row.name ? " selected" : ""}`}
+                        onClick={() => {
+                          setEventOwner((cur) => (cur === row.name ? "all" : row.name));
+                          setEventTypeFilter("");
+                        }}
+                      >
+                        <td>{row.name}</td>
+                        <td className="tabular">{row.count}</td>
+                        <td className="tabular">{formatHours(row.hours)}</td>
+                        <td className="pts tabular">{row.points.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                    <tr
+                      className={`grand clickable${eventOwner === "all" ? " selected" : ""}`}
+                      onClick={() => {
+                        setEventOwner("all");
+                        setEventTypeFilter("");
+                      }}
+                    >
+                      <td>All</td>
+                      <td className="tabular">{eventMaAll.count}</td>
+                      <td className="tabular">{formatHours(eventMaAll.hours)}</td>
+                      <td className="pts tabular">{eventMaAll.points.toLocaleString()}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              ) : null}
               {eventTypeTotals.length > 0 ? (
                 <table className="grid" style={{ marginBottom: 18 }}>
                   <thead>
@@ -2007,7 +2064,7 @@ function PointsPageInner() {
                       >
                         <td>{rec.label}</td>
                         <td className="tabular">{rec.count}</td>
-                        <td className="tabular">{rec.hours}</td>
+                        <td className="tabular">{formatHours(rec.hours)}</td>
                         <td className="pts tabular">{rec.points.toLocaleString()}</td>
                       </tr>
                     ))}
@@ -2017,7 +2074,7 @@ function PointsPageInner() {
                     >
                       <td>All types</td>
                       <td className="tabular">{eventTypeTotals.reduce((s, rec) => s + rec.count, 0)}</td>
-                      <td className="tabular">{eventTypeTotals.reduce((s, rec) => s + rec.hours, 0)}</td>
+                      <td className="tabular">{formatHours(eventTypeTotals.reduce((s, rec) => s + rec.hours, 0))}</td>
                       <td className="pts tabular">
                         {eventTypeTotals.reduce((s, rec) => s + rec.points, 0).toLocaleString()}
                       </td>
@@ -2025,26 +2082,6 @@ function PointsPageInner() {
                   </tbody>
                 </table>
               ) : null}
-              <div className="event-form" style={{ marginBottom: 18 }}>
-                <label>
-                  Filter MA
-                  <select
-                    aria-label="Filter events by MA"
-                    value={eventOwner}
-                    onChange={(e) => {
-                      setEventOwner(e.target.value);
-                      setEventTypeFilter("");
-                    }}
-                  >
-                    <option value="all">All MAs</option>
-                    {MA_ROSTER.map((m) => (
-                      <option key={m.name} value={m.name}>
-                        {m.short || m.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
               {rangedEvents.length === 0 ? (
                 <p className="footnote">No events yet. Add one above. All is every event logged on this dashboard, including past dates.</p>
               ) : listedTracked.length === 0 ? (
