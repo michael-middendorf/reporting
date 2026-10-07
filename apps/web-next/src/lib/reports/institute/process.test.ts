@@ -111,3 +111,19 @@ test("athleticItems adds no Not set slice when every applicant has a decision", 
   const rows = normalizeApplicants([{ ApplicationAthleticDecision: "Athlete" }]);
   assert.deepEqual(athleticItems(rows), [{ k: "Athlete", v: 1 }]);
 });
+
+test("athleticItems merges a real 'Not set' Slate decision with blank decisions instead of duplicating the key", () => {
+  const decisions = ["Not set", "Not set", "Athlete", "", ""];
+  const apps = normalizeApplicants(
+    decisions.map((d) => ({ ApplicationTerm: "Fall 2026", ApplicationAthleticDecision: d })),
+  );
+  const rows = apps.filter((d) => passes(d, emptyFilters("Fall 2026")));
+  const items = athleticItems(rows);
+  // exactly one "Not set" item (no duplicate React keys), holding both the
+  // literal "Not set" decisions and the blank ones
+  const notSetItems = items.filter((x) => x.k === ATH_NOT_SET);
+  assert.equal(notSetItems.length, 1);
+  assert.equal(notSetItems[0].v, 4);
+  assert.equal(items.reduce((s, x) => s + x.v, 0), rows.length);
+  assert.equal(items.find((x) => x.k === "Athlete")?.v, 1);
+});

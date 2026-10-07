@@ -18,6 +18,7 @@ import {
 } from "@/components/institute/charts";
 import {
   avg,
+  ATH_NOT_SET,
   BIN_ORDER,
   binColor,
   BLANK,
@@ -579,7 +580,7 @@ function InstituteDashboard() {
             <br />
             Generated: <b>{payload.generated_at || ""}</b>
             <br />
-            <span title="Whole dataset, every term, ignoring the filters below">
+            <span title="Whole dataset, ignoring the filters below. Applicants and AMU apps span every term; prospects are not tied to a term.">
               All terms: <b>{DATA.length}</b> applicants · <b>{(COUNTS.q2 || 0).toLocaleString()}</b> prospects ·{" "}
               <b>{(COUNTS.q1 || 0).toLocaleString()}</b> AMU apps
             </span>
@@ -815,8 +816,11 @@ function InstituteDashboard() {
                     text="Institute applicants in the current filter, split by Slate athletic decision. Not set means no athletic decision is recorded on the application."
                   />
                 </h3>
-                <div className="chint">Athlete vs not</div>
-                <Donut items={athItems} />
+                <div className="chint">By athletic decision</div>
+                <Donut
+                  items={athItems}
+                  colorMap={(k) => (k === ATH_NOT_SET ? COLORS.muted : undefined)}
+                />
               </div>
             </div>
           </div>

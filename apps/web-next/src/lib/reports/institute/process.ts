@@ -581,10 +581,23 @@ export const ATH_NOT_SET = "Not set";
  * so the donut total matches the funnel's Applicants dial and the Gender donut.
  * A blank ApplicationAthleticDecision (no athletic review recorded) is shown as
  * its own "Not set" slice, last, instead of being dropped.
+ *
+ * If a real Slate athletic decision is itself literally named "Not set", its
+ * count is merged into the blank-derived slice instead of emitting a second
+ * item with the same key (which would collide as a React list key and double
+ * up the donut's "Not set" wedge).
  */
 export function athleticItems(rows: Applicant[]): Item[] {
   const items = countBy(rows, "ath");
   const named = items.filter((x) => x.k !== BLANK);
   const blank = items.find((x) => x.k === BLANK);
-  return blank ? [...named, { k: ATH_NOT_SET, v: blank.v }] : named;
+  if (!blank) return named;
+  const realNotSet = named.find((x) => x.k === ATH_NOT_SET);
+  if (realNotSet) {
+    const merged = named.map((x) =>
+      x.k === ATH_NOT_SET ? { k: ATH_NOT_SET, v: x.v + blank.v } : x,
+    );
+    return merged;
+  }
+  return [...named, { k: ATH_NOT_SET, v: blank.v }];
 }
