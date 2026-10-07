@@ -78,6 +78,41 @@ export function summarizeTrackedEventTypes(
   return [...map.values()].sort((a, b) => b.hours - a.hours || a.label.localeCompare(b.label));
 }
 
+export type EventMaTotal = {
+  name: string;
+  count: number;
+  hours: number;
+  points: number;
+};
+
+/** Event count, hours, and points for each roster MA, in table order. */
+export function summarizeTrackedEventsByMa(
+  events: Array<{ owner?: string; hours?: number }>,
+  roster: Array<{ name: string; tableOrder?: number }>,
+  pointsPerHour: number,
+): EventMaTotal[] {
+  const order = new Map(roster.map((m, i) => [m.name, m.tableOrder ?? i]));
+  const map = new Map<string, EventMaTotal>();
+  for (const member of roster) {
+    map.set(member.name, { name: member.name, count: 0, hours: 0, points: 0 });
+  }
+  for (const event of events || []) {
+    const name = String(event.owner || "").trim();
+    if (!name) continue;
+    const rec = map.get(name) || { name, count: 0, hours: 0, points: 0 };
+    const hours = Number(event.hours) || 0;
+    rec.count += 1;
+    rec.hours += hours;
+    rec.points += hours * pointsPerHour;
+    map.set(name, rec);
+  }
+  return [...map.values()].sort((a, b) => {
+    const ao = order.has(a.name) ? (order.get(a.name) as number) : 99;
+    const bo = order.has(b.name) ? (order.get(b.name) as number) : 99;
+    return ao - bo || a.name.localeCompare(b.name);
+  });
+}
+
 /** Roster table order, then newest date. */
 export function sortTrackedEventsByMa<T extends { owner?: string; day?: string; name?: string }>(
   events: T[],
