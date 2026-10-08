@@ -18,7 +18,7 @@ None of them create, modify, or delete a resource.
 
 | Service | Actions | Resource |
 |---|---|---|
-| Security Hub | `securityhub:GetEnabledStandards`, `securityhub:DescribeStandardsControls`, `securityhub:GetFindings` | `*` (account/region-scoped by the standard IAM condition keys if the main loop prefers that) |
+| Security Hub | `securityhub:GetEnabledStandards`, `securityhub:GetFindings` | `*` (account/region-scoped by the standard IAM condition keys if the main loop prefers that) |
 | GuardDuty | `guardduty:ListDetectors`, `guardduty:GetFindingsStatistics` | `*` |
 | Inspector2 | `inspector2:BatchGetAccountStatus`, `inspector2:ListFindings` | `*` |
 | IAM credential report | `iam:GenerateCredentialReport`, `iam:GetCredentialReport` | `*` (these two actions do not support resource-level restriction) |

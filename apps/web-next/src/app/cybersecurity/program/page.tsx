@@ -7,14 +7,13 @@ import {
   PageHead,
   RagPill,
   formatAsOf,
-  formatValue,
   manualToKpi,
   useCyberData,
   useCyberRegister,
 } from "@/components/cyber/CyberUi";
 import { ManualKpiEditor } from "@/components/cyber/SectionPage";
 import type { ManualKpi, ManualKpiInput } from "@/lib/cyber/register";
-import { SECTION_LABELS, kpisForSection } from "@/lib/cyber/shape";
+import { formatUnitValue, SECTION_LABELS, kpisForSection } from "@/lib/cyber/shape";
 
 /** GLBA Safeguards Rule (16 CFR 314.4) elements, each a manual KPI kpi-glba-<key>. */
 const GLBA_ITEMS: { key: string; label: string }[] = [
@@ -70,7 +69,7 @@ export default function CyberProgramPage() {
                       return (
                         <tr key={id}>
                           <td>{item.label}</td>
-                          <td>{k ? formatValue(k.value) : "Not recorded"}</td>
+                          <td>{k ? formatUnitValue(k.value, k.unit) : "Not recorded"}</td>
                           <td>
                             <RagPill rag={k?.rag ?? null} />
                           </td>

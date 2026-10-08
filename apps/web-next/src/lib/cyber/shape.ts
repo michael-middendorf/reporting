@@ -89,6 +89,63 @@ export function isCyberSnapshot(value: unknown): value is CyberSnapshot {
   return typeof v.generatedAt === "string" && Array.isArray(v.kpis);
 }
 
+/**
+ * Unit-aware KPI value and delta formatting, shared by every KPI tile.
+ *
+ * Known units ("percent", "count", "boolean", "days") each get a specific,
+ * display-ready shape; anything else falls back to "value unit" so a typo'd
+ * or free-text unit (manual KPIs let a person type anything) still reads
+ * sensibly instead of disappearing.
+ */
+const CYBER_NUMBER = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
+const CYBER_COUNT = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+
+function isTruthyBoolean(value: number | string | boolean | null | undefined): boolean | null {
+  if (value === 1 || value === true || value === "1" || value === "true") return true;
+  if (value === 0 || value === false || value === "0" || value === "false") return false;
+  return null;
+}
+
+/** Formats a KPI's current value for display, e.g. "92.3%", "1,234", "Yes", "12 days". */
+export function formatUnitValue(
+  value: number | string | boolean | null | undefined,
+  unit: string | null | undefined,
+): string {
+  if (value === null || value === undefined || value === "") return "n/a";
+  if (unit === "boolean") {
+    const b = isTruthyBoolean(value);
+    if (b !== null) return b ? "Yes" : "No";
+    return String(value);
+  }
+  if (typeof value !== "number") return String(value);
+  switch (unit) {
+    case "percent":
+      return `${CYBER_NUMBER.format(value)}%`;
+    case "count":
+      return CYBER_COUNT.format(value);
+    case "days":
+      return `${CYBER_NUMBER.format(value)} day${Math.abs(value) === 1 ? "" : "s"}`;
+    default:
+      return unit ? `${CYBER_NUMBER.format(value)} ${unit}` : CYBER_NUMBER.format(value);
+  }
+}
+
+/** Formats a delta's magnitude (always non-negative; the caller supplies the ▲/▼). */
+export function formatDeltaMagnitude(delta: number, unit: string | null | undefined): string {
+  const abs = Math.abs(delta);
+  switch (unit) {
+    case "percent":
+      return `${CYBER_NUMBER.format(abs)} pts`;
+    case "count":
+    case "boolean":
+      return CYBER_COUNT.format(abs);
+    case "days":
+      return `${CYBER_NUMBER.format(abs)} day${abs === 1 ? "" : "s"}`;
+    default:
+      return unit ? `${CYBER_NUMBER.format(abs)} ${unit}` : CYBER_NUMBER.format(abs);
+  }
+}
+
 const HISTORY_KEY_RE = /^cybersecurity\/history\/(\d{4}-\d{2}-\d{2})\.json$/;
 
 /** Dates from S3 keys under cybersecurity/history/, newest first. */

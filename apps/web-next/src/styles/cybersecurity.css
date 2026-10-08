@@ -70,13 +70,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.cy-tile-unit {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--t2);
-  margin-left: 3px;
-}
-
 .cy-tile-row {
   display: flex;
   flex-wrap: wrap;

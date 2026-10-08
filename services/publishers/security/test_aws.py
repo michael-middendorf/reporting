@@ -9,6 +9,7 @@ Run: PYTHONPATH=services/publishers python -m unittest discover
 from __future__ import annotations
 
 import os
+import time
 import unittest
 from datetime import datetime, timedelta, timezone
 from unittest import mock
@@ -125,6 +126,11 @@ class MergeRegionResultsTests(unittest.TestCase):
 
 
 class FakeSecurityHubClient:
+    """Single-pass fake: one GetFindings call per tally (distinguished by
+    which filter key is present, matching aws.py's real filters), returning
+    real-shaped findings (Compliance.Status / Severity.Label) for the
+    caller to tally client-side, the same as the real API would."""
+
     def __init__(self, passed: int, failed: int, by_sev: dict[str, int], *, always_more: bool = False):
         self.passed = passed
         self.failed = failed
@@ -141,15 +147,22 @@ class FakeSecurityHubClient:
         }
 
     def get_findings(self, Filters, MaxResults=100, NextToken=None):  # noqa: N803
-        compliance = Filters.get("ComplianceStatus")
-        severity = Filters.get("SeverityLabel")
-        if compliance:
-            count = self.passed if compliance[0]["Value"] == "PASSED" else self.failed
-        elif severity:
-            count = self.by_sev.get(severity[0]["Value"], 0)
+        if NextToken:
+            # Every page after the first is empty except for always_more,
+            # which repeats a single finding forever to simulate more
+            # results than the page cap / time budget allows.
+            findings = [{"Severity": {"Label": "CRITICAL"}}] if self.always_more else []
+        elif "ComplianceAssociatedStandardsId" in Filters:
+            findings = [{"Compliance": {"Status": "PASSED"}}] * self.passed + [
+                {"Compliance": {"Status": "FAILED"}}
+            ] * self.failed
+        elif "WorkflowStatus" in Filters:
+            findings = []
+            for sev, count in self.by_sev.items():
+                findings.extend([{"Severity": {"Label": sev}}] * count)
         else:
-            count = 0
-        resp = {"Findings": [{}] * count}
+            findings = []
+        resp = {"Findings": findings}
         if self.always_more:
             resp["NextToken"] = "more"
         return resp
@@ -209,6 +222,80 @@ IAM_CSV = (
 )
 
 
+class FakeMultiPageFindingsClient:
+    """Plain multi-page GetFindings fake: each entry in ``pages`` is one
+    page's worth of raw finding dicts. NextToken is set on every page
+    except the last, so pagination ends naturally once ``pages`` runs out
+    (no built-in truncation unless the caller's max_pages/deadline cuts it
+    off first)."""
+
+    def __init__(self, pages: list[list[dict]]):
+        self._pages = pages
+        self.calls = 0
+
+    def get_findings(self, Filters, MaxResults=100, NextToken=None):  # noqa: N803
+        page = self._pages[self.calls]
+        self.calls += 1
+        resp = {"Findings": page}
+        if self.calls < len(self._pages):
+            resp["NextToken"] = f"token-{self.calls}"
+        return resp
+
+
+class ScanFindingsTests(unittest.TestCase):
+    """aws._scan_findings: the single-pass GetFindings helper that replaced
+    one paginated call per severity/compliance-status bucket."""
+
+    def test_tallies_every_finding_across_all_pages_when_nothing_truncates(self):
+        client = FakeMultiPageFindingsClient([[{"v": 1}], [{"v": 2}], [{"v": 3}]])
+        seen: list[dict] = []
+        truncated = aws._scan_findings(client, {}, seen.append, deadline=time.monotonic() + 60)
+        self.assertFalse(truncated)
+        self.assertEqual(seen, [{"v": 1}, {"v": 2}, {"v": 3}])
+
+    def test_truncates_when_the_page_cap_is_hit_with_more_pages_remaining(self):
+        client = FakeMultiPageFindingsClient([[{"v": 1}], [{"v": 2}], [{"v": 3}]])
+        seen: list[dict] = []
+        truncated = aws._scan_findings(client, {}, seen.append, deadline=time.monotonic() + 60, max_pages=2)
+        self.assertTrue(truncated)
+        self.assertEqual(seen, [{"v": 1}, {"v": 2}])  # the 3rd page was never fetched
+
+    def test_truncates_when_the_wall_clock_deadline_is_already_passed(self):
+        # A deadline in the past: the page already in hand still gets
+        # tallied, but the pass stops instead of requesting the next page.
+        client = FakeMultiPageFindingsClient([[{"v": 1}], [{"v": 2}], [{"v": 3}]])
+        seen: list[dict] = []
+        truncated = aws._scan_findings(client, {}, seen.append, deadline=time.monotonic() - 1)
+        self.assertTrue(truncated)
+        self.assertEqual(seen, [{"v": 1}])
+
+    def test_not_truncated_when_pagination_ends_naturally_even_past_the_deadline(self):
+        # Only one page exists: NextToken is absent, so pagination ends
+        # before the deadline is ever checked. An already-passed deadline
+        # must never be reported as truncation when there was nothing left
+        # to fetch anyway.
+        client = FakeMultiPageFindingsClient([[{"v": 1}]])
+        seen: list[dict] = []
+        truncated = aws._scan_findings(client, {}, seen.append, deadline=time.monotonic() - 1)
+        self.assertFalse(truncated)
+        self.assertEqual(seen, [{"v": 1}])
+
+    def test_a_shared_deadline_across_two_scans_can_truncate_the_second_one(self):
+        # Mirrors _securityhub_region: one deadline is reused for both the
+        # FSBP tally and the active-findings tally. If the first scan nearly
+        # exhausts the budget, the second scan truncates even though it
+        # individually "could" have paged further.
+        deadline = time.monotonic() + 0.05
+        slow_client = FakeMultiPageFindingsClient([[{"v": 1}], [{"v": 2}]])
+        seen: list[dict] = []
+        aws._scan_findings(slow_client, {}, seen.append, deadline=deadline)
+        time.sleep(0.1)  # push past the shared deadline before the 2nd scan
+        second_client = FakeMultiPageFindingsClient([[{"v": 3}], [{"v": 4}]])
+        truncated = aws._scan_findings(second_client, {}, seen.append, deadline=deadline)
+        self.assertTrue(truncated)
+        self.assertEqual(seen, [{"v": 1}, {"v": 2}, {"v": 3}])  # the 2nd scan's page 2 never ran
+
+
 class SecurityHubTests(unittest.TestCase):
     def test_pass_rate_and_active_findings(self):
         fake = FakeSecurityHubClient(passed=80, failed=20, by_sev={"CRITICAL": 1, "HIGH": 2, "MEDIUM": 3, "LOW": 4})
@@ -232,6 +319,76 @@ class SecurityHubTests(unittest.TestCase):
             result = aws.securityhub()
         self.assertEqual(result["status"], "ok")
         self.assertTrue(result["data"]["truncated"])
+
+
+class FakeCredentialReportPollingClient:
+    """get_credential_report raises a ClientError for each code in
+    ``codes`` (in order), then returns ``content``. Real IAM wire error
+    codes for this operation are the short form ("ReportNotPresent",
+    "ReportExpired", "ReportInProgress"), so tests exercise those by
+    default; one test also exercises the long boto3 exception-class-name
+    spelling to confirm both are accepted."""
+
+    def __init__(self, codes: list[str], content: bytes = b"report-bytes"):
+        self._codes = list(codes)
+        self._content = content
+        self.generate_calls = 0
+
+    def generate_credential_report(self):
+        self.generate_calls += 1
+
+    def get_credential_report(self):
+        if self._codes:
+            code = self._codes.pop(0)
+            raise _client_error(code)
+        return {"Content": self._content}
+
+
+class FakeAlwaysInProgressClient:
+    """Never finishes: every call reports the report is still generating."""
+
+    def generate_credential_report(self):
+        pass
+
+    def get_credential_report(self):
+        raise _client_error("ReportInProgress")
+
+
+class PollCredentialReportTests(unittest.TestCase):
+    def test_in_progress_then_ready_does_not_regenerate(self):
+        client = FakeCredentialReportPollingClient(["ReportInProgress", "ReportInProgress"])
+        content = aws._poll_credential_report(client, delay_s=0.01)
+        self.assertEqual(content, b"report-bytes")
+        self.assertEqual(client.generate_calls, 0)  # in-progress just waits, never regenerates
+
+    def test_not_present_then_ready_regenerates_once(self):
+        client = FakeCredentialReportPollingClient(["ReportNotPresent"])
+        content = aws._poll_credential_report(client, delay_s=0.01)
+        self.assertEqual(content, b"report-bytes")
+        self.assertEqual(client.generate_calls, 1)
+
+    def test_expired_then_ready_regenerates_once(self):
+        client = FakeCredentialReportPollingClient(["ReportExpired"])
+        content = aws._poll_credential_report(client, delay_s=0.01)
+        self.assertEqual(content, b"report-bytes")
+        self.assertEqual(client.generate_calls, 1)
+
+    def test_accepts_the_long_boto3_exception_class_name_spellings_too(self):
+        client = FakeCredentialReportPollingClient(["CredentialReportNotPresentException"])
+        content = aws._poll_credential_report(client, delay_s=0.01)
+        self.assertEqual(content, b"report-bytes")
+        self.assertEqual(client.generate_calls, 1)
+
+    def test_raises_an_unrecognized_error_code_immediately_without_waiting(self):
+        client = FakeCredentialReportPollingClient(["AccessDenied"])
+        with self.assertRaises(ClientError):
+            aws._poll_credential_report(client, delay_s=0.01)
+
+    def test_gives_up_after_the_bounded_wait_elapses_still_in_progress(self):
+        client = FakeAlwaysInProgressClient()
+        with self.assertRaises(RuntimeError) as ctx:
+            aws._poll_credential_report(client, max_wait_s=0.05, delay_s=0.01)
+        self.assertIn("ReportInProgress", str(ctx.exception))
 
 
 class IamCredentialReportTests(unittest.TestCase):

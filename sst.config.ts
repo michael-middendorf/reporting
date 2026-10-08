@@ -613,7 +613,6 @@ export default $config({
             Effect: "Allow",
             Action: [
               "securityhub:GetEnabledStandards",
-              "securityhub:DescribeStandardsControls",
               "securityhub:GetFindings",
               "guardduty:ListDetectors",
               "guardduty:GetFindingsStatistics",
@@ -678,14 +677,21 @@ export default $config({
       }),
     });
 
+    const securityRefreshFunctionName = `${$app.name}-${$app.stage}-SecurityRefresh`;
+
     new sst.aws.Cron("SecurityRefresh", {
       // 10:00 UTC daily (05:00 EST / 06:00 EDT).
       schedule: "cron(0 10 * * ? *)",
       function: {
-        name: `${$app.name}-${$app.stage}-SecurityRefresh`,
+        name: securityRefreshFunctionName,
         handler: "services/publishers/security/handler.handler",
         runtime: "python3.12",
-        timeout: "10 minutes",
+        // Security Hub alone can now spend up to SECURITYHUB_TIME_BUDGET_S
+        // (240s) per region (us-east-2, us-east-1) before it must stop and
+        // report truncated=true, i.e. up to ~8 of the old 10-minute budget
+        // before the other sources (GuardDuty, Inspector2, IAM, CloudTrail,
+        // Backup, RDS, ACM, VPN, GitHub, AD) even run. Raised for headroom.
+        timeout: "15 minutes",
         memory: "512 MB",
         retries: 0,
         role: securityPublisherRole.arn,
@@ -703,6 +709,93 @@ export default $config({
           CYBER_KMS_KEY_ID: cyberKeyArn,
         },
       },
+    });
+
+    // IT-3 follow-up: alert when the publisher itself errors (vs. a source
+    // inside it going "missing"/"not_licensed", which is handled by its own
+    // per-source status and never raises). Sum >= 1 over a 1-day window
+    // (the publisher runs once daily) with treatMissingData "notBreaching"
+    // so a quiet day (e.g. the cron paused) never pages anyone.
+    //
+    // A dedicated topic, not the shared security-alerts topic: that topic's
+    // policy only allows events.amazonaws.com and account IAM principals,
+    // not cloudwatch.amazonaws.com, so this alarm's notifications would be
+    // silently denied there.
+    const securityRefreshErrorsAlarmName = "amu-reporting-security-refresh-errors";
+    // A plain string, not alarmResource.arn: the alarm's actions need this
+    // topic's ARN and the topic's policy needs the alarm's ARN, so deriving
+    // either one from the other's resource output would be a dependency
+    // cycle. CloudWatch alarm ARNs are deterministic from region/account/
+    // name, so this is exact without needing the resource itself.
+    const securityRefreshErrorsAlarmArn = `arn:aws:cloudwatch:us-east-2:${account}:alarm:${securityRefreshErrorsAlarmName}`;
+
+    const securityRefreshAlertsTopic = new aws.sns.Topic("SecurityRefreshAlertsTopic", {
+      name: "amu-reporting-security-refresh-alerts",
+    });
+
+    new aws.sns.TopicPolicy("SecurityRefreshAlertsTopicPolicy", {
+      arn: securityRefreshAlertsTopic.arn,
+      policy: $jsonStringify({
+        Version: "2012-10-17",
+        Statement: [
+          {
+            // The default policy SNS would otherwise generate: the topic's
+            // owning account may manage/publish/subscribe. A custom policy
+            // replaces the default entirely, so this is carried over
+            // explicitly rather than lost.
+            Sid: "OwnerAccountManage",
+            Effect: "Allow",
+            Principal: { AWS: "*" },
+            Action: [
+              "SNS:GetTopicAttributes",
+              "SNS:SetTopicAttributes",
+              "SNS:AddPermission",
+              "SNS:RemovePermission",
+              "SNS:DeleteTopic",
+              "SNS:Subscribe",
+              "SNS:ListSubscriptionsByTopic",
+              "SNS:Publish",
+              "SNS:Receive",
+            ],
+            Resource: securityRefreshAlertsTopic.arn,
+            Condition: { StringEquals: { "AWS:SourceOwner": account } },
+          },
+          {
+            Sid: "AllowCloudWatchAlarmPublish",
+            Effect: "Allow",
+            Principal: { Service: "cloudwatch.amazonaws.com" },
+            Action: "SNS:Publish",
+            Resource: securityRefreshAlertsTopic.arn,
+            Condition: {
+              StringEquals: {
+                "aws:SourceAccount": account,
+                "aws:SourceArn": securityRefreshErrorsAlarmArn,
+              },
+            },
+          },
+        ],
+      }),
+    });
+
+    new aws.sns.TopicSubscription("SecurityRefreshAlertsEmail", {
+      topic: securityRefreshAlertsTopic.arn,
+      protocol: "email",
+      endpoint: "michael.t.middendorf@avemaria.edu",
+    });
+
+    new aws.cloudwatch.MetricAlarm("SecurityRefreshErrorsAlarm", {
+      name: securityRefreshErrorsAlarmName,
+      namespace: "AWS/Lambda",
+      metricName: "Errors",
+      dimensions: { FunctionName: securityRefreshFunctionName },
+      statistic: "Sum",
+      period: 86400,
+      evaluationPeriods: 1,
+      threshold: 1,
+      comparisonOperator: "GreaterThanOrEqualToThreshold",
+      treatMissingData: "notBreaching",
+      alarmActions: [securityRefreshAlertsTopic.arn],
+      okActions: [securityRefreshAlertsTopic.arn],
     });
 
     new sst.aws.Cron("EnrollmentRefresh", {

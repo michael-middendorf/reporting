@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { riskBand, validateManualKpiInput, validateRiskInput, type RiskInput } from "./register";
-import { historyDatesFromKeys } from "./shape";
+import { formatDeltaMagnitude, formatUnitValue, historyDatesFromKeys } from "./shape";
 
 const GOOD: RiskInput = {
   id: "risk-example",
@@ -149,5 +149,67 @@ describe("helpers", () => {
       ]),
       ["2026-11-01", "2026-10-01"],
     );
+  });
+});
+
+describe("formatUnitValue", () => {
+  it("formats percent with no space before the sign", () => {
+    assert.equal(formatUnitValue(92.3, "percent"), "92.3%");
+    assert.equal(formatUnitValue(100, "percent"), "100%");
+  });
+
+  it("formats count as a plain number with thousands separators and no unit text", () => {
+    assert.equal(formatUnitValue(0, "count"), "0");
+    assert.equal(formatUnitValue(1234, "count"), "1,234");
+  });
+
+  it("formats boolean as Yes/No for 1/0 and true/false", () => {
+    assert.equal(formatUnitValue(1, "boolean"), "Yes");
+    assert.equal(formatUnitValue(0, "boolean"), "No");
+    assert.equal(formatUnitValue(true, "boolean"), "Yes");
+    assert.equal(formatUnitValue(false, "boolean"), "No");
+  });
+
+  it("formats days with a day/days suffix", () => {
+    assert.equal(formatUnitValue(12, "days"), "12 days");
+    assert.equal(formatUnitValue(1, "days"), "1 day");
+  });
+
+  it("falls back to value plus unit for an unknown or free-text unit", () => {
+    assert.equal(formatUnitValue(82.5, "%"), "82.5 %");
+    assert.equal(formatUnitValue(4, null), "4");
+  });
+
+  it("returns n/a for null, undefined, or empty values", () => {
+    assert.equal(formatUnitValue(null, "count"), "n/a");
+    assert.equal(formatUnitValue(undefined, "count"), "n/a");
+    assert.equal(formatUnitValue("", "count"), "n/a");
+  });
+
+  it("passes a non-numeric string value through unchanged", () => {
+    assert.equal(formatUnitValue("Done", "count"), "Done");
+  });
+});
+
+describe("formatDeltaMagnitude", () => {
+  it("uses pts for percent deltas", () => {
+    assert.equal(formatDeltaMagnitude(1.5, "percent"), "1.5 pts");
+  });
+
+  it("uses a plain number for count deltas (no unit text)", () => {
+    assert.equal(formatDeltaMagnitude(2, "count"), "2");
+  });
+
+  it("uses day/days for days deltas", () => {
+    assert.equal(formatDeltaMagnitude(3, "days"), "3 days");
+    assert.equal(formatDeltaMagnitude(1, "days"), "1 day");
+  });
+
+  it("always reports a non-negative magnitude", () => {
+    assert.equal(formatDeltaMagnitude(-2, "count"), "2");
+  });
+
+  it("falls back to value plus unit for an unknown unit", () => {
+    assert.equal(formatDeltaMagnitude(5, "widgets"), "5 widgets");
   });
 });
