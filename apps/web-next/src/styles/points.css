@@ -616,6 +616,16 @@ table.grid.spread td {
 .mini-btn.solid { background: var(--navy); color: #fff; border-color: var(--navy); }
 .mini-btn.solid:hover { background: var(--navy-700); }
 .mini-btn.danger:hover { border-color: var(--warn); color: var(--warn); }
+.mini-btn.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  vertical-align: middle;
+}
+.mini-btn.icon svg { width: 16px; height: 16px; display: block; }
 .pill.warn { background: #fdeee7; border-color: #f0c2ab; color: var(--warn); }
 table.grid.audit th, table.grid.audit td { padding: 7px 10px; font-size: .85rem; text-align: left; white-space: nowrap; }
 table.grid.audit td.pts { text-align: right; font-weight: 500; color: var(--navy); }
