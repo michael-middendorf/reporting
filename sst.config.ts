@@ -176,8 +176,53 @@ export default $config({
       },
     ];
 
+    // IT-3 Cybersecurity KPI snapshots (cybersecurity/*). Written only by the
+    // SecurityPublisher role, read only by it, the ECS web task role and break-glass.
+    // Every write must be SSE-KMS (alias/amu-reporting-cyber, created in
+    // infra/lib/reporting-ecs-stack.ts as CyberKey). The web task role name has a
+    // CDK suffix, so it is matched with ArnNotLike.
+    const securityPublisherRoleName = "amu-reporting-security-publisher";
+    const securityPublisherRoleArn = `arn:aws:iam::${account}:role/${securityPublisherRoleName}`;
+    const cyberWebReaderPattern = `arn:aws:iam::${account}:role/AmuReportingEcs-WebTaskTaskRole*`;
+    const cyberKeyArn = `arn:aws:kms:us-east-2:${account}:key/ba0b8184-c8f3-4b6e-8733-f8c9c9022bcb`;
+    const cyberPrefixPolicy = [
+      {
+        effect: "deny" as const,
+        principals: "*" as const,
+        actions: ["s3:PutObject", "s3:DeleteObject", "s3:DeleteObjectVersion", "s3:PutObjectAcl"],
+        paths: ["cybersecurity/*"],
+        conditions: [{ test: "ArnNotEquals", variable: "aws:PrincipalArn", values: [securityPublisherRoleArn] }],
+      },
+      {
+        effect: "deny" as const,
+        principals: "*" as const,
+        actions: ["s3:GetObject", "s3:GetObjectVersion"],
+        paths: ["cybersecurity/*"],
+        conditions: [
+          { test: "ArnNotLike", variable: "aws:PrincipalArn", values: [securityPublisherRoleArn, cyberWebReaderPattern, ...breakGlassReaders] },
+        ],
+      },
+      {
+        effect: "deny" as const,
+        principals: "*" as const,
+        actions: ["s3:PutObject"],
+        paths: ["cybersecurity/*"],
+        conditions: [{ test: "StringNotEquals", variable: "s3:x-amz-server-side-encryption", values: ["aws:kms"] }],
+      },
+      {
+        effect: "deny" as const,
+        principals: "*" as const,
+        actions: ["s3:ListBucket"],
+        paths: [""],
+        conditions: [
+          { test: "StringLike", variable: "s3:prefix", values: ["cybersecurity/*"] },
+          { test: "ArnNotLike", variable: "aws:PrincipalArn", values: [securityPublisherRoleArn, cyberWebReaderPattern, ...breakGlassReaders] },
+        ],
+      },
+    ];
+
     const data = new sst.aws.Bucket("ReportData", {
-      policy: [...isolatedSourcePolicy, ...scholarshipNeedPolicy, ...athleticsFinancePolicy],
+      policy: [...isolatedSourcePolicy, ...scholarshipNeedPolicy, ...athleticsFinancePolicy, ...cyberPrefixPolicy],
     });
 
     // Magic-link nonce table lives in infra/lib/reporting-ecs-stack.ts (deployed
@@ -545,6 +590,119 @@ export default $config({
         ATHLETICS_COACHING_FUNDRAISING_CACHE_KEY: "athletics-coaching-fundraising/latest.json",
       },
       permissions: reportDataPerms,
+    });
+
+    // IT-3 Cybersecurity publisher. Own named role (the bucket policy above keys on
+    // its ARN), read-only AWS security APIs, writes only cybersecurity/latest.json
+    // and cybersecurity/history/*. Action list: services/publishers/security/IAM.md.
+    const securityPublisherRole = new aws.iam.Role("SecurityPublisherRole", {
+      name: securityPublisherRoleName,
+      assumeRolePolicy: JSON.stringify({
+        Version: "2012-10-17",
+        Statement: [{ Effect: "Allow", Principal: { Service: "lambda.amazonaws.com" }, Action: "sts:AssumeRole" }],
+      }),
+      managedPolicyArns: ["arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"],
+    });
+    new aws.iam.RolePolicy("SecurityPublisherPolicy", {
+      role: securityPublisherRole.name,
+      policy: $jsonStringify({
+        Version: "2012-10-17",
+        Statement: [
+          {
+            Sid: "ReadOnlySecurityTelemetry",
+            Effect: "Allow",
+            Action: [
+              "securityhub:GetEnabledStandards",
+              "securityhub:DescribeStandardsControls",
+              "securityhub:GetFindings",
+              "guardduty:ListDetectors",
+              "guardduty:GetFindingsStatistics",
+              "inspector2:BatchGetAccountStatus",
+              "inspector2:ListFindings",
+              "iam:GenerateCredentialReport",
+              "iam:GetCredentialReport",
+              "sts:GetCallerIdentity",
+              "cloudtrail:DescribeTrails",
+              "cloudtrail:GetTrailStatus",
+              "backup:ListBackupJobs",
+              "rds:DescribeDBInstances",
+              "acm:ListCertificates",
+              "acm:DescribeCertificate",
+              "ec2:DescribeVpnConnections",
+            ],
+            Resource: "*",
+          },
+          {
+            Sid: "ListCyberPrefix",
+            Effect: "Allow",
+            Action: "s3:ListBucket",
+            Resource: $interpolate`arn:aws:s3:::${data.name}`,
+            Condition: { StringLike: { "s3:prefix": ["cybersecurity/*"] } },
+          },
+          {
+            Sid: "ReadCyberInputs",
+            Effect: "Allow",
+            Action: "s3:GetObject",
+            Resource: [
+              $interpolate`arn:aws:s3:::${data.name}/cybersecurity/inbox/ad/*`,
+              $interpolate`arn:aws:s3:::${data.name}/cybersecurity/history/*`,
+              $interpolate`arn:aws:s3:::${data.name}/cybersecurity/latest.json`,
+            ],
+          },
+          {
+            Sid: "WriteCyberSnapshots",
+            Effect: "Allow",
+            Action: "s3:PutObject",
+            Resource: [
+              $interpolate`arn:aws:s3:::${data.name}/cybersecurity/latest.json`,
+              $interpolate`arn:aws:s3:::${data.name}/cybersecurity/history/*`,
+            ],
+          },
+          {
+            Sid: "CyberKeyViaS3",
+            Effect: "Allow",
+            Action: ["kms:GenerateDataKey", "kms:Decrypt"],
+            Resource: cyberKeyArn,
+            Condition: { StringEquals: { "kms:ViaService": "s3.us-east-2.amazonaws.com" } },
+          },
+          {
+            Sid: "SecurityAppSecrets",
+            Effect: "Allow",
+            Action: "secretsmanager:GetSecretValue",
+            Resource: [
+              `arn:aws:secretsmanager:us-east-2:${account}:secret:amu-reporting/production/security-github-app-*`,
+              `arn:aws:secretsmanager:us-east-2:${account}:secret:amu-reporting/production/security-graph-*`,
+            ],
+          },
+        ],
+      }),
+    });
+
+    new sst.aws.Cron("SecurityRefresh", {
+      // 10:00 UTC daily (05:00 EST / 06:00 EDT).
+      schedule: "cron(0 10 * * ? *)",
+      function: {
+        name: `${$app.name}-${$app.stage}-SecurityRefresh`,
+        handler: "services/publishers/security/handler.handler",
+        runtime: "python3.12",
+        timeout: "10 minutes",
+        memory: "512 MB",
+        retries: 0,
+        role: securityPublisherRole.arn,
+        python: { uv: true },
+        // Sibling modules go to the bundle root (same as housing_data.py above).
+        copyFiles: [
+          ...commonFiles,
+          ...["ad", "aws", "compose", "github", "graph", "guard"].map((m) => ({
+            from: `services/publishers/security/${m}.py`,
+            to: `${m}.py`,
+          })),
+        ],
+        environment: {
+          DATA_BUCKET: data.name,
+          CYBER_KMS_KEY_ID: cyberKeyArn,
+        },
+      },
     });
 
     new sst.aws.Cron("EnrollmentRefresh", {

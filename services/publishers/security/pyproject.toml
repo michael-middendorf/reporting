@@ -1,0 +1,19 @@
+[project]
+name = "security-publisher"
+version = "0.1.0"
+requires-python = "==3.12.*"
+dependencies = [
+  "boto3>=1.34.0",
+  # Only needed at runtime by github.py's RS256 App JWT signing, and imported
+  # lazily there so unit tests (and CI, which installs just boto3) never need
+  # it. Already present transitively via pyOpenSSL in Dockerfile.worker; add
+  # it explicitly there too so this stays true if pyOpenSSL is ever dropped.
+  "cryptography>=42.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+only-include = ["handler.py", "aws.py", "github.py", "graph.py", "ad.py", "compose.py", "guard.py"]
