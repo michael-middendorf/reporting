@@ -201,8 +201,10 @@ class BuildDocumentTests(unittest.TestCase):
         self.assertEqual(kpi["status"], "missing")
         self.assertEqual(kpi["rag"], "grey")
 
-    def test_delta_against_previous_history(self):
-        previous = {"kpis": [{"id": "fsbp_pass_rate", "value": 85.0}]}
+    def test_delta_against_previous_history_at_least_25_days_old(self):
+        # NOW is 2026-10-08; 2026-08-01 is 68 days earlier, well past the
+        # 25-day minimum baseline age.
+        previous = {"generatedAt": "2026-08-01T00:00:00Z", "kpis": [{"id": "fsbp_pass_rate", "value": 85.0}]}
         doc = compose.build_document(SOURCES_ALL_OK, now=NOW, previous=previous)
         kpi = next(k for k in doc["kpis"] if k["id"] == "fsbp_pass_rate")
         self.assertEqual(kpi["delta"], 7.0)
@@ -212,9 +214,72 @@ class BuildDocumentTests(unittest.TestCase):
         kpi = next(k for k in doc["kpis"] if k["id"] == "fsbp_pass_rate")
         self.assertIsNone(kpi["delta"])
 
+    def test_delta_is_none_when_the_comparison_snapshot_is_too_recent(self):
+        # 2026-10-01 is only 7 days before NOW: not a usable "vs last month"
+        # baseline even though the KPI value differs.
+        previous = {"generatedAt": "2026-10-01T00:00:00Z", "kpis": [{"id": "fsbp_pass_rate", "value": 85.0}]}
+        doc = compose.build_document(SOURCES_ALL_OK, now=NOW, previous=previous)
+        kpi = next(k for k in doc["kpis"] if k["id"] == "fsbp_pass_rate")
+        self.assertIsNone(kpi["delta"])
+
+    def test_delta_is_none_exactly_at_the_24_day_boundary(self):
+        previous = {"generatedAt": "2026-09-14T05:00:00Z", "kpis": [{"id": "fsbp_pass_rate", "value": 85.0}]}
+        doc = compose.build_document(SOURCES_ALL_OK, now=NOW, previous=previous)
+        kpi = next(k for k in doc["kpis"] if k["id"] == "fsbp_pass_rate")
+        self.assertIsNone(kpi["delta"])
+
+    def test_delta_is_none_when_previous_has_no_generated_at(self):
+        previous = {"kpis": [{"id": "fsbp_pass_rate", "value": 85.0}]}
+        doc = compose.build_document(SOURCES_ALL_OK, now=NOW, previous=previous)
+        kpi = next(k for k in doc["kpis"] if k["id"] == "fsbp_pass_rate")
+        self.assertIsNone(kpi["delta"])
+
     def test_document_passes_the_guard(self):
         doc = compose.build_document(SOURCES_ALL_OK, now=NOW)
         guard.assert_clean(doc)  # must not raise
+
+
+class TruncationNoteTests(unittest.TestCase):
+    def test_truncated_securityhub_notes_the_kpis_it_feeds(self):
+        sources = dict(SOURCES_ALL_OK)
+        sources["aws"] = _aws_source(
+            securityhub={
+                "status": "ok",
+                "data": {"fsbpPassRatePercent": 92.0, "activeCriticalHigh": 1, "truncated": True},
+            },
+            guardduty={"status": "ok", "data": {"criticalHigh": 0}},
+            inspector2={"status": "ok", "data": {"criticalHighOverSla": 0}},
+            iam={
+                "status": "ok",
+                "data": {
+                    "consoleUsersWithoutMfa": 0,
+                    "activeKeysOver90d": 0,
+                    "rootMfaEnabledValue": 1,
+                    "rootAccessKeysPresentValue": 0,
+                },
+            },
+            cloudtrail={"status": "ok", "data": {"multiRegionTrailsNotLogging": 0}},
+            backup={"status": "ok", "data": {"successPercent": 100.0}},
+            rds={"status": "ok", "data": {"publiclyAccessibleCount": 0}},
+            acm={"status": "ok", "data": {"expiring30": 0}},
+            vpn={"status": "ok", "data": {"tunnelsDown": 0}},
+        )
+        doc = compose.build_document(sources, now=NOW)
+        by_id = {k["id"]: k for k in doc["kpis"]}
+        self.assertEqual(by_id["fsbp_pass_rate"]["note"], "Lower bound: result limit reached")
+        self.assertEqual(by_id["securityhub_active_critical_high"]["note"], "Lower bound: result limit reached")
+        # A KPI fed by a different, non-truncated sub-source is unaffected.
+        self.assertIsNone(by_id["guardduty_critical_high"]["note"])
+
+    def test_no_note_when_not_truncated(self):
+        doc = compose.build_document(SOURCES_ALL_OK, now=NOW)
+        by_id = {k["id"]: k for k in doc["kpis"]}
+        self.assertIsNone(by_id["fsbp_pass_rate"]["note"])
+
+    def test_no_note_for_a_kpi_not_fed_by_an_aws_sub_source(self):
+        doc = compose.build_document(SOURCES_ALL_OK, now=NOW)
+        by_id = {k["id"]: k for k in doc["kpis"]}
+        self.assertIsNone(by_id["ad_domain_admins"]["note"])
 
 
 # ---------------------------------------------------------------------------
@@ -293,14 +358,41 @@ class LoadPreviousForDeltaTests(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
-class OffendingTopLevelSourcesTests(unittest.TestCase):
-    def test_matches_a_sources_rooted_path(self):
-        violations = [("$.sources.github.error", "email"), ("$.sources.aws.data.iam.note", "ipv4")]
-        self.assertEqual(compose._offending_top_level_sources(violations), {"github", "aws"})
+class OffendingSourcesTests(unittest.TestCase):
+    def test_a_violation_under_a_known_aws_sub_source_redacts_only_that_sub_source(self):
+        violations = [("$.sources.aws.data.iam.data.note", "ipv4")]
+        self.assertEqual(compose._offending_sources(violations, SOURCES_ALL_OK), {("aws", "iam")})
+
+    def test_a_violation_with_no_data_segment_falls_back_to_the_whole_top_level_source(self):
+        violations = [("$.sources.github.error", "email")]
+        self.assertEqual(compose._offending_sources(violations, SOURCES_ALL_OK), {("github",)})
+
+    def test_a_violation_under_an_unknown_sub_source_name_falls_back_to_the_top_level_source(self):
+        # "notreal" is not a key under sources.aws.data, so there is no
+        # narrower node to redact.
+        violations = [("$.sources.aws.data.notreal.x", "email")]
+        self.assertEqual(compose._offending_sources(violations, SOURCES_ALL_OK), {("aws",)})
+
+    def test_mixed_violations_yield_one_narrow_and_one_top_level_target(self):
+        violations = [("$.sources.github.error", "email"), ("$.sources.aws.data.iam.data.note", "ipv4")]
+        self.assertEqual(compose._offending_sources(violations, SOURCES_ALL_OK), {("github",), ("aws", "iam")})
 
     def test_ignores_a_path_outside_sources(self):
         violations = [("$.kpis[0].label", "email")]
-        self.assertEqual(compose._offending_top_level_sources(violations), set())
+        self.assertEqual(compose._offending_sources(violations, SOURCES_ALL_OK), set())
+
+
+class RedactedSourcesTests(unittest.TestCase):
+    def test_narrow_target_redacts_only_that_sub_source(self):
+        redacted = compose._redacted_sources(SOURCES_ALL_OK, {("aws", "iam")})
+        self.assertEqual(redacted["aws"]["data"]["iam"], {"status": "error", "error": "redacted"})
+        # Every other aws sub-source is untouched.
+        self.assertEqual(redacted["aws"]["data"]["guardduty"], SOURCES_ALL_OK["aws"]["data"]["guardduty"])
+        self.assertEqual(redacted["github"], SOURCES_ALL_OK["github"])
+
+    def test_top_level_target_redacts_the_whole_source(self):
+        redacted = compose._redacted_sources(SOURCES_ALL_OK, {("github",)})
+        self.assertEqual(redacted["github"], {"status": "error", "error": "redacted"})
 
 
 class BuildAndPublishTests(unittest.TestCase):
@@ -348,6 +440,47 @@ class BuildAndPublishTests(unittest.TestCase):
         self.assertEqual(doc["sources"]["ad"], {"status": "error", "error": "redacted"})
         # aws/github were never touched by the ad.* violation.
         self.assertEqual(doc["sources"]["github"]["status"], "ok")
+
+    def test_a_poisoned_aws_sub_source_redacts_only_that_sub_source_not_all_of_aws(self):
+        # Regression for over-broad redaction: a bad value nested under one
+        # AWS sub-source (iam) used to blank the entire "aws" source, taking
+        # out securityhub/guardduty/etc. KPIs that were never poisoned.
+        poisoned = dict(SOURCES_ALL_OK)
+        poisoned["aws"] = _aws_source(
+            securityhub={"status": "ok", "data": {"fsbpPassRatePercent": 92.0, "activeCriticalHigh": 1}},
+            guardduty={"status": "ok", "data": {"criticalHigh": 0}},
+            inspector2={"status": "ok", "data": {"criticalHighOverSla": 0}},
+            iam={
+                "status": "ok",
+                "data": {
+                    "consoleUsersWithoutMfa": 0,
+                    "activeKeysOver90d": 0,
+                    "rootMfaEnabledValue": 1,
+                    "rootAccessKeysPresentValue": 0,
+                    "note": "contact jane.doe@example.com",
+                },
+            },
+            cloudtrail={"status": "ok", "data": {"multiRegionTrailsNotLogging": 0}},
+            backup={"status": "ok", "data": {"successPercent": 100.0}},
+            rds={"status": "ok", "data": {"publiclyAccessibleCount": 0}},
+            acm={"status": "ok", "data": {"expiring30": 0}},
+            vpn={"status": "ok", "data": {"tunnelsDown": 0}},
+        )
+        with mock.patch.object(compose, "load_previous_for_delta", return_value=None):
+            with mock.patch("common.s3util.put_json") as put_json:
+                doc = compose.build_and_publish(poisoned, write=True, now=NOW, bucket="fake")
+        self.assertEqual(put_json.call_count, 2)  # the write happened
+        self.assertEqual(doc["sources"]["aws"]["data"]["iam"], {"status": "error", "error": "redacted"})
+        # Every other aws sub-source survives untouched.
+        self.assertEqual(doc["sources"]["aws"]["data"]["guardduty"]["status"], "ok")
+        by_id = {k["id"]: k for k in doc["kpis"]}
+        self.assertEqual(by_id["console_users_without_mfa"]["status"], "missing")
+        self.assertEqual(by_id["console_users_without_mfa"]["rag"], "grey")
+        self.assertIsNone(by_id["console_users_without_mfa"]["value"])
+        # fsbp_pass_rate is fed by securityhub, not iam: unaffected.
+        self.assertEqual(by_id["fsbp_pass_rate"]["status"], "ok")
+        self.assertEqual(by_id["fsbp_pass_rate"]["value"], 92.0)
+        guard.assert_clean(doc)
 
     def test_raises_and_does_not_write_when_redaction_cannot_fix_it(self):
         # Simulates a violation the redaction pass cannot resolve (e.g. a

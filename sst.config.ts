@@ -613,7 +613,6 @@ export default $config({
             Effect: "Allow",
             Action: [
               "securityhub:GetEnabledStandards",
-              "securityhub:DescribeStandardsControls",
               "securityhub:GetFindings",
               "guardduty:ListDetectors",
               "guardduty:GetFindingsStatistics",
@@ -678,11 +677,13 @@ export default $config({
       }),
     });
 
+    const securityRefreshFunctionName = `${$app.name}-${$app.stage}-SecurityRefresh`;
+
     new sst.aws.Cron("SecurityRefresh", {
       // 10:00 UTC daily (05:00 EST / 06:00 EDT).
       schedule: "cron(0 10 * * ? *)",
       function: {
-        name: `${$app.name}-${$app.stage}-SecurityRefresh`,
+        name: securityRefreshFunctionName,
         handler: "services/publishers/security/handler.handler",
         runtime: "python3.12",
         timeout: "10 minutes",
@@ -703,6 +704,33 @@ export default $config({
           CYBER_KMS_KEY_ID: cyberKeyArn,
         },
       },
+    });
+
+    // IT-3 follow-up: alert when the publisher itself errors (vs. a source
+    // inside it going "missing"/"not_licensed", which is handled by its own
+    // per-source status and never raises). Sum >= 1 over a 1-day window
+    // (the publisher runs once daily) with treatMissingData "notBreaching"
+    // so a quiet day (e.g. the cron paused) never pages anyone.
+    //
+    // No SNS topic scoped to reporting-job alerts exists yet (checked this
+    // file, infra/, and `aws sns list-topics --region us-east-2` read-only:
+    // existing topics are amu-budget-hard-stop, avemaria-api-alerts,
+    // conduct-alarms, connect-ses-events, health-portal-alarms,
+    // health-portal-ses-events, meal-train's own CDK topic, security-alerts,
+    // and undergrad-form-alarms; none is a general reporting-jobs topic).
+    // alarmActions is intentionally empty until Michael names one to use.
+    new aws.cloudwatch.MetricAlarm("SecurityRefreshErrorsAlarm", {
+      name: "amu-reporting-security-refresh-errors",
+      namespace: "AWS/Lambda",
+      metricName: "Errors",
+      dimensions: { FunctionName: securityRefreshFunctionName },
+      statistic: "Sum",
+      period: 86400,
+      evaluationPeriods: 1,
+      threshold: 1,
+      comparisonOperator: "GreaterThanOrEqualToThreshold",
+      treatMissingData: "notBreaching",
+      alarmActions: [],
     });
 
     new sst.aws.Cron("EnrollmentRefresh", {

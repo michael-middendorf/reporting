@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { apiFetch, getBearer, setBearer } from "@/lib/api";
 import type { ManualKpi, RiskItem } from "@/lib/cyber/register";
-import type { CyberDataResponse, CyberKpi, Rag } from "@/lib/cyber/shape";
+import { formatDeltaMagnitude, formatUnitValue, type CyberDataResponse, type CyberKpi, type Rag } from "@/lib/cyber/shape";
 
 export type CyberLoad<T> =
   | { kind: "loading" }
@@ -177,8 +177,7 @@ function Delta({ kpi }: { kpi: CyberKpi }) {
   const better = kpi.lowerIsBetter ? !up : up;
   return (
     <span className={`cy-delta ${better ? "is-better" : "is-worse"}`}>
-      {up ? "▲" : "▼"} {NUMBER.format(Math.abs(kpi.delta))}
-      {kpi.unit ? ` ${kpi.unit}` : ""} vs last month
+      {up ? "▲" : "▼"} {formatDeltaMagnitude(kpi.delta, kpi.unit)} vs last month
     </span>
   );
 }
@@ -187,14 +186,11 @@ export function KpiTile({ kpi }: { kpi: CyberKpi }) {
   const status = kpi.status ?? "ok";
   const rag: Rag = status === "ok" ? (kpi.rag ?? "grey") : "grey";
   const value =
-    status === "not_licensed" ? "Not licensed" : status === "missing" ? "Missing" : formatValue(kpi.value);
+    status === "not_licensed" ? "Not licensed" : status === "missing" ? "Missing" : formatUnitValue(kpi.value, kpi.unit);
   return (
     <article className={`cy-tile is-${rag}`}>
       <div className="cy-tile-label">{kpi.label}</div>
-      <div className="cy-tile-value">
-        {value}
-        {status === "ok" && kpi.unit && kpi.value !== null ? <span className="cy-tile-unit">{kpi.unit}</span> : null}
-      </div>
+      <div className="cy-tile-value">{value}</div>
       <div className="cy-tile-row">
         <RagPill rag={rag} />
         <span>Target {kpi.target || "not set"}</span>

@@ -35,6 +35,11 @@ LATEST_KEY = "cybersecurity/latest.json"
 # The page labels the delta "vs last month"; pick the history snapshot
 # closest to this many days before generatedAt.
 DELTA_WINDOW_DAYS = 30
+# A comparison snapshot closer than this to generatedAt is not a usable
+# month-over-month baseline (e.g. a re-run a few hours or days later would
+# otherwise show a tiny, misleading "change"); the delta is null instead.
+MIN_DELTA_BASELINE_AGE_DAYS = 25
+GENERATED_AT_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 
 def log(message: str) -> None:
@@ -59,6 +64,11 @@ def _aws_value(sub_source: str, key: str) -> Callable[[dict[str, Any]], tuple[st
             return status, None
         return status, (node.get("data") or {}).get(key)
 
+    # Tags this closure with the narrow sources.aws.data.<sub_source> node it
+    # reads, so compose can (a) flag the KPI when that sub-source reports
+    # truncated pagination and (b) target redaction at the same narrow node
+    # instead of the whole "aws" source.
+    fn.aws_sub_source = sub_source  # type: ignore[attr-defined]
     return fn
 
 
@@ -234,6 +244,22 @@ def _rag(value: Any, lower_is_better: bool, green: float, amber: float) -> str:
     return "red"
 
 
+def _truncation_note(d: KpiDef, sources: dict[str, Any], status: str) -> str | None:
+    """"Lower bound: result limit reached" when the specific AWS sub-source
+    this KPI reads (e.g. sources.aws.data.securityhub) hit a pagination cap
+    (aws.py's ``truncated`` flag), so the board doesn't read a capped count
+    as the real, complete number."""
+    if status != "ok":
+        return None
+    sub_source = getattr(d.value_fn, "aws_sub_source", None)
+    if not sub_source:
+        return None
+    node = ((sources.get("aws") or {}).get("data") or {}).get(sub_source) or {}
+    if (node.get("data") or {}).get("truncated"):
+        return "Lower bound: result limit reached"
+    return None
+
+
 def _build_kpi(d: KpiDef, sources: dict[str, Any], previous_by_id: dict[str, Any], generated_at: str) -> dict[str, Any]:
     raw_status, value = d.value_fn(sources)
     status = _kpi_status(raw_status)
@@ -260,13 +286,32 @@ def _build_kpi(d: KpiDef, sources: dict[str, Any], previous_by_id: dict[str, Any
         "source": d.source_label,
         "asOf": generated_at,
         "status": status,
-        "note": None,
+        "note": _truncation_note(d, sources, status),
     }
 
 
 # ---------------------------------------------------------------------------
 # Document assembly (pure)
 # ---------------------------------------------------------------------------
+
+
+def _usable_delta_baseline(previous: dict[str, Any] | None, now: datetime) -> dict[str, Any] | None:
+    """``previous`` only if it is at least MIN_DELTA_BASELINE_AGE_DAYS (25)
+    older than ``now``. A too-recent snapshot (a same-day re-run, a retry a
+    few days later) is not a real month-over-month baseline, so the delta
+    must be null rather than a misleading tiny "change"."""
+    if not previous:
+        return None
+    raw = previous.get("generatedAt")
+    if not isinstance(raw, str):
+        return None
+    try:
+        prev_dt = datetime.strptime(raw, GENERATED_AT_FORMAT).replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    if (now - prev_dt).days < MIN_DELTA_BASELINE_AGE_DAYS:
+        return None
+    return previous
 
 
 def build_document(
@@ -276,8 +321,9 @@ def build_document(
     previous: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     now = now or datetime.now(timezone.utc)
-    generated_at = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-    previous_by_id = {k.get("id"): k.get("value") for k in (previous or {}).get("kpis", []) if k.get("id")}
+    generated_at = now.strftime(GENERATED_AT_FORMAT)
+    baseline = _usable_delta_baseline(previous, now)
+    previous_by_id = {k.get("id"): k.get("value") for k in (baseline or {}).get("kpis", []) if k.get("id")}
     kpis = [_build_kpi(d, sources, previous_by_id, generated_at) for d in KPI_DEFS]
     return {
         "generatedAt": generated_at,
@@ -342,18 +388,65 @@ def load_previous_for_delta(
         return None
 
 
+# Top sources whose sources.<top>.data.<sub> is itself a status-bearing
+# sub-source node (aws.py's collect(): {"status": ..., "data": {"securityhub":
+# {...}, "guardduty": {...}, ...}}). github/graph/ad have no such nesting, so
+# a violation under them always redacts the whole top-level source.
+_NESTED_SOURCE_NAMES = {"aws"}
+
+_SUB_SOURCE_PATH_RE = re.compile(r"^\$\.sources\.([^.\[]+)\.data\.([^.\[]+)")
 _SOURCE_PATH_RE = re.compile(r"^\$\.sources\.([^.\[]+)")
 
+# A redaction target is either ("top",) for a whole top-level source, or
+# ("top", "sub") for the narrower sources.<top>.data.<sub> node.
+RedactionTarget = tuple[str] | tuple[str, str]
 
-def _offending_top_level_sources(violations: list[tuple[str, str]]) -> set[str]:
-    """Top-level sources.* keys named by a guard violation's JSON path, so
-    build_and_publish can redact exactly those sources and retry."""
-    out: set[str] = set()
+
+def _offending_sources(violations: list[tuple[str, str]], sources: dict[str, Any]) -> set[RedactionTarget]:
+    """The narrowest redaction target for each guard violation's JSON path:
+    a known sub-source node (e.g. sources.aws.data.iam) when the path is
+    under one, otherwise the whole top-level source. Redacting the narrowest
+    offending sub-source keeps every other sub-source (and the KPIs fed by
+    them) intact instead of blanking an entire top-level source over one
+    bad field."""
+    out: set[RedactionTarget] = set()
     for path, _pattern_name in violations:
+        sub_match = _SUB_SOURCE_PATH_RE.match(path)
+        if sub_match:
+            top, sub = sub_match.group(1), sub_match.group(2)
+            data = (sources.get(top) or {}).get("data") or {}
+            if top in _NESTED_SOURCE_NAMES and isinstance(data.get(sub), dict):
+                out.add((top, sub))
+                continue
         match = _SOURCE_PATH_RE.match(path)
         if match:
-            out.add(match.group(1))
+            out.add((match.group(1),))
     return out
+
+
+def _redacted_sources(sources: dict[str, Any], targets: set[RedactionTarget]) -> dict[str, Any]:
+    """Applies each redaction target, narrowest first, without disturbing
+    any sub-source not named by a violation."""
+    redacted = dict(sources)
+    for target in targets:
+        if len(target) == 2:
+            top, sub = target
+            top_node = dict(redacted.get(top) or {})
+            data_node = dict(top_node.get("data") or {})
+            log(f"redacting source '{top}.data.{sub}' and rebuilding (a value there matched a PII/ARN/secret pattern)")
+            data_node[sub] = {"status": "error", "error": "redacted"}
+            top_node["data"] = data_node
+            redacted[top] = top_node
+        else:
+            (top,) = target
+            log(f"redacting source '{top}' and rebuilding (a value there matched a PII/ARN/secret pattern)")
+            redacted[top] = {"status": "error", "error": "redacted"}
+    return redacted
+
+
+def _describe_targets(targets: set[RedactionTarget]) -> str:
+    described = (f"{t[0]}.data.{t[1]}" if len(t) == 2 else t[0] for t in targets)
+    return ", ".join(sorted(described)) or "(none under sources.*)"
 
 
 def build_and_publish(
@@ -370,16 +463,10 @@ def build_and_publish(
 
     violations = guard.scan(doc)
     if violations:
-        offending = _offending_top_level_sources(violations)
-        log(
-            f"guard found {len(violations)} violation(s) "
-            f"in source(s): {', '.join(sorted(offending)) or '(none under sources.*)'}"
-        )
-        if offending:
-            redacted_sources = dict(sources)
-            for key in offending:
-                log(f"redacting source '{key}' and rebuilding (a value there matched a PII/ARN/secret pattern)")
-                redacted_sources[key] = {"status": "error", "error": "redacted"}
+        targets = _offending_sources(violations, sources)
+        log(f"guard found {len(violations)} violation(s) in source(s): {_describe_targets(targets)}")
+        if targets:
+            redacted_sources = _redacted_sources(sources, targets)
             doc = build_document(redacted_sources, now=now, previous=previous)
             violations = guard.scan(doc)
 
