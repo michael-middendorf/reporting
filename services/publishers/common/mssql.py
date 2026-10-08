@@ -30,7 +30,9 @@ Operational limits (run_publisher):
   * Optional derived extracts (DerivedDataset) run after every raw dataset
     succeeded, each published under its own source prefix and KMS key. A
     derived failure is recorded in the manifest ("derived", "derived_failed")
-    but never marks a raw dataset failed or fails the run.
+    but never marks a raw dataset failed or fails the run. A derived extract
+    may reshape its rows in Python (transform) and write one small sidecar
+    JSON next to its dataset (sidecar), both under its own KMS key.
   * Every object written (data, meta, _latest, run manifests) is encrypted
     with the source's own KMS key, and the shared catalog is not refreshed.
 """
@@ -552,11 +554,25 @@ def _connection_broken(exc: BaseException) -> bool:
 Dataset = tuple[str, str, tuple[str, ...]]
 
 
+Rows = list[dict[str, Any]]
+
+
 @dataclass(frozen=True)
 class DerivedDataset:
     """A narrow extract published under its own source prefix and KMS key.
 
     kms_key_id empty means the extract is skipped (recorded in the manifest).
+
+    Optional hooks (all default to off, so existing extracts are unchanged):
+      * transform(rows) -> rows: reshape the query rows before publishing. An
+        exception is recorded as a derived failure.
+      * sidecar(rows, latest) -> (key, payload): one extra JSON object written
+        after the dataset publishes, encrypted with the same kms_key_id. rows
+        are the query rows before transform.
+      * unavailable: non-empty means the extract cannot run (for example its
+        KMS key env var is unset and that must count as a failure, not a
+        skip). It is recorded as a derived failure with this message, nothing
+        is queried, and sql is not guarded.
     """
 
     source: str
@@ -564,6 +580,9 @@ class DerivedDataset:
     sql: str
     param_names: tuple[str, ...]
     kms_key_id: str
+    transform: Callable[[Rows], Rows] | None = None
+    sidecar: Callable[[Rows, dict[str, Any]], tuple[str, Any]] | None = None
+    unavailable: str = ""
 
     @property
     def label(self) -> str:
@@ -609,6 +628,8 @@ def run_publisher(
         if unknown:
             raise ValueError(f"{source}/{name}: unknown parameter(s) {', '.join(unknown)}")
     for d in derived:
+        if d.unavailable:
+            continue
         guard_select(d.sql)
         unknown = [p for p in d.param_names if p not in params]
         if unknown:
@@ -750,6 +771,11 @@ def _publish_derived(
     results: list[dict[str, Any]] = []
     for d in derived:
         entry: dict[str, Any] = {"dataset": d.label, "ok": False}
+        if d.unavailable:
+            entry["error"] = settings.redact(d.unavailable)[:1000]
+            print(f"{source} derived {d.label}: FAILED {entry['error']}", flush=True)
+            results.append(entry)
+            continue
         if not (d.kms_key_id or "").strip():
             entry["skipped"] = "KMS key not set"
             print(f"{source}: WARNING derived {d.label} skipped (KMS key not set)", flush=True)
@@ -767,8 +793,9 @@ def _publish_derived(
             if not reader.is_open:
                 reader.open()
             bound = {name: params[name] for name in d.param_names}
-            rows = reader.fetch_all(d.sql, bound or None, check_deadline=watchdog.check)
+            query_rows = reader.fetch_all(d.sql, bound or None, check_deadline=watchdog.check)
             query_seconds = round(time.monotonic() - t0, 3)
+            rows = d.transform(query_rows) if d.transform is not None else query_rows
             latest = publish_dataset(
                 source=d.source,
                 dataset=d.dataset,
@@ -783,6 +810,10 @@ def _publish_derived(
                 kms_key_id=d.kms_key_id,
                 refresh_catalog=False,
             )
+            if d.sidecar is not None:
+                sidecar_key, sidecar_payload = d.sidecar(query_rows, latest)
+                put_json(sidecar_key, sidecar_payload, kms_key_id=d.kms_key_id)
+                entry["sidecar"] = sidecar_key
             entry.update(
                 ok=True,
                 record_count=latest["record_count"],

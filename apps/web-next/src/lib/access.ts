@@ -1,5 +1,9 @@
 import { normalizeEmail } from "@/lib/auth";
-import { coachingGrantEmails, hasCoachingGrant } from "./reports/athletics-coaching/access";
+import {
+  coachingGrantEmails,
+  hasCoachingGrant,
+  isCoachingLeadership,
+} from "./reports/athletics-coaching/access";
 
 /** Report ids used in routes and ACL checks. */
 export const REPORT_IDS = [
@@ -18,6 +22,7 @@ export const REPORT_IDS = [
   "marketing",
   "mgo-analysis",
   "cybersecurity",
+  "business-office",
 ] as const;
 
 export type ReportId = (typeof REPORT_IDS)[number];
@@ -129,6 +134,11 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
   "mgo-analysis": "leslie.sonnen@avemaria.edu,jim.thomas@avemaria.edu",
   // Strict report: STRICT_REPORTS above is the grant. Keep this empty.
   cybersecurity: "",
+  // DST-2983: Business Office sees every athletics team plus the unassigned
+  // departments. Coaching leadership also opens this report (all teams, no
+  // unassigned) through canAccessReport below; coaches see only their own
+  // team on the coaching Budget tab. See reports/business-office/access.ts.
+  "business-office": "steve.logan@avemaria.edu,luke.fier@avemaria.edu",
 };
 
 const ENV_KEYS: Record<ReportId, string> = {
@@ -149,6 +159,8 @@ const ENV_KEYS: Record<ReportId, string> = {
   // Not read: allowedEmailsForReport() returns STRICT_REPORTS only for strict
   // reports. Named so the Record stays total; do not set it anywhere.
   cybersecurity: "",
+  // Optional, additive like the others. Unset is fine.
+  "business-office": "BUSINESS_OFFICE_ALLOWED_EMAILS",
 };
 
 export function parseEmailCsv(csv: string): Set<string> {
@@ -191,12 +203,25 @@ export function canAccessReport(email: string, report: ReportId): boolean {
   if (report === "chapel" && allowedEmailsForReport("advancement").has(e)) return true;
   // Coaches in the sport map get this report without an allowlist CSV row.
   if (report === "athletics-coaching" && hasCoachingGrant(e)) return true;
+  // Coaching leadership sees every team's finances (not the unassigned depts).
+  if (report === "business-office" && isCoachingLeadership(e)) return true;
   return false;
 }
 
-/** Academic Affairs and coaching users finish TOTP or passkey at sign-in. */
+/** True only for the Business Office list (and hub admins), not coaching leadership. */
+export function isBusinessOfficeUser(email: string): boolean {
+  const e = normalizeEmail(email);
+  if (!e) return false;
+  return isAdmin(e) || allowedEmailsForReport("business-office").has(e);
+}
+
+/** Academic Affairs, coaching, and Business Office users finish TOTP or passkey at sign-in. */
 export function needsMfaAtSignIn(email: string): boolean {
-  return canAccessReport(email, "aspiredu") || canAccessReport(email, "athletics-coaching");
+  return (
+    canAccessReport(email, "aspiredu") ||
+    canAccessReport(email, "athletics-coaching") ||
+    canAccessReport(email, "business-office")
+  );
 }
 
 /** Magic-link complete: MFA users always pending, even with a hub session. */

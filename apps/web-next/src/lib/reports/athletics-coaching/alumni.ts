@@ -146,16 +146,35 @@ function mergeMembership(into: Membership, next: Membership): Membership {
 /**
  * Slate RosterStatus values that mean the person was on a team. Matched after
  * folding case and punctuation, so the prompt short values ("Athlete",
- * "Athlete Post Grad") also count. "Roster - Athletic Associated" and blank do not.
+ * "Athlete Post Grad") also count.
+ *
+ * Live "Athletics - Association History" values: "Roster - Athlete",
+ * "Roster - Athlete Post Grad", "Graduated", "Left AMU",
+ * "Roster - Athletic Associated", "Leave of Absence", "Not on Roster", blank.
+ * "Graduated" is a former roster athlete who graduated, so it counts; the row
+ * still needs its PCID in the PowerCampus graduates feed to be listed. Every
+ * other value (and blank) is rejected.
  */
-const SLATE_ROSTER_STATUSES = new Set(["rosterathlete", "rosterathletepostgrad", "athlete", "athletepostgrad"]);
+const SLATE_ROSTER_STATUSES = new Set([
+  "rosterathlete",
+  "rosterathletepostgrad",
+  "athlete",
+  "athletepostgrad",
+  "graduated",
+]);
 
 export function isSlateRosterAthlete(row: SlateRow): boolean {
   const status = text(row, "RosterStatus", "rosterstatus", "Roster Status").toLowerCase().replace(/[^a-z0-9]/g, "");
   return SLATE_ROSTER_STATUSES.has(status);
 }
 
-/** Slate sport keys for one association_history row (CurrentSport and SecondSport, gendered by MF). */
+/**
+ * Slate sport keys for one association_history row (CurrentSport and SecondSport, gendered by MF).
+ *
+ * The Slate JSON feed omits null fields, so SecondSport, AthType, and others
+ * can be absent from a row entirely. text() treats a missing key the same as
+ * an empty value, so absent fields are skipped rather than throwing.
+ */
 export function slateSportKeys(row: SlateRow): string[] {
   const gender = text(row, "MF", "mf", "gender", "Gender", "PersonGender", "Sex");
   const keys = new Set<string>();

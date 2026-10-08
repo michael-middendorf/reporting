@@ -11,6 +11,9 @@ RUN pip install --no-cache-dir --upgrade 'pip>=26.2' \
  && pip install --no-cache-dir 'boto3>=1.34.0' 'websockets>=12.0' 'python-tds==1.17.1' 'pyOpenSSL==26.4.0' \
  && python -c "import OpenSSL.SSL, pytds.tls; assert pytds.tls.OPENSSL_AVAILABLE, 'pyOpenSSL not usable by pytds'"
 COPY services/publishers ./services/publishers
+# Athletics department map (DST-2983): one file owned by the web app, read by the
+# Great Plains athletics_finance extract at the same relative path.
+COPY apps/web-next/src/lib/reports/business-office/athletics-departments.json ./apps/web-next/src/lib/reports/business-office/athletics-departments.json
 COPY docker/worker-entrypoint.py ./worker-entrypoint.py
 COPY docker/worker-docker-entrypoint.sh /docker-entrypoint.sh
 RUN adduser -D -u 10001 reporting && chown -R reporting:reporting /app && chmod +x /docker-entrypoint.sh
