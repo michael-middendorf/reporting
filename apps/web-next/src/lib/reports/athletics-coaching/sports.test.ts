@@ -115,17 +115,18 @@ describe("athletics coaching sport catalog", () => {
 
 /** Must match ATHLETIC_ASSOCIATION_CODES in services/publishers/powercampus/queries.py. */
 const PC_ATHLETIC_CODES = [
-  "ICBASE", "ICBBM", "ICBBW", "ICCG", "ICFBM", "ICGLFM", "ICGLFW", "ICSOCM",
+  "ICBASE", "ICBBM", "ICBBW", "ICFBM", "ICGLFM", "ICGLFW", "ICSOCM",
   "ICSOCW", "ICSOFT", "ICSSWM", "ICSWMW", "ICTENM", "ICTENW", "ICTRKM",
   "ICTRKW", "ICVBAL", "ICXCM", "ICXCW", "LACROS", "CDANCE",
   "ICJRGB", "ICUFRM",
-  "ICJBAS", "ICJBBM", "ICJBBW", "ICJEQU", "ICJFRM", "ICJGLM", "ICJGLW",
-  "ICJLCM", "ICJSOF", "ICJSOM", "ICJSOW", "ICJSWM", "ICJTNM", "ICJTNW",
+  "ICJBAS", "ICJBBM", "ICJBBW", "ICJFRM", "ICJGLM", "ICJGLW",
+  "ICJSOF", "ICJSOM", "ICJSOW", "ICJSWM", "ICJTNM", "ICJTNW",
   "ICJVBL", "ICHSWW",
-  "AFBALM", "AFBALW",
+  "AFBALM",
 ];
 
-const UNMAPPED_PC_CODES = ["ICCG", "ICJEQU", "ICJLCM", "AFBALW"];
+/** Retired codes with no coaching sport. The publisher no longer exports them. */
+const RETIRED_PC_CODES = ["ICCG", "ICJEQU", "ICJLCM", "AFBALW"];
 
 describe("PowerCampus association codes", () => {
   it("maps varsity, JV, and legacy codes to the parent sport", () => {
@@ -150,7 +151,7 @@ describe("PowerCampus association codes", () => {
   });
 
   it("leaves codes without a coaching sport unmapped", () => {
-    for (const code of UNMAPPED_PC_CODES) assert.equal(resolvePcAssociation(code), null, code);
+    for (const code of RETIRED_PC_CODES) assert.equal(resolvePcAssociation(code), null, code);
     assert.equal(resolvePcAssociation(""), null);
     assert.equal(resolvePcAssociation("HONORS"), null);
   });
@@ -165,7 +166,10 @@ describe("PowerCampus association codes", () => {
       }
     }
     for (const code of PC_ATHLETIC_CODES) {
-      assert.equal(seen.has(code) || UNMAPPED_PC_CODES.includes(code), true, code);
+      assert.equal(seen.has(code), true, `${code} has no coaching sport`);
+    }
+    for (const code of RETIRED_PC_CODES) {
+      assert.equal(PC_ATHLETIC_CODES.includes(code), false, `${code} is retired`);
     }
   });
 });

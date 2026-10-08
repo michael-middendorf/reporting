@@ -465,6 +465,13 @@ class SportAlumniQueryTests(unittest.TestCase):
         for code in ("ICFBM", "AFBALM", "ICJBBM", "CDANCE", "LACROS", "ICJRGB", "ICUFRM"):
             self.assertIn(code, queries.ATHLETIC_ASSOCIATION_CODES)
 
+    def test_retired_codes_without_a_coaching_sport_are_excluded(self):
+        # Color Guard, JV Equestrian, JV Lacrosse-Men, legacy Football Women.
+        for code in ("ICCG", "ICJEQU", "ICJLCM", "AFBALW"):
+            self.assertNotIn(code, queries.ATHLETIC_ASSOCIATION_CODES)
+            for sql in (queries.ATHLETIC_ALUMNI, queries.GRADUATES):
+                self.assertNotIn(f"'{code}'", sql)
+
     def test_roster_filter_and_enrollment_check(self):
         sql = queries.ATHLETIC_ALUMNI
         self.assertIn("ISNULL(LTRIM(RTRIM(s.OFFICE_HELD)), '') IN ('MEM', 'MSSPRT', 'LRMTRM', 'MNRTRN', 'LOISGN', '')", sql)
