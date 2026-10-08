@@ -63,7 +63,12 @@ export function parseAppealImport(text: string, dataset: ImportDataset, slug: st
     const sent = integer(row.sent || row.recipients, "sent", line); const delivered = integer(row.delivered || row.sent || row.recipients, "delivered", line);
     const opens = integer(row.uniqueopens, "unique_opens", line); const clicks = integer(row.uniqueclicks, "unique_clicks", line); const conversions = integer(row.conversions || "0", "conversions", line); const unsubscribes = integer(row.unsubscribes || "0", "unsubscribes", line);
     if (delivered > sent || [opens, clicks, conversions, unsubscribes].some((n) => n > delivered)) throw new Error(`Line ${line}: engagement counts cannot exceed delivered`);
-    return { emailId: Number(emailId), name: emailName, subject: row.subject || null, sentAt, sent, delivered, uniqueOpens: opens, uniqueClicks: clicks, conversions, unsubscribes, attributedRevenue: money(row.attributedrevenue || "0", "attributed_revenue", line), deliveryRate: rate(delivered, sent), openRate: rate(opens, delivered), clickRate: rate(clicks, delivered), conversionRate: rate(conversions, delivered), unsubscribeRate: rate(unsubscribes, delivered) };
+    const extra: Record<string, string | number> = {};
+    if (row.segment) extra.segment = row.segment;
+    if (row.emailnumber || row.emailnum || row.sendnumber) {
+      extra.emailNumber = integer(row.emailnumber || row.emailnum || row.sendnumber, "email_number", line);
+    }
+    return { emailId: Number(emailId), name: emailName, subject: row.subject || null, sentAt, sent, delivered, uniqueOpens: opens, uniqueClicks: clicks, conversions, unsubscribes, attributedRevenue: money(row.attributedrevenue || "0", "attributed_revenue", line), deliveryRate: rate(delivered, sent), openRate: rate(opens, delivered), clickRate: rate(clicks, delivered), conversionRate: rate(conversions, delivered), unsubscribeRate: rate(unsubscribes, delivered), ...extra };
   });
   return { generatedAt: new Date().toISOString(), campaignSlug: slug, dataset, rows: values };
 }

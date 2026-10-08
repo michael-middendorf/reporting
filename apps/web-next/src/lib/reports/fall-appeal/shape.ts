@@ -99,6 +99,7 @@ export type GivingPathway = {
 
 export type EmailSend = {
   emailId: number;
+  emailNumber?: number | null;
   name: string;
   subject: string | null;
   sentAt: string;
@@ -107,6 +108,9 @@ export type EmailSend = {
   openRate: number | null;
   uniqueClicks: number;
   clickRate: number | null;
+  revenue?: number | null;
+  gifts?: number | null;
+  avgGift?: number | null;
 };
 
 export type EmailPerformanceSegment = {
@@ -117,6 +121,9 @@ export type EmailPerformanceSegment = {
   openRate: number | null;
   uniqueClicks: number;
   clickRate: number | null;
+  revenue?: number | null;
+  gifts?: number | null;
+  avgGift?: number | null;
   sends: EmailSend[];
 };
 

@@ -548,11 +548,30 @@ export default function FallAppealPage() {
           <section className="ac-analytics">
             <h2>Email Performance</h2>
             {!data.emailImport || data.emailImport.status === "unavailable" ? <div className="ac-note">Standardized email delivery, conversion, unsubscribe, and attributed-revenue data is not available yet.</div> : (
-              <div className="ac-table-wrap"><table className="ac-table" style={{ minWidth: 900 }}><thead><tr><th>Subject line</th><th className="ac-num">Sent</th><th className="ac-num">Delivered</th><th className="ac-num">Open rate</th><th className="ac-num">CTR</th><th className="ac-num">Conversion</th><th className="ac-num">Revenue</th></tr></thead><tbody>
-                {data.emailImport.rows.map((row, index) => <tr key={`${row.emailId ?? "email"}-${index}`}><td>{String(row.subject || row.emailName || "Untitled")}</td><td className="ac-num">{num(Number(row.sent || 0))}</td><td className="ac-num">{num(Number(row.delivered || 0))}</td><td className="ac-num">{row.openRate == null ? "—" : pct(Number(row.openRate))}</td><td className="ac-num">{row.clickRate == null ? "—" : pct(Number(row.clickRate))}</td><td className="ac-num">{row.conversionRate == null ? "—" : pct(Number(row.conversionRate))}</td><td className="ac-num">{usd(Number(row.attributedRevenue || 0))}</td></tr>)}
+              <div className="ac-table-wrap"><table className="ac-table" style={{ minWidth: 900 }}><thead><tr>
+                {data.emailImport.rows.some((r) => r.segment) && <th>Segment</th>}
+                {data.emailImport.rows.some((r) => r.emailNumber) && <th className="ac-num">Email #</th>}
+                <th>Subject line</th><th className="ac-num">Sent</th><th className="ac-num">Delivered</th><th className="ac-num">Open rate</th><th className="ac-num">CTR</th><th className="ac-num">Conversion</th><th className="ac-num">Revenue</th></tr></thead><tbody>
+                {data.emailImport.rows.map((row, index) => {
+                  const hasSegment = data.emailImport?.rows.some((r) => r.segment);
+                  const hasEmailNum = data.emailImport?.rows.some((r) => r.emailNumber);
+                  return (
+                    <tr key={`${row.emailId ?? "email"}-${index}`}>
+                      {hasSegment && <td>{row.segment ? String(row.segment) : "-"}</td>}
+                      {hasEmailNum && <td className="ac-num">{row.emailNumber ? `Email #${row.emailNumber}` : "-"}</td>}
+                      <td>{String(row.subject || row.emailName || "Untitled")}</td>
+                      <td className="ac-num">{num(Number(row.sent || 0))}</td>
+                      <td className="ac-num">{num(Number(row.delivered || 0))}</td>
+                      <td className="ac-num">{row.openRate == null ? "—" : pct(Number(row.openRate))}</td>
+                      <td className="ac-num">{row.clickRate == null ? "—" : pct(Number(row.clickRate))}</td>
+                      <td className="ac-num">{row.conversionRate == null ? "—" : pct(Number(row.conversionRate))}</td>
+                      <td className="ac-num">{usd(Number(row.attributedRevenue || 0))}</td>
+                    </tr>
+                  );
+                })}
               </tbody></table></div>
             )}
-            {canImport && <ImportControl label="Update email performance" columns="email_id, email_name, subject, sent_at, sent, delivered, unique_opens, unique_clicks, conversions, unsubscribes, attributed_revenue" onFile={(file) => importCsv("email", file)} status={importStatus} />}
+            {canImport && <ImportControl label="Update email performance" columns="email_id, email_name, subject, sent_at, sent, delivered, unique_opens, unique_clicks, conversions, unsubscribes, attributed_revenue, segment, email_number" onFile={(file) => importCsv("email", file)} status={importStatus} />}
           </section>
 
           <section className="ac-analytics">
@@ -579,11 +598,15 @@ export default function FallAppealPage() {
             ) : (
               <>
                 <div className="ac-table-wrap">
-                  <table className="ac-table fa-email-table" style={{ minWidth: 720 }}>
+                  <table className="ac-table fa-email-table" style={{ minWidth: 960 }}>
                     <thead>
                       <tr>
                         <th>Segment / send</th>
+                        <th className="ac-num">Email #</th>
                         <th className="ac-num">Sent</th>
+                        <th className="ac-num">Revenue</th>
+                        <th className="ac-num">Gifts</th>
+                        <th className="ac-num">Avg gift</th>
                         <th className="ac-num">Recipients</th>
                         <th className="ac-num">Unique opens</th>
                         <th className="ac-num">Open rate</th>
@@ -837,20 +860,28 @@ function EmailSegmentRows({ segment }: { segment: EmailPerformanceSegment }) {
     <>
       <tr className="fa-email-group-row">
         <td>{segment.label}</td>
-        <td className="ac-num">—</td>
+        <td className="ac-num">-</td>
+        <td className="ac-num">-</td>
+        <td className="ac-num">{segment.revenue != null ? usd(segment.revenue) : "-"}</td>
+        <td className="ac-num">{segment.gifts != null ? num(segment.gifts) : "-"}</td>
+        <td className="ac-num">{segment.avgGift != null ? usd2(segment.avgGift) : "-"}</td>
         <td className="ac-num">{num(segment.recipients)}</td>
         <td className="ac-num">{num(segment.uniqueOpens)}</td>
         <td className="ac-num">{segment.openRate == null ? "—" : pct(segment.openRate)}</td>
         <td className="ac-num">{num(segment.uniqueClicks)}</td>
         <td className="ac-num">{segment.clickRate == null ? "—" : pct(segment.clickRate)}</td>
       </tr>
-      {segment.sends.map((send) => (
+      {segment.sends.map((send, index) => (
         <tr key={send.emailId} title={send.subject || send.name}>
           <td className="fa-email-send">
             <span>{send.name}</span>
             {send.subject && <small>{send.subject}</small>}
           </td>
+          <td className="ac-num">Email #{send.emailNumber ?? (index + 1)}</td>
           <td className="ac-num">{formatMdDate(send.sentAt)}</td>
+          <td className="ac-num">{send.revenue != null ? usd(send.revenue) : "-"}</td>
+          <td className="ac-num">{send.gifts != null ? num(send.gifts) : "-"}</td>
+          <td className="ac-num">{send.avgGift != null ? usd2(send.avgGift) : "-"}</td>
           <td className="ac-num">{num(send.recipients)}</td>
           <td className="ac-num">{num(send.uniqueOpens)}</td>
           <td className="ac-num">{send.openRate == null ? "—" : pct(send.openRate)}</td>

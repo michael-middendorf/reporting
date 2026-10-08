@@ -24,4 +24,13 @@ describe("appeal aggregate CSV imports", () => {
     assert.throws(() => parseAppealImport("email_id,email_name,sent_at,sent,delivered,unique_opens,unique_clicks\n2,Bad,2026-08-16,10,9,10,1\n", "email", "fall-2026"), /cannot exceed delivered/);
     assert.throws(() => parseAppealImport("campaign_slug,mailing_id,label,drop_date,total_mailed\nspring-2026,m1,Drop,2026-08-16,10\n", "mail", "fall-2026"), /campaign_slug/);
   });
+
+  it("passes optional segment and email_number through when present", () => {
+    const parsed = parseAppealImport(
+      "email_id,email_name,subject,sent_at,recipients,unique_opens,unique_clicks,segment,email_number\n3,Segmented,Touch 1,2026-08-16,10,3,1,Active Donors,1\n",
+      "email", "fall-2026",
+    );
+    assert.equal((parsed.rows[0] as { segment?: string }).segment, "Active Donors");
+    assert.equal((parsed.rows[0] as { emailNumber?: number }).emailNumber, 1);
+  });
 });
