@@ -147,23 +147,49 @@ def _merge_region_results(
 
 FSBP_NAME_FRAGMENT = "aws-foundational-security-best-practices"
 
+# A generous page cap (each page is MaxResults=100 findings) plus a shared
+# per-region wall-clock budget. Every GetFindings pass this module runs for
+# a given region (FSBP pass/fail tally, active-findings-by-severity tally)
+# counts against the SAME budget/deadline for that region, so Security Hub
+# work in one region can never run unbounded: it stops and reports
+# truncated=True instead of silently under-counting forever.
+SECURITYHUB_MAX_PAGES = 500
+SECURITYHUB_TIME_BUDGET_S = 240.0
 
-def _count_findings(client, filters: dict[str, Any], max_pages: int = 25, page_size: int = 100) -> tuple[int, bool]:
-    """Return (count, truncated). truncated is True only when the page cap
-    was hit while the API still had more pages (NextToken present), so the
-    caller can flag the KPI as a lower bound instead of silently under-
-    reporting."""
-    total = 0
+
+def _scan_findings(
+    client,
+    filters: dict[str, Any],
+    on_finding: Callable[[dict[str, Any]], None],
+    *,
+    deadline: float,
+    max_pages: int = SECURITYHUB_MAX_PAGES,
+    page_size: int = 100,
+) -> bool:
+    """One paginated GetFindings pass over ``filters``, calling
+    ``on_finding`` for every finding returned so the caller can tally
+    whatever it needs (severity, compliance status, ...) in memory instead
+    of running a separate paginated call per bucket.
+
+    Returns ``truncated``: True only when pagination stopped because the
+    page cap or the wall-clock ``deadline`` was hit while the API still had
+    more pages (NextToken present), never because pagination legitimately
+    ran out. The caller passes the SAME ``deadline`` into every scan for a
+    region so the budget is per-region, not per-call.
+    """
     kwargs: dict[str, Any] = {"Filters": filters, "MaxResults": page_size}
     token: str | None = None
     for _ in range(max_pages):
         resp = client.get_findings(**kwargs)
-        total += len(resp.get("Findings") or [])
+        for finding in resp.get("Findings") or []:
+            on_finding(finding)
         token = resp.get("NextToken")
         if not token:
-            return total, False
+            return False
+        if time.monotonic() > deadline:
+            return True
         kwargs["NextToken"] = token
-    return total, bool(token)
+    return bool(token)
 
 
 def _standards_id_from_arn(arn: str) -> str:
@@ -179,6 +205,9 @@ def _standards_id_from_arn(arn: str) -> str:
 
 def _securityhub_region(region: str) -> dict[str, Any]:
     client = _client("securityhub", region)
+    # One shared deadline for every GetFindings pass below: the region's
+    # total Security Hub time budget, not a fresh budget per tally.
+    deadline = time.monotonic() + SECURITYHUB_TIME_BUDGET_S
     standards = client.get_enabled_standards().get("StandardsSubscriptions", [])
     enabled_standards = sorted(
         {_standards_id_from_arn(s.get("StandardsArn") or "") for s in standards if s.get("StandardsArn")}
@@ -186,50 +215,59 @@ def _securityhub_region(region: str) -> dict[str, Any]:
     fsbp_standards_id = next((sid for sid in enabled_standards if FSBP_NAME_FRAGMENT in sid), None)
     truncated = False
     if fsbp_standards_id:
-        fsbp_passed, t1 = _count_findings(
+        fsbp_counts: dict[str, int] = defaultdict(int)
+
+        def _tally_fsbp(finding: dict[str, Any]) -> None:
+            status = (finding.get("Compliance") or {}).get("Status")
+            if status in ("PASSED", "FAILED"):
+                fsbp_counts[status] += 1
+
+        fsbp_truncated = _scan_findings(
             client,
             {
                 "RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}],
-                "ComplianceStatus": [{"Value": "PASSED", "Comparison": "EQUALS"}],
                 "ComplianceAssociatedStandardsId": [{"Value": fsbp_standards_id, "Comparison": "EQUALS"}],
             },
+            _tally_fsbp,
+            deadline=deadline,
         )
-        fsbp_failed, t2 = _count_findings(
-            client,
-            {
-                "RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}],
-                "ComplianceStatus": [{"Value": "FAILED", "Comparison": "EQUALS"}],
-                "ComplianceAssociatedStandardsId": [{"Value": fsbp_standards_id, "Comparison": "EQUALS"}],
-            },
-        )
-        truncated = truncated or t1 or t2
+        fsbp_passed, fsbp_failed = fsbp_counts["PASSED"], fsbp_counts["FAILED"]
+        truncated = truncated or fsbp_truncated
     else:
         # FSBP is not enabled in this region: 0/0 so the caller's pass-rate
         # math yields None (unknown), not a fabricated 0%.
         fsbp_passed = fsbp_failed = 0
-    active_by_sev: dict[str, int] = {}
-    for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
-        count, sev_truncated = _count_findings(
-            client,
-            {
-                "RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}],
-                "WorkflowStatus": [
-                    {"Value": "NEW", "Comparison": "EQUALS"},
-                    {"Value": "NOTIFIED", "Comparison": "EQUALS"},
-                ],
-                "SeverityLabel": [{"Value": sev, "Comparison": "EQUALS"}],
-            },
-            max_pages=10,
-        )
-        active_by_sev[sev.lower()] = count
-        truncated = truncated or sev_truncated
+
+    active_counts: dict[str, int] = defaultdict(int)
+
+    def _tally_active(finding: dict[str, Any]) -> None:
+        sev = str((finding.get("Severity") or {}).get("Label") or "UNKNOWN").lower()
+        active_counts[sev] += 1
+
+    active_truncated = _scan_findings(
+        client,
+        {
+            "RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}],
+            "WorkflowStatus": [
+                {"Value": "NEW", "Comparison": "EQUALS"},
+                {"Value": "NOTIFIED", "Comparison": "EQUALS"},
+            ],
+        },
+        _tally_active,
+        deadline=deadline,
+    )
+    truncated = truncated or active_truncated
+
     if truncated:
-        log(f"securityhub/{region}: hit the findings page cap with more pages remaining (counts are a lower bound)")
+        log(
+            f"securityhub/{region}: hit the page cap or the {SECURITYHUB_TIME_BUDGET_S:.0f}s time budget "
+            "with more pages remaining (counts are a lower bound)"
+        )
     return {
         "enabledStandards": enabled_standards,
         "fsbpPassed": fsbp_passed,
         "fsbpFailed": fsbp_failed,
-        "activeFindingsBySeverity": active_by_sev,
+        "activeFindingsBySeverity": dict(active_counts),
         "truncated": truncated,
     }
 

@@ -686,7 +686,12 @@ export default $config({
         name: securityRefreshFunctionName,
         handler: "services/publishers/security/handler.handler",
         runtime: "python3.12",
-        timeout: "10 minutes",
+        // Security Hub alone can now spend up to SECURITYHUB_TIME_BUDGET_S
+        // (240s) per region (us-east-2, us-east-1) before it must stop and
+        // report truncated=true, i.e. up to ~8 of the old 10-minute budget
+        // before the other sources (GuardDuty, Inspector2, IAM, CloudTrail,
+        // Backup, RDS, ACM, VPN, GitHub, AD) even run. Raised for headroom.
+        timeout: "15 minutes",
         memory: "512 MB",
         retries: 0,
         role: securityPublisherRole.arn,
@@ -712,13 +717,13 @@ export default $config({
     // (the publisher runs once daily) with treatMissingData "notBreaching"
     // so a quiet day (e.g. the cron paused) never pages anyone.
     //
-    // No SNS topic scoped to reporting-job alerts exists yet (checked this
-    // file, infra/, and `aws sns list-topics --region us-east-2` read-only:
-    // existing topics are amu-budget-hard-stop, avemaria-api-alerts,
-    // conduct-alarms, connect-ses-events, health-portal-alarms,
-    // health-portal-ses-events, meal-train's own CDK topic, security-alerts,
-    // and undergrad-form-alarms; none is a general reporting-jobs topic).
-    // alarmActions is intentionally empty until Michael names one to use.
+    // Reuses the existing security-alerts SNS topic (already has an email
+    // subscriber; this alarm does not touch the topic or its subscriptions).
+    // Checked sst.config.ts, infra/, and a read-only
+    // `aws sns list-topics --region us-east-2` first: no topic scoped
+    // specifically to reporting jobs exists, and security-alerts is the
+    // closest fit for a security-publisher failure.
+    const securityAlertsTopicArn = `arn:aws:sns:us-east-2:${account}:security-alerts`;
     new aws.cloudwatch.MetricAlarm("SecurityRefreshErrorsAlarm", {
       name: "amu-reporting-security-refresh-errors",
       namespace: "AWS/Lambda",
@@ -730,7 +735,8 @@ export default $config({
       threshold: 1,
       comparisonOperator: "GreaterThanOrEqualToThreshold",
       treatMissingData: "notBreaching",
-      alarmActions: [],
+      alarmActions: [securityAlertsTopicArn],
+      okActions: [securityAlertsTopicArn],
     });
 
     new sst.aws.Cron("EnrollmentRefresh", {

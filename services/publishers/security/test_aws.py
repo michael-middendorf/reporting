@@ -9,6 +9,7 @@ Run: PYTHONPATH=services/publishers python -m unittest discover
 from __future__ import annotations
 
 import os
+import time
 import unittest
 from datetime import datetime, timedelta, timezone
 from unittest import mock
@@ -125,6 +126,11 @@ class MergeRegionResultsTests(unittest.TestCase):
 
 
 class FakeSecurityHubClient:
+    """Single-pass fake: one GetFindings call per tally (distinguished by
+    which filter key is present, matching aws.py's real filters), returning
+    real-shaped findings (Compliance.Status / Severity.Label) for the
+    caller to tally client-side, the same as the real API would."""
+
     def __init__(self, passed: int, failed: int, by_sev: dict[str, int], *, always_more: bool = False):
         self.passed = passed
         self.failed = failed
@@ -141,15 +147,22 @@ class FakeSecurityHubClient:
         }
 
     def get_findings(self, Filters, MaxResults=100, NextToken=None):  # noqa: N803
-        compliance = Filters.get("ComplianceStatus")
-        severity = Filters.get("SeverityLabel")
-        if compliance:
-            count = self.passed if compliance[0]["Value"] == "PASSED" else self.failed
-        elif severity:
-            count = self.by_sev.get(severity[0]["Value"], 0)
+        if NextToken:
+            # Every page after the first is empty except for always_more,
+            # which repeats a single finding forever to simulate more
+            # results than the page cap / time budget allows.
+            findings = [{"Severity": {"Label": "CRITICAL"}}] if self.always_more else []
+        elif "ComplianceAssociatedStandardsId" in Filters:
+            findings = [{"Compliance": {"Status": "PASSED"}}] * self.passed + [
+                {"Compliance": {"Status": "FAILED"}}
+            ] * self.failed
+        elif "WorkflowStatus" in Filters:
+            findings = []
+            for sev, count in self.by_sev.items():
+                findings.extend([{"Severity": {"Label": sev}}] * count)
         else:
-            count = 0
-        resp = {"Findings": [{}] * count}
+            findings = []
+        resp = {"Findings": findings}
         if self.always_more:
             resp["NextToken"] = "more"
         return resp
@@ -207,6 +220,80 @@ IAM_CSV = (
     b"user1,true,false,false,N/A,false,N/A\n"
     b"user2,true,true,true,2020-01-01T00:00:00+00:00,false,N/A\n"
 )
+
+
+class FakeMultiPageFindingsClient:
+    """Plain multi-page GetFindings fake: each entry in ``pages`` is one
+    page's worth of raw finding dicts. NextToken is set on every page
+    except the last, so pagination ends naturally once ``pages`` runs out
+    (no built-in truncation unless the caller's max_pages/deadline cuts it
+    off first)."""
+
+    def __init__(self, pages: list[list[dict]]):
+        self._pages = pages
+        self.calls = 0
+
+    def get_findings(self, Filters, MaxResults=100, NextToken=None):  # noqa: N803
+        page = self._pages[self.calls]
+        self.calls += 1
+        resp = {"Findings": page}
+        if self.calls < len(self._pages):
+            resp["NextToken"] = f"token-{self.calls}"
+        return resp
+
+
+class ScanFindingsTests(unittest.TestCase):
+    """aws._scan_findings: the single-pass GetFindings helper that replaced
+    one paginated call per severity/compliance-status bucket."""
+
+    def test_tallies_every_finding_across_all_pages_when_nothing_truncates(self):
+        client = FakeMultiPageFindingsClient([[{"v": 1}], [{"v": 2}], [{"v": 3}]])
+        seen: list[dict] = []
+        truncated = aws._scan_findings(client, {}, seen.append, deadline=time.monotonic() + 60)
+        self.assertFalse(truncated)
+        self.assertEqual(seen, [{"v": 1}, {"v": 2}, {"v": 3}])
+
+    def test_truncates_when_the_page_cap_is_hit_with_more_pages_remaining(self):
+        client = FakeMultiPageFindingsClient([[{"v": 1}], [{"v": 2}], [{"v": 3}]])
+        seen: list[dict] = []
+        truncated = aws._scan_findings(client, {}, seen.append, deadline=time.monotonic() + 60, max_pages=2)
+        self.assertTrue(truncated)
+        self.assertEqual(seen, [{"v": 1}, {"v": 2}])  # the 3rd page was never fetched
+
+    def test_truncates_when_the_wall_clock_deadline_is_already_passed(self):
+        # A deadline in the past: the page already in hand still gets
+        # tallied, but the pass stops instead of requesting the next page.
+        client = FakeMultiPageFindingsClient([[{"v": 1}], [{"v": 2}], [{"v": 3}]])
+        seen: list[dict] = []
+        truncated = aws._scan_findings(client, {}, seen.append, deadline=time.monotonic() - 1)
+        self.assertTrue(truncated)
+        self.assertEqual(seen, [{"v": 1}])
+
+    def test_not_truncated_when_pagination_ends_naturally_even_past_the_deadline(self):
+        # Only one page exists: NextToken is absent, so pagination ends
+        # before the deadline is ever checked. An already-passed deadline
+        # must never be reported as truncation when there was nothing left
+        # to fetch anyway.
+        client = FakeMultiPageFindingsClient([[{"v": 1}]])
+        seen: list[dict] = []
+        truncated = aws._scan_findings(client, {}, seen.append, deadline=time.monotonic() - 1)
+        self.assertFalse(truncated)
+        self.assertEqual(seen, [{"v": 1}])
+
+    def test_a_shared_deadline_across_two_scans_can_truncate_the_second_one(self):
+        # Mirrors _securityhub_region: one deadline is reused for both the
+        # FSBP tally and the active-findings tally. If the first scan nearly
+        # exhausts the budget, the second scan truncates even though it
+        # individually "could" have paged further.
+        deadline = time.monotonic() + 0.05
+        slow_client = FakeMultiPageFindingsClient([[{"v": 1}], [{"v": 2}]])
+        seen: list[dict] = []
+        aws._scan_findings(slow_client, {}, seen.append, deadline=deadline)
+        time.sleep(0.1)  # push past the shared deadline before the 2nd scan
+        second_client = FakeMultiPageFindingsClient([[{"v": 3}], [{"v": 4}]])
+        truncated = aws._scan_findings(second_client, {}, seen.append, deadline=deadline)
+        self.assertTrue(truncated)
+        self.assertEqual(seen, [{"v": 1}, {"v": 2}, {"v": 3}])  # the 2nd scan's page 2 never ran
 
 
 class SecurityHubTests(unittest.TestCase):
