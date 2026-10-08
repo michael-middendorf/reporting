@@ -45,6 +45,27 @@ class ClassifyTests(unittest.TestCase):
         self.assertEqual(status, "error")
         self.assertIn("RuntimeError", detail)
 
+    def test_classify_never_includes_the_raw_message_even_when_it_has_an_arn(self):
+        # aws.py:78 (pre-fix) put the raw botocore Message into the written
+        # document, which can carry an ARN/account id and trip the PII/ARN
+        # guard, blocking the whole write. _classify must return code-only.
+        exc = _client_error(
+            "TrailNotFoundException",
+            "Unknown trail: arn:aws:cloudtrail:us-east-2:111122223333:trail/example-trail",
+        )
+        status, detail = aws._classify(exc)
+        self.assertEqual(status, "error")
+        self.assertEqual(detail, "TrailNotFoundException")
+        self.assertNotIn("arn:aws", detail)
+        self.assertNotIn("111122223333", detail)
+
+    def test_full_message_is_for_logging_only_and_carries_the_real_text(self):
+        exc = _client_error("TrailNotFoundException", "Unknown trail: arn:aws:cloudtrail:us-east-2:111122223333:trail/x")
+        self.assertIn("arn:aws", aws._full_message(exc))
+
+    def test_full_message_on_a_non_client_error(self):
+        self.assertIn("network blip", aws._full_message(RuntimeError("network blip")))
+
 
 class WrapTests(unittest.TestCase):
     def test_ok(self):
@@ -57,6 +78,17 @@ class WrapTests(unittest.TestCase):
         result = aws._wrap("x", boom)
         self.assertEqual(result["status"], "error")
         self.assertIn("error", result)
+
+    def test_wrapped_error_never_carries_the_raw_arn_bearing_message(self):
+        def boom():
+            raise _client_error(
+                "TrailNotFoundException",
+                "Unknown trail: arn:aws:cloudtrail:us-east-2:111122223333:trail/example-trail",
+            )
+
+        result = aws._wrap("x", boom)
+        self.assertEqual(result, {"status": "error", "error": "TrailNotFoundException"})
+        self.assertNotIn("arn:aws", result["error"])
 
 
 class MergeRegionResultsTests(unittest.TestCase):
@@ -93,10 +125,13 @@ class MergeRegionResultsTests(unittest.TestCase):
 
 
 class FakeSecurityHubClient:
-    def __init__(self, passed: int, failed: int, by_sev: dict[str, int]):
+    def __init__(self, passed: int, failed: int, by_sev: dict[str, int], *, always_more: bool = False):
         self.passed = passed
         self.failed = failed
         self.by_sev = by_sev
+        # When True, every page claims there's another page (NextToken set),
+        # simulating a findings count larger than aws.py's page cap.
+        self.always_more = always_more
 
     def get_enabled_standards(self):
         return {
@@ -114,7 +149,10 @@ class FakeSecurityHubClient:
             count = self.by_sev.get(severity[0]["Value"], 0)
         else:
             count = 0
-        return {"Findings": [{}] * count}
+        resp = {"Findings": [{}] * count}
+        if self.always_more:
+            resp["NextToken"] = "more"
+        return resp
 
 
 class FakePaginator:
@@ -182,6 +220,18 @@ class SecurityHubTests(unittest.TestCase):
         self.assertEqual(result["data"]["fsbpPassRatePercent"], 80.0)
         self.assertEqual(result["data"]["fsbpControlsEvaluated"], 100)
         self.assertEqual(result["data"]["activeCriticalHigh"], 3)
+        self.assertFalse(result["data"]["truncated"])
+
+    def test_hitting_the_page_cap_sets_truncated_true(self):
+        fake = FakeSecurityHubClient(
+            passed=1, failed=1, by_sev={"CRITICAL": 1, "HIGH": 1, "MEDIUM": 1, "LOW": 1}, always_more=True
+        )
+        with mock.patch.object(aws, "REGIONS", ("us-east-2",)), mock.patch.object(
+            aws, "_client", return_value=fake
+        ):
+            result = aws.securityhub()
+        self.assertEqual(result["status"], "ok")
+        self.assertTrue(result["data"]["truncated"])
 
 
 class IamCredentialReportTests(unittest.TestCase):

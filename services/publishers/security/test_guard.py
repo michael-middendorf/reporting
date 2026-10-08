@@ -29,7 +29,7 @@ class ScanTests(unittest.TestCase):
         self.assertEqual([v[1] for v in violations], ["ipv4"])
 
     def test_arn_is_caught(self):
-        doc = {"detail": "role arn:aws:iam::905418447941:role/ReportingWorker is misconfigured"}
+        doc = {"detail": "role arn:aws:iam::111122223333:role/ExampleRole is misconfigured"}
         violations = scan(doc)
         self.assertEqual([v[1] for v in violations], ["arn"])
 

@@ -2,11 +2,11 @@
 
 The Entra app registration (amu-reporting-security-ro), certificate auth, and
 Secrets Manager entry (amu-reporting/production/security-graph) are built in
-PR 3, after Michael approves the exact Graph permission list. Until then this
+PR 3, after the exact Graph permission list is approved. Until then this
 module always reports "not_configured" so the Overview page has a stable
-place to render Secure Score / MFA / Defender / Intune KPIs (as rag
-"unknown") without the publisher run ever failing on a source that does not
-exist yet.
+place to render Secure Score / MFA / Defender / Intune KPIs (as rag "grey",
+status "missing") without the publisher run ever failing on a source that
+does not exist yet.
 
 Each function signature below is the PR 3 contract: once the cert-based
 Graph client exists, these bodies get replaced with real calls behind the

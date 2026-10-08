@@ -61,21 +61,36 @@ def _client(service: str, region: str):
 
 
 def _classify(exc: BaseException) -> tuple[str, str]:
+    """Map an exception to (status, detail). ``detail`` is a bounded, code-only
+    string (e.g. "AccessDenied: AccessDenied", "Throttling") that is safe to
+    put in the written document: a botocore error ``Message`` can embed an
+    ARN, account id, or resource name, so it never goes into the return
+    value here. Call ``_full_message`` separately to log the real message to
+    CloudWatch only.
+    """
     from botocore.exceptions import ClientError
 
     if isinstance(exc, ClientError):
         code = str((exc.response or {}).get("Error", {}).get("Code") or type(exc).__name__)
-        message = str((exc.response or {}).get("Error", {}).get("Message") or str(exc))
     else:
         code = type(exc).__name__
-        message = str(exc)
     if code in _ACCESS_DENIED_CODES:
         return "error", f"AccessDenied: {code}"
     if code in _NOT_LICENSED_CODES:
         return "not_licensed", code
     if code in _NOT_CONFIGURED_CODES:
         return "not_configured", code
-    return "error", f"{code}: {message}"[:300]
+    return "error", code
+
+
+def _full_message(exc: BaseException) -> str:
+    """The real error message, for CloudWatch logging only. Never return or
+    store this; a botocore ``Message`` can contain an ARN/account id/etc."""
+    from botocore.exceptions import ClientError
+
+    if isinstance(exc, ClientError):
+        return str((exc.response or {}).get("Error", {}).get("Message") or str(exc))
+    return str(exc)
 
 
 def _wrap(source: str, fn: Callable[[], dict[str, Any]]) -> dict[str, Any]:
@@ -84,7 +99,7 @@ def _wrap(source: str, fn: Callable[[], dict[str, Any]]) -> dict[str, Any]:
         return {"status": "ok", "data": data}
     except Exception as exc:  # noqa: BLE001 - one source failing must not fail the run
         status, detail = _classify(exc)
-        log(f"{source}: {status} ({detail})")
+        log(f"{source}: {status} ({detail}): {_full_message(exc)}")
         return {"status": status, "error": detail}
 
 
@@ -113,7 +128,7 @@ def _merge_region_results(
         except Exception as exc:  # noqa: BLE001
             status, detail = _classify(exc)
             statuses[region] = status
-            log(f"{source}/{region}: {status} ({detail})")
+            log(f"{source}/{region}: {status} ({detail}): {_full_message(exc)}")
     if not oks:
         # Every region failed the same way (commonly not_configured / not_licensed).
         worst = "error"
@@ -133,17 +148,22 @@ def _merge_region_results(
 FSBP_NAME_FRAGMENT = "aws-foundational-security-best-practices"
 
 
-def _count_findings(client, filters: dict[str, Any], max_pages: int = 25, page_size: int = 100) -> int:
+def _count_findings(client, filters: dict[str, Any], max_pages: int = 25, page_size: int = 100) -> tuple[int, bool]:
+    """Return (count, truncated). truncated is True only when the page cap
+    was hit while the API still had more pages (NextToken present), so the
+    caller can flag the KPI as a lower bound instead of silently under-
+    reporting."""
     total = 0
     kwargs: dict[str, Any] = {"Filters": filters, "MaxResults": page_size}
+    token: str | None = None
     for _ in range(max_pages):
         resp = client.get_findings(**kwargs)
         total += len(resp.get("Findings") or [])
         token = resp.get("NextToken")
         if not token:
-            break
+            return total, False
         kwargs["NextToken"] = token
-    return total
+    return total, bool(token)
 
 
 def _standards_id_from_arn(arn: str) -> str:
@@ -164,8 +184,9 @@ def _securityhub_region(region: str) -> dict[str, Any]:
         {_standards_id_from_arn(s.get("StandardsArn") or "") for s in standards if s.get("StandardsArn")}
     )
     fsbp_standards_id = next((sid for sid in enabled_standards if FSBP_NAME_FRAGMENT in sid), None)
+    truncated = False
     if fsbp_standards_id:
-        fsbp_passed = _count_findings(
+        fsbp_passed, t1 = _count_findings(
             client,
             {
                 "RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}],
@@ -173,7 +194,7 @@ def _securityhub_region(region: str) -> dict[str, Any]:
                 "ComplianceAssociatedStandardsId": [{"Value": fsbp_standards_id, "Comparison": "EQUALS"}],
             },
         )
-        fsbp_failed = _count_findings(
+        fsbp_failed, t2 = _count_findings(
             client,
             {
                 "RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}],
@@ -181,13 +202,14 @@ def _securityhub_region(region: str) -> dict[str, Any]:
                 "ComplianceAssociatedStandardsId": [{"Value": fsbp_standards_id, "Comparison": "EQUALS"}],
             },
         )
+        truncated = truncated or t1 or t2
     else:
         # FSBP is not enabled in this region: 0/0 so the caller's pass-rate
         # math yields None (unknown), not a fabricated 0%.
         fsbp_passed = fsbp_failed = 0
     active_by_sev: dict[str, int] = {}
     for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
-        active_by_sev[sev.lower()] = _count_findings(
+        count, sev_truncated = _count_findings(
             client,
             {
                 "RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}],
@@ -199,11 +221,16 @@ def _securityhub_region(region: str) -> dict[str, Any]:
             },
             max_pages=10,
         )
+        active_by_sev[sev.lower()] = count
+        truncated = truncated or sev_truncated
+    if truncated:
+        log(f"securityhub/{region}: hit the findings page cap with more pages remaining (counts are a lower bound)")
     return {
         "enabledStandards": enabled_standards,
         "fsbpPassed": fsbp_passed,
         "fsbpFailed": fsbp_failed,
         "activeFindingsBySeverity": active_by_sev,
+        "truncated": truncated,
     }
 
 
@@ -221,8 +248,10 @@ def securityhub() -> dict[str, Any]:
             for sev, count in r["activeFindingsBySeverity"].items():
                 active_total[sev] += count
         enabled_standards = sorted({s for r in merged["regions"].values() for s in r["enabledStandards"]})
+        truncated = any(r.get("truncated") for r in merged["regions"].values())
         return {
             "byRegion": merged["byRegion"],
+            "truncated": truncated,
             "enabledStandards": enabled_standards,
             "fsbpPassRatePercent": pass_rate,
             "fsbpControlsEvaluated": total_controls,
