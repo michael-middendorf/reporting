@@ -84,7 +84,9 @@ describe("buildAlumniSummary", () => {
       { label: "2019", count: 2 },
       { label: "2016", count: 1 },
     ]);
-    // Color Guard (ICCG) has no coaching sport, so Anna lists only Football.
+    // Color Guard (ICCG) is retired and no longer published, but a feed written
+    // before that may still carry it. It has no coaching sport, so Anna lists
+    // only Football.
     const anna = byName(summary.rows, "Anna Zeller");
     assert.deepEqual(anna.sports, ["Football"]);
     assert.equal(anna.email, "anna@example.invalid");

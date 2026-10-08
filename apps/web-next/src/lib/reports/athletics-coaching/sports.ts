@@ -317,8 +317,9 @@ const PC_ASSOCIATION_LOOKUP: Readonly<Record<string, string>> = Object.fromEntri
 
 /**
  * Catalog key for a PowerCampus ASSOCIATION code. JV codes fold into the
- * parent sport. Codes with no coaching sport (Color Guard ICCG, JV Equestrian
- * ICJEQU, JV Lacrosse-Men ICJLCM, legacy Football Women AFBALW) return null.
+ * parent sport. Codes with no coaching sport return null (the publisher no
+ * longer exports retired codes such as Color Guard ICCG, JV Equestrian ICJEQU,
+ * JV Lacrosse-Men ICJLCM, or legacy Football Women AFBALW).
  */
 export function resolvePcAssociation(code: string): string | null {
   const key = PC_ASSOCIATION_LOOKUP[(code || "").trim().toUpperCase()];

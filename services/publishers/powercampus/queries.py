@@ -166,20 +166,23 @@ EMAIL = (
 # AMU_JVAthleticAssoc views, so the athletic code list is a constant here.
 # Verified against CODE_ASSOCIATION 2026-10-08. Rugby-Men (ICJRGB) and
 # Ultimate Frisbee-Men (ICUFRM) were approved 2026-10-08. Retired codes
-# (ICLACW, ABBALM, ...) are deliberately not included.
+# (ICLACW, ABBALM, ...) are deliberately not included. Color Guard (ICCG),
+# JV Equestrian (ICJEQU), JV Lacrosse-Men (ICJLCM), and legacy Football Women
+# (AFBALW) were dropped 2026-10-08: no longer teams and no coaching sport, so
+# their graduates' names and emails are not published.
 
 ATHLETIC_ASSOCIATION_CODES: tuple[str, ...] = (
     # Varsity
-    "ICBASE", "ICBBM", "ICBBW", "ICCG", "ICFBM", "ICGLFM", "ICGLFW", "ICSOCM",
+    "ICBASE", "ICBBM", "ICBBW", "ICFBM", "ICGLFM", "ICGLFW", "ICSOCM",
     "ICSOCW", "ICSOFT", "ICSSWM", "ICSWMW", "ICTENM", "ICTENW", "ICTRKM",
     "ICTRKW", "ICVBAL", "ICXCM", "ICXCW", "LACROS", "CDANCE",
     "ICJRGB", "ICUFRM",
     # JV
-    "ICJBAS", "ICJBBM", "ICJBBW", "ICJEQU", "ICJFRM", "ICJGLM", "ICJGLW",
-    "ICJLCM", "ICJSOF", "ICJSOM", "ICJSOW", "ICJSWM", "ICJTNM", "ICJTNW",
+    "ICJBAS", "ICJBBM", "ICJBBW", "ICJFRM", "ICJGLM", "ICJGLW",
+    "ICJSOF", "ICJSOM", "ICJSOW", "ICJSWM", "ICJTNM", "ICJTNW",
     "ICJVBL", "ICHSWW",
-    # Legacy football codes
-    "AFBALM", "AFBALW",
+    # Legacy football code
+    "AFBALM",
 )
 
 # OFFICE_HELD values that mean the person was on the roster. Blank counts
