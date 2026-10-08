@@ -23,6 +23,12 @@ const CARDS: {
     desc: "Team dashboards for fundraising, enrollment, and academics.",
     report: "athletics-coaching",
   },
+  {
+    href: "/business-office/athletics",
+    title: "Finances",
+    desc: "Unrestricted revenue, expense, and net by team, fiscal year to date.",
+    report: "business-office",
+  },
 ];
 
 export default function AthleticsHubPage() {

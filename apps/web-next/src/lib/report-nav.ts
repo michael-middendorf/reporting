@@ -68,6 +68,11 @@ export const ATHLETICS_COACHING_NAV: ReportNavItem[] = [
   { href: "/athletics/coaching/overview", label: "Overview", report: "athletics-coaching" },
 ];
 
+/** DST-2983: Business Office list, hub admins, and athletics leadership. */
+export const BUSINESS_OFFICE_NAV: ReportNavItem[] = [
+  { href: "/business-office/athletics", label: "Athletics", report: "business-office" },
+];
+
 /** Academic Affairs is one Students page (/aspiredu) plus profiles: no tab strip. */
 export const ASPIREDU_NAV: ReportNavItem[] = [];
 
@@ -131,6 +136,12 @@ export const REPORT_FOLDERS: ReportFolder[] = [
   { href: "/housing", label: "Housing", match: ["/housing"] },
   { href: "/census", label: "Census", match: ["/census"] },
   { href: "/marketing", label: "Marketing", match: ["/marketing"], nav: MARKETING_NAV },
+  {
+    href: "/business-office",
+    label: "Business Office",
+    match: ["/business-office"],
+    nav: BUSINESS_OFFICE_NAV,
+  },
   {
     href: "/cybersecurity",
     label: "Cybersecurity",
@@ -199,6 +210,14 @@ export function reportCrumbs(pathname: string): Crumb[] {
     if (extra) {
       crumbs.push(extra);
       return crumbs;
+    }
+    if (pathname.startsWith("/business-office/athletics/")) {
+      const key = pathname.slice("/business-office/athletics/".length).split("/").filter(Boolean)[0];
+      const sport = key ? sportByKey[key] : undefined;
+      if (sport) {
+        crumbs.push({ href: `/business-office/athletics/${sport.key}`, label: sport.label });
+        return crumbs;
+      }
     }
     if (pathname.startsWith("/athletics/coaching/")) {
       const parts = pathname.slice("/athletics/coaching/".length).split("/").filter(Boolean);

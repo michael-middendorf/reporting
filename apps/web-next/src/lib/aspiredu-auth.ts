@@ -78,11 +78,19 @@ export function isAspireduStudentViewer(email: string) {
   return canAccessReport(email, "aspiredu");
 }
 
-/** FERPA TOTP for campus Academic Affairs viewers and coaching dashboards. */
+/**
+ * TOTP for campus Academic Affairs viewers, coaching dashboards, and the Business Office
+ * (needsMfaAtSignIn requires MFA for all three, so each must be able to enroll and verify).
+ * This only gates the MFA flow; every data route still checks its own report access.
+ */
 export function canUseFerpaTotp(email: string) {
   const normalized = normalizeEmail(email);
   if (!normalized) return false;
-  return isAspireduStudentViewer(normalized) || canAccessReport(normalized, "athletics-coaching");
+  return (
+    isAspireduStudentViewer(normalized) ||
+    canAccessReport(normalized, "athletics-coaching") ||
+    canAccessReport(normalized, "business-office")
+  );
 }
 
 function totpKey(email: string, kind: "enrolled" | "pending") {

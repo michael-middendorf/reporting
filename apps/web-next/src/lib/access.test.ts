@@ -142,7 +142,7 @@ describe("athletics-only grant", () => {
     assert.equal(canAccessReport(ERIC, "portfolios"), false);
     assert.equal(canAccessReport(ERIC, "annunciation"), false);
     assert.equal(canAccessReport(ERIC, "aspiredu"), false);
-    assert.deepEqual(reportsForEmail(ERIC), ["census", "athletics", "athletics-coaching", "housing"]);
+    assert.deepEqual(reportsForEmail(ERIC), ["census", "athletics", "athletics-coaching", "housing", "business-office"]);
   });
 
   it("lets Feger and Weisbrod open every Athletics department report", () => {
@@ -152,7 +152,7 @@ describe("athletics-only grant", () => {
       assert.equal(canAccessReport(email, "athletics-coaching"), true, email);
       assert.equal(canAccessAthleticsGiving(email), true, email);
       assert.equal(canAccessReport(email, "enrollment"), false, email);
-      assert.deepEqual(reportsForEmail(email), ["athletics", "athletics-coaching"], email);
+      assert.deepEqual(reportsForEmail(email), ["athletics", "athletics-coaching", "business-office"], email);
     }
   });
 
@@ -380,7 +380,7 @@ describe("census grant for Gallagher, Nutt, and Davy", () => {
 describe("census grant for Fier and Logan", () => {
   const people = ["Luke.Fier@avemaria.edu", "Steve.Logan@avemaria.edu"];
 
-  it("lets Luke and Steve sign in and open census only", () => {
+  it("lets Luke and Steve sign in and open census and Business Office only", () => {
     for (const email of people) {
       assert.equal(canLogin(email), true, email);
       assert.equal(canAccessReport(email, "census"), true, email);
@@ -394,7 +394,7 @@ describe("census grant for Fier and Logan", () => {
       assert.equal(canAccessReport(email, "points"), false, email);
       assert.equal(canAccessReport(email, "annunciation"), false, email);
       assert.equal(canAccessReport(email, "aspiredu"), false, email);
-      assert.deepEqual(reportsForEmail(email), ["census"], email);
+      assert.deepEqual(reportsForEmail(email), ["census", "business-office"], email);
     }
   });
 });

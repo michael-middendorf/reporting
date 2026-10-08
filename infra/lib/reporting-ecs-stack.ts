@@ -319,6 +319,9 @@ export class ReportingEcsStack extends cdk.Stack {
       if (src.source === "powerfaids") {
         scholarshipNeedExtract(this, taskRole, container);
       }
+      if (src.source === "greatplains") {
+        athleticsFinanceExtract(this, taskRole, container, task.taskRole);
+      }
     }
     new cdk.CfnOutput(this, "AspireduUserPoolId", { value: aspireduUserPool.userPoolId });
     new cdk.CfnOutput(this, "AspireduUserPoolClientId", { value: aspireduClient.userPoolClientId });
@@ -536,6 +539,67 @@ function scholarshipNeedExtract(scope: Construct, powerfaidsTaskRole: iam.Role, 
     ],
   });
   new cdk.CfnOutput(scope, "ScholarshipNeedKeyArn", { value: key.keyArn });
+}
+
+// Athletics finance extract (DST-2983): unrestricted (00) income statement totals for the
+// athletic departments in apps/web-next/src/lib/reports/business-office/athletics-departments.json.
+// The nightly Great Plains job writes sources/athletics-finance/ under its own KMS key; the
+// reporting web task role is the only reader (Business Office section). The raw
+// sources/greatplains/ prefix and its key stay closed to the web role. Keep
+// athleticsFinancePrefix and the web task role ARN in sync with sst.config.ts.
+const athleticsFinancePrefix = "sources/athletics-finance";
+
+function athleticsFinanceExtract(
+  scope: Construct,
+  greatplainsTaskRole: iam.Role,
+  container: ecs.ContainerDefinition,
+  webTaskRole: iam.IRole,
+) {
+  const key = new kms.Key(scope, "AthleticsFinanceKey", {
+    alias: "alias/amu-reporting-athletics-finance",
+    description: `Encrypts ${athleticsFinancePrefix}/ in the reporting data bucket`,
+    enableKeyRotation: true,
+    removalPolicy: cdk.RemovalPolicy.RETAIN,
+    pendingWindow: cdk.Duration.days(30),
+  });
+  // Same pattern as the scholarship need key: root administers, and data-plane use is denied to
+  // everyone except the writer (Great Plains task role), the one reader (web task role) and the
+  // break-glass user.
+  key.addToResourcePolicy(new iam.PolicyStatement({
+    sid: "DenyDataUseExceptWriterReaderBreakGlass",
+    effect: iam.Effect.DENY,
+    principals: [new iam.AnyPrincipal()],
+    actions: ["kms:Decrypt", "kms:Encrypt", "kms:ReEncrypt*", "kms:GenerateDataKey*"],
+    resources: ["*"],
+    conditions: { ArnNotEquals: { "aws:PrincipalArn": [greatplainsTaskRole.roleArn, webTaskRole.roleArn, breakGlassUserArn] } },
+  }));
+
+  // Writer: the Great Plains task role. Get/Delete/List are needed by publish_dataset, which
+  // prunes old dt= folders under the dataset prefix.
+  greatplainsTaskRole.addToPolicy(new iam.PolicyStatement({
+    actions: ["kms:Decrypt", "kms:GenerateDataKey"],
+    resources: [key.keyArn],
+    conditions: { StringEquals: { "kms:ViaService": `s3.${region}.amazonaws.com` } },
+  }));
+  greatplainsTaskRole.addToPolicy(new iam.PolicyStatement({
+    actions: ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+    resources: [`${dataBucketArn}/${athleticsFinancePrefix}/*`],
+  }));
+  greatplainsTaskRole.addToPolicy(new iam.PolicyStatement({
+    actions: ["s3:ListBucket"],
+    resources: [dataBucketArn],
+    conditions: { StringLike: { "s3:prefix": [`${athleticsFinancePrefix}/*`] } },
+  }));
+  container.addEnvironment("GP_ATHLETICS_FINANCE_KMS_KEY_ID", key.keyArn);
+
+  // Reader: the web task role already has s3:GetObject on the bucket. Add decrypt with this key
+  // through S3 only. No ListBucket is needed (the web reads _latest.json and meta.json by key).
+  webTaskRole.addToPrincipalPolicy(new iam.PolicyStatement({
+    actions: ["kms:Decrypt"],
+    resources: [key.keyArn],
+    conditions: { StringEquals: { "kms:ViaService": `s3.${region}.amazonaws.com` } },
+  }));
+  new cdk.CfnOutput(scope, "AthleticsFinanceKeyArn", { value: key.keyArn });
 }
 
 // GuardDuty Runtime Monitoring injects its agent sidecar into every Fargate task and

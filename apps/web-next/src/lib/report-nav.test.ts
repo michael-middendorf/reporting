@@ -4,6 +4,7 @@ import {
   ADVANCEMENT_NAV,
   ASPIREDU_NAV,
   ATHLETICS_NAV,
+  BUSINESS_OFFICE_NAV,
   ENROLLMENT_NAV,
   POINTS_NAV,
   isDepartmentHub,
@@ -297,5 +298,23 @@ describe("withCurrentLabel", () => {
     assert.deepEqual(named.slice(0, -1), crumbs.slice(0, -1));
     assert.equal(withCurrentLabel(crumbs, undefined), crumbs);
     assert.equal(withCurrentLabel(crumbs, ""), crumbs);
+  });
+});
+
+describe("Business Office nav (DST-2983)", () => {
+  it("shows the Athletics tab only with the business-office report", () => {
+    assert.deepEqual(
+      navForReports(BUSINESS_OFFICE_NAV, ["business-office"]).map((n) => n.href),
+      ["/business-office/athletics"],
+    );
+    assert.deepEqual(navForReports(BUSINESS_OFFICE_NAV, ["athletics-coaching"]), []);
+  });
+
+  it("labels team pages with the sport name", () => {
+    assert.deepEqual(
+      reportCrumbs("/business-office/athletics/mens-basketball").map((c) => c.label),
+      ["Reports", "Business Office", "Athletics", "Men's Basketball"],
+    );
+    assert.equal(isDepartmentHub("/business-office"), true);
   });
 });

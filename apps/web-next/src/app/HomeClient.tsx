@@ -62,6 +62,13 @@ const REPORTS: {
     desc: "Search students or download every student record.",
   },
   {
+    // Business Office list, hub admins, and athletics leadership (access.ts).
+    id: "business-office",
+    href: "/business-office",
+    title: "Business Office",
+    desc: "Athletics revenue, expense, and net by team, fiscal year to date.",
+  },
+  {
     // Strict report: only the STRICT_REPORTS list in access.ts sees this card.
     id: "cybersecurity",
     href: "/cybersecurity",
