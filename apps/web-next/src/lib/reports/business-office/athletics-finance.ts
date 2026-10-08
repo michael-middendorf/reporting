@@ -52,9 +52,13 @@ export type FinanceSummary = {
   revenue: number;
   expense: number;
   net: number;
-  priorRevenue: number;
-  priorExpense: number;
-  priorNet: number;
+  /**
+   * Prior FY through the last completed month of the current FY (periods
+   * 1..current_period - 1). Null when no month has closed yet (period 1).
+   */
+  priorRevenue: number | null;
+  priorExpense: number | null;
+  priorNet: number | null;
   /** Phase 2 (Adaptive/Ramp). Always null for now. */
   budget: number | null;
 };
@@ -91,6 +95,13 @@ export type AthleticsBalancesResponse = {
   currentPeriod: number;
   /** Last day of the current period (YTD runs through this period). */
   throughDate: string | null;
+  /**
+   * Last prior FY period in the comparison: currentPeriod - 1, the last
+   * completed month. 0 means no completed month yet, so no comparison.
+   */
+  priorThroughPeriod: number;
+  /** Last day of priorThroughPeriod in the prior FY, when meta has it. */
+  priorThroughDate: string | null;
   teams: TeamFinance[];
   /** All-scope users only. */
   departmentWide: FinanceSummary | null;
@@ -190,23 +201,36 @@ export function rowsForScope(
   return out;
 }
 
-function emptySummary(): FinanceSummary {
-  return { revenue: 0, expense: 0, net: 0, priorRevenue: 0, priorExpense: 0, priorNet: 0, budget: null };
+type Accumulator = { revenue: number; expense: number; priorRevenue: number; priorExpense: number };
+
+function emptyAccumulator(): Accumulator {
+  return { revenue: 0, expense: 0, priorRevenue: 0, priorExpense: 0 };
 }
 
-function addToSummary(summary: FinanceSummary, row: FinanceRow, meta: FinanceMeta) {
-  if (row.period < 1 || row.period > meta.current_period) return;
+/**
+ * The prior FY comparison runs through the last completed month of the
+ * current FY. The current period is partial, so comparing it against a full
+ * prior FY month would overstate the prior year.
+ */
+export function priorThroughPeriod(meta: Pick<FinanceMeta, "current_period">): number {
+  return Math.max(0, meta.current_period - 1);
+}
+
+function addToSummary(summary: Accumulator, row: FinanceRow, meta: FinanceMeta) {
+  if (row.period < 1) return;
   const amount = num(row.amount);
   if (row.fiscal_year === meta.current_fy) {
+    if (row.period > meta.current_period) return;
     if (row.category === "revenue") summary.revenue += amount;
     else summary.expense += amount;
   } else if (row.fiscal_year === meta.prior_fy) {
+    if (row.period > priorThroughPeriod(meta)) return;
     if (row.category === "revenue") summary.priorRevenue += amount;
     else summary.priorExpense += amount;
   }
 }
 
-function finish(summary: FinanceSummary): FinanceSummary {
+function finish(summary: Accumulator, priorAvailable: boolean): FinanceSummary {
   const revenue = cents(summary.revenue);
   const expense = cents(summary.expense);
   const priorRevenue = cents(summary.priorRevenue);
@@ -215,9 +239,9 @@ function finish(summary: FinanceSummary): FinanceSummary {
     revenue,
     expense,
     net: cents(revenue - expense),
-    priorRevenue,
-    priorExpense,
-    priorNet: cents(priorRevenue - priorExpense),
+    priorRevenue: priorAvailable ? priorRevenue : null,
+    priorExpense: priorAvailable ? priorExpense : null,
+    priorNet: priorAvailable ? cents(priorRevenue - priorExpense) : null,
     budget: null,
   };
 }
@@ -286,9 +310,9 @@ export function buildAthleticsBalances(
   sportKey: string | null,
 ): AthleticsBalancesResponse {
   const teamKeys = scope.all ? mappedSportKeys() : scope.sports.filter((key) => sportByKey[key]);
-  const teamSummaries = new Map<string, FinanceSummary>(teamKeys.map((key) => [key, emptySummary()]));
-  const departmentWide = emptySummary();
-  const unassigned = emptySummary();
+  const teamSummaries = new Map<string, Accumulator>(teamKeys.map((key) => [key, emptyAccumulator()]));
+  const departmentWide = emptyAccumulator();
+  const unassigned = emptyAccumulator();
   for (const row of scopedRows) {
     if (row.group === "team" && row.sport_key) {
       const summary = teamSummaries.get(row.sport_key);
@@ -302,6 +326,11 @@ export function buildAthleticsBalances(
   const through = meta.periods.find(
     (p) => p.fiscal_year === meta.current_fy && p.period === meta.current_period,
   );
+  const priorThrough = priorThroughPeriod(meta);
+  const priorAvailable = priorThrough >= 1;
+  const priorEnd = priorAvailable
+    ? meta.periods.find((p) => p.fiscal_year === meta.prior_fy && p.period === priorThrough)
+    : undefined;
   return {
     asOf: meta.as_of,
     asOfDate: meta.as_of_date,
@@ -309,13 +338,15 @@ export function buildAthleticsBalances(
     priorFy: meta.prior_fy,
     currentPeriod: meta.current_period,
     throughDate: through?.end ?? null,
+    priorThroughPeriod: priorThrough,
+    priorThroughDate: priorEnd?.end ?? null,
     teams: teamKeys.map((key) => ({
       sportKey: key,
       label: sportByKey[key]?.label ?? key,
-      ...finish(teamSummaries.get(key) ?? emptySummary()),
+      ...finish(teamSummaries.get(key) ?? emptyAccumulator(), priorAvailable),
     })),
-    departmentWide: scope.all ? finish(departmentWide) : null,
-    unassigned: scope.all && scope.showUnassigned ? finish(unassigned) : null,
+    departmentWide: scope.all ? finish(departmentWide, priorAvailable) : null,
+    unassigned: scope.all && scope.showUnassigned ? finish(unassigned, priorAvailable) : null,
     sport: sportKey ? sportDetail(sportKey, scopedRows, meta) : null,
   };
 }

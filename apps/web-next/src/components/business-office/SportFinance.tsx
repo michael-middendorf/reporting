@@ -20,33 +20,70 @@ function monthLabel(end: string, period: number): string {
   return month >= 1 && month <= 12 ? MONTHS[month - 1] : `P${period}`;
 }
 
+type PriorWindow = Pick<AthleticsBalancesResponse, "priorFy" | "priorThroughPeriod" | "priorThroughDate">;
+
+/** "Sep 2025" from an ISO date, or null when the date is missing or malformed. */
+function monthYearLabel(end: string | null): string | null {
+  if (!end) return null;
+  const year = end.slice(0, 4);
+  const month = Number(end.slice(5, 7));
+  return /^[0-9]{4}$/.test(year) && month >= 1 && month <= 12 ? `${MONTHS[month - 1]} ${year}` : null;
+}
+
+/**
+ * The month the prior FY comparison runs through ("Sep 2025"), falling back
+ * to "period N" when meta has no end date. Null when no month has closed.
+ */
+export function priorThroughLabel(data: PriorWindow): string | null {
+  if (data.priorThroughPeriod < 1) return null;
+  return monthYearLabel(data.priorThroughDate) ?? `period ${data.priorThroughPeriod}`;
+}
+
+/** Column heading for the prior FY net comparison. */
+export function priorNetHeading(data: PriorWindow): string {
+  const through = priorThroughLabel(data);
+  return through ? `Prior FY net through ${through}` : "Prior FY net (no completed month yet)";
+}
+
+/** Prior FY amounts are null before the first month closes. */
+export function formatPrior(value: number | null): string {
+  return value === null ? "n/a" : formatMoney(value);
+}
+
 export function FinanceFootnote({ data }: { data: AthleticsBalancesResponse }) {
+  const through = priorThroughLabel(data);
   return (
     <p className="ath-muted">
       Source: Great Plains general ledger, unrestricted funds, posted actuals. {fyLabel(data.currentFy)} to
       date through period {data.currentPeriod}
-      {data.throughDate ? ` (ending ${data.throughDate})` : ""}, compared with the same periods of{" "}
-      {fyLabel(data.priorFy)}. As of {data.asOfDate}.
+      {data.throughDate ? ` (ending ${data.throughDate})` : ""}, including the current month in progress.{" "}
+      {through
+        ? `Prior FY comparison: ${fyLabel(data.priorFy)} through period ${data.priorThroughPeriod}${
+            data.priorThroughDate ? ` (ending ${data.priorThroughDate})` : ""
+          }, the last completed month.`
+        : `No prior FY comparison until the first month of ${fyLabel(data.currentFy)} closes.`}{" "}
+      As of {data.asOfDate}.
     </p>
   );
 }
 
-export function FinanceKpis({ summary, priorFy }: { summary: FinanceSummary; priorFy: number }) {
+export function FinanceKpis({ summary, data }: { summary: FinanceSummary; data: PriorWindow }) {
+  const through = priorThroughLabel(data);
+  const priorLine = (value: number | null) =>
+    through
+      ? `${fyLabel(data.priorFy)} through ${through}: ${formatPrior(value)}`
+      : "Prior FY comparison starts after the first month closes";
   return (
     <div className="ath-coach-kpis">
       <div className="ath-kpi">
         <span>Revenue YTD</span>
         <strong>{formatMoney(summary.revenue)}</strong>
-        <small>
-          {fyLabel(priorFy)} same period: {formatMoney(summary.priorRevenue)}
-        </small>
+        <small>{priorLine(summary.priorRevenue)}</small>
       </div>
       <div className="ath-kpi">
         <span>Expense YTD</span>
         <strong>{formatMoney(summary.expense)}</strong>
-        <small>
-          {fyLabel(priorFy)} same period: {formatMoney(summary.priorExpense)}
-        </small>
+        <small>{priorLine(summary.priorExpense)}</small>
       </div>
       <div className="ath-kpi">
         <span>Net YTD</span>
@@ -55,8 +92,12 @@ export function FinanceKpis({ summary, priorFy }: { summary: FinanceSummary; pri
       </div>
       <div className="ath-kpi">
         <span>Prior FY net</span>
-        <strong>{formatMoney(summary.priorNet)}</strong>
-        <small>{fyLabel(priorFy)}, same periods</small>
+        <strong>{formatPrior(summary.priorNet)}</strong>
+        <small>
+          {through
+            ? `${fyLabel(data.priorFy)} through ${through}`
+            : "Available after the first month closes"}
+        </small>
       </div>
     </div>
   );
@@ -150,7 +191,7 @@ export function SportFinance({ sportKey, backHref }: { sportKey: string; backHre
             Unrestricted revenue and expense for this team, {fyLabel(data.currentFy)} to date. Budget
             comparison is coming in a later phase.
           </p>
-          <FinanceKpis summary={team} priorFy={data.priorFy} />
+          <FinanceKpis summary={team} data={data} />
           <AccountTable
             title="Revenue"
             lines={detail.revenue}

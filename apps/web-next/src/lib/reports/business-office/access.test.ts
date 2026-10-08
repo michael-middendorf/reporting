@@ -15,6 +15,7 @@ import {
   buildAthleticsBalances,
   departmentMap,
   mappedSportKeys,
+  priorThroughPeriod,
   rowsForScope,
   validateDepartmentMap,
   type FinanceMeta,
@@ -159,7 +160,8 @@ const SAMPLE_ROWS: FinanceRow[] = [
   row("6552", "revenue", 2027, 1, "1000.00"), // football
   row("6552", "expense", 2027, 2, "400.50"), // football
   row("6552", "expense", 2027, 3, "999.00"), // football, after current period: not YTD
-  row("6552", "revenue", 2026, 1, "800.00"), // football prior FY same period
+  row("6552", "revenue", 2026, 1, "800.00"), // football prior FY, completed month: compared
+  row("6552", "expense", 2026, 2, "300.00"), // prior FY period matching the partial current month: excluded
   row("6552", "revenue", 2026, 3, "5000.00"), // prior FY, outside same periods
   row("6543", "expense", 2027, 1, "250.00"), // mens-baseball
   row("6117", "expense", 2027, 1, "75.00"), // department-wide
@@ -168,7 +170,7 @@ const SAMPLE_ROWS: FinanceRow[] = [
 ];
 
 describe("athletics balances summaries", () => {
-  it("adds up YTD and prior FY same periods for Business Office", () => {
+  it("adds up YTD and prior FY through the last completed month for Business Office", () => {
     const scope = { all: true as const, showUnassigned: true };
     const out = buildAthleticsBalances(rowsForScope(SAMPLE_ROWS, scope), SAMPLE_META, scope, null);
     const football = out.teams.find((t) => t.sportKey === "football")!;
@@ -176,13 +178,70 @@ describe("athletics balances summaries", () => {
     assert.equal(football.expense, 400.5);
     assert.equal(football.net, 599.5);
     assert.equal(football.priorRevenue, 800);
+    assert.equal(football.priorExpense, 0);
     assert.equal(football.priorNet, 800);
     assert.equal(football.budget, null);
     assert.equal(out.teams.length, Object.keys(departmentMapJson.teams).length);
     assert.equal(out.departmentWide?.expense, 75);
     assert.equal(out.unassigned?.revenue, 60);
     assert.equal(out.throughDate, "2026-08-31");
+    assert.equal(out.priorThroughPeriod, 1);
+    assert.equal(out.priorThroughDate, "2025-07-31");
     assert.equal(out.sport, null);
+  });
+
+  it("compares prior FY only through the last completed month", () => {
+    assert.equal(priorThroughPeriod({ current_period: 4 }), 3);
+    assert.equal(priorThroughPeriod({ current_period: 1 }), 0);
+    const scope = { all: true as const, showUnassigned: true };
+    const rows = [
+      row("6552", "revenue", 2027, 1, "100.00"),
+      row("6552", "revenue", 2027, 2, "200.00"),
+      row("6552", "revenue", 2027, 3, "300.00"), // current (partial) month: in current YTD
+      row("6552", "revenue", 2026, 1, "10.00"),
+      row("6552", "expense", 2026, 2, "20.00"),
+      row("6552", "revenue", 2026, 3, "30.00"), // prior FY match for the partial month: excluded
+      row("6552", "revenue", 2026, 4, "40.00"),
+    ];
+    const meta = { ...SAMPLE_META, current_period: 3 };
+    const out = buildAthleticsBalances(rowsForScope(rows, scope), meta, scope, null);
+    const football = out.teams.find((t) => t.sportKey === "football")!;
+    assert.equal(football.revenue, 600);
+    assert.equal(football.net, 600);
+    assert.equal(football.priorRevenue, 10);
+    assert.equal(football.priorExpense, 20);
+    assert.equal(football.priorNet, -10);
+    assert.equal(out.currentPeriod, 3);
+    assert.equal(out.throughDate, "2026-09-30");
+    assert.equal(out.priorThroughPeriod, 2);
+    assert.equal(out.priorThroughDate, "2025-08-31");
+  });
+
+  it("has no prior FY comparison in period 1 (July)", () => {
+    const scope = { all: true as const, showUnassigned: true };
+    const meta = { ...SAMPLE_META, current_period: 1 };
+    const out = buildAthleticsBalances(rowsForScope(SAMPLE_ROWS, scope), meta, scope, null);
+    const football = out.teams.find((t) => t.sportKey === "football")!;
+    assert.equal(football.revenue, 1000);
+    assert.equal(football.expense, 0);
+    assert.equal(football.net, 1000);
+    assert.equal(football.priorRevenue, null);
+    assert.equal(football.priorExpense, null);
+    assert.equal(football.priorNet, null);
+    assert.equal(out.departmentWide?.priorNet, null);
+    assert.equal(out.unassigned?.priorNet, null);
+    assert.equal(out.priorThroughPeriod, 0);
+    assert.equal(out.priorThroughDate, null);
+    assert.equal(out.throughDate, "2026-07-31");
+  });
+
+  it("leaves the prior FY end date null when meta lacks that period", () => {
+    const scope = { all: true as const, showUnassigned: true };
+    const meta = { ...SAMPLE_META, periods: SAMPLE_META.periods.filter((p) => p.fiscal_year === 2027) };
+    const out = buildAthleticsBalances(rowsForScope(SAMPLE_ROWS, scope), meta, scope, null);
+    assert.equal(out.priorThroughPeriod, 1);
+    assert.equal(out.priorThroughDate, null);
+    assert.equal(out.teams.find((t) => t.sportKey === "football")!.priorRevenue, 800);
   });
 
   it("hides unassigned from leadership and everything else from coaches", () => {

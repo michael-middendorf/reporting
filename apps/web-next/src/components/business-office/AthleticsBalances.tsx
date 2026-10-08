@@ -7,7 +7,7 @@ import type {
   AthleticsBalancesResponse,
   FinanceSummary,
 } from "@/lib/reports/business-office/athletics-finance";
-import { FinanceFootnote, FinanceKpis, fyLabel } from "./SportFinance";
+import { FinanceFootnote, FinanceKpis, formatPrior, fyLabel, priorNetHeading } from "./SportFinance";
 
 function SummaryCells({ summary }: { summary: FinanceSummary }) {
   return (
@@ -17,23 +17,29 @@ function SummaryCells({ summary }: { summary: FinanceSummary }) {
       <td>
         <strong>{formatMoney(summary.net)}</strong>
       </td>
-      <td>{formatMoney(summary.priorNet)}</td>
+      <td>{formatPrior(summary.priorNet)}</td>
     </>
   );
 }
 
-function addSummaries(rows: FinanceSummary[]): FinanceSummary {
+/** Null stays null: prior FY amounts are null before the first month closes. */
+function addPrior(a: number | null, b: number | null): number | null {
+  return a === null || b === null ? null : a + b;
+}
+
+function addSummaries(rows: FinanceSummary[], priorAvailable: boolean): FinanceSummary {
+  const start = priorAvailable ? 0 : null;
   const total = rows.reduce(
     (acc, row) => ({
       revenue: acc.revenue + row.revenue,
       expense: acc.expense + row.expense,
       net: acc.net + row.net,
-      priorRevenue: acc.priorRevenue + row.priorRevenue,
-      priorExpense: acc.priorExpense + row.priorExpense,
-      priorNet: acc.priorNet + row.priorNet,
+      priorRevenue: addPrior(acc.priorRevenue, row.priorRevenue),
+      priorExpense: addPrior(acc.priorExpense, row.priorExpense),
+      priorNet: addPrior(acc.priorNet, row.priorNet),
       budget: null,
     }),
-    { revenue: 0, expense: 0, net: 0, priorRevenue: 0, priorExpense: 0, priorNet: 0, budget: null } as FinanceSummary,
+    { revenue: 0, expense: 0, net: 0, priorRevenue: start, priorExpense: start, priorNet: start, budget: null } as FinanceSummary,
   );
   return total;
 }
@@ -45,7 +51,7 @@ export function AthleticsBalances() {
     { noStore: true, fallbackError: "Unable to load athletics finances" },
   );
   const teams = data ? [...data.teams].sort((a, b) => a.label.localeCompare(b.label)) : [];
-  const department = data ? addSummaries([...teams, ...(data.departmentWide ? [data.departmentWide] : [])]) : null;
+  const department = data ? addSummaries([...teams, ...(data.departmentWide ? [data.departmentWide] : [])], data.priorThroughPeriod >= 1) : null;
 
   return (
     <main className="ath-page">
@@ -63,7 +69,7 @@ export function AthleticsBalances() {
       {!loading && !error && data && department ? (
         <section className="ath-coach-band">
           <h2>Athletics department</h2>
-          <FinanceKpis summary={department} priorFy={data.priorFy} />
+          <FinanceKpis summary={department} data={data} />
           <h3>By team</h3>
           <div className="ath-table-scroll">
             <table className="ath-table">
@@ -73,7 +79,7 @@ export function AthleticsBalances() {
                   <th>Revenue YTD</th>
                   <th>Expense YTD</th>
                   <th>Net YTD</th>
-                  <th>{fyLabel(data.priorFy)} same period net</th>
+                  <th>{priorNetHeading(data)}</th>
                 </tr>
               </thead>
               <tbody>
@@ -115,7 +121,7 @@ export function AthleticsBalances() {
                       <th>Revenue YTD</th>
                       <th>Expense YTD</th>
                       <th>Net YTD</th>
-                      <th>{fyLabel(data.priorFy)} same period net</th>
+                      <th>{priorNetHeading(data)}</th>
                     </tr>
                   </thead>
                   <tbody>
