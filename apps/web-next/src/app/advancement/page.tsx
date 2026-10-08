@@ -55,6 +55,12 @@ const REPORTS: {
     report: "advancement",
   },
   {
+    href: "/advancement/year-end-appeal",
+    title: "Year-End Appeal",
+    desc: "End of Calendar Year 2026 revenue by segment, package length, asset, and source code, with year-over-year pace.",
+    report: "advancement",
+  },
+  {
     href: "/advancement/points",
     title: "MA Points",
     desc: "Activity points, tiers, and leaderboard for scoped MAs.",

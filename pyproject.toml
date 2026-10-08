@@ -21,6 +21,7 @@ members = [
   "services/publishers/portfolios",
   "services/publishers/stained-glass-windows",
   "services/publishers/fall-appeal",
+  "services/publishers/year-end-appeal",
   "services/publishers/athletics-coaching-fundraising",
   "services/publishers/athletics-giving",
   "services/publishers/pursuit-of-wisdom",

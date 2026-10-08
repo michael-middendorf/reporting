@@ -18,6 +18,7 @@ export const ADVANCEMENT_NAV: ReportNavItem[] = [
   { href: "/advancement/portfolios", label: "Portfolios", report: "portfolios" },
   { href: "/annunciation", label: "Annunciation Circle", report: "annunciation" },
   { href: "/advancement/appeals?campaign=fall-2026", label: "Appeals", report: "advancement" },
+  { href: "/advancement/year-end-appeal", label: "Year-End Appeal", report: "advancement" },
   { href: "/advancement/points", label: "MA Points", report: "points" },
   { href: "/advancement/chapel-naming", label: "Chapel Naming", report: "chapel" },
   { href: "/advancement/stained-glass-windows", label: "Stained Glass", report: "chapel" },

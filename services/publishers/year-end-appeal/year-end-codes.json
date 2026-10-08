@@ -1,0 +1,164 @@
+[
+  {
+    "code": "FYE27YE_A_2P_RD",
+    "segment": "A",
+    "length": "2P",
+    "asset": "RD"
+  },
+  {
+    "code": "FYE27YE_A_2P_BRE",
+    "segment": "A",
+    "length": "2P",
+    "asset": "BRE"
+  },
+  {
+    "code": "FYE27YE_A_2P_EML",
+    "segment": "A",
+    "length": "2P",
+    "asset": "EML"
+  },
+  {
+    "code": "FYE27YE_A_2P_WEB",
+    "segment": "A",
+    "length": "2P",
+    "asset": "WEB"
+  },
+  {
+    "code": "FYE27YE_A_4P_RD",
+    "segment": "A",
+    "length": "4P",
+    "asset": "RD"
+  },
+  {
+    "code": "FYE27YE_A_4P_BRE",
+    "segment": "A",
+    "length": "4P",
+    "asset": "BRE"
+  },
+  {
+    "code": "FYE27YE_A_4P_EML",
+    "segment": "A",
+    "length": "4P",
+    "asset": "EML"
+  },
+  {
+    "code": "FYE27YE_A_4P_WEB",
+    "segment": "A",
+    "length": "4P",
+    "asset": "WEB"
+  },
+  {
+    "code": "FYE27YE_LP12_2P_RD",
+    "segment": "LP12",
+    "length": "2P",
+    "asset": "RD"
+  },
+  {
+    "code": "FYE27YE_LP12_2P_BRE",
+    "segment": "LP12",
+    "length": "2P",
+    "asset": "BRE"
+  },
+  {
+    "code": "FYE27YE_LP12_2P_EML",
+    "segment": "LP12",
+    "length": "2P",
+    "asset": "EML"
+  },
+  {
+    "code": "FYE27YE_LP12_2P_WEB",
+    "segment": "LP12",
+    "length": "2P",
+    "asset": "WEB"
+  },
+  {
+    "code": "FYE27YE_LP12_4P_RD",
+    "segment": "LP12",
+    "length": "4P",
+    "asset": "RD"
+  },
+  {
+    "code": "FYE27YE_LP12_4P_BRE",
+    "segment": "LP12",
+    "length": "4P",
+    "asset": "BRE"
+  },
+  {
+    "code": "FYE27YE_LP12_4P_EML",
+    "segment": "LP12",
+    "length": "4P",
+    "asset": "EML"
+  },
+  {
+    "code": "FYE27YE_LP12_4P_WEB",
+    "segment": "LP12",
+    "length": "4P",
+    "asset": "WEB"
+  },
+  {
+    "code": "FYE27YE_LP24_2P_RD",
+    "segment": "LP24",
+    "length": "2P",
+    "asset": "RD"
+  },
+  {
+    "code": "FYE27YE_LP24_2P_BRE",
+    "segment": "LP24",
+    "length": "2P",
+    "asset": "BRE"
+  },
+  {
+    "code": "FYE27YE_LP24_2P_EML",
+    "segment": "LP24",
+    "length": "2P",
+    "asset": "EML"
+  },
+  {
+    "code": "FYE27YE_LP24_2P_WEB",
+    "segment": "LP24",
+    "length": "2P",
+    "asset": "WEB"
+  },
+  {
+    "code": "FYE27YE_LP24_4P_RD",
+    "segment": "LP24",
+    "length": "4P",
+    "asset": "RD"
+  },
+  {
+    "code": "FYE27YE_LP24_4P_BRE",
+    "segment": "LP24",
+    "length": "4P",
+    "asset": "BRE"
+  },
+  {
+    "code": "FYE27YE_LP24_4P_EML",
+    "segment": "LP24",
+    "length": "4P",
+    "asset": "EML"
+  },
+  {
+    "code": "FYE27YE_LP24_4P_WEB",
+    "segment": "LP24",
+    "length": "4P",
+    "asset": "WEB"
+  },
+  {
+    "code": "FYE27YE_A_PC",
+    "segment": "A",
+    "length": null,
+    "asset": "PC"
+  },
+  {
+    "code": "FYE27YE_SS",
+    "segment": null,
+    "length": null,
+    "asset": "SS"
+  },
+  {
+    "code": "FYE27YE_A_SOC",
+    "segment": "A",
+    "length": null,
+    "asset": "SOC"
+  }
+]

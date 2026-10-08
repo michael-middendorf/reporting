@@ -527,6 +527,38 @@ export default $config({
       permissions: reportDataPerms,
     });
 
+    const yearEndAppeal = new sst.aws.Function("YearEndAppealData", {
+      handler: "services/publishers/year-end-appeal/handler.handler",
+      runtime: "python3.12",
+      timeout: "15 minutes",
+      memory: "1024 MB",
+      link: [data],
+      python: { uv: true },
+      copyFiles: [
+        ...commonFiles,
+        {
+          from: "services/publishers/year-end-appeal/year-end-codes.json",
+          to: "year-end-codes.json",
+        },
+      ],
+      environment: {
+        DATA_BUCKET: data.name,
+        API_KEY: virtuousApiKey.value,
+        VIRTUOUS_API_KEY: virtuousApiKey.value,
+        YEAR_END_CAMPAIGN: "2026 End of Calendar Year",
+        YEAR_END_START: "2026-11-13",
+        YEAR_END_END: "2027-06-30",
+        // Prior-year analog for the YoY pace comparison.
+        YEAR_END_PRIOR_CAMPAIGN: "2025 End of Calendar Year",
+        YEAR_END_PRIOR_START: "2025-11-01",
+        YEAR_END_CACHE_KEY: "year-end-appeal/latest.json",
+        // Optional {code: count} mailed-counts object. Missing object means
+        // response rates stay null.
+        YEAR_END_MAILED_KEY: "year-end-appeal/mailed-counts.json",
+      },
+      permissions: reportDataPerms,
+    });
+
     const stainedGlassWindows = new sst.aws.Function("StainedGlassWindowsData", {
       handler: "services/publishers/stained-glass-windows/handler.handler",
       runtime: "python3.12",
@@ -966,6 +998,11 @@ export default $config({
       function: springAppeal,
     });
 
+    new sst.aws.Cron("YearEndAppealRefresh", {
+      schedule: "rate(1 hour)",
+      function: yearEndAppeal,
+    });
+
     // Chancellor's Gala giving-site tickets. Stripe is not posting these to
     // Virtuous. 11:15 UTC is 7:15am Eastern during daylight time.
     const galaTickets = new sst.aws.Function("GalaTickets", {
@@ -1038,6 +1075,7 @@ export default $config({
       stainedGlassWindows: stainedGlassWindows.name,
       fallAppeal: fallAppeal.name,
       springAppeal: springAppeal.name,
+      yearEndAppeal: yearEndAppeal.name,
       athleticsCoachingFundraising: athleticsCoachingFundraising.name,
       athleticsGiving: athleticsGiving.name,
       galaTickets: galaTickets.name,

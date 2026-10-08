@@ -28,6 +28,7 @@ describe("reportNavActive", () => {
     const pipeline = item(ADVANCEMENT_NAV, "/advancement/pipeline");
     const ac = item(ADVANCEMENT_NAV, "/annunciation");
     const fall = item(ADVANCEMENT_NAV, "/advancement/appeals?campaign=fall-2026");
+    const yearEnd = item(ADVANCEMENT_NAV, "/advancement/year-end-appeal");
     const points = item(ADVANCEMENT_NAV, "/advancement/points");
     const glass = item(ADVANCEMENT_NAV, "/advancement/stained-glass-windows");
     const athGiving = item(ADVANCEMENT_NAV, "/athletics/master/giving");
@@ -35,6 +36,9 @@ describe("reportNavActive", () => {
     assert.equal(reportNavActive(mgo, ADVANCEMENT_NAV, "/advancement/mgo-top-prospects"), true);
     assert.equal(reportNavActive(ac, ADVANCEMENT_NAV, "/annunciation"), true);
     assert.equal(reportNavActive(fall, ADVANCEMENT_NAV, "/advancement/appeals"), true);
+    assert.equal(reportNavActive(yearEnd, ADVANCEMENT_NAV, "/advancement/year-end-appeal"), true);
+    assert.equal(reportNavActive(fall, ADVANCEMENT_NAV, "/advancement/year-end-appeal"), false);
+    assert.equal(reportNavActive(yearEnd, ADVANCEMENT_NAV, "/advancement/appeals"), false);
     assert.equal(reportNavActive(points, ADVANCEMENT_NAV, "/advancement/points"), true);
     assert.equal(reportNavActive(points, ADVANCEMENT_NAV, "/advancement/points/methodology"), true);
     assert.equal(reportNavActive(glass, ADVANCEMENT_NAV, "/advancement/stained-glass-windows"), true);
@@ -43,6 +47,8 @@ describe("reportNavActive", () => {
     assert.equal(pipeline.report, "advancement");
     assert.equal(overview.report, "advancement");
     assert.equal(fall.report, "advancement");
+    assert.equal(yearEnd.report, "advancement");
+    assert.equal(yearEnd.label, "Year-End Appeal");
     assert.equal(points.report, "points");
     assert.equal(glass.report, "chapel");
     assert.equal(athGiving.report, "advancement");
@@ -265,6 +271,7 @@ describe("isDepartmentHub", () => {
   it("hides tabs on Advancement hub but not on a report inside it", () => {
     assert.equal(isDepartmentHub("/advancement"), true);
     assert.equal(isDepartmentHub("/advancement/fall-appeal"), false);
+    assert.equal(isDepartmentHub("/advancement/year-end-appeal"), false);
     assert.equal(isDepartmentHub("/annunciation"), false);
   });
 
