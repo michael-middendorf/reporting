@@ -449,6 +449,58 @@ class HandlerTests(unittest.TestCase):
         self.assertIn("PC_PASSWORD", str(ctx.exception))
 
 
+class SportAlumniQueryTests(unittest.TestCase):
+    def test_alumni_datasets_are_registered_without_a_window(self):
+        by_name = {name: (sql, params) for name, sql, params in queries.DATASETS}
+        self.assertEqual(by_name["athletic_alumni"], (queries.ATHLETIC_ALUMNI, ()))
+        self.assertEqual(by_name["graduates"], (queries.GRADUATES, ()))
+        for sql in (queries.ATHLETIC_ALUMNI, queries.GRADUATES):
+            self.assertNotIn("%(", sql)
+            self.assertEqual(db.guard_select(sql), sql)
+
+    def test_every_athletic_code_is_in_the_query(self):
+        self.assertEqual(len(set(queries.ATHLETIC_ASSOCIATION_CODES)), len(queries.ATHLETIC_ASSOCIATION_CODES))
+        for code in queries.ATHLETIC_ASSOCIATION_CODES:
+            self.assertIn(f"'{code}'", queries.ATHLETIC_ALUMNI)
+        for code in ("ICFBM", "AFBALM", "ICJBBM", "CDANCE", "LACROS", "ICJRGB", "ICUFRM"):
+            self.assertIn(code, queries.ATHLETIC_ASSOCIATION_CODES)
+
+    def test_roster_filter_and_enrollment_check(self):
+        sql = queries.ATHLETIC_ALUMNI
+        self.assertIn("ISNULL(LTRIM(RTRIM(s.OFFICE_HELD)), '') IN ('MEM', 'MSSPRT', 'LRMTRM', 'MNRTRN', 'LOISGN', '')", sql)
+        self.assertIn("a.ENROLL_SEPARATION = 'ENRL'", sql)
+        self.assertIn("a.PRIMARY_FLAG = 'Y'", sql)
+        self.assertIn("a.ACADEMIC_YEAR = s.ACADEMIC_YEAR", sql)
+        self.assertIn("COUNT(DISTINCT ath.ACADEMIC_YEAR) AS YEARS_COUNT", sql)
+        # Term and session are trimmed and null-safe on both sides.
+        self.assertIn("LTRIM(RTRIM(ISNULL(a.ACADEMIC_TERM, ''))) = LTRIM(RTRIM(ISNULL(s.ACADEMIC_TERM, '')))", sql)
+        self.assertIn("LTRIM(RTRIM(ISNULL(a.ACADEMIC_SESSION, ''))) = LTRIM(RTRIM(ISNULL(s.ACADEMIC_SESSION, '')))", sql)
+
+    def test_graduates_limited_to_people_with_an_athletic_association(self):
+        sql = queries.GRADUATES
+        self.assertIn("FROM dbo.ASSOCIATION AS s WHERE s.PEOPLE_ORG_CODE_ID = p.PEOPLE_CODE_ID", sql)
+        for code in queries.ATHLETIC_ASSOCIATION_CODES:
+            self.assertIn(f"'{code}'", sql)
+        # Any OFFICE_HELD (recruits included) qualifies a graduate for the Slate join.
+        self.assertNotIn("OFFICE_HELD", sql)
+
+    def test_graduate_fields_exclude_non_degrees_deceased_and_contact_data(self):
+        for sql in (queries.ATHLETIC_ALUMNI, queries.GRADUATES):
+            self.assertIn("t.GRADUATION_DATE IS NOT NULL", sql)
+            for code in queries.NON_DEGREE_CODES:
+                self.assertIn(f"'{code}'", sql)
+            self.assertIn("ISNULL(p.DECEASED_FLAG, '') <> 'Y'", sql)
+            self.assertIn("e.IsActive = 1", sql)
+            self.assertIn("CASE e.EmailType WHEN 'PEMA' THEN 1 WHEN 'PERM' THEN 2 WHEN 'MAIL' THEN 3", sql)
+            # Never address, phone, or tables amu_reporting_ro cannot read.
+            for table in ("ADDRESS", "PHONE", "ALUMNIDEGREE", "AMU_AthleticAssoc", "AMU_JVAthleticAssoc"):
+                self.assertNotRegex(sql, rf"dbo\.{table}")
+
+    def test_sql_list_rejects_unexpected_literals(self):
+        with self.assertRaises(ValueError):
+            queries._sql_list(("OK", "x' OR 1=1"))
+
+
 class DispatcherTests(unittest.TestCase):
     def test_registered_in_worker_entrypoint(self):
         import pathlib
