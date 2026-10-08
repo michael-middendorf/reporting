@@ -1,3 +1,4 @@
+import { ssoOnlyEnabled } from "@/lib/sso-policy";
 import { NextResponse } from "next/server";
 import { canLogin, sessionDecisionAtComplete } from "@/lib/access";
 import {
@@ -12,6 +13,7 @@ import { appendSetCookies, signInAfterVerification } from "@/lib/sign-in-after-v
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
+  if (ssoOnlyEnabled()) return new Response(JSON.stringify({ error: "Sign in with Microsoft." }), { status: 410, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
   let body: { token?: string };
   try {
     body = await req.json();

@@ -1,3 +1,4 @@
+import { ssoOnlyEnabled } from "@/lib/sso-policy";
 import { NextResponse } from "next/server";
 import { canLogin } from "@/lib/access";
 import {
@@ -10,6 +11,7 @@ import { MAGIC_LINK_SENT_MSG } from "@/lib/auth-messages";
 import { appBaseUrlForEmail } from "@/lib/public-url";
 
 export async function POST(req: Request) {
+  if (ssoOnlyEnabled()) return new Response(JSON.stringify({ error: "Sign in with Microsoft." }), { status: 410, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
   let body: { email?: string };
   try {
     body = await req.json();

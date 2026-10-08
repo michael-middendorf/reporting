@@ -1,3 +1,5 @@
+import { currentMfaPendingContext } from "@/lib/auth";
+import { ssoOnlyEnabled } from "@/lib/sso-policy";
 import { NextResponse } from "next/server";
 import { clearAspireduSessionCookie } from "@/lib/aspiredu-auth";
 import {
@@ -32,10 +34,13 @@ export function jsonWithReportingSession(
   if (!secret) {
     return NextResponse.json({ error: "Authentication is not configured." }, { status: 500 });
   }
+  const context = currentMfaPendingContext(req);
+  if (ssoOnlyEnabled() && (!context || context.email !== email)) return NextResponse.json({ error: 'Microsoft sign-in required' }, { status: 401 });
   const ttlDays = reportingSessionTtlDays();
   const session = createSessionToken(email, secret, ttlDays, {
     mfa: true,
     auth: firstFactorAuth(req, email),
+    authCreatedAt: context?.createdAt,
   });
   const secure = cookieSecureFromRequest(req);
   const res = NextResponse.json({ ok: true, email, redirect: "/", session, ...body });

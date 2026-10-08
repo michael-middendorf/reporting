@@ -1,3 +1,4 @@
+import { ssoSessionAccepted } from "./sso-policy";
 import { createHmac, timingSafeEqual, randomBytes } from "crypto";
 
 export const SESSION_COOKIE_NAME = "amu_reporting_session";
@@ -100,7 +101,7 @@ export function createSessionToken(
   email: string,
   signingKey: string,
   ttlDays: number,
-  options?: { mfa?: boolean; auth?: SessionAuthMethod; nowSeconds?: number },
+  options?: { mfa?: boolean; auth?: SessionAuthMethod; nowSeconds?: number; authCreatedAt?: string },
 ) {
   const now = options?.nowSeconds ?? Math.floor(Date.now() / 1000);
   const payload: Record<string, unknown> = {
@@ -110,6 +111,8 @@ export function createSessionToken(
     // (requireCyberAccess: 12 hours) without shortening the global TTL.
     iat: now,
     type: "session",
+    auth_method: options?.auth === "entra" ? "entra" : null,
+    auth_created_at: options?.authCreatedAt ?? new Date().toISOString(),
   };
   if (options?.mfa) payload.mfa = true;
   if (options?.auth) payload.auth = options.auth;
@@ -119,6 +122,7 @@ export function createSessionToken(
 export function verifySessionToken(token: string, signingKey: string) {
   const p = verifySignedToken(token, signingKey);
   if (p.type !== "session") throw new Error("Invalid session type");
+  if (!ssoSessionAccepted({ method: p.auth_method, created_at: p.auth_created_at })) throw new Error("Microsoft sign-in required");
   const email = normalizeEmail(String(p.email || ""));
   if (!isValidEmail(email)) throw new Error("Invalid session email");
   return {
@@ -140,6 +144,8 @@ export function createMfaPendingToken(
     email: normalizeEmail(email),
     exp: Math.floor(Date.now() / 1000) + Math.max(ttlMinutes, 1) * 60,
     type: "mfa_pending",
+    auth_method: options?.auth === "entra" ? "entra" : null,
+    auth_created_at: new Date().toISOString(),
   };
   // Carried through /auth/mfa so a Microsoft sign-in that also needs TOTP or a
   // passkey still ends in an auth: "entra" session (see mint-session.ts).
@@ -150,6 +156,7 @@ export function createMfaPendingToken(
 export function verifyMfaPendingToken(token: string, signingKey: string) {
   const p = verifySignedToken(token, signingKey);
   if (p.type !== "mfa_pending") throw new Error("Invalid token type");
+  if (!ssoSessionAccepted({ method: p.auth_method, created_at: p.auth_created_at })) throw new Error("Microsoft sign-in required");
   const email = normalizeEmail(String(p.email || ""));
   if (!isValidEmail(email)) throw new Error("Invalid token email");
   return { ...p, email, auth: parseAuthMethod(p.auth) };
@@ -342,4 +349,15 @@ export async function sendMagicEmail(email: string, link: string, ttlMinutes: nu
     return { ok: false as const, error: `Resend ${res.status}: ${detail}` };
   }
   return { ok: true as const };
+}
+
+export function currentMfaPendingContext(req: Request): { email: string; method: 'entra'; createdAt: string } | null {
+  const secret = (process.env.AUTH_SECRET || '').trim();
+  const token = (req.headers.get('cookie') || '').match(/(?:^|;\s*)amu_reporting_mfa_pending=([^;]*)/)?.[1];
+  if (!secret || !token) return null;
+  try {
+    const payload = verifyMfaPendingToken(decodeURIComponent(token), secret) as { email: string; auth_method?: unknown; auth_created_at?: unknown };
+    if (payload.auth_method !== 'entra' || typeof payload.auth_created_at !== 'string') return null;
+    return { email: payload.email, method: 'entra', createdAt: payload.auth_created_at };
+  } catch { return null; }
 }
