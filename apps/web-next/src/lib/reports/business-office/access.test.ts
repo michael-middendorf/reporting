@@ -7,6 +7,7 @@ import {
   needsMfaAtSignIn,
   reportsForEmail,
 } from "../../access";
+import { canUseFerpaTotp } from "../../aspiredu-auth";
 import { SPORTS } from "../athletics-coaching/sports";
 import { financeScope, financeScopeAllowsSport } from "./access";
 import departmentMapJson from "./athletics-departments.json";
@@ -38,6 +39,16 @@ describe("Business Office access (DST-2983)", () => {
       assert.equal(reportsForEmail(email).includes("business-office"), true, email);
       assert.equal(canAccessReport(email, "athletics-coaching"), false, email);
     }
+  });
+
+  it("lets everyone who must do MFA at sign-in enroll and verify TOTP", () => {
+    // Regression: needsMfaAtSignIn sent the Business Office to mfa_pending, but the
+    // TOTP routes rejected them, so they could not sign in at all.
+    for (const email of [BO, BO2, LEADER, COACH, ADMIN]) {
+      assert.equal(needsMfaAtSignIn(email), canUseFerpaTotp(email), email);
+    }
+    assert.equal(canUseFerpaTotp(BO), true);
+    assert.equal(canUseFerpaTotp(OTHER), false);
   });
 
   it("gives hub admins every team plus unassigned", () => {
