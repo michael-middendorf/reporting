@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildAlumniSummary, slateSportKeys } from "./alumni";
+import { buildAlumniSummary, isSlateRosterAthlete, slateSportKeys, type AlumniRow } from "./alumni";
 
 // Synthetic people only.
 function grad(pcid: string, first: string, last: string, classYear: number, extra: Record<string, unknown> = {}) {
@@ -29,6 +29,13 @@ const ANNA = grad("P000000101", "Anna", "Zeller", 2019);
 const BEN = grad("P000000102", "Ben", "Adams", 2019);
 const CARL = grad("P000000103", "Carl", "Moore", 2021);
 const DORA = grad("P000000104", "Dora", "Quinn", 2016);
+const ROSTER = "Roster - Athlete";
+
+function byName(rows: AlumniRow[], name: string): AlumniRow {
+  const row = rows.find((item) => item.name === name);
+  assert.ok(row, name);
+  return row;
+}
 
 describe("buildAlumniSummary", () => {
   it("reports awaiting PowerCampus when neither PC feed exists", () => {
@@ -62,11 +69,12 @@ describe("buildAlumniSummary", () => {
     });
     assert.equal(summary.available, true);
     assert.equal(summary.slateAvailable, false);
+    assert.equal(summary.slateUsed, false);
     assert.deepEqual(
       summary.rows.map((row) => row.lastName),
       ["Adams", "Zeller", "Quinn"],
     );
-    const dora = summary.rows.find((row) => row.pcid === "P000000104")!;
+    const dora = byName(summary.rows, "Dora Quinn");
     assert.equal(dora.firstYear, 2005);
     assert.equal(dora.lastYear, 2015);
     assert.equal(dora.yearsCount, 5);
@@ -77,7 +85,7 @@ describe("buildAlumniSummary", () => {
       { label: "2016", count: 1 },
     ]);
     // Color Guard (ICCG) has no coaching sport, so Anna lists only Football.
-    const anna = summary.rows.find((row) => row.pcid === "P000000101")!;
+    const anna = byName(summary.rows, "Anna Zeller");
     assert.deepEqual(anna.sports, ["Football"]);
     assert.equal(anna.email, "anna@example.invalid");
   });
@@ -102,23 +110,22 @@ describe("buildAlumniSummary", () => {
       athleticAlumniRows: [athletic("ICBASE", 2018, 2021, 4, CARL)],
       graduateRows: [ANNA, BEN, CARL],
       slateRows: [
-        { PCID: "102", CurrentSport: "Soccer", MF: "M", FirstName: "Ben", LastName: "Adams" },
-        { PCID: "P000000103", CurrentSport: "Baseball", SecondSport: "Soccer", MF: "M" },
-        { PCID: "P000000999", CurrentSport: "Soccer", MF: "M", FirstName: "Not", LastName: "Graduated" },
-        { PCID: "P000000101", CurrentSport: "Soccer", MF: "", FirstName: "Anna" },
+        { PCID: "102", CurrentSport: "Soccer", MF: "M", RosterStatus: ROSTER, FirstName: "Ben", LastName: "Adams" },
+        { PCID: "P000000103", CurrentSport: "Baseball", SecondSport: "Soccer", MF: "M", RosterStatus: "Roster - Athlete Post Grad" },
+        { PCID: "P000000999", CurrentSport: "Soccer", MF: "M", RosterStatus: ROSTER, FirstName: "Not", LastName: "Graduated" },
+        { PCID: "P000000101", CurrentSport: "Soccer", MF: "", RosterStatus: ROSTER, FirstName: "Anna" },
       ],
       showEmails: true,
     });
     assert.deepEqual(
-      summary.rows.map((row) => row.pcid),
-      ["P000000103", "P000000102"],
+      summary.rows.map((row) => row.name),
+      ["Carl Moore", "Ben Adams"],
     );
+    assert.equal(summary.slateUsed, true);
     const carl = summary.rows[0]!;
     assert.deepEqual(carl.sports, ["Men's Soccer", "Baseball"]);
     assert.equal(carl.firstYear, null);
-    assert.deepEqual(carl.sources, ["powercampus", "slate"]);
     const ben = summary.rows[1]!;
-    assert.deepEqual(ben.sources, ["slate"]);
     assert.equal(ben.classYear, 2019);
   });
 
@@ -127,7 +134,7 @@ describe("buildAlumniSummary", () => {
       sport: "mens-soccer",
       athleticAlumniRows: [athletic("ICBASE", 2018, 2021, 4, CARL)],
       graduateRows: null,
-      slateRows: [{ PCID: "P000000103", CurrentSport: "Soccer", MF: "M" }],
+      slateRows: [{ PCID: "P000000103", CurrentSport: "Soccer", MF: "M", RosterStatus: ROSTER }],
       showEmails: true,
     });
     assert.equal(summary.available, true);
@@ -157,6 +164,50 @@ describe("buildAlumniSummary", () => {
       showEmails: true,
     });
     assert.equal(summary.rows[0]?.classYear, 2020);
+  });
+});
+
+describe("Slate roster status", () => {
+  it("counts roster athletes only", () => {
+    for (const status of ["Roster - Athlete", "Roster - Athlete Post Grad", "roster - athlete", "ROSTER-ATHLETE POST GRAD", "Athlete", "Athlete Post Grad"]) {
+      assert.equal(isSlateRosterAthlete({ RosterStatus: status }), true, status);
+    }
+    for (const status of ["Roster - Athletic Associated", "", "Recruit", "Athletic Associated"]) {
+      assert.equal(isSlateRosterAthlete({ RosterStatus: status }), false, status);
+    }
+    assert.equal(isSlateRosterAthlete({}), false);
+  });
+
+  it("ignores Slate rows that are not roster athletes", () => {
+    const summary = buildAlumniSummary({
+      sport: "mens-soccer",
+      athleticAlumniRows: [],
+      graduateRows: [BEN, CARL],
+      slateRows: [
+        { PCID: "P000000102", CurrentSport: "Soccer", MF: "M", RosterStatus: "Roster - Athletic Associated" },
+        { PCID: "P000000103", CurrentSport: "Soccer", MF: "M", RosterStatus: "" },
+      ],
+      showEmails: true,
+    });
+    assert.equal(summary.total, 0);
+    assert.equal(summary.slateAvailable, true);
+    assert.equal(summary.slateUsed, false);
+  });
+});
+
+describe("browser payload", () => {
+  it("never carries a PCID; ids are opaque and unique", () => {
+    const summary = buildAlumniSummary({
+      sport: "football",
+      athleticAlumniRows: [athletic("ICFBM", 2015, 2018, 4, ANNA), athletic("ICFBM", 2016, 2018, 3, BEN)],
+      graduateRows: [ANNA, BEN],
+      slateRows: [{ PCID: "P000000102", CurrentSport: "Football", MF: "M", RosterStatus: ROSTER }],
+      showEmails: true,
+    });
+    const json = JSON.stringify(summary);
+    assert.equal(/P0000001\d\d|pcid|sources/i.test(json), false);
+    assert.deepEqual(summary.rows.map((row) => row.id), ["a1", "a2"]);
+    assert.equal(summary.slateUsed, true);
   });
 });
 

@@ -11,16 +11,17 @@ import { resolveGenderedSportKey, resolvePcAssociation, sportByKey } from "./spo
  *                                roster while enrolled (see queries.py).
  *   powercampus/graduates        every living graduate: decides who graduated.
  *   athletics/association_history Slate sport history (PCID, CurrentSport,
- *                                SecondSport, MF). Adds sport memberships only
- *                                for PCIDs that are in graduates.
+ *                                SecondSport, MF, RosterStatus). Adds sport
+ *                                memberships only for roster athletes whose
+ *                                PCID is in graduates.
  *
  * Contact data is limited to one personal email. No address, no phone.
+ * PCIDs never leave the server: rows carry an opaque per-response id.
  */
 
-export type AlumniSource = "powercampus" | "slate";
-
 export type AlumniRow = {
-  pcid: string;
+  /** Opaque, per-response row id (position in the sorted list). Not a PCID. */
+  id: string;
   firstName: string;
   lastName: string;
   name: string;
@@ -33,7 +34,6 @@ export type AlumniRow = {
   yearsCount: number | null;
   /** Every coaching sport this person is linked to, by label (this sport first). */
   sports: string[];
-  sources: AlumniSource[];
   email: string | null;
 };
 
@@ -45,6 +45,8 @@ export type AlumniSummary = {
   available: boolean;
   reason?: "awaiting_powercampus";
   slateAvailable: boolean;
+  /** True when at least one listed alumnus came in (wholly or partly) from Slate. */
+  slateUsed: boolean;
   generatedAt: string | null;
   total: number;
   byClassYear: AlumniClassYearCount[];
@@ -69,7 +71,8 @@ type Membership = {
   firstYear: number | null;
   lastYear: number | null;
   yearsCount: number | null;
-  source: AlumniSource;
+  /** Slate contributed this membership (alone or alongside PowerCampus). */
+  fromSlate: boolean;
 };
 
 function text(row: Record<string, unknown>, ...keys: string[]): string {
@@ -122,7 +125,7 @@ function graduateFrom(row: Record<string, unknown>, pcid: string): Graduate {
 function displayName(grad: Graduate): string {
   const name = [grad.firstName, grad.lastName].filter(Boolean).join(" ");
   const full = grad.suffix ? `${name} ${grad.suffix}` : name;
-  return full || grad.pcid;
+  return full || "Name not on file";
 }
 
 function mergeMembership(into: Membership, next: Membership): Membership {
@@ -137,8 +140,19 @@ function mergeMembership(into: Membership, next: Membership): Membership {
   if (yearsCount !== null && firstYear !== null && lastYear !== null) {
     yearsCount = Math.min(yearsCount, lastYear - firstYear + 1);
   }
-  const source: AlumniSource = into.source === "powercampus" || next.source === "powercampus" ? "powercampus" : "slate";
-  return { sport: into.sport, firstYear, lastYear, yearsCount, source };
+  return { sport: into.sport, firstYear, lastYear, yearsCount, fromSlate: into.fromSlate || next.fromSlate };
+}
+
+/**
+ * Slate RosterStatus values that mean the person was on a team. Matched after
+ * folding case and punctuation, so the prompt short values ("Athlete",
+ * "Athlete Post Grad") also count. "Roster - Athletic Associated" and blank do not.
+ */
+const SLATE_ROSTER_STATUSES = new Set(["rosterathlete", "rosterathletepostgrad", "athlete", "athletepostgrad"]);
+
+export function isSlateRosterAthlete(row: SlateRow): boolean {
+  const status = text(row, "RosterStatus", "rosterstatus", "Roster Status").toLowerCase().replace(/[^a-z0-9]/g, "");
+  return SLATE_ROSTER_STATUSES.has(status);
 }
 
 /** Slate sport keys for one association_history row (CurrentSport and SecondSport, gendered by MF). */
@@ -171,14 +185,16 @@ function classYearCounts(rows: AlumniRow[]): AlumniClassYearCount[] {
     });
 }
 
-export function compareAlumni(a: AlumniRow, b: AlumniRow): number {
+export function compareAlumni(
+  a: Pick<AlumniRow, "classYear" | "lastName" | "firstName">,
+  b: Pick<AlumniRow, "classYear" | "lastName" | "firstName">,
+): number {
   const ay = a.classYear ?? -Infinity;
   const by = b.classYear ?? -Infinity;
   if (ay !== by) return by - ay;
   return (
     a.lastName.localeCompare(b.lastName, undefined, { sensitivity: "base" }) ||
-    a.firstName.localeCompare(b.firstName, undefined, { sensitivity: "base" }) ||
-    a.pcid.localeCompare(b.pcid)
+    a.firstName.localeCompare(b.firstName, undefined, { sensitivity: "base" })
   );
 }
 
@@ -197,6 +213,7 @@ export function buildAlumniSummary(input: {
     available: false,
     reason: "awaiting_powercampus",
     slateAvailable: input.slateRows !== null,
+    slateUsed: false,
     generatedAt: input.generatedAt ?? null,
     total: 0,
     byClassYear: [],
@@ -235,22 +252,23 @@ export function buildAlumniSummary(input: {
       firstYear: intOrNull(text(row, "FIRST_YEAR")),
       lastYear: intOrNull(text(row, "LAST_YEAR")),
       yearsCount: intOrNull(text(row, "YEARS_COUNT")),
-      source: "powercampus",
+      fromSlate: false,
     });
   }
 
   // Slate adds sport memberships; PowerCampus graduates decides who graduated.
   if (input.graduateRows !== null) {
     for (const row of input.slateRows || []) {
+      if (!isSlateRosterAthlete(row)) continue;
       const pcid = pcidOf(row);
       if (!pcid || !graduates.has(pcid)) continue;
       for (const sport of slateSportKeys(row)) {
-        add(pcid, { sport, firstYear: null, lastYear: null, yearsCount: null, source: "slate" });
+        add(pcid, { sport, firstYear: null, lastYear: null, yearsCount: null, fromSlate: true });
       }
     }
   }
 
-  const rows: AlumniRow[] = [];
+  const people: { pcid: string; row: Omit<AlumniRow, "id">; fromSlate: boolean }[] = [];
   for (const [pcid, bySport] of memberships) {
     const mine = bySport.get(input.sport);
     const grad = graduates.get(pcid);
@@ -259,32 +277,35 @@ export function buildAlumniSummary(input: {
       .filter((key) => key !== input.sport)
       .map((key) => sportByKey[key]?.label || key)
       .sort((a, b) => a.localeCompare(b));
-    const sources = new Set<AlumniSource>();
-    for (const membership of bySport.values()) sources.add(membership.source);
-    rows.push({
+    const fromSlate = [...bySport.values()].some((membership) => membership.fromSlate);
+    people.push({
       pcid,
-      firstName: grad.firstName,
-      lastName: grad.lastName,
-      name: displayName(grad),
-      classYear: grad.classYear,
-      degree: grad.degree,
-      degreeTitle: grad.degreeTitle,
-      graduationDate: grad.graduationDate,
-      firstYear: mine.firstYear,
-      lastYear: mine.lastYear,
-      yearsCount: mine.yearsCount,
-      sports: [sportLabel, ...otherLabels],
-      sources: [...sources].sort(),
-      email: input.showEmails ? grad.email : null,
+      fromSlate,
+      row: {
+        firstName: grad.firstName,
+        lastName: grad.lastName,
+        name: displayName(grad),
+        classYear: grad.classYear,
+        degree: grad.degree,
+        degreeTitle: grad.degreeTitle,
+        graduationDate: grad.graduationDate,
+        firstYear: mine.firstYear,
+        lastYear: mine.lastYear,
+        yearsCount: mine.yearsCount,
+        sports: [sportLabel, ...otherLabels],
+        email: input.showEmails ? grad.email : null,
+      },
     });
   }
-  rows.sort(compareAlumni);
+  people.sort((a, b) => compareAlumni(a.row, b.row) || a.pcid.localeCompare(b.pcid));
+  const rows: AlumniRow[] = people.map((person, index) => ({ id: `a${index + 1}`, ...person.row }));
 
   return {
     sport: input.sport,
     sportLabel,
     available: true,
     slateAvailable: input.slateRows !== null,
+    slateUsed: people.some((person) => person.fromSlate),
     generatedAt: input.generatedAt ?? null,
     total: rows.length,
     byClassYear: classYearCounts(rows),

@@ -164,14 +164,16 @@ EMAIL = (
 #
 # amu_reporting_ro cannot read ALUMNIDEGREE or the AMU_AthleticAssoc /
 # AMU_JVAthleticAssoc views, so the athletic code list is a constant here.
-# Verified against CODE_ASSOCIATION 2026-10-08. Club and retired codes
-# (ICUFRM, ICJRGB, ICLACW, ABBALM, ...) are deliberately not included.
+# Verified against CODE_ASSOCIATION 2026-10-08. Rugby-Men (ICJRGB) and
+# Ultimate Frisbee-Men (ICUFRM) were approved 2026-10-08. Retired codes
+# (ICLACW, ABBALM, ...) are deliberately not included.
 
 ATHLETIC_ASSOCIATION_CODES: tuple[str, ...] = (
     # Varsity
     "ICBASE", "ICBBM", "ICBBW", "ICCG", "ICFBM", "ICGLFM", "ICGLFW", "ICSOCM",
     "ICSOCW", "ICSOFT", "ICSSWM", "ICSWMW", "ICTENM", "ICTENW", "ICTRKM",
     "ICTRKW", "ICVBAL", "ICXCM", "ICXCW", "LACROS", "CDANCE",
+    "ICJRGB", "ICUFRM",
     # JV
     "ICJBAS", "ICJBBM", "ICJBBW", "ICJEQU", "ICJFRM", "ICJGLM", "ICJGLW",
     "ICJLCM", "ICJSOF", "ICJSOM", "ICJSOW", "ICJSWM", "ICJTNM", "ICJTNW",
@@ -273,9 +275,9 @@ ATHLETIC_ALUMNI = (
     "AND a.ENROLL_SEPARATION = 'ENRL' "
     "AND a.PRIMARY_FLAG = 'Y' "
     "AND a.ACADEMIC_YEAR = s.ACADEMIC_YEAR "
-    "AND (ISNULL(LTRIM(RTRIM(s.ACADEMIC_TERM)), '') = '' "
-    "OR (a.ACADEMIC_TERM = s.ACADEMIC_TERM "
-    "AND ISNULL(a.ACADEMIC_SESSION, '') = ISNULL(s.ACADEMIC_SESSION, '')))"
+    "AND (LTRIM(RTRIM(ISNULL(s.ACADEMIC_TERM, ''))) = '' "
+    "OR (LTRIM(RTRIM(ISNULL(a.ACADEMIC_TERM, ''))) = LTRIM(RTRIM(ISNULL(s.ACADEMIC_TERM, ''))) "
+    "AND LTRIM(RTRIM(ISNULL(a.ACADEMIC_SESSION, ''))) = LTRIM(RTRIM(ISNULL(s.ACADEMIC_SESSION, '')))))"
     ")"
     "), "
     "agg AS ("
@@ -293,14 +295,22 @@ ATHLETIC_ALUMNI = (
     "OPTION (MAXDOP 1)"
 )
 
-# Every living person with a qualifying conferred degree, so Slate-only
-# athletes (sport history in Slate, not in ASSOCIATION) can be matched to a
-# graduation by PCID. Same columns as ATHLETIC_ALUMNI minus the sport fields.
+# Living qualifying degree-holders with at least one ASSOCIATION row for an
+# athletic code (any OFFICE_HELD, recruit codes included). The web app joins
+# Slate sport history to this by PCID to decide who graduated; Slate creates
+# an association row for its athletes, so this covers Slate-only roster
+# members without publishing every graduate (and their email) in the
+# university. Same columns as ATHLETIC_ALUMNI minus the sport fields.
 GRADUATES = (
     f"SELECT {_GRADUATE_COLUMNS} "
     "FROM dbo.PEOPLE AS p "
     f"{_GRADUATE_APPLIES}"
     "WHERE ISNULL(p.DECEASED_FLAG, '') <> 'Y' "
+    "AND EXISTS ("
+    "SELECT s.PEOPLE_ORG_CODE_ID FROM dbo.ASSOCIATION AS s "
+    "WHERE s.PEOPLE_ORG_CODE_ID = p.PEOPLE_CODE_ID "
+    f"AND s.ASSOCIATION IN ({_sql_list(ATHLETIC_ASSOCIATION_CODES)})"
+    ") "
     "OPTION (MAXDOP 1)"
 )
 

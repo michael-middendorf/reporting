@@ -118,6 +118,7 @@ const PC_ATHLETIC_CODES = [
   "ICBASE", "ICBBM", "ICBBW", "ICCG", "ICFBM", "ICGLFM", "ICGLFW", "ICSOCM",
   "ICSOCW", "ICSOFT", "ICSSWM", "ICSWMW", "ICTENM", "ICTENW", "ICTRKM",
   "ICTRKW", "ICVBAL", "ICXCM", "ICXCW", "LACROS", "CDANCE",
+  "ICJRGB", "ICUFRM",
   "ICJBAS", "ICJBBM", "ICJBBW", "ICJEQU", "ICJFRM", "ICJGLM", "ICJGLW",
   "ICJLCM", "ICJSOF", "ICJSOM", "ICJSOW", "ICJSWM", "ICJTNM", "ICJTNW",
   "ICJVBL", "ICHSWW",
@@ -140,6 +141,8 @@ describe("PowerCampus association codes", () => {
     assert.equal(resolvePcAssociation("ICSSWM"), "swim-team");
     assert.equal(resolvePcAssociation("ICJTNW"), "tennis");
     assert.equal(resolvePcAssociation("ICJFRM"), "ultimate-frisbee");
+    assert.equal(resolvePcAssociation("ICUFRM"), "ultimate-frisbee");
+    assert.equal(resolvePcAssociation("ICJRGB"), "rugby");
     assert.equal(resolvePcAssociation("LACROS"), "womens-lacrosse");
     assert.equal(resolvePcAssociation("CDANCE"), "dance-team");
     assert.equal(resolvePcAssociation("ICJVBL"), "womens-volleyball");
@@ -149,7 +152,6 @@ describe("PowerCampus association codes", () => {
   it("leaves codes without a coaching sport unmapped", () => {
     for (const code of UNMAPPED_PC_CODES) assert.equal(resolvePcAssociation(code), null, code);
     assert.equal(resolvePcAssociation(""), null);
-    assert.equal(resolvePcAssociation("ICUFRM"), null);
     assert.equal(resolvePcAssociation("HONORS"), null);
   });
 

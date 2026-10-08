@@ -117,7 +117,7 @@ export const SPORTS: SportDef[] = [
     givingSlug: "rugby",
     // Men's Rugby project. Catalog sport is mixed; this is not a women's project.
     virtuousProjectCode: "6540MRugby",
-    pcAssociationCodes: [],
+    pcAssociationCodes: ["ICJRGB"],
   },
   {
     key: "swim-team",
@@ -145,7 +145,7 @@ export const SPORTS: SportDef[] = [
     givingSlug: "ultimate-frisbee",
     // Men's Ultimate (6251FrisM). Catalog sport is mixed; this is not a women's project.
     virtuousProjectCode: "6251FrisM",
-    pcAssociationCodes: ["ICJFRM"],
+    pcAssociationCodes: ["ICUFRM", "ICJFRM"],
   },
   {
     key: "womens-basketball",

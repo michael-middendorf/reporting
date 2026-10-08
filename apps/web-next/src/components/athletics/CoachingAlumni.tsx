@@ -107,7 +107,7 @@ export function AlumniPage({ sportKey }: { sportKey: string }) {
         <>
           <p>
             Graduates who were on this team while enrolled, from PowerCampus team memberships
-            {data.slateAvailable ? " and Slate sport history" : ""}. Living graduates only.
+            {data.slateUsed ? " and Slate sport history" : ""}. Living graduates only.
           </p>
           {data.emailsHidden && data.mfaUrl ? (
             <p>
@@ -182,7 +182,7 @@ export function AlumniPage({ sportKey }: { sportKey: string }) {
                   </thead>
                   <tbody>
                     {visible.map((row) => (
-                      <tr key={row.pcid}>
+                      <tr key={row.id}>
                         <td>{row.name}</td>
                         <td>{row.classYear ?? ""}</td>
                         <td>{degreeLabel(row) || ""}</td>
