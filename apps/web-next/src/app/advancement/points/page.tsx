@@ -2318,7 +2318,7 @@ function PointsPageInner() {
                                   Gift ↗
                                 </a>
                               ) : null}
-                              <div style={{ marginTop: virtuousGiftUrl(g.contactId) ? 6 : 0, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                              <div style={{ marginTop: virtuousGiftUrl(g.contactId) ? 6 : 0, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
                                 {!g.assist && g.giftId != null && g.giftId !== "" && g.contactId != null && g.day ? (
                                   <button
                                     type="button"
@@ -2332,11 +2332,17 @@ function PointsPageInner() {
                                 {removeId ? (
                                   <button
                                     type="button"
-                                    className="mini-btn danger"
+                                    className="mini-btn danger icon"
                                     disabled={flagBusy === removeId}
+                                    aria-label="Remove"
+                                    title="Remove"
                                     onClick={() => removeCountedGift(g)}
                                   >
-                                    {flagBusy === removeId ? "…" : "Remove"}
+                                    {flagBusy === removeId ? "…" : (
+                                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                      </svg>
+                                    )}
                                   </button>
                                 ) : !g.assist ? (
                                   "—"
