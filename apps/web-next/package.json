@@ -35,7 +35,7 @@
     "@simplewebauthn/server": "^13.3.0",
     "aws-jwt-verify": "^5.1.1",
     "braces": "file:vendor/braces-3.0.4.tgz",
-    "next": "16.3.6",
+    "next": "16.3.8",
     "qrcode.react": "^4.2.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
