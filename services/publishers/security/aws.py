@@ -252,6 +252,16 @@ def _securityhub_region(region: str) -> dict[str, Any]:
                 {"Value": "NEW", "Comparison": "EQUALS"},
                 {"Value": "NOTIFIED", "Comparison": "EQUALS"},
             ],
+            # One filter, all 4 values OR'd together by the API (still a
+            # single paginated pass): excludes INFORMATIONAL findings from
+            # the pages fetched at all, instead of paging them in only to
+            # drop them in _tally_active.
+            "SeverityLabel": [
+                {"Value": "CRITICAL", "Comparison": "EQUALS"},
+                {"Value": "HIGH", "Comparison": "EQUALS"},
+                {"Value": "MEDIUM", "Comparison": "EQUALS"},
+                {"Value": "LOW", "Comparison": "EQUALS"},
+            ],
         },
         _tally_active,
         deadline=deadline,
@@ -433,10 +443,36 @@ def inspector2() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 CREDENTIAL_KEY_AGE_DAYS = 90
+# Up to 60s total wait for IAM to finish generating the credential report,
+# polling every delay_s. A bounded wait, not a bounded attempt count: a slow
+# attempt (e.g. a retried, throttled call) must not silently extend how long
+# this can run past what the caller budgeted for.
+CREDENTIAL_REPORT_MAX_WAIT_S = 60.0
+
+# IAM's real wire error Code for GetCredentialReport is the short form
+# ("ReportNotPresent", "ReportExpired", "ReportInProgress"), confirmed
+# against live IAM; the longer, "CredentialReport...Exception"-style names
+# are the boto3-generated exception CLASS names, not the Code value that
+# ends up in exc.response["Error"]["Code"]. Comparing against the class
+# names alone meant every real-world error here fell through to the
+# `raise` branch on the very first call. Both spellings are accepted so
+# this is also correct if botocore's model ever aligns the two.
+_CREDENTIAL_REPORT_NOT_PRESENT_CODES = {"ReportNotPresent", "CredentialReportNotPresentException"}
+_CREDENTIAL_REPORT_EXPIRED_CODES = {"ReportExpired", "CredentialReportExpiredException"}
+_CREDENTIAL_REPORT_IN_PROGRESS_CODES = {"ReportInProgress", "CredentialReportInProgressException"}
 
 
-def _poll_credential_report(client, attempts: int = 6, delay_s: float = 2.0) -> bytes:
-    for attempt in range(attempts):
+def _poll_credential_report(
+    client, *, max_wait_s: float = CREDENTIAL_REPORT_MAX_WAIT_S, delay_s: float = 2.0
+) -> bytes:
+    """Poll IAM's GetCredentialReport until it is ready, regenerating it
+    when IAM reports there isn't one yet or the existing one expired, and
+    simply waiting out a report that's already being generated. Gives up
+    after max_wait_s total (not a fixed attempt count) and raises with the
+    last-seen status code."""
+    deadline = time.monotonic() + max_wait_s
+    last_code = "unknown"
+    while True:
         try:
             resp = client.get_credential_report()
             return resp["Content"]
@@ -444,13 +480,14 @@ def _poll_credential_report(client, attempts: int = 6, delay_s: float = 2.0) -> 
             code = type(exc).__name__
             if hasattr(exc, "response"):
                 code = exc.response.get("Error", {}).get("Code", code)
-            if code in ("CredentialReportNotPresentException", "CredentialReportExpiredException"):
+            last_code = code
+            if code in _CREDENTIAL_REPORT_NOT_PRESENT_CODES or code in _CREDENTIAL_REPORT_EXPIRED_CODES:
                 client.generate_credential_report()
-            elif code != "CredentialReportInProgressException":
+            elif code not in _CREDENTIAL_REPORT_IN_PROGRESS_CODES:
                 raise
-            if attempt < attempts - 1:
-                time.sleep(delay_s)
-    raise RuntimeError("credential report not ready after polling")
+        if time.monotonic() >= deadline:
+            raise RuntimeError(f"credential report not ready after polling (last status: {last_code})")
+        time.sleep(delay_s)
 
 
 def _older_than(value: str, days: int) -> bool:

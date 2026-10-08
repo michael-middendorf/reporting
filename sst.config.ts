@@ -717,15 +717,74 @@ export default $config({
     // (the publisher runs once daily) with treatMissingData "notBreaching"
     // so a quiet day (e.g. the cron paused) never pages anyone.
     //
-    // Reuses the existing security-alerts SNS topic (already has an email
-    // subscriber; this alarm does not touch the topic or its subscriptions).
-    // Checked sst.config.ts, infra/, and a read-only
-    // `aws sns list-topics --region us-east-2` first: no topic scoped
-    // specifically to reporting jobs exists, and security-alerts is the
-    // closest fit for a security-publisher failure.
-    const securityAlertsTopicArn = `arn:aws:sns:us-east-2:${account}:security-alerts`;
+    // A dedicated topic, not the shared security-alerts topic: that topic's
+    // policy only allows events.amazonaws.com and account IAM principals,
+    // not cloudwatch.amazonaws.com, so this alarm's notifications would be
+    // silently denied there.
+    const securityRefreshErrorsAlarmName = "amu-reporting-security-refresh-errors";
+    // A plain string, not alarmResource.arn: the alarm's actions need this
+    // topic's ARN and the topic's policy needs the alarm's ARN, so deriving
+    // either one from the other's resource output would be a dependency
+    // cycle. CloudWatch alarm ARNs are deterministic from region/account/
+    // name, so this is exact without needing the resource itself.
+    const securityRefreshErrorsAlarmArn = `arn:aws:cloudwatch:us-east-2:${account}:alarm:${securityRefreshErrorsAlarmName}`;
+
+    const securityRefreshAlertsTopic = new aws.sns.Topic("SecurityRefreshAlertsTopic", {
+      name: "amu-reporting-security-refresh-alerts",
+    });
+
+    new aws.sns.TopicPolicy("SecurityRefreshAlertsTopicPolicy", {
+      arn: securityRefreshAlertsTopic.arn,
+      policy: $jsonStringify({
+        Version: "2012-10-17",
+        Statement: [
+          {
+            // The default policy SNS would otherwise generate: the topic's
+            // owning account may manage/publish/subscribe. A custom policy
+            // replaces the default entirely, so this is carried over
+            // explicitly rather than lost.
+            Sid: "OwnerAccountManage",
+            Effect: "Allow",
+            Principal: { AWS: "*" },
+            Action: [
+              "SNS:GetTopicAttributes",
+              "SNS:SetTopicAttributes",
+              "SNS:AddPermission",
+              "SNS:RemovePermission",
+              "SNS:DeleteTopic",
+              "SNS:Subscribe",
+              "SNS:ListSubscriptionsByTopic",
+              "SNS:Publish",
+              "SNS:Receive",
+            ],
+            Resource: securityRefreshAlertsTopic.arn,
+            Condition: { StringEquals: { "AWS:SourceOwner": account } },
+          },
+          {
+            Sid: "AllowCloudWatchAlarmPublish",
+            Effect: "Allow",
+            Principal: { Service: "cloudwatch.amazonaws.com" },
+            Action: "SNS:Publish",
+            Resource: securityRefreshAlertsTopic.arn,
+            Condition: {
+              StringEquals: {
+                "aws:SourceAccount": account,
+                "aws:SourceArn": securityRefreshErrorsAlarmArn,
+              },
+            },
+          },
+        ],
+      }),
+    });
+
+    new aws.sns.TopicSubscription("SecurityRefreshAlertsEmail", {
+      topic: securityRefreshAlertsTopic.arn,
+      protocol: "email",
+      endpoint: "michael.t.middendorf@avemaria.edu",
+    });
+
     new aws.cloudwatch.MetricAlarm("SecurityRefreshErrorsAlarm", {
-      name: "amu-reporting-security-refresh-errors",
+      name: securityRefreshErrorsAlarmName,
       namespace: "AWS/Lambda",
       metricName: "Errors",
       dimensions: { FunctionName: securityRefreshFunctionName },
@@ -735,8 +794,8 @@ export default $config({
       threshold: 1,
       comparisonOperator: "GreaterThanOrEqualToThreshold",
       treatMissingData: "notBreaching",
-      alarmActions: [securityAlertsTopicArn],
-      okActions: [securityAlertsTopicArn],
+      alarmActions: [securityRefreshAlertsTopic.arn],
+      okActions: [securityRefreshAlertsTopic.arn],
     });
 
     new sst.aws.Cron("EnrollmentRefresh", {

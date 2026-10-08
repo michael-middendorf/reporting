@@ -321,6 +321,76 @@ class SecurityHubTests(unittest.TestCase):
         self.assertTrue(result["data"]["truncated"])
 
 
+class FakeCredentialReportPollingClient:
+    """get_credential_report raises a ClientError for each code in
+    ``codes`` (in order), then returns ``content``. Real IAM wire error
+    codes for this operation are the short form ("ReportNotPresent",
+    "ReportExpired", "ReportInProgress"), so tests exercise those by
+    default; one test also exercises the long boto3 exception-class-name
+    spelling to confirm both are accepted."""
+
+    def __init__(self, codes: list[str], content: bytes = b"report-bytes"):
+        self._codes = list(codes)
+        self._content = content
+        self.generate_calls = 0
+
+    def generate_credential_report(self):
+        self.generate_calls += 1
+
+    def get_credential_report(self):
+        if self._codes:
+            code = self._codes.pop(0)
+            raise _client_error(code)
+        return {"Content": self._content}
+
+
+class FakeAlwaysInProgressClient:
+    """Never finishes: every call reports the report is still generating."""
+
+    def generate_credential_report(self):
+        pass
+
+    def get_credential_report(self):
+        raise _client_error("ReportInProgress")
+
+
+class PollCredentialReportTests(unittest.TestCase):
+    def test_in_progress_then_ready_does_not_regenerate(self):
+        client = FakeCredentialReportPollingClient(["ReportInProgress", "ReportInProgress"])
+        content = aws._poll_credential_report(client, delay_s=0.01)
+        self.assertEqual(content, b"report-bytes")
+        self.assertEqual(client.generate_calls, 0)  # in-progress just waits, never regenerates
+
+    def test_not_present_then_ready_regenerates_once(self):
+        client = FakeCredentialReportPollingClient(["ReportNotPresent"])
+        content = aws._poll_credential_report(client, delay_s=0.01)
+        self.assertEqual(content, b"report-bytes")
+        self.assertEqual(client.generate_calls, 1)
+
+    def test_expired_then_ready_regenerates_once(self):
+        client = FakeCredentialReportPollingClient(["ReportExpired"])
+        content = aws._poll_credential_report(client, delay_s=0.01)
+        self.assertEqual(content, b"report-bytes")
+        self.assertEqual(client.generate_calls, 1)
+
+    def test_accepts_the_long_boto3_exception_class_name_spellings_too(self):
+        client = FakeCredentialReportPollingClient(["CredentialReportNotPresentException"])
+        content = aws._poll_credential_report(client, delay_s=0.01)
+        self.assertEqual(content, b"report-bytes")
+        self.assertEqual(client.generate_calls, 1)
+
+    def test_raises_an_unrecognized_error_code_immediately_without_waiting(self):
+        client = FakeCredentialReportPollingClient(["AccessDenied"])
+        with self.assertRaises(ClientError):
+            aws._poll_credential_report(client, delay_s=0.01)
+
+    def test_gives_up_after_the_bounded_wait_elapses_still_in_progress(self):
+        client = FakeAlwaysInProgressClient()
+        with self.assertRaises(RuntimeError) as ctx:
+            aws._poll_credential_report(client, max_wait_s=0.05, delay_s=0.01)
+        self.assertIn("ReportInProgress", str(ctx.exception))
+
+
 class IamCredentialReportTests(unittest.TestCase):
     def test_counts_only_no_usernames(self):
         with mock.patch.object(aws, "_client", return_value=FakeIamClient(IAM_CSV)):
