@@ -61,6 +61,13 @@ const REPORTS: {
     title: "Academic Affairs",
     desc: "Search students or download every student record.",
   },
+  {
+    // Strict report: only the STRICT_REPORTS list in access.ts sees this card.
+    id: "cybersecurity",
+    href: "/cybersecurity",
+    title: "Cybersecurity",
+    desc: "Board risk register, security KPIs, and the GLBA board packet.",
+  },
 ];
 
 export default function HomeClient({ microsoftEnabled }: { microsoftEnabled: boolean }) {

@@ -26,6 +26,7 @@ const reportingOriginHeaderValue = "9796ae3e6c84e98ba520f802cf5cf5db";
 // (dataBucketArn, onDemandFns) by hardcoded name rather than a lookup.
 const magicNonceTableName = "amu-reporting-magic-link-nonces";
 const aspireduSessionTableName = "amu-reporting-aspiredu-sessions";
+const cyberRegisterTableName = "amu-reporting-cyber-register";
 const aspireduCallbackUrl = `${reportingUrl}/aspiredu/api/auth/callback`;
 // Custom domain, registered alongside the CloudFront hostname so both work
 // through cutover. Cognito rejects any redirect_uri not on the callback list.
@@ -88,6 +89,30 @@ export class ReportingEcsStack extends cdk.Stack {
       encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
       encryptionKey: aspireduKey,
       timeToLiveAttribute: "expiresAt",
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      deletionProtection: true,
+    });
+    // Cybersecurity board space (/cybersecurity): risk register + manual KPIs,
+    // with a history row per edit. Dedicated CMK so this data has its own key
+    // (and its own CloudTrail decrypt trail), separate from AspireDU.
+    // Key policy is the CDK default (account root, delegating to IAM), the same
+    // as AspireduReportingKey; the web task role gets use of it below via IAM,
+    // limited to calls made through DynamoDB.
+    const cyberKey = new kms.Key(this, "CyberKey", {
+      alias: "alias/amu-reporting-cyber",
+      description: "Encrypts the Cybersecurity risk register (amu-reporting-cyber-register)",
+      enableKeyRotation: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pendingWindow: cdk.Duration.days(30),
+    });
+    const cyberRegisterTable = new dynamodb.Table(this, "CyberRegister", {
+      tableName: cyberRegisterTableName,
+      partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
+      encryptionKey: cyberKey,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
       deletionProtection: true,
@@ -234,9 +259,24 @@ export class ReportingEcsStack extends cdk.Stack {
     }));
     magicNonceTable.grantWriteData(task.taskRole);
     aspireduSessionTable.grantReadWriteData(task.taskRole);
+    // Cybersecurity register: exactly the four item actions the API uses
+    // (no Scan, no DeleteItem, no BatchWrite). TransactWriteItems is authorized
+    // per inner Put as dynamodb:PutItem. Not grantReadWriteData(), which would
+    // add Scan/Delete/Batch* and kms:ReEncrypt*/DescribeKey.
+    task.addToTaskRolePolicy(new iam.PolicyStatement({
+      sid: "CyberRegisterItems",
+      actions: ["dynamodb:GetItem", "dynamodb:Query", "dynamodb:PutItem", "dynamodb:UpdateItem"],
+      resources: [cyberRegisterTable.tableArn],
+    }));
+    task.addToTaskRolePolicy(new iam.PolicyStatement({
+      sid: "CyberRegisterKmsViaDynamoDb",
+      actions: ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey"],
+      resources: [cyberKey.keyArn],
+      conditions: { StringEquals: { "kms:ViaService": `dynamodb.${region}.amazonaws.com` } },
+    }));
     task.addVolume({ name: "tmp" });
     task.addVolume({ name: "next-cache" });
-    task.addContainer("web", { image: ecs.ContainerImage.fromDockerImageAsset(webImage), portMappings: [{ containerPort: 3000 }], logging: ecs.LogDrivers.awsLogs({ logGroup: webLogs, streamPrefix: "web" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke", APP_BASE_URL: reportingDomainUrl, ENTRA_TENANT_ID: "7f4bc07b-d9b5-43c4-a1d6-bce660187973", ENTRA_CLIENT_ID: "66a8909d-d22e-41bf-9092-4dbe06e393b0", CORE_API_URL: "https://core.avemaria.edu", MAGIC_NONCE_TABLE: magicNonceTableName, ASPIREDU_SESSION_TABLE: aspireduSessionTableName, ASPIREDU_USER_POOL_ID: aspireduUserPool.userPoolId, ASPIREDU_USER_POOL_CLIENT_ID: aspireduClient.userPoolClientId, ASPIREDU_COGNITO_DOMAIN: aspireduDomain.baseUrl(), ASPIREDU_CALLBACK_URL: aspireduCallbackUrl, ASPIREDU_CALLBACK_URLS: [aspireduCallbackUrl, aspireduDomainCallbackUrl].join(","), ASPIREDU_ALLOWED_EMAILS: aspireduAllowedEmails, ...onDemandFns, ...aspireduFns }, secrets: runtimeSecrets(secret, resendSecret, xaiSecret), readonlyRootFilesystem: true, user: "node" }).addMountPoints(
+    task.addContainer("web", { image: ecs.ContainerImage.fromDockerImageAsset(webImage), portMappings: [{ containerPort: 3000 }], logging: ecs.LogDrivers.awsLogs({ logGroup: webLogs, streamPrefix: "web" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke", APP_BASE_URL: reportingDomainUrl, ENTRA_TENANT_ID: "7f4bc07b-d9b5-43c4-a1d6-bce660187973", ENTRA_CLIENT_ID: "66a8909d-d22e-41bf-9092-4dbe06e393b0", CORE_API_URL: "https://core.avemaria.edu", MAGIC_NONCE_TABLE: magicNonceTableName, ASPIREDU_SESSION_TABLE: aspireduSessionTableName, CYBER_REGISTER_TABLE: cyberRegisterTableName, ASPIREDU_USER_POOL_ID: aspireduUserPool.userPoolId, ASPIREDU_USER_POOL_CLIENT_ID: aspireduClient.userPoolClientId, ASPIREDU_COGNITO_DOMAIN: aspireduDomain.baseUrl(), ASPIREDU_CALLBACK_URL: aspireduCallbackUrl, ASPIREDU_CALLBACK_URLS: [aspireduCallbackUrl, aspireduDomainCallbackUrl].join(","), ASPIREDU_ALLOWED_EMAILS: aspireduAllowedEmails, ...onDemandFns, ...aspireduFns }, secrets: runtimeSecrets(secret, resendSecret, xaiSecret), readonlyRootFilesystem: true, user: "node" }).addMountPoints(
       { sourceVolume: "tmp", containerPath: "/tmp", readOnly: false },
       { sourceVolume: "next-cache", containerPath: "/app/.next/cache", readOnly: false },
     );

@@ -17,9 +17,35 @@ export const REPORT_IDS = [
   "aspiredu",
   "marketing",
   "mgo-analysis",
+  "cybersecurity",
 ] as const;
 
 export type ReportId = (typeof REPORT_IDS)[number];
+
+/**
+ * Strict reports: the list here is the ONLY way in. Hub admins (ADMIN_EMAILS),
+ * REPORT_ALLOWED and *_ALLOWED_EMAILS env vars are all ignored, so adding a
+ * person takes a reviewed PR to this file. There is deliberately no env var.
+ *
+ * cybersecurity: the board risk register and KPIs list AMU's weaknesses in one
+ * place, so it is limited to the Qualified Individual pair (Michael and Keith
+ * Brooks of SKB Cyber, on his AMU account). Cole and Regina are hub admins but
+ * must not see it.
+ */
+export const STRICT_REPORTS: Partial<Record<ReportId, readonly string[]>> = {
+  cybersecurity: ["michael.t.middendorf@avemaria.edu", "keith.brooks@avemaria.edu"],
+};
+
+const STRICT_SETS: Partial<Record<ReportId, Set<string>>> = Object.fromEntries(
+  Object.entries(STRICT_REPORTS).map(([id, emails]) => [
+    id,
+    new Set((emails ?? []).map(normalizeEmail)),
+  ]),
+);
+
+export function isStrictReport(report: ReportId): boolean {
+  return STRICT_SETS[report] !== undefined;
+}
 
 /** Always have access to every report. */
 export const ADMIN_EMAILS = [
@@ -101,6 +127,8 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
   // DST-2830: MGO Analysis and Management is Leslie and Jim only (admins via isAdmin).
   // Do not add other Advancement users here.
   "mgo-analysis": "leslie.sonnen@avemaria.edu,jim.thomas@avemaria.edu",
+  // Strict report: STRICT_REPORTS above is the grant. Keep this empty.
+  cybersecurity: "",
 };
 
 const ENV_KEYS: Record<ReportId, string> = {
@@ -118,6 +146,9 @@ const ENV_KEYS: Record<ReportId, string> = {
   aspiredu: "ASPIREDU_ALLOWED_EMAILS",
   marketing: "MARKETING_ALLOWED_EMAILS",
   "mgo-analysis": "MGO_ANALYSIS_ALLOWED_EMAILS",
+  // Not read: allowedEmailsForReport() returns STRICT_REPORTS only for strict
+  // reports. Named so the Record stays total; do not set it anywhere.
+  cybersecurity: "",
 };
 
 export function parseEmailCsv(csv: string): Set<string> {
@@ -134,10 +165,16 @@ export function isAdmin(email: string): boolean {
 }
 
 export function allowedEmailsForReport(report: ReportId): Set<string> {
+  // Strict reports: the hardcoded list only, never an env var.
+  const strict = STRICT_SETS[report];
+  if (strict) return new Set(strict);
   // Union, not override — see the note on REPORT_ALLOWED above.
   const allowed = parseEmailCsv(REPORT_ALLOWED[report]);
-  for (const email of parseEmailCsv(process.env[ENV_KEYS[report]] || "")) {
-    allowed.add(email);
+  const envKey = ENV_KEYS[report];
+  if (envKey) {
+    for (const email of parseEmailCsv(process.env[envKey] || "")) {
+      allowed.add(email);
+    }
   }
   return allowed;
 }
@@ -145,6 +182,9 @@ export function allowedEmailsForReport(report: ReportId): Set<string> {
 export function canAccessReport(email: string, report: ReportId): boolean {
   const e = normalizeEmail(email);
   if (!e) return false;
+  // Strict reports are checked BEFORE isAdmin on purpose: admins do not get in.
+  const strict = STRICT_SETS[report];
+  if (strict) return strict.has(e);
   if (isAdmin(e)) return true;
   if (allowedEmailsForReport(report).has(e)) return true;
   // Advancement includes the chapel subset (naming + stained glass).

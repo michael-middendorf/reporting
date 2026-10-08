@@ -91,6 +91,9 @@ export async function GET(req: NextRequest) {
     email,
     secret,
     sessionDecisionAtComplete(email, false),
+    // Marks the session (or the mfa_pending token) auth: "entra" with a fresh
+    // iat. requireCyberAccess accepts only these sessions.
+    "entra",
   );
   const dest =
     signIn.kind === "mfa_pending"
