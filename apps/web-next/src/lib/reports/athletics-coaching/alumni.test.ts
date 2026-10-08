@@ -169,10 +169,27 @@ describe("buildAlumniSummary", () => {
 
 describe("Slate roster status", () => {
   it("counts roster athletes only", () => {
-    for (const status of ["Roster - Athlete", "Roster - Athlete Post Grad", "roster - athlete", "ROSTER-ATHLETE POST GRAD", "Athlete", "Athlete Post Grad"]) {
+    for (const status of [
+      "Roster - Athlete",
+      "Roster - Athlete Post Grad",
+      "roster - athlete",
+      "ROSTER-ATHLETE POST GRAD",
+      "Athlete",
+      "Athlete Post Grad",
+      "Graduated",
+      "graduated",
+    ]) {
       assert.equal(isSlateRosterAthlete({ RosterStatus: status }), true, status);
     }
-    for (const status of ["Roster - Athletic Associated", "", "Recruit", "Athletic Associated"]) {
+    for (const status of [
+      "Roster - Athletic Associated",
+      "",
+      "Recruit",
+      "Athletic Associated",
+      "Left AMU",
+      "Not on Roster",
+      "Leave of Absence",
+    ]) {
       assert.equal(isSlateRosterAthlete({ RosterStatus: status }), false, status);
     }
     assert.equal(isSlateRosterAthlete({}), false);
@@ -192,6 +209,29 @@ describe("Slate roster status", () => {
     assert.equal(summary.total, 0);
     assert.equal(summary.slateAvailable, true);
     assert.equal(summary.slateUsed, false);
+  });
+
+  it("lists Graduated rows that are PowerCampus graduates and rejects Left AMU / Not on Roster", () => {
+    const summary = buildAlumniSummary({
+      sport: "mens-soccer",
+      athleticAlumniRows: [],
+      graduateRows: [ANNA, BEN, CARL, DORA],
+      slateRows: [
+        // Slate omits null fields: no SecondSport or AthType key on this row.
+        { PCID: "P000000102", CurrentSport: "Soccer", MF: "M", RosterStatus: "Graduated" },
+        { PCID: "P000000103", CurrentSport: "Soccer", MF: "M", RosterStatus: "Left AMU" },
+        { PCID: "P000000104", CurrentSport: "Soccer", MF: "M", RosterStatus: "Not on Roster" },
+        // Graduated in Slate but not in the PowerCampus graduates feed.
+        { PCID: "P000000999", CurrentSport: "Soccer", MF: "M", RosterStatus: "Graduated" },
+      ],
+      showEmails: true,
+    });
+    assert.deepEqual(
+      summary.rows.map((row) => row.name),
+      ["Ben Adams"],
+    );
+    assert.deepEqual(summary.rows[0]?.sports, ["Men's Soccer"]);
+    assert.equal(summary.slateUsed, true);
   });
 });
 
@@ -218,6 +258,10 @@ describe("slateSportKeys", () => {
       "womens-golf",
     ]);
     assert.deepEqual(slateSportKeys({ CurrentSport: "Football", MF: "M" }), ["football"]);
+    // Slate omits null fields; a row with no SecondSport key must not throw.
+    const noSecondSport: Record<string, unknown> = { CurrentSport: "Soccer", MF: "F", RosterStatus: "Graduated" };
+    assert.equal("SecondSport" in noSecondSport, false);
+    assert.deepEqual(slateSportKeys(noSecondSport as Parameters<typeof slateSportKeys>[0]), ["womens-soccer"]);
     assert.deepEqual(slateSportKeys({ CurrentSport: "Basketball", MF: "" }), []);
     assert.deepEqual(slateSportKeys({ CurrentSport: "Marching Band", MF: "M" }), []);
   });
