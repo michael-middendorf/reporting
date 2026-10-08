@@ -526,8 +526,9 @@ export default $config({
       },
     });
 
-    // AthleticsSlateQueries JSON: applications + prospects required; roster
-    // optional (queries[].name=roster). Missing roster skips that dataset.
+    // AthleticsSlateQueries JSON: applications + prospects required; roster and
+    // association_history optional (queries[].name=roster / association_history).
+    // A missing optional entry skips that dataset.
     new sst.aws.Cron("AthleticsRefresh", {
       schedule: "rate(1 hour)",
       function: {

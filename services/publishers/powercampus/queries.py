@@ -159,6 +159,152 @@ EMAIL = (
 )
 
 # ---------------------------------------------------------------------------
+# Coaching Sport Alumni (no year window: every graduate the database holds)
+# ---------------------------------------------------------------------------
+#
+# amu_reporting_ro cannot read ALUMNIDEGREE or the AMU_AthleticAssoc /
+# AMU_JVAthleticAssoc views, so the athletic code list is a constant here.
+# Verified against CODE_ASSOCIATION 2026-10-08. Club and retired codes
+# (ICUFRM, ICJRGB, ICLACW, ABBALM, ...) are deliberately not included.
+
+ATHLETIC_ASSOCIATION_CODES: tuple[str, ...] = (
+    # Varsity
+    "ICBASE", "ICBBM", "ICBBW", "ICCG", "ICFBM", "ICGLFM", "ICGLFW", "ICSOCM",
+    "ICSOCW", "ICSOFT", "ICSSWM", "ICSWMW", "ICTENM", "ICTENW", "ICTRKM",
+    "ICTRKW", "ICVBAL", "ICXCM", "ICXCW", "LACROS", "CDANCE",
+    # JV
+    "ICJBAS", "ICJBBM", "ICJBBW", "ICJEQU", "ICJFRM", "ICJGLM", "ICJGLW",
+    "ICJLCM", "ICJSOF", "ICJSOM", "ICJSOW", "ICJSWM", "ICJTNM", "ICJTNW",
+    "ICJVBL", "ICHSWW",
+    # Legacy football codes
+    "AFBALM", "AFBALW",
+)
+
+# OFFICE_HELD values that mean the person was on the roster. Blank counts
+# (older rows were loaded without one). NO-LOI, LOIDCL, NONMEM are recruits or
+# non-members and are excluded.
+ROSTER_OFFICE_HELD: tuple[str, ...] = ("MEM", "MSSPRT", "LRMTRM", "MNRTRN", "LOISGN", "")
+
+# TRANSCRIPTDEGREE.DEGREE values that are not a conferred university degree.
+NON_DEGREE_CODES: tuple[str, ...] = (
+    "MINOR", "NONE", "NONDEG", "GUEST", "UNDEC", "UGRD", "PENRIC", "HSDE",
+    "DIPLOM", "GED", "CATHSD",
+)
+
+# Bachelor-level CODE_DEGREE values (2026-10-08). class_year is the year of
+# the earliest bachelor degree, else of the earliest qualifying degree.
+BACHELOR_DEGREE_CODES: tuple[str, ...] = (
+    "BARTS", "BSCIEN", "BPHIL", "BPSYCH", "BSBA", "BBUS", "BFA", "BFINAR",
+)
+
+# Personal email preference, best first. Only IsActive rows are considered.
+ALUMNI_EMAIL_TYPES: tuple[str, ...] = ("PEMA", "PERM", "MAIL")
+
+
+def _sql_list(values: tuple[str, ...]) -> str:
+    # Only called at import time with the literal constants above; never with
+    # runtime input. Values are plain codes (letters, digits, hyphen).
+    for value in values:
+        if not all(ch.isalnum() or ch == "-" for ch in value):
+            raise ValueError(f"unexpected code literal: {value!r}")
+    return ", ".join(f"'{value}'" for value in values)
+
+
+def _email_rank_case() -> str:
+    whens = " ".join(f"WHEN '{t}' THEN {i}" for i, t in enumerate(ALUMNI_EMAIL_TYPES, start=1))
+    return f"CASE e.EmailType {whens} ELSE {len(ALUMNI_EMAIL_TYPES) + 1} END"
+
+
+# Per person: latest qualifying degree (DEGREE, FORMAL_TITLE, GRADUATION_DATE),
+# class_year, preferred active personal email. Shared by both datasets below.
+# p is dbo.PEOPLE.
+_GRADUATE_APPLIES = (
+    "CROSS APPLY ("
+    "SELECT TOP 1 t.DEGREE, t.FORMAL_TITLE, t.GRADUATION_DATE "
+    "FROM dbo.TRANSCRIPTDEGREE AS t "
+    "WHERE t.PEOPLE_CODE_ID = p.PEOPLE_CODE_ID "
+    "AND t.GRADUATION_DATE IS NOT NULL "
+    f"AND t.DEGREE NOT IN ({_sql_list(NON_DEGREE_CODES)}) "
+    "ORDER BY t.GRADUATION_DATE DESC, t.TRANSCRIPT_SEQ DESC"
+    ") AS d "
+    "CROSS APPLY ("
+    "SELECT COALESCE("
+    "MIN(CASE WHEN t.DEGREE IN "
+    f"({_sql_list(BACHELOR_DEGREE_CODES)}) "
+    "THEN YEAR(t.GRADUATION_DATE) END), "
+    "MIN(YEAR(t.GRADUATION_DATE))"
+    ") AS class_year "
+    "FROM dbo.TRANSCRIPTDEGREE AS t "
+    "WHERE t.PEOPLE_CODE_ID = p.PEOPLE_CODE_ID "
+    "AND t.GRADUATION_DATE IS NOT NULL "
+    f"AND t.DEGREE NOT IN ({_sql_list(NON_DEGREE_CODES)})"
+    ") AS cy "
+    "OUTER APPLY ("
+    "SELECT TOP 1 e.Email, e.EmailType "
+    "FROM dbo.EmailAddress AS e "
+    "WHERE e.PeopleOrgCodeId = p.PEOPLE_CODE_ID "
+    "AND e.IsActive = 1 "
+    f"AND e.EmailType IN ({_sql_list(ALUMNI_EMAIL_TYPES)}) "
+    f"ORDER BY {_email_rank_case()}, e.EmailAddressId DESC"
+    ") AS em "
+)
+
+_GRADUATE_COLUMNS = (
+    "p.PEOPLE_CODE_ID, p.FIRST_NAME, p.MIDDLE_NAME, p.LAST_NAME, p.SUFFIX, "
+    "p.NICKNAME, d.DEGREE, d.FORMAL_TITLE, d.GRADUATION_DATE, "
+    "cy.class_year AS CLASS_YEAR, em.Email AS EMAIL, em.EmailType AS EMAIL_TYPE"
+)
+
+# One row per PCID + athletic association code, for living graduates who were
+# on that roster (OFFICE_HELD in ROSTER_OFFICE_HELD) while enrolled: a primary
+# ENRL ACADEMIC row in the same ACADEMIC_YEAR, and the same term and session
+# when the association row names a term (year only when its term is blank).
+# FIRST_YEAR / LAST_YEAR / YEARS_COUNT span the qualifying years.
+ATHLETIC_ALUMNI = (
+    "WITH ath AS ("
+    "SELECT s.PEOPLE_ORG_CODE_ID, s.ASSOCIATION, s.ACADEMIC_YEAR "
+    "FROM dbo.ASSOCIATION AS s "
+    f"WHERE s.ASSOCIATION IN ({_sql_list(ATHLETIC_ASSOCIATION_CODES)}) "
+    "AND ISNULL(LTRIM(RTRIM(s.OFFICE_HELD)), '') IN "
+    f"({_sql_list(ROSTER_OFFICE_HELD)}) "
+    "AND EXISTS ("
+    "SELECT a.PEOPLE_CODE_ID FROM dbo.ACADEMIC AS a "
+    "WHERE a.PEOPLE_CODE_ID = s.PEOPLE_ORG_CODE_ID "
+    "AND a.ENROLL_SEPARATION = 'ENRL' "
+    "AND a.PRIMARY_FLAG = 'Y' "
+    "AND a.ACADEMIC_YEAR = s.ACADEMIC_YEAR "
+    "AND (ISNULL(LTRIM(RTRIM(s.ACADEMIC_TERM)), '') = '' "
+    "OR (a.ACADEMIC_TERM = s.ACADEMIC_TERM "
+    "AND ISNULL(a.ACADEMIC_SESSION, '') = ISNULL(s.ACADEMIC_SESSION, '')))"
+    ")"
+    "), "
+    "agg AS ("
+    "SELECT ath.PEOPLE_ORG_CODE_ID, ath.ASSOCIATION, "
+    "MIN(ath.ACADEMIC_YEAR) AS FIRST_YEAR, MAX(ath.ACADEMIC_YEAR) AS LAST_YEAR, "
+    "COUNT(DISTINCT ath.ACADEMIC_YEAR) AS YEARS_COUNT "
+    "FROM ath "
+    "GROUP BY ath.PEOPLE_ORG_CODE_ID, ath.ASSOCIATION"
+    ") "
+    f"SELECT agg.ASSOCIATION, agg.FIRST_YEAR, agg.LAST_YEAR, agg.YEARS_COUNT, {_GRADUATE_COLUMNS} "
+    "FROM agg "
+    "INNER JOIN dbo.PEOPLE AS p ON p.PEOPLE_CODE_ID = agg.PEOPLE_ORG_CODE_ID "
+    f"{_GRADUATE_APPLIES}"
+    "WHERE ISNULL(p.DECEASED_FLAG, '') <> 'Y' "
+    "OPTION (MAXDOP 1)"
+)
+
+# Every living person with a qualifying conferred degree, so Slate-only
+# athletes (sport history in Slate, not in ASSOCIATION) can be matched to a
+# graduation by PCID. Same columns as ATHLETIC_ALUMNI minus the sport fields.
+GRADUATES = (
+    f"SELECT {_GRADUATE_COLUMNS} "
+    "FROM dbo.PEOPLE AS p "
+    f"{_GRADUATE_APPLIES}"
+    "WHERE ISNULL(p.DECEASED_FLAG, '') <> 'Y' "
+    "OPTION (MAXDOP 1)"
+)
+
+# ---------------------------------------------------------------------------
 # Reference tables (small, pulled whole)
 # ---------------------------------------------------------------------------
 
@@ -220,6 +366,8 @@ DATASETS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("people", PEOPLE, ("min_year",)),
     ("address", ADDRESS, ("min_year",)),
     ("email", EMAIL, ("min_year",)),
+    ("athletic_alumni", ATHLETIC_ALUMNI, ()),
+    ("graduates", GRADUATES, ()),
 )
 
 # Every statement in this module, for the guard tests.

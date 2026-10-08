@@ -8,6 +8,7 @@ const TABS = [
   { suffix: "/fundraising", label: "Fundraising" },
   { suffix: "/enrollment", label: "Enrollment" },
   { suffix: "/academics", label: "Academics" },
+  { suffix: "/alumni", label: "Alumni" },
 ] as const;
 
 export function CoachingSportNav({ sportKey }: { sportKey: string }) {

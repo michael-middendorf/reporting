@@ -11,6 +11,12 @@ export type SportDef = {
   virtuousProjectCode: string | null;
   /** Extra Virtuous funds that roll into this coaching sport. */
   virtuousProjectCodes?: readonly string[];
+  /**
+   * PowerCampus ASSOCIATION codes (varsity and JV) that roll into this sport
+   * for the Sport Alumni tab. Kept last in each entry so the fundraising
+   * publisher's sports.ts parser (key ... virtuousProjectCode) is unaffected.
+   */
+  pcAssociationCodes: readonly string[];
 };
 
 /**
@@ -48,6 +54,7 @@ export const SPORTS: SportDef[] = [
     givingSlug: "cross-country",
     virtuousProjectCodes: ["6578MXC", "6580WXC", "6683Track"],
     virtuousProjectCode: null,
+    pcAssociationCodes: ["ICXCM", "ICXCW", "ICTRKM", "ICTRKW"],
   },
   {
     key: "dance-team",
@@ -56,6 +63,7 @@ export const SPORTS: SportDef[] = [
     slateNames: ["Competitive Dance", "Dance", "Dance Team"],
     givingSlug: "dance-team",
     virtuousProjectCode: "6596Dance",
+    pcAssociationCodes: ["CDANCE"],
   },
   {
     key: "football",
@@ -64,6 +72,7 @@ export const SPORTS: SportDef[] = [
     slateNames: ["Football"],
     givingSlug: "football",
     virtuousProjectCode: "6552FB",
+    pcAssociationCodes: ["ICFBM", "AFBALM"],
   },
   {
     key: "mens-baseball",
@@ -72,6 +81,7 @@ export const SPORTS: SportDef[] = [
     slateNames: ["Baseball", "Baseball-Men", "M Baseball", "Men's Baseball"],
     givingSlug: "mens-baseball",
     virtuousProjectCode: "6543MBase",
+    pcAssociationCodes: ["ICBASE", "ICJBAS"],
   },
   {
     key: "mens-basketball",
@@ -80,6 +90,7 @@ export const SPORTS: SportDef[] = [
     slateNames: ["Basketball-Men", "M Basketball", "Men's Basketball", "Mens Basketball"],
     givingSlug: "mens-basketball",
     virtuousProjectCode: "6530MBB",
+    pcAssociationCodes: ["ICBBM", "ICJBBM"],
   },
   {
     key: "mens-golf",
@@ -87,6 +98,7 @@ export const SPORTS: SportDef[] = [
     gender: "M",
     slateNames: ["Golf-Men", "M Golf", "Men's Golf", "Mens Golf"],
     virtuousProjectCode: "6622MGolf",
+    pcAssociationCodes: ["ICGLFM", "ICJGLM"],
   },
   {
     key: "mens-soccer",
@@ -95,6 +107,7 @@ export const SPORTS: SportDef[] = [
     slateNames: ["Soccer-Men", "M Soccer", "Men's Soccer", "Mens Soccer"],
     givingSlug: "mens-soccer",
     virtuousProjectCode: "6569MSoc",
+    pcAssociationCodes: ["ICSOCM", "ICJSOM"],
   },
   {
     key: "rugby",
@@ -104,6 +117,7 @@ export const SPORTS: SportDef[] = [
     givingSlug: "rugby",
     // Men's Rugby project. Catalog sport is mixed; this is not a women's project.
     virtuousProjectCode: "6540MRugby",
+    pcAssociationCodes: [],
   },
   {
     key: "swim-team",
@@ -112,6 +126,7 @@ export const SPORTS: SportDef[] = [
     slateNames: ["Swimming", "Swim Team", "M Swimming", "W Swimming", "Swimming-Men", "Swimming-Women", "Men's Swimming", "Women's Swimming"],
     givingSlug: "swim-team",
     virtuousProjectCode: "6201Swim",
+    pcAssociationCodes: ["ICSSWM", "ICSWMW", "ICJSWM", "ICHSWW"],
   },
   {
     key: "tennis",
@@ -120,6 +135,7 @@ export const SPORTS: SportDef[] = [
     slateNames: ["Tennis", "M Tennis", "W Tennis", "Tennis-Men", "Tennis-Women", "Men's Tennis", "Women's Tennis"],
     givingSlug: "tennis",
     virtuousProjectCode: "6563Tennis",
+    pcAssociationCodes: ["ICTENM", "ICTENW", "ICJTNM", "ICJTNW"],
   },
   {
     key: "ultimate-frisbee",
@@ -129,6 +145,7 @@ export const SPORTS: SportDef[] = [
     givingSlug: "ultimate-frisbee",
     // Men's Ultimate (6251FrisM). Catalog sport is mixed; this is not a women's project.
     virtuousProjectCode: "6251FrisM",
+    pcAssociationCodes: ["ICJFRM"],
   },
   {
     key: "womens-basketball",
@@ -137,6 +154,7 @@ export const SPORTS: SportDef[] = [
     slateNames: ["Basketball-Women", "W Basketball", "Women's Basketball", "Womens Basketball"],
     givingSlug: "womens-basketball",
     virtuousProjectCode: "6514WBB",
+    pcAssociationCodes: ["ICBBW", "ICJBBW"],
   },
   {
     key: "womens-golf",
@@ -145,6 +163,7 @@ export const SPORTS: SportDef[] = [
     slateNames: ["Golf-Women", "W Golf", "Women's Golf", "Womens Golf"],
     // No Virtuous project found.
     virtuousProjectCode: null,
+    pcAssociationCodes: ["ICGLFW", "ICJGLW"],
   },
   {
     key: "womens-lacrosse",
@@ -153,6 +172,7 @@ export const SPORTS: SportDef[] = [
     slateNames: ["Lacrosse", "Lacrosse-Women", "W Lacrosse", "Women's Lacrosse", "Womens Lacrosse"],
     givingSlug: "womens-lacrosse",
     virtuousProjectCode: "6654WLACR",
+    pcAssociationCodes: ["LACROS"],
   },
   {
     key: "womens-soccer",
@@ -161,6 +181,7 @@ export const SPORTS: SportDef[] = [
     slateNames: ["Soccer-Women", "W Soccer", "Women's Soccer", "Womens Soccer"],
     givingSlug: "womens-soccer",
     virtuousProjectCode: "6572WSoc",
+    pcAssociationCodes: ["ICSOCW", "ICJSOW"],
   },
   {
     key: "womens-softball",
@@ -169,6 +190,7 @@ export const SPORTS: SportDef[] = [
     slateNames: ["Softball", "Softball-Women", "W Softball", "Women's Softball"],
     givingSlug: "womens-softball",
     virtuousProjectCode: "6557WSoft",
+    pcAssociationCodes: ["ICSOFT", "ICJSOF"],
   },
   {
     key: "womens-volleyball",
@@ -177,6 +199,7 @@ export const SPORTS: SportDef[] = [
     slateNames: ["Volleyball", "Volleyball-Women", "W Volleyball", "Women's Volleyball"],
     givingSlug: "womens-volleyball",
     virtuousProjectCode: "6573WVB",
+    pcAssociationCodes: ["ICVBAL", "ICJVBL"],
   },
 ];
 
@@ -286,6 +309,20 @@ for (const sport of SPORTS) {
   LOOKUP[fold(sport.key)] = sport.key;
   if (sport.givingSlug) LOOKUP[fold(sport.givingSlug)] = sport.key;
   for (const name of sport.slateNames) LOOKUP[fold(name)] = sport.key;
+}
+
+const PC_ASSOCIATION_LOOKUP: Readonly<Record<string, string>> = Object.fromEntries(
+  SPORTS.flatMap((sport) => sport.pcAssociationCodes.map((code) => [code.toUpperCase(), sport.key])),
+);
+
+/**
+ * Catalog key for a PowerCampus ASSOCIATION code. JV codes fold into the
+ * parent sport. Codes with no coaching sport (Color Guard ICCG, JV Equestrian
+ * ICJEQU, JV Lacrosse-Men ICJLCM, legacy Football Women AFBALW) return null.
+ */
+export function resolvePcAssociation(code: string): string | null {
+  const key = PC_ASSOCIATION_LOOKUP[(code || "").trim().toUpperCase()];
+  return key && sportByKey[key] ? key : null;
 }
 
 /** Old coaching URLs and coach maps fold into XC/Track and Field. */

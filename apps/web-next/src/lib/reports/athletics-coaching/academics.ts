@@ -519,8 +519,8 @@ export function coachingLambdaPayload(
   };
 }
 
-export function coachingMfaUrl(sport: string): string {
-  const next = `/athletics/coaching/${sport}/academics`;
+export function coachingMfaUrl(sport: string, tab: "academics" | "alumni" = "academics"): string {
+  const next = `/athletics/coaching/${sport}/${tab}`;
   return `/athletics/coaching/mfa?next=${encodeURIComponent(next)}`;
 }
 

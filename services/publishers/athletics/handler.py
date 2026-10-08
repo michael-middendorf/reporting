@@ -1,10 +1,15 @@
-"""Athletics Slate publisher -> sources/athletics/{applications,prospects,roster}/.
+"""Athletics Slate publisher -> sources/athletics/{applications,prospects,roster,association_history}/.
 
 Query ids and service tokens are supplied only through ATHLETICS_SLATE_QUERIES
 (secret AthleticsSlateQueries). They are deliberately never written to
-provenance or logs. Roster is optional: if the secret has no `roster` query,
-this run skips sources/athletics/roster/ and leaves existing recruiting feeds
-alone.
+provenance or logs. Roster and association_history are optional: if the secret
+has no entry for one, this run skips sources/athletics/{name}/ and leaves the
+existing recruiting feeds alone.
+
+association_history feeds the coaching Sport Alumni tab. Its Slate query
+exports PCID, CurrentSport, SecondSport, MF, RosterStatus, AthType, FirstName,
+LastName for every athlete Slate has ever tracked, so former athletes can be
+joined to PowerCampus graduates by PCID.
 """
 
 from __future__ import annotations
@@ -21,7 +26,7 @@ from common.sources import publish_dataset, rows_from_slate_payload
 
 BASE_URL = "https://apply.avemaria.edu/manage/query/run"
 REQUIRED_DATASETS = {"applications", "prospects"}
-OPTIONAL_DATASETS = {"roster"}
+OPTIONAL_DATASETS = {"roster", "association_history"}
 KNOWN_DATASETS = REQUIRED_DATASETS | OPTIONAL_DATASETS
 USER_AGENT = "amu-reporting-athletics-publisher/1.0"
 

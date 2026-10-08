@@ -48,8 +48,8 @@ class LoadQueriesTests(unittest.TestCase):
     def test_roster_is_optional_and_skipped_when_absent(self):
         loaded = _load_queries(secret("applications", "prospects"))
         skipped = _log_skipped_optional(loaded)
-        self.assertEqual(skipped, ["roster"])
-        self.assertEqual(OPTIONAL_DATASETS, {"roster"})
+        self.assertEqual(skipped, ["association_history", "roster"])
+        self.assertEqual(OPTIONAL_DATASETS, {"roster", "association_history"})
 
     def test_roster_is_loaded_when_secret_has_query_id_and_token(self):
         loaded = _load_queries(secret("applications", "prospects", "roster"))
@@ -59,6 +59,21 @@ class LoadQueriesTests(unittest.TestCase):
         self.assertEqual(token, "redacted")
         self.assertEqual(auth, "query")
         self.assertEqual(timeout, 900)
+        self.assertEqual(_log_skipped_optional(loaded), ["association_history"])
+
+    def test_association_history_is_optional_and_loaded_when_configured(self):
+        loaded = _load_queries(secret("applications", "prospects", "association_history"))
+        self.assertIn("association_history", loaded)
+        query_id, token, timeout, auth = loaded["association_history"]
+        self.assertTrue(query_id)
+        self.assertEqual(token, "redacted")
+        self.assertEqual(auth, "query")
+        self.assertEqual(timeout, 900)
+        self.assertEqual(_log_skipped_optional(loaded), ["roster"])
+
+    def test_all_optional_datasets_configured_skips_nothing(self):
+        loaded = _load_queries(secret("applications", "prospects", "roster", "association_history"))
+        self.assertEqual(set(loaded), REQUIRED_DATASETS | OPTIONAL_DATASETS)
         self.assertEqual(_log_skipped_optional(loaded), [])
 
     def test_roster_without_token_is_treated_as_missing(self):
@@ -66,7 +81,7 @@ class LoadQueriesTests(unittest.TestCase):
         payload["queries"].append({"name": "roster", "query_id": "abc", "token": ""})
         loaded = _load_queries(json.dumps(payload))
         self.assertNotIn("roster", loaded)
-        self.assertEqual(_log_skipped_optional(loaded), ["roster"])
+        self.assertEqual(_log_skipped_optional(loaded), ["association_history", "roster"])
 
     def test_missing_applications_still_fails(self):
         with self.assertRaises(ConfigError) as ctx:

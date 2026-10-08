@@ -4,6 +4,7 @@ import {
   ambiguousSportKeys,
   canonicalSportKey,
   resolveGenderedSportKey,
+  resolvePcAssociation,
   resolveSportKey,
   SPORTS,
   sportByKey,
@@ -109,5 +110,60 @@ describe("athletics coaching sport catalog", () => {
     assert.equal(resolveGenderedSportKey("Football", "M"), "football");
     assert.equal(resolveGenderedSportKey("Volleyball", "F"), "womens-volleyball");
     assert.deepEqual(ambiguousSportKeys("Basketball", ["F"]), ["womens-basketball"]);
+  });
+});
+
+/** Must match ATHLETIC_ASSOCIATION_CODES in services/publishers/powercampus/queries.py. */
+const PC_ATHLETIC_CODES = [
+  "ICBASE", "ICBBM", "ICBBW", "ICCG", "ICFBM", "ICGLFM", "ICGLFW", "ICSOCM",
+  "ICSOCW", "ICSOFT", "ICSSWM", "ICSWMW", "ICTENM", "ICTENW", "ICTRKM",
+  "ICTRKW", "ICVBAL", "ICXCM", "ICXCW", "LACROS", "CDANCE",
+  "ICJBAS", "ICJBBM", "ICJBBW", "ICJEQU", "ICJFRM", "ICJGLM", "ICJGLW",
+  "ICJLCM", "ICJSOF", "ICJSOM", "ICJSOW", "ICJSWM", "ICJTNM", "ICJTNW",
+  "ICJVBL", "ICHSWW",
+  "AFBALM", "AFBALW",
+];
+
+const UNMAPPED_PC_CODES = ["ICCG", "ICJEQU", "ICJLCM", "AFBALW"];
+
+describe("PowerCampus association codes", () => {
+  it("maps varsity, JV, and legacy codes to the parent sport", () => {
+    assert.equal(resolvePcAssociation("ICFBM"), "football");
+    assert.equal(resolvePcAssociation("AFBALM"), "football");
+    assert.equal(resolvePcAssociation("ICBBM"), "mens-basketball");
+    assert.equal(resolvePcAssociation("ICJBBM"), "mens-basketball");
+    assert.equal(resolvePcAssociation("ICJBBW"), "womens-basketball");
+    assert.equal(resolvePcAssociation("ICJBAS"), "mens-baseball");
+    assert.equal(resolvePcAssociation("ICXCW"), "xc-track");
+    assert.equal(resolvePcAssociation("ICTRKM"), "xc-track");
+    assert.equal(resolvePcAssociation("ICHSWW"), "swim-team");
+    assert.equal(resolvePcAssociation("ICSSWM"), "swim-team");
+    assert.equal(resolvePcAssociation("ICJTNW"), "tennis");
+    assert.equal(resolvePcAssociation("ICJFRM"), "ultimate-frisbee");
+    assert.equal(resolvePcAssociation("LACROS"), "womens-lacrosse");
+    assert.equal(resolvePcAssociation("CDANCE"), "dance-team");
+    assert.equal(resolvePcAssociation("ICJVBL"), "womens-volleyball");
+    assert.equal(resolvePcAssociation(" icsoft "), "womens-softball");
+  });
+
+  it("leaves codes without a coaching sport unmapped", () => {
+    for (const code of UNMAPPED_PC_CODES) assert.equal(resolvePcAssociation(code), null, code);
+    assert.equal(resolvePcAssociation(""), null);
+    assert.equal(resolvePcAssociation("ICUFRM"), null);
+    assert.equal(resolvePcAssociation("HONORS"), null);
+  });
+
+  it("covers every publisher athletic code exactly once", () => {
+    const seen = new Map<string, string>();
+    for (const sport of SPORTS) {
+      for (const code of sport.pcAssociationCodes) {
+        assert.equal(seen.has(code), false, `${code} on ${seen.get(code)} and ${sport.key}`);
+        seen.set(code, sport.key);
+        assert.equal(PC_ATHLETIC_CODES.includes(code), true, `${code} is not published`);
+      }
+    }
+    for (const code of PC_ATHLETIC_CODES) {
+      assert.equal(seen.has(code) || UNMAPPED_PC_CODES.includes(code), true, code);
+    }
   });
 });
