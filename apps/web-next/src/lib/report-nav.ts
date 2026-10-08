@@ -75,6 +75,18 @@ export const MARKETING_NAV: ReportNavItem[] = [
   { href: "/marketing/pursuit-of-wisdom", label: "Pursuit of Wisdom", report: "marketing" },
 ];
 
+/** Strict report (STRICT_REPORTS in access.ts): Michael and Keith only. */
+export const CYBERSECURITY_NAV: ReportNavItem[] = [
+  { href: "/cybersecurity", label: "Overview", exact: true, report: "cybersecurity" },
+  { href: "/cybersecurity/risks", label: "Risk Register", report: "cybersecurity" },
+  { href: "/cybersecurity/identity", label: "Identity", report: "cybersecurity" },
+  { href: "/cybersecurity/endpoints", label: "Endpoint and Email", report: "cybersecurity" },
+  { href: "/cybersecurity/cloud", label: "Cloud and Apps", report: "cybersecurity" },
+  { href: "/cybersecurity/resilience", label: "Resilience", report: "cybersecurity" },
+  { href: "/cybersecurity/program", label: "Program", report: "cybersecurity" },
+  { href: "/cybersecurity/board-packet", label: "Board Packet", report: "cybersecurity" },
+];
+
 export function navForReports(nav: ReportNavItem[], reports: ReportId[]): ReportNavItem[] {
   return nav.filter((item) => !item.report || reports.includes(item.report));
 }
@@ -119,6 +131,12 @@ export const REPORT_FOLDERS: ReportFolder[] = [
   { href: "/housing", label: "Housing", match: ["/housing"] },
   { href: "/census", label: "Census", match: ["/census"] },
   { href: "/marketing", label: "Marketing", match: ["/marketing"], nav: MARKETING_NAV },
+  {
+    href: "/cybersecurity",
+    label: "Cybersecurity",
+    match: ["/cybersecurity"],
+    nav: CYBERSECURITY_NAV,
+  },
 ];
 
 const EXTRA_LEAVES: Crumb[] = [

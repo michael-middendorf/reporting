@@ -227,6 +227,8 @@ describe("GET /api/auth/microsoft/callback success", () => {
     const parsed = verifySessionToken(decodeURIComponent(session), SECRET);
     assert.equal(parsed.email, PLAIN_USER);
     assert.equal(parsed.mfa, false);
+    assert.equal(parsed.auth, "entra", "Microsoft sign-in is marked for requireCyberAccess");
+    assert.ok(typeof parsed.iat === "number" && Math.abs(parsed.iat - Date.now() / 1000) < 60, "fresh iat");
     assert.ok(setCookies(res).some((c) => c.startsWith(`${MFA_PENDING_COOKIE}=;`)), "pending cleared");
     assert.ok(setCookies(res).some((c) => c.startsWith("amu_reporting_entra_state=;")), "entra cleared");
     assert.ok(calls.some((c) => c.method === "DELETE"), "core session revoked");
@@ -249,7 +251,9 @@ describe("GET /api/auth/microsoft/callback success", () => {
     assert.equal(res.headers.get("location"), "/auth/mfa");
     const pending = cookieValue(res, MFA_PENDING_COOKIE);
     assert.ok(pending);
-    assert.equal(verifyMfaPendingToken(decodeURIComponent(pending), SECRET).email, MFA_USER);
+    const pendingClaims = verifyMfaPendingToken(decodeURIComponent(pending), SECRET);
+    assert.equal(pendingClaims.email, MFA_USER);
+    assert.equal(pendingClaims.auth, "entra", "carried through /auth/mfa");
     const session = setCookies(res).find((c) => c.startsWith(`${SESSION_COOKIE_NAME}=`));
     assert.match(String(session), new RegExp(`^${SESSION_COOKIE_NAME}=; .*Max-Age=0`), "hub session cleared, not minted");
   });

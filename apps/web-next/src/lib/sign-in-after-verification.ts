@@ -9,6 +9,7 @@ import {
   mfaPendingCookie,
   reportingSessionTtlDays,
   sessionCookie,
+  type SessionAuthMethod,
 } from "@/lib/auth";
 
 export const MFA_PAGE_PATH = "/auth/mfa";
@@ -36,10 +37,16 @@ export function signInAfterVerification(
   email: string,
   secret: string,
   decision: SignInDecision,
+  /**
+   * How the email was proven. Only the Microsoft callback passes "entra";
+   * every other caller (the magic link) gets "magic". Stored as the session's
+   * `auth` claim (and on the mfa_pending token so /auth/mfa keeps it).
+   */
+  auth: SessionAuthMethod = "magic",
 ): VerifiedSignIn {
   const secure = cookieSecureFromRequest(req);
   if (decision === "mfa_pending") {
-    const pending = createMfaPendingToken(email, secret, MFA_PENDING_TTL_MINUTES);
+    const pending = createMfaPendingToken(email, secret, MFA_PENDING_TTL_MINUTES, { auth });
     return {
       kind: "mfa_pending",
       redirect: MFA_PAGE_PATH,
@@ -53,7 +60,7 @@ export function signInAfterVerification(
   }
 
   const ttlDays = reportingSessionTtlDays();
-  const session = createSessionToken(email, secret, ttlDays);
+  const session = createSessionToken(email, secret, ttlDays, { auth });
   return {
     kind: "session",
     session,

@@ -84,18 +84,35 @@ export function verifyMagicToken(token: string, signingKey: string) {
   return { ...p, email };
 }
 
+/**
+ * How the person proved their email for this session. "entra" means core
+ * verified a Microsoft sign-in (Conditional Access enforces MFA there).
+ * "magic" is the emailed link. Sessions minted before this claim existed
+ * have none and parse as null, which every check treats as NOT entra.
+ */
+export type SessionAuthMethod = "entra" | "magic";
+
+export function parseAuthMethod(value: unknown): SessionAuthMethod | null {
+  return value === "entra" || value === "magic" ? value : null;
+}
+
 export function createSessionToken(
   email: string,
   signingKey: string,
   ttlDays: number,
-  options?: { mfa?: boolean },
+  options?: { mfa?: boolean; auth?: SessionAuthMethod; nowSeconds?: number },
 ) {
+  const now = options?.nowSeconds ?? Math.floor(Date.now() / 1000);
   const payload: Record<string, unknown> = {
     email: normalizeEmail(email),
-    exp: Math.floor(Date.now() / 1000) + Math.max(ttlDays, 1) * 86400,
+    exp: now + Math.max(ttlDays, 1) * 86400,
+    // Issued-at, epoch seconds. Lets one route demand a recent sign-in
+    // (requireCyberAccess: 12 hours) without shortening the global TTL.
+    iat: now,
     type: "session",
   };
   if (options?.mfa) payload.mfa = true;
+  if (options?.auth) payload.auth = options.auth;
   return createSignedToken(payload, signingKey);
 }
 
@@ -104,18 +121,30 @@ export function verifySessionToken(token: string, signingKey: string) {
   if (p.type !== "session") throw new Error("Invalid session type");
   const email = normalizeEmail(String(p.email || ""));
   if (!isValidEmail(email)) throw new Error("Invalid session email");
-  return { ...p, email, mfa: p.mfa === true };
+  return {
+    ...p,
+    email,
+    mfa: p.mfa === true,
+    auth: parseAuthMethod(p.auth),
+    iat: typeof p.iat === "number" && Number.isFinite(p.iat) ? p.iat : null,
+  };
 }
 
-export function createMfaPendingToken(email: string, signingKey: string, ttlMinutes = MFA_PENDING_TTL_MINUTES) {
-  return createSignedToken(
-    {
-      email: normalizeEmail(email),
-      exp: Math.floor(Date.now() / 1000) + Math.max(ttlMinutes, 1) * 60,
-      type: "mfa_pending",
-    },
-    signingKey,
-  );
+export function createMfaPendingToken(
+  email: string,
+  signingKey: string,
+  ttlMinutes = MFA_PENDING_TTL_MINUTES,
+  options?: { auth?: SessionAuthMethod },
+) {
+  const payload: Record<string, unknown> = {
+    email: normalizeEmail(email),
+    exp: Math.floor(Date.now() / 1000) + Math.max(ttlMinutes, 1) * 60,
+    type: "mfa_pending",
+  };
+  // Carried through /auth/mfa so a Microsoft sign-in that also needs TOTP or a
+  // passkey still ends in an auth: "entra" session (see mint-session.ts).
+  if (options?.auth) payload.auth = options.auth;
+  return createSignedToken(payload, signingKey);
 }
 
 export function verifyMfaPendingToken(token: string, signingKey: string) {
@@ -123,7 +152,7 @@ export function verifyMfaPendingToken(token: string, signingKey: string) {
   if (p.type !== "mfa_pending") throw new Error("Invalid token type");
   const email = normalizeEmail(String(p.email || ""));
   if (!isValidEmail(email)) throw new Error("Invalid token email");
-  return { ...p, email };
+  return { ...p, email, auth: parseAuthMethod(p.auth) };
 }
 
 export function reportingSessionTtlDays() {
@@ -203,6 +232,13 @@ export function clearMfaPendingCookie(secure: boolean) {
 }
 
 export function currentMfaPendingEmail(req: Request): string | null {
+  return currentMfaPending(req)?.email ?? null;
+}
+
+/** Verified mfa_pending cookie: email plus how the first factor was proven. */
+export function currentMfaPending(
+  req: Request,
+): { email: string; auth: SessionAuthMethod | null } | null {
   const secret = (process.env.AUTH_SECRET || "").trim();
   if (!secret) return null;
   const header = req.headers.get("cookie") || "";
@@ -210,7 +246,8 @@ export function currentMfaPendingEmail(req: Request): string | null {
   const token = match?.[1] ? decodeURIComponent(match[1]) : null;
   if (!token) return null;
   try {
-    return verifyMfaPendingToken(token, secret).email;
+    const p = verifyMfaPendingToken(token, secret);
+    return { email: p.email, auth: p.auth };
   } catch {
     return null;
   }
@@ -238,6 +275,28 @@ export function currentUserEmail(req: Request): string | null {
   if (!token) return null;
   try {
     return verifySessionToken(token, secret).email as string;
+  } catch {
+    return null;
+  }
+}
+
+export type SessionClaims = {
+  email: string;
+  auth: SessionAuthMethod | null;
+  /** Epoch seconds; null for sessions minted before iat was added. */
+  iat: number | null;
+  mfa: boolean;
+};
+
+/** Verified claims of the request's session (Bearer first, then cookie), or null. */
+export function currentSession(req: Request): SessionClaims | null {
+  const secret = (process.env.AUTH_SECRET || "").trim();
+  if (!secret) return null;
+  const token = getSessionFromRequest(req);
+  if (!token) return null;
+  try {
+    const p = verifySessionToken(token, secret);
+    return { email: p.email, auth: p.auth, iat: p.iat, mfa: p.mfa };
   } catch {
     return null;
   }
