@@ -274,6 +274,15 @@ export class ReportingEcsStack extends cdk.Stack {
       resources: [cyberKey.keyArn],
       conditions: { StringEquals: { "kms:ViaService": `dynamodb.${region}.amazonaws.com` } },
     }));
+    // Cybersecurity KPI snapshots (ReportData cybersecurity/*) are SSE-KMS with the
+    // same key, written by the SST SecurityPublisher. The web task only reads them.
+    // The bucket policy in sst.config.ts (cyberPrefixPolicy) denies everyone else.
+    task.addToTaskRolePolicy(new iam.PolicyStatement({
+      sid: "CyberSnapshotKmsViaS3",
+      actions: ["kms:Decrypt"],
+      resources: [cyberKey.keyArn],
+      conditions: { StringEquals: { "kms:ViaService": `s3.${region}.amazonaws.com` } },
+    }));
     task.addVolume({ name: "tmp" });
     task.addVolume({ name: "next-cache" });
     task.addContainer("web", { image: ecs.ContainerImage.fromDockerImageAsset(webImage), portMappings: [{ containerPort: 3000 }], logging: ecs.LogDrivers.awsLogs({ logGroup: webLogs, streamPrefix: "web" }), environment: { DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke", APP_BASE_URL: reportingDomainUrl, ENTRA_TENANT_ID: "7f4bc07b-d9b5-43c4-a1d6-bce660187973", ENTRA_CLIENT_ID: "66a8909d-d22e-41bf-9092-4dbe06e393b0", CORE_API_URL: "https://core.avemaria.edu", MAGIC_NONCE_TABLE: magicNonceTableName, ASPIREDU_SESSION_TABLE: aspireduSessionTableName, CYBER_REGISTER_TABLE: cyberRegisterTableName, ASPIREDU_USER_POOL_ID: aspireduUserPool.userPoolId, ASPIREDU_USER_POOL_CLIENT_ID: aspireduClient.userPoolClientId, ASPIREDU_COGNITO_DOMAIN: aspireduDomain.baseUrl(), ASPIREDU_CALLBACK_URL: aspireduCallbackUrl, ASPIREDU_CALLBACK_URLS: [aspireduCallbackUrl, aspireduDomainCallbackUrl].join(","), ASPIREDU_ALLOWED_EMAILS: aspireduAllowedEmails, ...onDemandFns, ...aspireduFns }, secrets: runtimeSecrets(secret, resendSecret, xaiSecret), readonlyRootFilesystem: true, user: "node" }).addMountPoints(
