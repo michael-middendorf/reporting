@@ -6,6 +6,41 @@ import { lifetimeThroughLabel } from "@/lib/pursuit-of-wisdom-youtube";
 import styles from "../../home.module.css";
 
 type Trailer = { title: string; views: number; watchHours: number | null };
+
+type EnrichedCourse = {
+  title: string;
+  starts: number;
+  completions: number;
+  completionRate: number;
+  watchHours: number;
+  videosWatched: number;
+  segments: number;
+  avgDurationMinutes: number;
+  topic: string;
+  format: string;
+};
+
+type FormatComparison = {
+  format: string;
+  courseCount: number;
+  totalStarts: number;
+  totalCompletions: number;
+  completionRate: number;
+};
+
+type TopicTraction = {
+  topic: string;
+  courseCount: number;
+  totalStarts: number;
+  totalCompletions: number;
+  completionRate: number;
+};
+
+type DistributionRecommendation = {
+  title: string;
+  recommendation: string;
+};
+
 type Dashboard = {
   generatedAt?: string;
   website?: {
@@ -16,14 +51,10 @@ type Dashboard = {
     pageViews: number;
     topCountries?: Array<{ country: string; sessions: number }>;
   };
-  courses?: Array<{
-    title: string;
-    starts: number;
-    completions: number;
-    completionRate: number;
-    watchHours: number;
-    videosWatched: number;
-  }>;
+  courses?: EnrichedCourse[];
+  formatComparisons?: FormatComparison[];
+  topicTractions?: TopicTraction[];
+  distributionRecommendations?: DistributionRecommendation[];
   sharedCourses?: Array<{ title: string; shares: number }>;
   youtube?: {
     available: boolean;
@@ -40,11 +71,12 @@ type Dashboard = {
 const number = new Intl.NumberFormat("en-US");
 const hours = new Intl.NumberFormat("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-function Card({ label, value }: { label: string; value: string }) {
+function Card({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <article className={styles.card}>
       <p>{label}</p>
       <h2>{value}</h2>
+      {sub && <p className={styles.sub}>{sub}</p>}
     </article>
   );
 }
@@ -62,6 +94,7 @@ export default function PursuitOfWisdomPage() {
       .then(async (r) => setData(await r.json()))
       .catch(() => setData({ message: "Unable to load the dashboard." }));
   }, []);
+
   if (!data) return <main className={styles.hub}><p className={styles.sub}>Loading dashboard…</p></main>;
   if (data.status === "pending" || data.message) {
     return (
@@ -71,9 +104,14 @@ export default function PursuitOfWisdomPage() {
       </main>
     );
   }
+
   const site = data.website;
   const youtube = data.youtube;
   const studioLabel = youtube?.asOf ? lifetimeThroughLabel(youtube.asOf) : null;
+  const formats = data.formatComparisons || [];
+  const topics = data.topicTractions || [];
+  const recommendations = data.distributionRecommendations || [];
+
   return (
     <main className={styles.hub}>
       <header className={styles.header}>
@@ -83,6 +121,7 @@ export default function PursuitOfWisdomPage() {
           <p className={styles.sub}>Refreshed {data.generatedAt ? new Date(data.generatedAt).toLocaleString() : "pending"}. Consent-based first-party analytics.</p>
         </div>
       </header>
+
       <section className={styles.grid}>
         {site && (
           <>
@@ -94,28 +133,74 @@ export default function PursuitOfWisdomPage() {
           </>
         )}
       </section>
-      <h2>Course engagement</h2>
+
+      <h2>Course length & completion rate analysis</h2>
+      <p className={styles.sub}>Comparison of user completion rates by course length. Short courses demonstrate significantly higher completion than longer series.</p>
+      <div className={styles.grid}>
+        {formats.map((fmt) => (
+          <article className={styles.card} key={fmt.format}>
+            <h2>{fmt.format}</h2>
+            <p className={styles.open}>{(fmt.completionRate * 100).toFixed(1)}% completion rate</p>
+            <p>{fmt.courseCount} courses &middot; {number.format(fmt.totalStarts)} starts &middot; {number.format(fmt.totalCompletions)} completions</p>
+          </article>
+        ))}
+      </div>
+
+      <h2>Traction by academic topic</h2>
+      <p className={styles.sub}>Starts, completions, and follow-through grouped by discipline.</p>
+      <div className={styles.grid}>
+        {topics.map((t) => (
+          <article className={styles.card} key={t.topic}>
+            <h2>{t.topic}</h2>
+            <p className={styles.open}>{(t.completionRate * 100).toFixed(1)}% completion</p>
+            <p>{t.courseCount} courses &middot; {number.format(t.totalStarts)} starts &middot; {number.format(t.totalCompletions)} completions</p>
+          </article>
+        ))}
+      </div>
+
+      <h2>Course engagement & segment details</h2>
+      <p className={styles.sub}>Individual course performance with segment count and average segment duration.</p>
       <div className={styles.grid}>
         {(data.courses || []).map((course) => (
           <article className={styles.card} key={course.title}>
-            <h2>{course.title}</h2>
-            <p>{number.format(course.starts)} starts, {number.format(course.completions)} completions, {(course.completionRate * 100).toFixed(0)}% completion</p>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+              <h2>{course.title}</h2>
+            </div>
+            <p className={styles.open}>
+              {course.segments} lessons (~{course.avgDurationMinutes} min each) &middot; {course.topic}
+            </p>
+            <p>
+              {number.format(course.starts)} starts, {number.format(course.completions)} completions (<strong>{(course.completionRate * 100).toFixed(1)}%</strong>)
+            </p>
             <p>{course.watchHours.toFixed(1)} watch hours, {number.format(course.videosWatched)} videos watched</p>
           </article>
         ))}
       </div>
+
+      <h2>Distribution insights & recommendations</h2>
+      <div className={styles.grid}>
+        {recommendations.map((rec) => (
+          <article className={styles.card} key={rec.title}>
+            <h2>{rec.title}</h2>
+            <p>{rec.recommendation}</p>
+          </article>
+        ))}
+      </div>
+
       <h2>Most shared courses</h2>
       <div className={styles.grid}>
         {(data.sharedCourses || []).map((course) => (
           <Card key={course.title} label={course.title} value={`${number.format(course.shares)} shares`} />
         ))}
       </div>
+
       <h2>Geographic reach</h2>
       <div className={styles.grid}>
         {(site?.topCountries || []).map((place) => (
           <Card key={place.country} label={place.country} value={`${number.format(place.sessions)} sessions`} />
         ))}
       </div>
+
       <h2>YouTube trailers</h2>
       {youtube?.available ? (
         <>
@@ -137,6 +222,7 @@ export default function PursuitOfWisdomPage() {
       ) : (
         <p className={styles.sub}>YouTube Studio trailer counts are not on this refresh.</p>
       )}
+
       <h2>Reporting notes</h2>
       <ul>
         {[...(data.notes || []), "PR and media impact: awaiting quarterly impact summary from Carmel."].map((note) => (

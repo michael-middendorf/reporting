@@ -32,6 +32,8 @@ def summarize(source: dict[str, Any]) -> dict[str, Any]:
             row["completions"] += int(bool(item.get("completed")))
             row["watchSeconds"] += float(item.get("engagedSeconds") or 0)
             row["videosWatched"] += int(item.get("videosWatched") or 0)
+            if item.get("totalVideos"):
+                row["segments"] = int(item["totalVideos"])
     course_rows = []
     for row in courses.values():
         starts = row.pop("starts")
@@ -51,6 +53,7 @@ def summarize(source: dict[str, Any]) -> dict[str, Any]:
         "website": source.get("website") or {},
         "courses": course_rows,
         "sharedCourses": shared_courses,
+        "trafficSources": source.get("trafficSources") or [],
         "youtube": {"available": False},
         "notes": [
             "Course consumption is based on consented first-party events and logged-in course progress.",
