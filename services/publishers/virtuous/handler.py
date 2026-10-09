@@ -308,6 +308,41 @@ def contact_display_name(contact: dict | None) -> str:
     return parts[0] if parts else ""
 
 
+def contact_id_query(ids: list[int]) -> dict[str, Any]:
+    """OR groups of Contact Id Is. Virtuous has no IsAnyOf for that field."""
+    return {
+        "groups": [
+            {"conditions": [{"parameter": "Contact Id", "operator": "Is", "value": cid}]}
+            for cid in ids
+        ]
+    }
+
+
+def fetch_rows_by_contact_id(client: VirtuousClient, path: str, ids: list[int], chunk_size: int) -> list[dict]:
+    """Query contacts by id. A failed chunk is split so one bad id does not drop the rest."""
+    rows: list[dict] = []
+    pending: list[list[int]] = [ids[i : i + chunk_size] for i in range(0, len(ids), chunk_size)]
+    while pending:
+        current = pending.pop(0)
+        if not current:
+            continue
+        try:
+            payload = client._post(
+                path,
+                contact_id_query(current),
+                params={"skip": 0, "take": max(len(current), 1)},
+            )
+            rows.extend(payload.get("list") or [])
+        except Exception as exc:  # noqa: BLE001
+            if len(current) <= 1:
+                print(f"contact query failed for {current}: {exc}", flush=True)
+                continue
+            mid = len(current) // 2
+            pending.insert(0, current[mid:])
+            pending.insert(0, current[:mid])
+    return rows
+
+
 def stamp_contact_names(rows: list[dict], contacts: list[dict]) -> int:
     """Copy the Virtuous contact name onto rows whose query omitted it."""
     names: dict[int, str] = {}
@@ -385,53 +420,12 @@ def handler(event, context):  # noqa: ANN001, ARG001
     print(f"Fetching events {start} → {today}", flush=True)
     events = _dedupe(client.paged_query("/api/Event/Query", _event_query(start, today), page_size))
 
-    ids = contact_ids_for_refresh(notes, gifts, recurring_gifts, max_contacts)
-    print(f"Fetching {len(ids)} contacts", flush=True)
-    # Contact Id is Int and only supports Is/Between/… — not IsAnyOf. Use OR-groups
-    # of `Is` (same pattern as mas_follow_up_report), with binary-split fallback.
-    contacts: list[dict] = []
     contact_chunk = int(os.environ.get("CONTACT_CHUNK_SIZE", "100"))
-
-    def fetch_contact_chunk(batch_ids: list[int]) -> list[dict]:
-        pending: list[list[int]] = [batch_ids]
-        rows: list[dict] = []
-        while pending:
-            current = pending.pop(0)
-            body = {
-                "groups": [
-                    {
-                        "conditions": [
-                            {"parameter": "Contact Id", "operator": "Is", "value": cid}
-                        ]
-                    }
-                    for cid in current
-                ]
-            }
-            try:
-                payload = client._post(
-                    "/api/Contact/Query/FullContact",
-                    body,
-                    params={"skip": 0, "take": max(len(current), 1)},
-                )
-                rows.extend(payload.get("list") or [])
-            except Exception as exc:  # noqa: BLE001
-                if len(current) <= 1:
-                    print(f"contact query failed for {current}: {exc}", flush=True)
-                    continue
-                mid = len(current) // 2
-                pending.insert(0, current[mid:])
-                pending.insert(0, current[:mid])
-        return rows
-
-    for i in range(0, len(ids), contact_chunk):
-        batch = ids[i : i + contact_chunk]
-        contacts.extend(fetch_contact_chunk(batch))
-        if (i // contact_chunk) % 5 == 0 or i + contact_chunk >= len(ids):
-            print(f"  ...{min(i + contact_chunk, len(ids))}/{len(ids)} contact ids requested", flush=True)
-
-    contacts = _dedupe(contacts)
-    gift_names = stamp_contact_names(gifts, contacts)
-    recurring_names = stamp_contact_names(recurring_gifts, contacts)
+    name_ids = _contact_ids(gifts, recurring_gifts)
+    print(f"Fetching names for {len(name_ids)} gift contacts", flush=True)
+    name_rows = fetch_rows_by_contact_id(client, "/api/Contact/Query", name_ids, contact_chunk)
+    gift_names = stamp_contact_names(gifts, name_rows)
+    recurring_names = stamp_contact_names(recurring_gifts, name_rows)
     print(f"Stamped donor names on {gift_names} gifts and {recurring_names} recurring gifts", flush=True)
     published.append(
         publish_dataset(
@@ -469,6 +463,12 @@ def handler(event, context):  # noqa: ANN001, ARG001
             rows=events,
             provenance={"system": "virtuous", "path": "/api/Event/Query", "window_days": window},
         )
+    )
+
+    ids = contact_ids_for_refresh(notes, gifts, recurring_gifts, max_contacts)
+    print(f"Fetching {len(ids)} full contacts", flush=True)
+    contacts = _dedupe(
+        fetch_rows_by_contact_id(client, "/api/Contact/Query/FullContact", ids, contact_chunk)
     )
     published.append(
         publish_dataset(

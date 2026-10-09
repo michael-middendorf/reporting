@@ -110,6 +110,22 @@ class DonorNameTests(unittest.TestCase):
         self.assertEqual(handler.stamp_contact_names(gifts, contacts), 0)
         self.assertEqual(gifts[0]["contactName"], "Anthony and Cynthia Lesniewski")
 
+    def test_slim_contact_query_stamps_the_household_name(self):
+        gifts = [{"id": 452470, "contactId": 130061}]
+        slim = [{"id": 130061, "name": "David and Kathleen Caseria", "contactName": "David and Kathleen Caseria"}]
+        self.assertEqual(handler.stamp_contact_names(gifts, slim), 1)
+        self.assertEqual(gifts[0]["contactName"], "David and Kathleen Caseria")
+
+    def test_contact_id_query_uses_or_groups(self):
+        body = handler.contact_id_query([130061, 40])
+        self.assertEqual(
+            body["groups"],
+            [
+                {"conditions": [{"parameter": "Contact Id", "operator": "Is", "value": 130061}]},
+                {"conditions": [{"parameter": "Contact Id", "operator": "Is", "value": 40}]},
+            ],
+        )
+
     def test_display_name_uses_individuals_when_the_household_name_is_blank(self):
         self.assertEqual(
             handler.contact_display_name({
