@@ -78,6 +78,7 @@ const GIFT_FIELDS = [
   "solicitor",
   "recurringGiftId",
   "acIncrease",
+  "fullMonthly",
   "priorMonthly",
   "newMonthly",
   "galaSite",

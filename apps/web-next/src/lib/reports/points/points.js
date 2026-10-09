@@ -374,6 +374,26 @@ function isAcGift(record) {
   return /annunciation/i.test(blob);
 }
 
+function recurringIsActive(record) {
+  const status = recurringStatusKey(record);
+  return status === "uptodate" || status === "active";
+}
+
+/** Another Annunciation Circle monthly on this contact is still charging. */
+function activeCircleStillRunning(recurring, record) {
+  const cid = Number(record?.contactId);
+  if (!Number.isFinite(cid)) return false;
+  return (recurring || []).some((r) => {
+    if (String(r.id) === String(record.id)) return false;
+    if (Number(r.contactId) !== cid) return false;
+    if (!recurringIsActive(r)) return false;
+    if (!/^monthly$/i.test(String(r.frequency || "").trim())) return false;
+    if (isAcGift(r)) return true;
+    const des = r.designations || r.giftDesignations || [];
+    return Array.isArray(des) && des.some((d) => /annunciation/i.test(String(d?.project || d?.display || "")));
+  });
+}
+
 function daysBetweenIso(a, b) {
   if (!a || !b) return null;
   return Math.round((new Date(`${b}T00:00:00`) - new Date(`${a}T00:00:00`)) / 86400000);
@@ -511,14 +531,25 @@ export function recurringToGift(record, posted = [], recurring = []) {
     ? isoDay(parseDate(firstNew.giftDate || firstNew.giftDateFormatted))
     : null;
   const raiseDay = firstNewDay && startDay && firstNewDay > startDay ? firstNewDay : startDay;
-  const prior = Math.max(
-    priorAcMonthly(posted, record.contactId, raiseDay),
-    priorCancelledMonthly(recurring, record.contactId, raiseDay || start, record.id),
-  );
+  const inPlaceAmountChange = !!(firstNewDay && startDay && firstNewDay > startDay);
+  const circlePrior = priorAcMonthly(posted, record.contactId, raiseDay);
+  const cancelledPrior = priorCancelledMonthly(recurring, record.contactId, raiseDay || start, record.id);
+  // A different project that is still charging beside an active Circle, and
+  // would otherwise be called a raise, is its own gift. Wagner's $25 Mission
+  // Fund is not a raise of the $11.10 Circle. A smaller gift stays $0.
+  const separateActiveGift = !isAcGift(record)
+    && recurringIsActive(record)
+    && !inPlaceAmountChange
+    && activeCircleStillRunning(recurring, record)
+    && circlePrior > 0
+    && newAmt > circlePrior
+    && cancelledPrior <= 0;
+  const prior = Math.max(separateActiveGift ? 0 : circlePrior, cancelledPrior);
   const increase = prior > 0 && newAmt > prior;
   const continuation = prior > 0 && newAmt <= prior;
   const creditMonthly = increase ? roundCents(newAmt - prior) : continuation ? 0 : newAmt;
-  const inPlaceRaise = !!(firstNew && raiseDay && startDay && raiseDay > startDay && increase);
+  const inPlaceRaise = !!(inPlaceAmountChange && increase);
+  const fullMonthly = separateActiveGift && !increase;
   return {
     id: inPlaceRaise && firstNew.id != null
       ? firstNew.id
@@ -530,6 +561,7 @@ export function recurringToGift(record, posted = [], recurring = []) {
     newMonthly: newAmt,
     priorMonthly: prior || null,
     acIncrease: increase,
+    fullMonthly,
     giftType: record.giftType || "Recurring",
     frequency: record.frequency || "Monthly",
     segment: record.segment,
@@ -571,6 +603,7 @@ function withPostedMgoCoding(mapped, rg, posted) {
  * credits only (new monthly − prior monthly). The prior is the recent
  * Annunciation Circle payment or a monthly gift cancelled within 45 days,
  * whichever is higher. A same-rate or lower continuation is $0.
+ * A still-active gift on another project, larger than that Circle, counts in full.
  * `priorOnly` rows are evidence for that prior amount. They are not gifts.
  * MGO coding on a matched posted gift is kept on the replacement row.
  */
@@ -1093,7 +1126,7 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
           mgoAssigned: isMgoAttributedGift(g) ? true : undefined,
         };
         const assignedFlag = !!assigned;
-        if (isMonthlyRecurring(g) && !g.acIncrease && !assignedFlag) {
+        if (isMonthlyRecurring(g) && !g.acIncrease && !g.fullMonthly && !assignedFlag) {
           rows.push({
             ...credited,
             ...factsFor(g),
