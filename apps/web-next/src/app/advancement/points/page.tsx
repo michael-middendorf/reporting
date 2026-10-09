@@ -41,6 +41,7 @@ import "@/styles/points.css";
 import { InsightsPanel } from "./insights-panel";
 import { buildInsights } from "@/lib/reports/points/insights.js";
 import { matchingMonth, monthBounds, monthOptions } from "@/lib/reports/points/month-range.js";
+import { filterListedGifts } from "@/lib/reports/points/gift-search.js";
 import { sortTrackedEventsByMa, summarizeTrackedEventsByMa, summarizeTrackedEventTypes } from "@/lib/reports/points/tracked-events";
 
 type RangeKey = "week" | "all" | "custom" | "dates";
@@ -422,6 +423,7 @@ function PointsPageInner() {
   const [pickedDay, setPickedDay] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [giftOwner, setGiftOwner] = useState<string | null>(null);
+  const [giftQuery, setGiftQuery] = useState("");
   const [boardSort, setBoardSort] = useState<{ key: "points" | "gifts" | "giftAmount"; dir: "desc" | "asc" }>({
     key: "points",
     dir: "desc",
@@ -674,10 +676,20 @@ function PointsPageInner() {
     if (g.contactId == null || g.contactId === "") return "";
     return donorNameByContact.get(String(g.contactId)) || "";
   }
-  const listedGifts = useMemo(() => {
-    if (!giftOwner) return [] as GiftRow[];
-    return listedGiftRows(model.rows as GiftRow[], { owner: giftOwner }) as GiftRow[];
-  }, [model.rows, giftOwner]);
+  const giftList = useMemo(() => {
+    const base = listedGiftRows(model.rows as GiftRow[], { owner: "all" }) as GiftRow[];
+    return filterListedGifts(base, {
+      owner: giftOwner,
+      query: giftQuery,
+      nameOf: (g: GiftRow) => {
+        const direct = String(g.contactName || "").trim();
+        if (direct) return direct;
+        if (g.contactId == null || g.contactId === "") return "";
+        return donorNameByContact.get(String(g.contactId)) || "";
+      },
+    });
+  }, [model.rows, giftOwner, giftQuery, donorNameByContact]);
+  const listedGifts = giftList.rows;
   const galaGifts = useMemo(
     () => maGalaGifts(model.rows) as Array<GiftRow & { owners?: IncomingOwner[] }>,
     [model.rows],
@@ -2232,6 +2244,15 @@ function PointsPageInner() {
                 Gifts{" "}
                 <span className="section-hint">contacts before they gave · Remove drops a gift from Raised</span>
               </h2>
+              <label className="gift-search">
+                <input
+                  type="search"
+                  value={giftQuery}
+                  onChange={(e) => setGiftQuery(e.target.value)}
+                  placeholder="Search donor, amount, or gift"
+                  aria-label="Search gifts"
+                />
+              </label>
               <button
                 type="button"
                 className={`trash-btn${showRemovedGifts ? " open" : ""}`}
@@ -2287,11 +2308,23 @@ function PointsPageInner() {
                       </tr>
                     </tbody>
                   </table>
-                  {!giftOwner ? (
+                  {!giftOwner && !giftQuery.trim() ? (
                     <p className="footnote">Click a name or All to see the gifts.</p>
                   ) : listedGifts.length === 0 ? (
-                    <p className="footnote">No counted gifts in this range.</p>
+                    <p className="footnote">
+                      {giftQuery.trim()
+                        ? `No gifts match “${giftQuery.trim()}” in this range.`
+                        : "No counted gifts in this range."}
+                    </p>
                   ) : (
+                    <>
+                    {giftQuery.trim() ? (
+                      <p className="footnote">
+                        {giftList.widened
+                          ? `No match for ${giftOwner}. ${listedGifts.length} matching ${listedGifts.length === 1 ? "gift" : "gifts"} for other MAs.`
+                          : `${listedGifts.length} matching ${listedGifts.length === 1 ? "gift" : "gifts"}${giftOwner && giftOwner !== "all" ? ` for ${giftOwner}` : ""}.`}
+                      </p>
+                    ) : null}
                     <table className="grid">
                       <thead>
                         <tr>
@@ -2379,6 +2412,7 @@ function PointsPageInner() {
                         })}
                       </tbody>
                     </table>
+                    </>
                   )}
             </div>
           </section>
