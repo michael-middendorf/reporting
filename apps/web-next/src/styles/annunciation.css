@@ -376,4 +376,5 @@
   max-width: none;
   flex: none;
 }
+.ac-mailing .ac-table { min-width: 1100px; }
 .ac-mailing .ac-table thead th { cursor: default; }

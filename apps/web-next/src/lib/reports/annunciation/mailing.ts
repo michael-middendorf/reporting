@@ -206,22 +206,38 @@ function csvField(value: string): string {
   return value;
 }
 
+/** Structured parts when the snapshot has them. Older snapshots only have the
+ * combined address string, and that string has to land in the CSV too. */
+function csvAddressParts(member: AnnunciationMember): [string, string, string, string, string, string] {
+  const address1 = clean(member.address1);
+  const address2 = clean(member.address2);
+  const city = clean(member.city);
+  const state = clean(member.state);
+  const postal = clean(member.postal);
+  const country = clean(member.country);
+  if (address1 || address2 || city || state || postal || country) {
+    return [address1, address2, city, state, postal, country];
+  }
+  return [clean(member.address), "", "", "", "", ""];
+}
+
 export function newMemberCsv(rows: NewMemberRow[]): string {
   const lines = [CSV_COLUMNS.join(",")];
   for (const row of rows) {
     const amount = row.member.recurringAmount;
+    const [address1, address2, city, state, postal, country] = csvAddressParts(row.member);
     const fields = [
       String(row.member.id),
       row.firstName,
       row.lastName,
       row.formalAddressee,
       row.formalSalutation,
-      clean(row.member.address1),
-      clean(row.member.address2),
-      clean(row.member.city),
-      clean(row.member.state),
-      clean(row.member.postal),
-      clean(row.member.country),
+      address1,
+      address2,
+      city,
+      state,
+      postal,
+      country,
       amount == null || !Number.isFinite(amount) ? "" : amount.toFixed(2),
       clean(row.member.recurringFrequency),
       clean(row.member.startDate),

@@ -158,4 +158,23 @@ describe("annunciation new member mailing list", () => {
     assert.equal(csv.includes("Jane Doe"), true);
     assert.equal(csv.split("Jane").length > 1, true);
   });
+
+  it("puts the combined address into the CSV when the snapshot has no street parts", () => {
+    const csv = newMemberCsv(
+      newMemberRows(
+        [
+          member({
+            id: 7,
+            firstName: "Jane",
+            lastName: "Doe",
+            address: "1 Main St, Naples, FL 34102",
+            recurringAmount: 25,
+            startDate: "2026-06-15",
+          }),
+        ],
+        WINDOW,
+      ),
+    );
+    assert.match(csv, /7,Jane,Doe,Jane Doe,Jane Doe,"1 Main St, Naples, FL 34102",,,,,,/);
+  });
 });
