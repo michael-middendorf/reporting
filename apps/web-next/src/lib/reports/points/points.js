@@ -178,7 +178,12 @@ export function applyPassthroughCredit(record, names = null) {
 export function contactDisplayName(record) {
   if (!record || typeof record !== "object") return "";
   const nested = record.contact && typeof record.contact === "object" ? record.contact : {};
-  const people = record.individuals || nested.individuals || record.giftPassthroughs || [];
+  const people = record.contactIndividuals
+    || record.individuals
+    || nested.contactIndividuals
+    || nested.individuals
+    || record.giftPassthroughs
+    || [];
   const fromPeople = (Array.isArray(people) ? people : [])
     .map((p) => {
       if (!p || typeof p !== "object") return "";

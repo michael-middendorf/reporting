@@ -260,6 +260,82 @@ def _contact_ids(*row_sets: list[dict]) -> list[int]:
     return sorted(ids)
 
 
+def contact_ids_for_refresh(
+    notes: list[dict],
+    gifts: list[dict],
+    recurring: list[dict],
+    max_contacts: int,
+) -> list[int]:
+    """Gift and recurring contacts come first.
+
+    Gift Query has no donor name. A sorted cap kept the oldest contact ids and
+    left newer donors as Unknown donor. Every gift contact is fetched. The cap
+    only drops note-only contacts.
+    """
+    gift_ids = _contact_ids(gifts, recurring)
+    gift_set = set(gift_ids)
+    note_ids = [cid for cid in _contact_ids(notes) if cid not in gift_set]
+    if max_contacts <= 0 or len(gift_ids) >= max_contacts:
+        return gift_ids
+    return gift_ids + note_ids[: max_contacts - len(gift_ids)]
+
+
+def contact_display_name(contact: dict | None) -> str:
+    """Household name from a FullContact row. Gift Query does not carry one."""
+    if not isinstance(contact, dict):
+        return ""
+    for key in ("name", "formalContactName", "informalName", "contactName"):
+        value = " ".join(str(contact.get(key) or "").split())
+        if value:
+            return value
+    people = contact.get("contactIndividuals") or contact.get("individuals") or []
+    parts: list[str] = []
+    for person in people:
+        if not isinstance(person, dict):
+            continue
+        full = " ".join(
+            part
+            for part in (
+                str(person.get("firstName") or "").strip(),
+                str(person.get("lastName") or "").strip(),
+            )
+            if part
+        )
+        if full:
+            parts.append(full)
+    if len(parts) >= 2:
+        return f"{parts[0]} and {parts[1]}"
+    return parts[0] if parts else ""
+
+
+def stamp_contact_names(rows: list[dict], contacts: list[dict]) -> int:
+    """Copy the Virtuous contact name onto rows whose query omitted it."""
+    names: dict[int, str] = {}
+    for contact in contacts:
+        raw_id = contact.get("id", contact.get("contactId"))
+        try:
+            key = int(raw_id)
+        except (TypeError, ValueError):
+            continue
+        name = contact_display_name(contact)
+        if name:
+            names[key] = name
+    stamped = 0
+    for row in rows:
+        if " ".join(str(row.get("contactName") or "").split()):
+            continue
+        try:
+            key = int(row.get("contactId"))
+        except (TypeError, ValueError):
+            continue
+        name = names.get(key)
+        if not name:
+            continue
+        row["contactName"] = name
+        stamped += 1
+    return stamped
+
+
 def handler(event, context):  # noqa: ANN001, ARG001
     api_key = os.environ.get("VIRTUOUS_API_KEY") or os.environ.get("API_KEY")
     if not api_key:
@@ -296,19 +372,6 @@ def handler(event, context):  # noqa: ANN001, ARG001
         "/api/Gift/Query/FullGift", _passthrough_gift_query(start, today), page_size
     )
     gifts = _dedupe(merge_passthrough_gifts(gifts, passthrough_gifts))
-    published.append(
-        publish_dataset(
-            source="virtuous",
-            dataset="gifts",
-            rows=gifts,
-            provenance={
-                "system": "virtuous",
-                "path": "/api/Gift/Query",
-                "passthrough_path": "/api/Gift/Query/FullGift",
-                "window_days": window,
-            },
-        )
-    )
 
     print(f"Fetching monthly recurring gifts {start} → {today}", flush=True)
     started_recurring = client.paged_query(
@@ -318,33 +381,11 @@ def handler(event, context):  # noqa: ANN001, ARG001
         "/api/RecurringGift/Query", _cancelled_recurring_gift_query(start, today), page_size
     )
     recurring_gifts = merge_recurring_gifts(started_recurring, cancelled_recurring)
-    published.append(
-        publish_dataset(
-            source="virtuous",
-            dataset="recurring_gifts",
-            rows=recurring_gifts,
-            provenance={
-                "system": "virtuous",
-                "path": "/api/RecurringGift/Query",
-                "window_days": window,
-                "frequency": "Monthly",
-                "includes_cancelled": True,
-            },
-        )
-    )
 
     print(f"Fetching events {start} → {today}", flush=True)
     events = _dedupe(client.paged_query("/api/Event/Query", _event_query(start, today), page_size))
-    published.append(
-        publish_dataset(
-            source="virtuous",
-            dataset="events",
-            rows=events,
-            provenance={"system": "virtuous", "path": "/api/Event/Query", "window_days": window},
-        )
-    )
 
-    ids = _contact_ids(notes, gifts, recurring_gifts)[:max_contacts]
+    ids = contact_ids_for_refresh(notes, gifts, recurring_gifts, max_contacts)
     print(f"Fetching {len(ids)} contacts", flush=True)
     # Contact Id is Int and only supports Is/Between/… — not IsAnyOf. Use OR-groups
     # of `Is` (same pattern as mas_follow_up_report), with binary-split fallback.
@@ -389,6 +430,46 @@ def handler(event, context):  # noqa: ANN001, ARG001
             print(f"  ...{min(i + contact_chunk, len(ids))}/{len(ids)} contact ids requested", flush=True)
 
     contacts = _dedupe(contacts)
+    gift_names = stamp_contact_names(gifts, contacts)
+    recurring_names = stamp_contact_names(recurring_gifts, contacts)
+    print(f"Stamped donor names on {gift_names} gifts and {recurring_names} recurring gifts", flush=True)
+    published.append(
+        publish_dataset(
+            source="virtuous",
+            dataset="gifts",
+            rows=gifts,
+            provenance={
+                "system": "virtuous",
+                "path": "/api/Gift/Query",
+                "passthrough_path": "/api/Gift/Query/FullGift",
+                "window_days": window,
+                "contact_names_stamped": gift_names,
+            },
+        )
+    )
+    published.append(
+        publish_dataset(
+            source="virtuous",
+            dataset="recurring_gifts",
+            rows=recurring_gifts,
+            provenance={
+                "system": "virtuous",
+                "path": "/api/RecurringGift/Query",
+                "window_days": window,
+                "frequency": "Monthly",
+                "includes_cancelled": True,
+                "contact_names_stamped": recurring_names,
+            },
+        )
+    )
+    published.append(
+        publish_dataset(
+            source="virtuous",
+            dataset="events",
+            rows=events,
+            provenance={"system": "virtuous", "path": "/api/Event/Query", "window_days": window},
+        )
+    )
     published.append(
         publish_dataset(
             source="virtuous",

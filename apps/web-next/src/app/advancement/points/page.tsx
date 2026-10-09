@@ -1388,7 +1388,7 @@ function PointsPageInner() {
                       <tr key={g.giftId != null && g.giftId !== "" ? String(g.giftId) : `todo-${i}`}>
                         <td className="nowrap">{g.day ? formatDay(g.day) : "—"}</td>
                         <td>
-                          {g.contactName || "Unknown donor"}
+                          {nameForGift(g) || "Unknown donor"}
                           {virtuousGiftUrl(g.contactId) ? (
                             <>
                               {" "}
@@ -2205,7 +2205,7 @@ function PointsPageInner() {
                           <tr key={g.giftId != null && g.giftId !== "" ? `gala-${g.giftId}` : `gala-${i}`}>
                             <td className="nowrap">{g.day ? formatDay(g.day) : "—"}</td>
                             <td>
-                              {g.contactName || "Unknown donor"}
+                              {nameForGift(g) || "Unknown donor"}
                               {virtuousGiftUrl(g.contactId) ? (
                                 <>
                                   {" "}

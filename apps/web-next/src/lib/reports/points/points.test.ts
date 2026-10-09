@@ -2861,6 +2861,12 @@ describe("contactDisplayName", () => {
     assert.equal(contactDisplayName({
       individuals: [{ firstName: "Mike" }, { firstName: "Carla", lastName: "Pellegrini" }],
     }), "Mike and Carla Pellegrini");
+    assert.equal(contactDisplayName({
+      contactIndividuals: [
+        { firstName: "Vern", lastName: "Brownell", isPrimary: true },
+        { firstName: "Linda", lastName: "Brownell", isSecondary: true },
+      ],
+    }), "Vern Brownell and Linda Brownell");
     assert.equal(contactDisplayName({ contactName: "" }), "");
   });
 });
