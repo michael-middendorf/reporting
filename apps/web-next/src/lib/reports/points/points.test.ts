@@ -808,6 +808,168 @@ describe("monthly AC annualization", () => {
     assert.equal(owner.giftAmount, 90);
   });
 
+  it("counts Wagner's Mission Fund monthlies in full while the Circle is still active", () => {
+    const merged = prepareGifts(
+      [
+        postedGift({
+          id: 450001,
+          contactId: 106479,
+          contactName: "Paul and Mechelle Wagner",
+          giftDate: "7/30/2026",
+          amount: 11.1,
+          segment: "Annunciation Circle",
+        }),
+        postedGift({
+          id: 450002,
+          contactId: 106479,
+          contactName: "Paul and Mechelle Wagner",
+          giftDate: "8/30/2026",
+          amount: 11.1,
+          segment: "Annunciation Circle",
+        }),
+        postedGift({
+          id: 452100,
+          contactId: 106479,
+          contactName: "Paul and Mechelle Wagner",
+          giftDate: "8/17/2026",
+          amount: 26.06,
+          segment: "Main Donation Page",
+        }),
+        postedGift({
+          id: 452004,
+          contactId: 106479,
+          contactName: "Paul and Mechelle Wagner",
+          giftDate: "9/17/2026",
+          amount: 20.91,
+          segment: "Main Donation Page",
+        }),
+      ],
+      [
+        {
+          id: 3426,
+          contactId: 106479,
+          contactName: "Paul and Mechelle Wagner",
+          startDate: "2025-12-30T00:00:00",
+          amount: 11.1,
+          frequency: "Monthly",
+          status: "UpToDate",
+          segment: "Annunciation Circle",
+          designations: [{ project: "Annunciation Circle", amountDesignated: 11.1 }],
+        },
+        {
+          id: 3835,
+          contactId: 106479,
+          contactName: "Paul and Mechelle Wagner",
+          startDate: "2026-08-17T00:00:00",
+          amount: 26.06,
+          frequency: "Monthly",
+          status: "UpToDate",
+          segment: "Main Donation Page",
+          designations: [
+            { project: "AMU Mission Fund", amountDesignated: 25 },
+            { project: "Donor Paid Costs", amountDesignated: 1.06 },
+          ],
+        },
+        {
+          id: 3853,
+          contactId: 106479,
+          contactName: "Paul and Mechelle Wagner",
+          startDate: "2026-09-17T00:00:00",
+          amount: 20.91,
+          frequency: "Monthly",
+          status: "UpToDate",
+          segment: "Main Donation Page",
+          designations: [
+            { project: "AMU Mission Fund", amountDesignated: 20 },
+            { project: "Donor Paid Costs", amountDesignated: 0.91 },
+          ],
+        },
+      ],
+    );
+    const mission25 = merged.find((g: { id?: number | string }) => g.id === "rg-3835") as {
+      amount: number;
+      acIncrease?: boolean;
+      fullMonthly?: boolean;
+    };
+    const mission20 = merged.find((g: { id?: number | string }) => g.id === "rg-3853") as {
+      amount: number;
+      acIncrease?: boolean;
+      fullMonthly?: boolean;
+    };
+    assert.ok(mission25);
+    assert.equal(mission25.acIncrease, false);
+    assert.equal(mission25.fullMonthly, true);
+    assert.equal(mission25.amount, 26.06);
+    assert.ok(mission20);
+    assert.equal(mission20.acIncrease, false);
+    assert.equal(mission20.fullMonthly, true);
+    assert.equal(mission20.amount, 20.91);
+
+    const { owner, rows } = run(
+      [donationNote({
+        createdByUser: NATALIA,
+        type: "Mission Advancement Call | Conversation",
+        noteDate: "9/17/2026",
+        contactId: 106479,
+        contactName: "Paul and Mechelle Wagner",
+      })],
+      merged,
+      NATALIA,
+    );
+    const raised = rows.find((r) => r.bucket === "donation" && r.giftId === "rg-3853");
+    assert.ok(raised);
+    assert.equal(raised.needsReview, undefined);
+    assert.equal(raised.amount, 250.92);
+    assert.equal(raised.acIncrease, false);
+    assert.equal(owner.giftAmount, 250.92);
+    assert.equal(owner.gifts, 1);
+  });
+
+  it("still counts only the increase when a cancelled gift sits beside an active Circle", () => {
+    const merged = prepareGifts(
+      [
+        postedGift({
+          id: 1,
+          contactId: 31553,
+          giftDate: "3/1/2026",
+          amount: 27.2,
+          segment: "Annunciation Circle",
+        }),
+      ],
+      [
+        {
+          id: 3470,
+          contactId: 31553,
+          startDate: "2024-01-01T00:00:00",
+          amount: 27.2,
+          frequency: "Monthly",
+          status: "UpToDate",
+          segment: "Annunciation Circle",
+          designations: [{ project: "Annunciation Circle" }],
+        },
+        {
+          id: 3726,
+          contactId: 31553,
+          startDate: "2026-03-24T00:00:00",
+          amount: 1000,
+          frequency: "Monthly",
+          status: "Cancelled",
+          segment: "Direct Solicitation (MGO)",
+          designations: [{ project: "Mary, Mother of the Eucharist Chapel" }],
+        },
+      ],
+    );
+    const chapel = merged.find((g: { id?: number | string }) => g.id === "rg-3726") as {
+      amount: number;
+      acIncrease?: boolean;
+      fullMonthly?: boolean;
+    };
+    assert.ok(chapel);
+    assert.equal(chapel.acIncrease, true);
+    assert.equal(chapel.fullMonthly, false);
+    assert.equal(chapel.amount, 972.8);
+  });
+
   it("an in-place AC amount change uses the first new-rate installment", () => {
     const merged = prepareGifts(
       [
