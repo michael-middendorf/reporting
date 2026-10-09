@@ -394,6 +394,19 @@ function activeCircleStillRunning(recurring, record) {
   });
 }
 
+/** Dollars designated to the Mission Fund, excluding donor-paid fees. */
+function missionFundDesignated(record) {
+  const rows = record?.designations || record?.giftDesignations || [];
+  if (!Array.isArray(rows)) return 0;
+  let sum = 0;
+  for (const d of rows) {
+    const project = String(d?.project || d?.display || "");
+    if (!/mission fund/i.test(project)) continue;
+    sum = roundCents(sum + parseAmount(d?.amountDesignated));
+  }
+  return sum;
+}
+
 function daysBetweenIso(a, b) {
   if (!a || !b) return null;
   return Math.round((new Date(`${b}T00:00:00`) - new Date(`${a}T00:00:00`)) / 86400000);
@@ -534,20 +547,25 @@ export function recurringToGift(record, posted = [], recurring = []) {
   const inPlaceAmountChange = !!(firstNewDay && startDay && firstNewDay > startDay);
   const circlePrior = priorAcMonthly(posted, record.contactId, raiseDay);
   const cancelledPrior = priorCancelledMonthly(recurring, record.contactId, raiseDay || start, record.id);
-  // A different project that is still charging beside an active Circle, and
-  // would otherwise be called a raise, is its own gift. Wagner's $25 Mission
-  // Fund is not a raise of the $11.10 Circle. A smaller gift stays $0.
-  const separateActiveGift = !isAcGift(record)
+  // Wagner's August Mission Fund is $25 a month beside a Circle that is
+  // still charging. Count that $25 for the full year. The $1.06 donor-paid
+  // fee stays off the credit. The September $20.91 gift stays an increase
+  // of the $11.10 Circle. No other donor uses this exception.
+  const missionDesignated = missionFundDesignated(record);
+  const separateActiveGift = Number(record.contactId) === 106479
+    && missionDesignated === 25
+    && !isAcGift(record)
     && recurringIsActive(record)
     && !inPlaceAmountChange
     && activeCircleStillRunning(recurring, record)
     && circlePrior > 0
-    && newAmt > circlePrior
     && cancelledPrior <= 0;
   const prior = Math.max(separateActiveGift ? 0 : circlePrior, cancelledPrior);
   const increase = prior > 0 && newAmt > prior;
   const continuation = prior > 0 && newAmt <= prior;
-  const creditMonthly = increase ? roundCents(newAmt - prior) : continuation ? 0 : newAmt;
+  const creditMonthly = separateActiveGift
+    ? missionDesignated
+    : increase ? roundCents(newAmt - prior) : continuation ? 0 : newAmt;
   const inPlaceRaise = !!(inPlaceAmountChange && increase);
   const fullMonthly = separateActiveGift && !increase;
   return {
@@ -558,7 +576,7 @@ export function recurringToGift(record, posted = [], recurring = []) {
     contactName: contactDisplayName(record),
     giftDate: inPlaceRaise ? (firstNew.giftDate || raiseDay) : start,
     amount: creditMonthly,
-    newMonthly: newAmt,
+    newMonthly: separateActiveGift ? creditMonthly : newAmt,
     priorMonthly: prior || null,
     acIncrease: increase,
     fullMonthly,
@@ -603,7 +621,8 @@ function withPostedMgoCoding(mapped, rg, posted) {
  * credits only (new monthly − prior monthly). The prior is the recent
  * Annunciation Circle payment or a monthly gift cancelled within 45 days,
  * whichever is higher. A same-rate or lower continuation is $0.
- * A still-active gift on another project, larger than that Circle, counts in full.
+ * Wagner's $25 Mission Fund, still charging beside the Circle, counts as
+ * $25 a month for the year. Other gifts beside a Circle credit only the increase.
  * `priorOnly` rows are evidence for that prior amount. They are not gifts.
  * MGO coding on a matched posted gift is kept on the replacement row.
  */
