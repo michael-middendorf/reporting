@@ -29,7 +29,7 @@ KNOWN_GUARD_REASONS = {
     "service_not_stable", "service_lookup_failed", "invalid_source_sha", "wrong_account",
     "unexpected_repository", "unexpected_platform", "registry_login_failed", "invalid_image_digest",
     "service_drift_before_register", "task_tag_drift", "service_drift_after_register",
-    "service_drift_during_rollout", "rollout_failed", "unexpected_running_tasks", "running_image_mismatch", "rollout_timeout",
+    "service_drift_during_rollout", "rollout_failed", "unexpected_running_tasks", "running_image_mismatch", "rollout_timeout", "unsupported_payload_operation",
 }
 
 class AwsOperationFailure(RuntimeError):
@@ -123,11 +123,30 @@ def service_snapshot(service, stable=True):
     return {key: copy.deepcopy(service[key]) for key in keys if key in service}
 
 def aws(*args, payload=None, missing_image=False):
-    command = ["aws", "--region", REGION, *args, "--output", "json"]
     if payload is not None:
-        # Linux runner stdin avoids persisting configuration or putting it in process arguments.
-        command += ["--cli-input-json", "file:///dev/stdin"]
-    result = subprocess.run(command, input=None if payload is None else json.dumps(payload),
+        # Keep configuration in memory. CLI /dev/stdin parsing failed in the
+        # actual runner before an API call; never put this payload in argv/files.
+        if args != ("ecs", "register-task-definition"):
+            raise ValueError("unsupported_payload_operation")
+        try:
+            import boto3
+            from botocore.exceptions import BotoCoreError, ClientError, ParamValidationError
+        except ImportError:
+            raise AwsOperationFailure("ecs:register-task-definition", "SdkUnavailable") from None
+        try:
+            session = boto3.Session()
+            if session.client("sts", region_name=REGION).get_caller_identity()["Account"] != ACCOUNT:
+                raise ValueError("wrong_account")
+            return session.client("ecs", region_name=REGION).register_task_definition(**payload)
+        except ClientError as error:
+            code = error.response.get("Error", {}).get("Code")
+            raise AwsOperationFailure("ecs:register-task-definition", code if code in KNOWN_AWS_ERROR_CODES else "UnclassifiedServiceError") from None
+        except ParamValidationError:
+            raise AwsOperationFailure("ecs:register-task-definition", "SdkValidationError") from None
+        except BotoCoreError:
+            raise AwsOperationFailure("ecs:register-task-definition", "SdkTransportError") from None
+    command = ["aws", "--region", REGION, *args, "--output", "json"]
+    result = subprocess.run(command, input=None,
                             text=True, capture_output=True, check=False)
     if result.returncode:
         if missing_image and "ImageNotFoundException" in result.stderr:

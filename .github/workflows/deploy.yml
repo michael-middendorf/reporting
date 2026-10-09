@@ -74,7 +74,12 @@ jobs:
 
       - name: Deploy only Reporting web
         if: steps.scope.outputs.scope == 'web'
-        run: python3 scripts/deploy-reporting-web.py --sha "$GITHUB_SHA" --execute
+        run: |
+          reporting_deploy_venv="$RUNNER_TEMP/reporting-deploy-venv"
+          python3 -m venv "$reporting_deploy_venv"
+          "$reporting_deploy_venv/bin/python" -m pip install --disable-pip-version-check --no-input boto3==1.43.109 botocore==1.43.109 s3transfer==0.19.2 jmespath==1.1.0 python-dateutil==2.9.0.post0 six==1.17.0 urllib3==2.8.0
+          "$reporting_deploy_venv/bin/python" -m unittest discover -s scripts -p 'test_reporting_*.py'
+          "$reporting_deploy_venv/bin/python" scripts/deploy-reporting-web.py --sha "$GITHUB_SHA" --execute
 
       - name: Deploy SST runtime (publishers)
         if: github.event_name == 'push' && steps.scope.outputs.scope == 'full'

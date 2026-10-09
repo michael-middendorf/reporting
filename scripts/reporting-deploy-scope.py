@@ -6,7 +6,7 @@ import re
 import subprocess
 from pathlib import Path
 
-BOOTSTRAP_BASE = "3ea84acea202acd6f5f48ffcb31d8e5ea92dd3dd"
+BOOTSTRAP_BASE = "949268c3de3f28697e15f6d86aa8e206128afa00"
 MANIFEST = "config/reporting-web-deploy-bootstrap.json"
 PUBLISHER_INPUTS = {
     "apps/web-next/src/lib/reports/athletics-coaching/sports.ts",

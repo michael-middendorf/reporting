@@ -4,7 +4,33 @@ import pathlib
 import unittest
 import json
 import types
-from unittest.mock import patch
+import sys
+from unittest.mock import Mock, patch
+
+class SyntheticBotocoreError(Exception):
+    pass
+
+class SyntheticClientError(Exception):
+    def __init__(self, code):
+        self.response = {"Error": {"Code": code, "Message": "synthetic-never-emit-credential"}}
+
+class SyntheticValidationError(SyntheticBotocoreError):
+    pass
+
+def sdk_fixture(account=None, error=None):
+    sts = Mock()
+    sts.get_caller_identity.return_value = {"Account": account or web.ACCOUNT}
+    ecs = Mock()
+    ecs.register_task_definition.return_value = {"taskDefinition": {"synthetic": "response"}}
+    ecs.register_task_definition.side_effect = error
+    session = Mock()
+    session.client.side_effect = lambda service, **kwargs: {"sts": sts, "ecs": ecs}[service]
+    modules = {
+        "boto3": types.SimpleNamespace(Session=lambda: session),
+        "botocore": types.ModuleType("botocore"),
+        "botocore.exceptions": types.SimpleNamespace(BotoCoreError=SyntheticBotocoreError, ClientError=SyntheticClientError, ParamValidationError=SyntheticValidationError),
+    }
+    return session, ecs, modules
 
 spec = importlib.util.spec_from_file_location("web", pathlib.Path(__file__).with_name("deploy-reporting-web.py"))
 web = importlib.util.module_from_spec(spec)
@@ -34,11 +60,58 @@ class FieldGate(unittest.TestCase):
             result = types.SimpleNamespace(returncode=1, stderr=stderr, stdout=secret_text)
             with patch.object(web.subprocess, "run", return_value=result):
                 with self.assertRaises(web.AwsOperationFailure) as raised:
-                    web.aws("ecs", "register-task-definition", payload={"synthetic": secret_text})
+                    web.aws("ecs", "describe-task-definition", "--task-definition", "synthetic")
             event = web.failure_event(raised.exception)
-            self.assertEqual(event["operation"], "ecs:register-task-definition")
+            self.assertEqual(event["operation"], "ecs:describe-task-definition")
             self.assertEqual(event["aws_error_code"], expected)
             self.assertNotIn(secret_text, json.dumps(event))
+            self.assertNotIn("SensitiveCredential123", json.dumps(event))
+
+    def test_sdk_registration_keeps_all_fields_in_memory(self):
+        td = fixture()
+        td.update(pidMode="task", ipcMode="none", proxyConfiguration={"type": "APPMESH", "containerName": "web", "properties": []},
+                  inferenceAccelerators=[], ephemeralStorage={"sizeInGiB": 21},
+                  runtimePlatform={"cpuArchitecture": "X86_64", "operatingSystemFamily": "LINUX"}, enableFaultInjection=False)
+        payload = web.register_fields(td)
+        self.assertEqual(set(payload), web.REGISTER_FIELDS)
+        before = copy.deepcopy(payload)
+        session, ecs, modules = sdk_fixture()
+        with patch.dict(sys.modules, modules), patch.object(web.subprocess, "run", side_effect=AssertionError("No CLI/process payload")):
+            result = web.aws("ecs", "register-task-definition", payload=payload)
+        self.assertEqual(result, {"taskDefinition": {"synthetic": "response"}})
+        ecs.register_task_definition.assert_called_once_with(**before)
+        self.assertEqual(payload, before)
+        self.assertEqual(session.client.call_args_list[0].args, ("sts",))
+        self.assertEqual(session.client.call_args_list[1].args, ("ecs",))
+        self.assertTrue(all(call.kwargs == {"region_name": web.REGION} for call in session.client.call_args_list))
+
+    @unittest.skipUnless(importlib.util.find_spec("boto3") and importlib.util.find_spec("botocore"), "Pinned SDK installed only in web deployment venv")
+    def test_actual_installed_sdk_interface_without_network(self):
+        import boto3
+        session, ecs, _ = sdk_fixture()
+        with patch.object(boto3, "Session", return_value=session), patch.object(web.subprocess, "run", side_effect=AssertionError("No CLI or network")):
+            result = web.aws("ecs", "register-task-definition", payload=web.register_fields(fixture()))
+        self.assertEqual(result, {"taskDefinition": {"synthetic": "response"}})
+        ecs.register_task_definition.assert_called_once()
+
+    def test_sdk_wrong_account_prevents_registration(self):
+        session, ecs, modules = sdk_fixture(account="000000000000")
+        with patch.dict(sys.modules, modules), self.assertRaisesRegex(ValueError, "wrong_account"):
+            web.aws("ecs", "register-task-definition", payload={"synthetic": "private"})
+        ecs.register_task_definition.assert_not_called()
+
+    def test_sdk_errors_are_scrubbed_and_never_forwarded(self):
+        for error, expected in [(SyntheticClientError("AccessDeniedException"), "AccessDeniedException"),
+                                (SyntheticClientError("SensitiveCredential123"), "UnclassifiedServiceError"),
+                                (SyntheticValidationError("private input"), "SdkValidationError"),
+                                (SyntheticBotocoreError("private transport"), "SdkTransportError")]:
+            session, ecs, modules = sdk_fixture(error=error)
+            with patch.dict(sys.modules, modules), self.assertRaises(web.AwsOperationFailure) as raised:
+                web.aws("ecs", "register-task-definition", payload={"synthetic": "private input"})
+            event = web.failure_event(raised.exception)
+            self.assertEqual(event["aws_error_code"], expected)
+            self.assertEqual(event["operation"], "ecs:register-task-definition")
+            self.assertNotIn("private", json.dumps(event))
             self.assertNotIn("SensitiveCredential123", json.dumps(event))
 
     def test_unknown_guard_and_parser_details_are_not_emitted(self):

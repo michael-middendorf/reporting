@@ -1,9 +1,9 @@
 {
-    ".github/workflows/deploy.yml": "0a068974aa2d11b3f1ef30fa2e4ffe611eecc2ee080697d8b0a45069b1341d20",
+    ".github/workflows/deploy.yml": "7e986c7114a16069b31989583f17b896176392bef0d21752a67270495b2e244d",
     "infra/lib/reporting-ecs-stack.ts": "097a5336f5571d490dfb8765ed5e01b7b007192e39640510d45650b784eba4f6",
-    "scripts/deploy-reporting-web.py": "8f60dfdf8361aa1c37363e8ca0e6eb6007e31f89c8496e18ee6e0b73569089ae",
-    "scripts/reporting-deploy-scope.py": "ea890a381b8f0edba8073b1d0a8ccd664532b7122b09e92f947c913df182adb3",
-    "scripts/test_reporting_web_deploy.py": "1122bb314fd9d974d866322d79944a6121aa633192071f9afc8ebedef59bcdbc",
+    "scripts/deploy-reporting-web.py": "da4d29d8c43657a79e13f3ff96bc719dc44556cf154dcc213d14142ce208ce0d",
+    "scripts/reporting-deploy-scope.py": "588342912bdb570189ad72d696f1adb04878ed43618d952a8e434bb9b5eb0299",
+    "scripts/test_reporting_web_deploy.py": "df7359e4639dd72d45028bc12edba436b60b3a3457d7ea98a2c804d1a32e7548",
     "scripts/test_reporting_deploy_scope.py": "dd70abb5a021308ae59e092ec75855b7e105bb253dd6656ee9b1fbc32ed2d1e2",
     "docs/sso-only-rollout.md": "898743331f47055679715c823de1550f63b09a70d7c8ee25361eea0336e2d1f0",
     "docs/reporting-web-only-release.md": "8bdfe933e143f9f7af9e26f49fda61219fe25c9e31cb7673f73de308ba572713"
