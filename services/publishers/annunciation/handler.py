@@ -148,17 +148,97 @@ def _format_location(addr: dict[str, Any]) -> str | None:
 
 def _format_address(addr: dict[str, Any]) -> str | None:
     line1 = (addr.get("address1") or "").strip()
+    line2 = (addr.get("address2") or "").strip()
     loc = _format_location(addr) or ""
     postal = (addr.get("postal") or "").strip()
     tail = " ".join(p for p in [loc, postal] if p)
-    full = ", ".join(p for p in [line1, tail] if p)
+    full = ", ".join(p for p in [line1, line2, tail] if p)
     return full or None
+
+
+def _clean(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _living_individuals(individuals: list[Any]) -> list[dict[str, Any]]:
+    living: list[dict[str, Any]] = []
+    for person in individuals:
+        if isinstance(person, dict) and not person.get("isDeceased"):
+            living.append(person)
+    return living
+
+
+def _select_primary(living: list[dict[str, Any]]) -> dict[str, Any] | None:
+    for person in living:
+        if person.get("isPrimary"):
+            return person
+    return living[0] if living else None
+
+
+def _select_secondary(
+    living: list[dict[str, Any]], primary: dict[str, Any] | None
+) -> dict[str, Any] | None:
+    for person in living:
+        if person is primary:
+            continue
+        if person.get("isSecondary"):
+            return person
+    return None
+
+
+def _individual_field(person: dict[str, Any] | None, key: str) -> str | None:
+    if not person:
+        return None
+    return _clean(person.get(key))
+
+
+# Exact custom-field labels, best first. Match is case-insensitive.
+_FORMAL_FIELD_RANK = {
+    "formal name": 0,
+    "formal contact name": 1,
+    "addressee": 2,
+}
+
+
+def _formal_contact_name(contact: dict[str, Any]) -> str | None:
+    direct = _clean(contact.get("formalContactName"))
+    if direct:
+        return direct
+    best_rank: int | None = None
+    best_value: str | None = None
+    for field in contact.get("customFields") or []:
+        if not isinstance(field, dict):
+            continue
+        ranks = [
+            _FORMAL_FIELD_RANK[label]
+            for label in (
+                str(field.get("name") or "").strip().casefold(),
+                str(field.get("displayName") or "").strip().casefold(),
+            )
+            if label in _FORMAL_FIELD_RANK
+        ]
+        if not ranks:
+            continue
+        value = _clean(field.get("value"))
+        if not value:
+            continue
+        rank = min(ranks)
+        if best_rank is None or rank < best_rank:
+            best_rank = rank
+            best_value = value
+    return best_value
 
 
 def project_member(c: dict[str, Any]) -> dict[str, Any]:
     individuals = c.get("contactIndividuals") or []
     addr = c.get("address") or {}
     cid = c.get("id")
+    living = _living_individuals(individuals)
+    primary = _select_primary(living)
+    secondary = _select_secondary(living, primary)
     return {
         "id": cid,
         "name": c.get("name") or c.get("formalContactName"),
@@ -176,6 +256,22 @@ def project_member(c: dict[str, Any]) -> dict[str, Any]:
         "giftAskAmount": c.get("giftAskAmount"),
         "createDateUtc": c.get("createDateTimeUtc"),
         "contactUrl": f"https://app.virtuoussoftware.com/Generosity/Contact/View/{cid}",
+        "firstName": _individual_field(primary, "firstName"),
+        "lastName": _individual_field(primary, "lastName"),
+        "prefix": _individual_field(primary, "prefix"),
+        "suffix": _individual_field(primary, "suffix"),
+        "secondaryFirstName": _individual_field(secondary, "firstName"),
+        "secondaryLastName": _individual_field(secondary, "lastName"),
+        "secondaryPrefix": _individual_field(secondary, "prefix"),
+        "secondarySuffix": _individual_field(secondary, "suffix"),
+        "formalContactName": _formal_contact_name(c),
+        "informalName": _clean(c.get("informalName")),
+        "address1": _clean(addr.get("address1")),
+        "address2": _clean(addr.get("address2")),
+        "city": _clean(addr.get("city")),
+        "state": _clean(addr.get("state")),
+        "postal": _clean(addr.get("postal")),
+        "country": _clean(addr.get("country")),
     }
 
 
