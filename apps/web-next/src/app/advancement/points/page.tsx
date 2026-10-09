@@ -396,6 +396,17 @@ export default function PointsPage() {
   );
 }
 
+function DonorName({ name, contactId }: { name: string; contactId?: string | number | null }) {
+  if (!name) return <>—</>;
+  const href = virtuousContactUrl(contactId);
+  if (!href) return <>{name}</>;
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" title="Open contact in Virtuous">
+      {name}
+    </a>
+  );
+}
+
 function PointsPageInner() {
   const searchParams = useSearchParams();
   const rawTab = searchParams.get("tab");
@@ -648,6 +659,21 @@ function PointsPageInner() {
       : activeDay
         ? formatDay(activeDay)
         : "Categories";
+  const donorNameByContact = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of rows || []) {
+      const id = r.contactId;
+      const name = String(r.contactName || "").trim();
+      if (id != null && id !== "" && name) map.set(String(id), name);
+    }
+    return map;
+  }, [rows]);
+  function nameForGift(g: GiftRow) {
+    const direct = String(g.contactName || "").trim();
+    if (direct) return direct;
+    if (g.contactId == null || g.contactId === "") return "";
+    return donorNameByContact.get(String(g.contactId)) || "";
+  }
   const listedGifts = useMemo(() => {
     if (!giftOwner) return [] as GiftRow[];
     return listedGiftRows(model.rows as GiftRow[], { owner: giftOwner }) as GiftRow[];
@@ -2270,6 +2296,7 @@ function PointsPageInner() {
                       <thead>
                         <tr>
                           <th>Gift date</th>
+                          <th className="donor">Donor</th>
                           <th>Kind</th>
                           <th>Amount</th>
                           <th>MA</th>
@@ -2283,11 +2310,9 @@ function PointsPageInner() {
                           <tr
                             key={g.giftId != null && g.giftId !== "" ? String(g.giftId) : i}
                           >
-                            <td style={{ whiteSpace: "nowrap" }}>
-                              {g.day ? formatDay(g.day) : "—"}
-                              {g.contactName ? (
-                                <div style={{ color: "var(--slate-400)", fontWeight: 400 }}>{g.contactName}</div>
-                              ) : null}
+                            <td style={{ whiteSpace: "nowrap" }}>{g.day ? formatDay(g.day) : "—"}</td>
+                            <td className="donor">
+                              <DonorName name={nameForGift(g)} contactId={g.contactId} />
                             </td>
                             <td>
                               {g.assist
@@ -2389,6 +2414,7 @@ function PointsPageInner() {
                     <thead>
                       <tr>
                         <th>Gift date</th>
+                        <th className="donor">Donor</th>
                         <th>Kind</th>
                         <th>Amount</th>
                         <th>MA</th>
@@ -2400,11 +2426,9 @@ function PointsPageInner() {
                         const restoreId = giftRemoveId(g);
                         return (
                           <tr key={g.giftId != null && g.giftId !== "" ? `removed-${g.giftId}` : `removed-${i}`}>
-                            <td style={{ whiteSpace: "nowrap" }}>
-                              {g.day ? formatDay(g.day) : "—"}
-                              {g.contactName ? (
-                                <div style={{ color: "var(--slate-400)", fontWeight: 400 }}>{g.contactName}</div>
-                              ) : null}
+                            <td style={{ whiteSpace: "nowrap" }}>{g.day ? formatDay(g.day) : "—"}</td>
+                            <td className="donor">
+                              <DonorName name={nameForGift(g)} contactId={g.contactId} />
                             </td>
                             <td>
                               {g.assist

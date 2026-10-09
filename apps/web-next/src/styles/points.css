@@ -466,6 +466,9 @@ svg.chart-svg { display: block; width: 100%; height: auto; font-family: var(--sa
 table.grid { width: 100%; border-collapse: collapse; font-size: .92rem; }
 table.grid th, table.grid td { text-align: right; padding: 10px 12px; border-bottom: 1px solid var(--line); }
 table.grid th:first-child, table.grid td:first-child { text-align: left; }
+table.grid th.donor, table.grid td.donor { text-align: left; white-space: normal; min-width: 11rem; }
+table.grid td.donor { color: var(--navy); font-weight: 500; }
+table.grid td.donor a { color: inherit; }
 table.grid thead th { color: var(--slate-400); font-weight: 500; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; }
 .sort-th {
   border: 0;
