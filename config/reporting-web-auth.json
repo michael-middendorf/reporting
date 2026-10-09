@@ -1,4 +1,4 @@
 {
-  "SSO_ONLY": "false",
-  "SSO_CUTOVER_AT": ""
+  "SSO_ONLY": "true",
+  "SSO_CUTOVER_AT": "2026-10-09T17:05:20Z"
 }
