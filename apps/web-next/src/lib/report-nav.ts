@@ -136,6 +136,9 @@ export const REPORT_FOLDERS: ReportFolder[] = [
   { href: "/institute", label: "The Institute", match: ["/institute"] },
   { href: "/housing", label: "Housing", match: ["/housing"] },
   { href: "/census", label: "Census", match: ["/census"] },
+  // DST-3015: Academic Affairs report with its own grant list. Not under
+  // /aspiredu, whose crumb and MFA gate belong to the student records page.
+  { href: "/majors", label: "Majors and Minors", match: ["/majors"] },
   { href: "/marketing", label: "Marketing", match: ["/marketing"], nav: MARKETING_NAV },
   {
     href: "/business-office",

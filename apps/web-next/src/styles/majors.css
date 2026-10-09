@@ -1,0 +1,38 @@
+/* DST-3015 Majors and Minors. Builds on annunciation.css (ac-*) and mgo-analysis.css (mga-*). */
+
+.mj-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mj-waiting strong { color: var(--ac-text); }
+
+.mj-section { margin-bottom: 28px; }
+
+.mj-h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  font-weight: normal;
+  margin: 8px 0 10px;
+}
+
+.mj-table thead th { white-space: normal; vertical-align: bottom; cursor: default; }
+.mj-table thead th.mj-group {
+  text-align: center;
+  border-bottom: 1px solid var(--ac-border);
+}
+.mj-table tfoot td,
+.mj-table tr.mj-total td {
+  font-weight: 600;
+  background: var(--ac-raised);
+  border-top: 2px solid var(--ac-border);
+  padding: 10px 14px;
+}
+.mj-table td.mj-prior { color: var(--ac-dim); }
+
+.mj-footnote {
+  font-size: 12px;
+  color: var(--ac-dim);
+  margin-top: 6px;
+}

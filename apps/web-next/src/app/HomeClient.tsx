@@ -63,6 +63,13 @@ const REPORTS: {
     desc: "Search students or download every student record.",
   },
   {
+    // DST-3015: Academic Affairs. Aggregate counts only.
+    id: "majors",
+    href: "/majors",
+    title: "Majors and Minors",
+    desc: "Accepted applicants by major, current majors and minors by class, and five-year trends.",
+  },
+  {
     // Business Office list, hub admins, and athletics leadership (access.ts).
     id: "business-office",
     href: "/business-office",

@@ -12,7 +12,11 @@ Rules (enforced by db.guard_select at execution time and by test_handler.py):
 Column lists for the code tables (CODE_VALUE_KEY, CODE_VALUE, SHORT_DESC,
 MEDIUM_DESC, LONG_DESC, STATUS) and for ACADEMICCALENDAR (ACADEMIC_YEAR,
 ACADEMIC_TERM, ACADEMIC_SESSION, START_DATE, END_DATE) were verified against
-the University_AMU schema 2026-09-29.
+the University_AMU schema 2026-09-29. ACADEMIC.APP_STATUS and
+ACADEMIC.ORG_CODE_ID, the per-table extra code columns in CODE_TABLE_EXTRA_COLUMNS
+(CODE_DEGREE.DEGREE_TYPE, CODE_APPDECISION.ACCEPTED_DECISION,
+CODE_ENROLLMENT.REQUIRE_SEPDATE), and the CODE_ENROLLMENT table were added
+2026-10-09 (DST-3015) after the matching column grants.
 """
 
 from __future__ import annotations
@@ -56,7 +60,7 @@ ACADEMIC = (
     "a.EXTRA_CURRICULAR, a.ADMIT_YEAR, a.ADMIT_TERM, a.ADMIT_SESSION, "
     "a.MATRIC, a.MATRIC_YEAR, a.MATRIC_TERM, a.GRADUATED, a.GRADUATED_YEAR, "
     "a.GRADUATED_TERM, a.GRADUATED_SESSION, a.TRANSCRIPT_SEQ, a.STATUS, "
-    "a.REVISION_DATE "
+    "a.REVISION_DATE, a.APP_STATUS, a.ORG_CODE_ID "
     "FROM dbo.ACADEMIC AS a "
     "WHERE a.ACADEMIC_YEAR >= %(min_year)s "
     "OPTION (MAXDOP 1)"
@@ -329,12 +333,18 @@ ACADEMIC_CALENDAR = (
 )
 
 
-def _code_table(table: str) -> str:
-    # Only called at import time with the literal names in CODE_TABLES below;
-    # never with runtime input.
+def _code_table(table: str, extra_columns: tuple[str, ...] = ()) -> str:
+    # Only called at import time with the literal names in CODE_TABLES and
+    # CODE_TABLE_EXTRA_COLUMNS below; never with runtime input.
+    for column in extra_columns:
+        if not column or not (column[0].isalpha() or column[0] == "_") or not all(
+            ch.isalnum() or ch == "_" for ch in column
+        ):
+            raise ValueError(f"unexpected column literal: {column!r}")
+    extra = "".join(f", c.{column}" for column in extra_columns)
     return (
         "SELECT c.CODE_VALUE_KEY, c.CODE_VALUE, c.SHORT_DESC, c.MEDIUM_DESC, "
-        "c.LONG_DESC, c.STATUS "
+        f"c.LONG_DESC, c.STATUS{extra} "
         f"FROM {table} AS c "
         "OPTION (MAXDOP 1)"
     )
@@ -351,6 +361,7 @@ CODE_TABLES: dict[str, str] = {
     "code_curriculum": "dbo.CODE_CURRICULUM",
     "code_degree": "dbo.CODE_DEGREE",
     "code_emailtype": "dbo.CODE_EMAILTYPE",
+    "code_enrollment": "dbo.CODE_ENROLLMENT",
     "code_ethnicity": "dbo.CODE_ETHNICITY",
     "code_fullpartflag": "dbo.CODE_FULLPARTFLAG",
     "code_population": "dbo.CODE_POPULATION",
@@ -360,7 +371,19 @@ CODE_TABLES: dict[str, str] = {
     "code_gender": "WebAdmin.CODE_GENDER",
 }
 
-CODE_TABLE_QUERIES: dict[str, str] = {name: _code_table(table) for name, table in CODE_TABLES.items()}
+# dataset name -> columns selected in addition to the standard six (DST-3015).
+# DEGREE_TYPE separates majors from minors and non-degrees, ACCEPTED_DECISION
+# marks accept decisions, REQUIRE_SEPDATE marks separating enrollment statuses.
+CODE_TABLE_EXTRA_COLUMNS: dict[str, tuple[str, ...]] = {
+    "code_degree": ("DEGREE_TYPE",),
+    "code_appdecision": ("ACCEPTED_DECISION",),
+    "code_enrollment": ("REQUIRE_SEPDATE",),
+}
+
+CODE_TABLE_QUERIES: dict[str, str] = {
+    name: _code_table(table, CODE_TABLE_EXTRA_COLUMNS.get(name, ()))
+    for name, table in CODE_TABLES.items()
+}
 
 # ---------------------------------------------------------------------------
 # Publish order: (dataset, sql, parameter names). Small reference tables

@@ -158,6 +158,11 @@ describe("reportCrumbs", () => {
       { href: "/", label: "Reports" },
       { href: "/aspiredu", label: "Academic Affairs" },
     ]);
+    // DST-3015: its own folder, so the crumb never links majors-only users to /aspiredu.
+    assert.deepEqual(reportCrumbs("/majors"), [
+      { href: "/", label: "Reports" },
+      { href: "/majors", label: "Majors and Minors" },
+    ]);
     // A profile crumb goes straight back to /aspiredu (the page swaps in the name).
     assert.deepEqual(reportCrumbs("/aspiredu/students/Uz27vGaesOsAbCdEfGhIjKlICN4U").slice(0, 2), [
       { href: "/", label: "Reports" },

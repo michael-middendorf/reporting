@@ -151,7 +151,9 @@ describe("sportsScopeForAthleticsEmail", () => {
       assert.equal(canAccessReport(email, "athletics"), false, email);
       assert.equal(canAccessReport(email, "athletics-coaching"), true, email);
       assert.equal(admins.has(email), false, email);
-      assert.deepEqual(reportsForEmail(email), ["athletics-coaching"], email);
+      // DST-3015: Joseph Patterson is also on the Majors and Minors list.
+      const expected = email === "joseph.patterson@avemaria.edu" ? ["athletics-coaching", "majors"] : ["athletics-coaching"];
+      assert.deepEqual(reportsForEmail(email), expected, email);
     }
   });
 });

@@ -5,6 +5,7 @@ import {
   canAccessReport,
   canLogin,
   isAdmin,
+  isStrictReport,
   needsMfaAtSignIn,
   reportsForEmail,
   sessionDecisionAtComplete,
@@ -286,7 +287,9 @@ describe("athletics coaching access", () => {
       assert.equal(canAccessReport(email, "athletics-coaching"), true, email);
       assert.equal(canAccessReport(email, "athletics"), false, email);
       assert.deepEqual(coachSportKeys(email), sports, email);
-      assert.deepEqual(reportsForEmail(email), ["athletics-coaching"], email);
+      // DST-3015: Joseph Patterson is also on the Majors and Minors list.
+      const expected = email === "joseph.patterson@avemaria.edu" ? ["athletics-coaching", "majors"] : ["athletics-coaching"];
+      assert.deepEqual(reportsForEmail(email), expected, email);
       assert.equal(canAccessAthleticsGiving(email), false, email);
       for (const sport of SPORTS) {
         assert.equal(canAccessSport(email, sport.key), sports.includes(sport.key), `${email} ${sport.key}`);
@@ -320,7 +323,8 @@ describe("housing grant for existing enrollment viewer", () => {
     assert.equal(canAccessReport(DAN, "portfolios"), false);
     assert.equal(canAccessReport(DAN, "annunciation"), false);
     assert.equal(canAccessReport(DAN, "aspiredu"), false);
-    assert.deepEqual(reportsForEmail(DAN), ["enrollment", "housing"]);
+    // DST-3015 added Majors and Minors.
+    assert.deepEqual(reportsForEmail(DAN), ["enrollment", "housing", "majors"]);
   });
 });
 
@@ -394,7 +398,9 @@ describe("census grant for Fier and Logan", () => {
       assert.equal(canAccessReport(email, "points"), false, email);
       assert.equal(canAccessReport(email, "annunciation"), false, email);
       assert.equal(canAccessReport(email, "aspiredu"), false, email);
-      assert.deepEqual(reportsForEmail(email), ["census", "business-office"], email);
+      // DST-3015: Steve is also on the Majors and Minors list; Luke is not.
+      const expected = /^steve.logan@/i.test(email) ? ["census", "business-office", "majors"] : ["census", "business-office"];
+      assert.deepEqual(reportsForEmail(email), expected, email);
     }
   });
 });
@@ -416,7 +422,7 @@ describe("aspiredu grant for Daniel Davy", () => {
     assert.equal(canAccessReport(DANIEL, "points"), false);
     assert.equal(canAccessReport(DANIEL, "annunciation"), false);
     assert.equal(reportsForEmail(DANIEL).includes("aspiredu"), true);
-    assert.deepEqual(reportsForEmail(DANIEL), ["census", "aspiredu"]);
+    assert.deepEqual(reportsForEmail(DANIEL), ["census", "aspiredu", "majors"]);
   });
 
   it("does not grant aspiredu to a known non-grantee", () => {
@@ -663,5 +669,55 @@ describe("marketing (Pursuit of Wisdom) grant for Camille Kaczanowski", () => {
     assert.equal(canAccessReport(CAMILLE, "cybersecurity"), false);
     assert.equal(needsMfaAtSignIn(CAMILLE), false);
     assert.deepEqual(reportsForEmail(CAMILLE), ["marketing"]);
+  });
+});
+
+describe("majors (DST-3015 Majors and Minors) grant", () => {
+  const LISTED = [
+    "Roger.Nutt@avemaria.edu",
+    "joseph.patterson@avemaria.edu",
+    "daniel.schreck@avemaria.edu",
+    "adam.kinnick@avemaria.edu",
+    "seana.mcguire@avemaria.edu",
+    "dan.donaldson@avemaria.edu",
+    "daniel.davy@avemaria.edu",
+    "susan.gallagher@avemaria.edu",
+    "steve.logan@avemaria.edu",
+  ];
+
+  it("lets Roger Nutt and the rest of the list open majors", () => {
+    assert.equal(canAccessReport("roger.nutt@avemaria.edu", "majors"), true);
+    for (const email of LISTED) {
+      assert.equal(canLogin(email), true, email);
+      assert.equal(canAccessReport(email, "majors"), true, email);
+      assert.equal(isAdmin(email), false, email);
+    }
+  });
+
+  it("keeps a non-listed email out", () => {
+    for (const email of ["camillec.kaczanowski@avemaria.edu", "luke.fier@avemaria.edu", "someone@avemaria.edu", "roger.nutt@my.avemaria.edu"]) {
+      assert.equal(canAccessReport(email, "majors"), false, email);
+    }
+  });
+
+  it("gives hub admins majors and is not a strict report", () => {
+    assert.equal(canAccessReport("cole.j.cantu@avemaria.edu", "majors"), true);
+    assert.equal(isStrictReport("majors"), false);
+  });
+
+  it("merges MAJORS_ALLOWED_EMAILS additively", () => {
+    const prev = process.env.MAJORS_ALLOWED_EMAILS;
+    process.env.MAJORS_ALLOWED_EMAILS = "new.person@avemaria.edu";
+    try {
+      assert.equal(canAccessReport("new.person@avemaria.edu", "majors"), true);
+      assert.equal(canAccessReport("roger.nutt@avemaria.edu", "majors"), true);
+    } finally {
+      if (prev === undefined) delete process.env.MAJORS_ALLOWED_EMAILS;
+      else process.env.MAJORS_ALLOWED_EMAILS = prev;
+    }
+  });
+
+  it("does not add majors-only people to MFA at sign-in", () => {
+    assert.equal(needsMfaAtSignIn("roger.nutt@avemaria.edu"), false);
   });
 });

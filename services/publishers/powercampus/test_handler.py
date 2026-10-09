@@ -508,6 +508,45 @@ class SportAlumniQueryTests(unittest.TestCase):
             queries._sql_list(("OK", "x' OR 1=1"))
 
 
+class MajorsReportQueryTests(unittest.TestCase):
+    """DST-3015: columns the Majors and Minors report needs."""
+
+    def test_academic_selects_app_status_and_org_code(self):
+        self.assertIn("a.APP_STATUS, a.ORG_CODE_ID FROM dbo.ACADEMIC AS a", queries.ACADEMIC)
+        self.assertEqual(db.guard_select(queries.ACADEMIC), queries.ACADEMIC)
+
+    def test_code_table_extra_columns(self):
+        by_name = {name: (sql, params) for name, sql, params in queries.DATASETS}
+        expected = {
+            "code_degree": ("dbo.CODE_DEGREE", "c.DEGREE_TYPE"),
+            "code_appdecision": ("dbo.CODE_APPDECISION", "c.ACCEPTED_DECISION"),
+            "code_enrollment": ("dbo.CODE_ENROLLMENT", "c.REQUIRE_SEPDATE"),
+        }
+        for name, (table, column) in expected.items():
+            with self.subTest(dataset=name):
+                sql, params = by_name[name]
+                self.assertEqual(params, ())
+                self.assertEqual(
+                    sql,
+                    "SELECT c.CODE_VALUE_KEY, c.CODE_VALUE, c.SHORT_DESC, c.MEDIUM_DESC, "
+                    f"c.LONG_DESC, c.STATUS, {column} FROM {table} AS c OPTION (MAXDOP 1)",
+                )
+                self.assertEqual(db.guard_select(sql), sql)
+
+    def test_other_code_tables_keep_the_standard_columns(self):
+        for name, sql in queries.CODE_TABLE_QUERIES.items():
+            if name in queries.CODE_TABLE_EXTRA_COLUMNS:
+                continue
+            with self.subTest(dataset=name):
+                self.assertIn("c.LONG_DESC, c.STATUS FROM ", sql)
+
+    def test_code_table_rejects_unexpected_column_literals(self):
+        for bad in ("X, (SELECT 1)", "1ABC", "", "A-B", "A B"):
+            with self.subTest(column=bad):
+                with self.assertRaises(ValueError):
+                    queries._code_table("dbo.CODE_DEGREE", (bad,))
+
+
 class DispatcherTests(unittest.TestCase):
     def test_registered_in_worker_entrypoint(self):
         import pathlib

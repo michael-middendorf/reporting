@@ -23,6 +23,7 @@ export const REPORT_IDS = [
   "mgo-analysis",
   "cybersecurity",
   "business-office",
+  "majors",
 ] as const;
 
 export type ReportId = (typeof REPORT_IDS)[number];
@@ -139,6 +140,18 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
   // unassigned) through canAccessReport below; coaches see only their own
   // team on the coaching Budget tab. See reports/business-office/access.ts.
   "business-office": "steve.logan@avemaria.edu,luke.fier@avemaria.edu",
+  // DST-3015: Majors and Minors (Academic Affairs). Aggregate counts only.
+  majors: [
+    "roger.nutt@avemaria.edu",
+    "joseph.patterson@avemaria.edu",
+    "daniel.schreck@avemaria.edu",
+    "adam.kinnick@avemaria.edu",
+    "seana.mcguire@avemaria.edu",
+    "dan.donaldson@avemaria.edu",
+    "daniel.davy@avemaria.edu",
+    "susan.gallagher@avemaria.edu",
+    "steve.logan@avemaria.edu",
+  ].join(","),
 };
 
 const ENV_KEYS: Record<ReportId, string> = {
@@ -161,6 +174,8 @@ const ENV_KEYS: Record<ReportId, string> = {
   cybersecurity: "",
   // Optional, additive like the others. Unset is fine.
   "business-office": "BUSINESS_OFFICE_ALLOWED_EMAILS",
+  // Optional, additive like the others. Unset is fine.
+  majors: "MAJORS_ALLOWED_EMAILS",
 };
 
 export function parseEmailCsv(csv: string): Set<string> {
