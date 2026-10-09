@@ -114,6 +114,9 @@ describe("annunciation new member mailing list", () => {
 
   it("shortens a titled couple salutation to the last name and keeps an untitled addressee", () => {
     assert.equal(formalSalutation("Mr. and Mrs. John Smith"), "Mr. and Mrs. Smith");
+    assert.equal(formalSalutation("Mr. John Smith and Mrs. Jane Doe"), "Mr. Smith and Mrs. Doe");
+    assert.equal(formalSalutation("Dr. Jane Doe, Ph.D."), "Dr. Doe");
+    assert.equal(formalSalutation("Mr. and Mrs. John Smith, Ph.D."), "Mr. and Mrs. Smith");
     assert.equal(formalSalutation("Jane Doe"), "Jane Doe");
     const rows = newMemberRows(
       [member({ id: 1, firstName: "Jane", lastName: "Doe", formalContactName: "Jane Doe" })],

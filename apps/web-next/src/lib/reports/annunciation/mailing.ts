@@ -126,23 +126,36 @@ function titleMatch(addressee: string): { key: string; original: string } | null
 }
 
 function isSuffixToken(token: string): boolean {
-  return /^(jr|sr|ii|iii|iv|phd|md)\.?$/i.test(token.replace(/,/g, ""));
+  const bare = token.replace(/[.,]/g, "").toLowerCase();
+  return bare === "jr" || bare === "sr" || bare === "ii" || bare === "iii" || bare === "iv" || bare === "phd" || bare === "md";
 }
 
-/** Name line only. No "Dear " prefix. */
-export function formalSalutation(addressee: string): string {
-  const text = addressee.trim();
-  if (!text) return "";
+/** One titled person. A trailing credential such as Ph.D. is not the surname. */
+function saluteOne(text: string): string {
   const match = titleMatch(text);
   if (!match) return text;
   if (RELIGIOUS.has(match.key)) return text;
 
-  const rest = text.slice(match.original.length).trim();
+  const rest = text.slice(match.original.length).trim().replace(/^,+/, "").trim();
   const tokens = rest ? rest.split(/\s+/) : [];
   while (tokens.length > 0 && isSuffixToken(tokens[tokens.length - 1])) tokens.pop();
   if (tokens.length === 0) return match.original;
-  const last = tokens[tokens.length - 1].replace(/,+$/g, "");
+  const last = tokens[tokens.length - 1].replace(/[.,]+$/g, "");
   return last ? `${match.original} ${last}` : match.original;
+}
+
+/** Name line only. No "Dear " prefix.
+ * Two titled people keep both surnames. "Mr. and Mrs. John Smith" still
+ * shortens to one surname because the left side is only "Mr."
+ */
+export function formalSalutation(addressee: string): string {
+  const text = addressee.trim();
+  if (!text) return "";
+  const parts = text.split(/\s+and\s+/i).map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 2 && titleMatch(parts[0])) {
+    return parts.map((part) => saluteOne(part)).join(" and ");
+  }
+  return saluteOne(text);
 }
 
 export function formatMailingAddress(member: AnnunciationMember): string {
