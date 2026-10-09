@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { CensusArchive } from "@/components/census/CensusArchive";
 import { CensusReport } from "@/components/census/CensusReport";
 import { FtcaRawSheet, LoaSheet, RawDataSheet, UnretainedSheet } from "@/components/census/CensusLists";
 import { FilterBar, SheetTable, fmtN, fmtPct } from "@/components/census/Sheet";
@@ -60,7 +61,7 @@ function fmtFte(n: number | null | undefined): string {
   return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
 
-type Tab = "summary" | "historical" | "ug" | "grad" | "attrition" | "ftca" | "raw" | "unretained" | "loa";
+type Tab = "summary" | "historical" | "ug" | "grad" | "attrition" | "ftca" | "raw" | "unretained" | "loa" | "files";
 
 type CensusPageData = CensusSnapshot & {
   reportStudents?: ReportStudent[];
@@ -394,8 +395,10 @@ export function CensusDashboard() {
           />
         </div>
 
-        <FilterBar filters={filters} onChange={setFilters} sports={sports} majors={majors} religions={religions} />
-        {filters.retention === "unretained" && (
+        {tab !== "files" && (
+          <FilterBar filters={filters} onChange={setFilters} sports={sports} majors={majors} religions={religions} />
+        )}
+        {tab !== "files" && filters.retention === "unretained" && (
           <p className="filter-note">
             Unretained is on. Census Report, All Not Retained, and exports use FA25 students who did not return.
             Summary and Census Raw stay Fall 2026 enrolled.
@@ -414,6 +417,7 @@ export function CensusDashboard() {
               ["raw", "Census Raw"],
               ["unretained", "All Not Retained"],
               ["loa", "FA26 LOA"],
+              ["files", "Files"],
             ] as [Tab, string][]
           ).map(([id, label]) => (
             <button
@@ -451,6 +455,7 @@ export function CensusDashboard() {
         {tab === "ftca" && <FtcaRawSheet rows={filteredFtca} />}
         {tab === "raw" && <RawDataSheet students={filteredAll} alumniIds={alumniIds} />}
         {tab === "unretained" && <UnretainedSheet students={filteredUnretained} />}
+        {tab === "files" && <CensusArchive />}
         {tab === "loa" && (
           <LoaSheet
             rows={filteredLoaFall}
