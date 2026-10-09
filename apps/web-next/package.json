@@ -25,7 +25,7 @@
     "test:entra": "npx tsx --test src/lib/sso-policy.test.ts src/lib/sso-endpoints.test.ts src/lib/sso-session.test.ts src/lib/safe-local-path.test.ts src/lib/entra.test.ts src/lib/core/entraSession.test.ts src/lib/sign-in-after-verification.test.ts src/app/api/auth/microsoft/callback/route.test.ts src/lib/session-lifecycle.test.ts src/components/SessionProvider.test.ts src/app/HomeClient.test.ts",
     "test:cybersecurity": "npx tsx --test src/lib/cyber-access.test.ts src/lib/cyber/register.test.ts src/app/api/cybersecurity-register/route.test.ts",
     "test:majors": "npx tsx --test src/lib/reports/majors/shape.test.ts src/lib/reports/majors/workbook.test.ts src/app/api/majors-data/route.test.ts",
-    "test:points": "npx tsx --test src/lib/reports/points/points.test.ts src/lib/reports/points/insights.test.tsx src/lib/reports/points/month-range.test.ts"
+    "test:points": "npx tsx --test src/lib/reports/points/points.test.ts src/lib/reports/points/insights.test.tsx src/lib/reports/points/month-range.test.ts src/lib/reports/points/gift-search.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1105.0",
