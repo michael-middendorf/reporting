@@ -53,5 +53,8 @@ class Scope(unittest.TestCase):
         with patch.object(scope, "git", side_effect=git):
             self.assertEqual(scope.scope("a" * 40, "b" * 40), "blocked")
 
+    def test_existing_manifest_correction_wrong_base_blocks(self):
+        self.assertEqual(self.classify([scope.MANIFEST, "scripts/deploy-reporting-web.py"]), "blocked")
+
 if __name__ == "__main__":
     unittest.main()

@@ -6,7 +6,7 @@ import re
 import subprocess
 from pathlib import Path
 
-BOOTSTRAP_BASE = "80ca93b72f996b94678ed5ea991c2d1abb5601e0"
+BOOTSTRAP_BASE = "3ea84acea202acd6f5f48ffcb31d8e5ea92dd3dd"
 MANIFEST = "config/reporting-web-deploy-bootstrap.json"
 PUBLISHER_INPUTS = {
     "apps/web-next/src/lib/reports/athletics-coaching/sports.ts",
@@ -34,7 +34,7 @@ def scope(before, after):
             introducing_bootstrap = False
         except Exception:
             introducing_bootstrap = True
-        if introducing_bootstrap and before != BOOTSTRAP_BASE:
+        if (introducing_bootstrap or MANIFEST in paths) and before != BOOTSTRAP_BASE:
             return "blocked"
         # SST copy inputs are web files but are also publisher runtime inputs.
         # Read current literals so newly added publisher copies cannot be skipped.

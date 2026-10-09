@@ -14,6 +14,40 @@ CLUSTER = "amu-reporting"
 SERVICE = "AmuReportingEcs-WebService7F8A1763-qaHNvWylaKl3"
 FAMILY = "AmuReportingEcsWebTask2423734C"
 REPOSITORY = "cdk-hnb659fds-container-assets-905418447941-us-east-2"
+CURRENT_STAGE = "configuration"
+KNOWN_AWS_ERROR_CODES = {
+    "ClientException", "InvalidParameterException", "AccessDenied", "AccessDeniedException",
+    "UnauthorizedOperation", "ValidationException", "ServerException", "ThrottlingException",
+    "ResourceNotFoundException", "UnrecognizedClientException", "ExpiredTokenException",
+    "InvalidClientTokenId", "RequestExpired", "RequestLimitExceeded", "ServiceUnavailable",
+    "ServiceUnavailableException", "InvalidSignatureException", "SignatureDoesNotMatch",
+    "UnsupportedFeatureException", "ConflictException", "LimitExceededException", "ImageNotFoundException",
+}
+KNOWN_GUARD_REASONS = {
+    "invalid_auth_config", "future_auth_cutoff", "unexpected_task_definition", "unexpected_web_container",
+    "secret_auth_collision", "duplicate_auth_environment", "task_field_drift", "unexpected_service",
+    "service_not_stable", "service_lookup_failed", "invalid_source_sha", "wrong_account",
+    "unexpected_repository", "unexpected_platform", "registry_login_failed", "invalid_image_digest",
+    "service_drift_before_register", "task_tag_drift", "service_drift_after_register",
+    "service_drift_during_rollout", "rollout_failed", "unexpected_running_tasks", "running_image_mismatch", "rollout_timeout",
+}
+
+class AwsOperationFailure(RuntimeError):
+    def __init__(self, operation, error_code):
+        super().__init__("aws_operation_failed")
+        self.operation = operation
+        self.error_code = error_code
+
+def failure_event(error):
+    event = {"deployed": False, "error": "web_deployment_failed", "stage": CURRENT_STAGE}
+    if isinstance(error, AwsOperationFailure):
+        event.update(operation=error.operation, aws_error_code=error.error_code)
+    elif isinstance(error, (ValueError, RuntimeError)) and str(error) in KNOWN_GUARD_REASONS:
+        # Guard messages are constant identifiers, never configuration or parser details.
+        event["guard_reason"] = str(error)
+    elif isinstance(error, subprocess.CalledProcessError):
+        event["guard_reason"] = "subprocess_failed"
+    return event
 REGISTER_FIELDS = {
     "family", "taskRoleArn", "executionRoleArn", "networkMode", "containerDefinitions",
     "volumes", "placementConstraints", "requiresCompatibilities", "cpu", "memory",
@@ -98,7 +132,16 @@ def aws(*args, payload=None, missing_image=False):
     if result.returncode:
         if missing_image and "ImageNotFoundException" in result.stderr:
             return None
-        raise RuntimeError("aws_operation_failed")
+        match = re.search(r"An error occurred \(([A-Za-z][A-Za-z0-9]{0,63})\) when calling the", result.stderr)
+        if match:
+            error_code = match[1] if match[1] in KNOWN_AWS_ERROR_CODES else "UnclassifiedServiceError"
+        elif "Parameter validation failed" in result.stderr or "Unknown parameter" in result.stderr:
+            error_code = "CliValidationError"
+        elif "Error parsing parameter" in result.stderr:
+            error_code = "CliInputError"
+        else:
+            error_code = "UnclassifiedCliError"
+        raise AwsOperationFailure(":".join(args[:2]), error_code)
     return json.loads(result.stdout)
 
 def live_service():
@@ -111,6 +154,8 @@ def definition(arn):
     return aws("ecs", "describe-task-definition", "--task-definition", arn, "--include", "TAGS")
 
 def deploy(sha, auth, execute=False):
+    global CURRENT_STAGE
+    CURRENT_STAGE = "baseline_validation"
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
         raise ValueError("invalid_source_sha")
     if aws("sts", "get-caller-identity")["Account"] != ACCOUNT:
@@ -135,9 +180,11 @@ def deploy(sha, auth, execute=False):
                           "scope": "web_image_and_two_auth_controls_only"}))
         return
     tag = f"{prefix}:reporting-web-{sha}"
+    CURRENT_STAGE = "image_lookup"
     existing = aws("ecr", "describe-images", "--repository-name", REPOSITORY,
                    "--image-ids", f"imageTag=reporting-web-{sha}", missing_image=True)
     if existing is None:
+        CURRENT_STAGE = "registry_login"
         token = subprocess.run(["aws", "ecr", "get-login-password", "--region", REGION], capture_output=True, text=True)
         if token.returncode:
             raise RuntimeError("registry_login_failed")
@@ -145,12 +192,16 @@ def deploy(sha, auth, execute=False):
                                input=token.stdout, text=True, capture_output=True)
         if login.returncode:
             raise RuntimeError("registry_login_failed")
+        CURRENT_STAGE = "docker_build"
         subprocess.run(["docker", "build", "--platform", "linux/amd64", "-f", "Dockerfile.web", "-t", tag, "."], check=True)
+        CURRENT_STAGE = "docker_push"
         subprocess.run(["docker", "push", tag], check=True)
+    CURRENT_STAGE = "image_digest_validation"
     details = aws("ecr", "describe-images", "--repository-name", REPOSITORY, "--image-ids", f"imageTag=reporting-web-{sha}")["imageDetails"]
     if len(details) != 1 or not re.fullmatch(r"sha256:[0-9a-f]{64}", details[0]["imageDigest"]):
         raise ValueError("invalid_image_digest")
     image = prefix + "@" + details[0]["imageDigest"]
+    CURRENT_STAGE = "pre_registration_field_gate"
     if service_snapshot(live_service()) != snapshot:
         raise ValueError("service_drift_before_register")
     assert_fields(definition(baseline["taskDefinition"])["taskDefinition"], register_fields(td))
@@ -159,7 +210,9 @@ def deploy(sha, auth, execute=False):
     # ECS rejects an explicitly empty tag list. Omitting it preserves no tags.
     if original.get("tags"):
         request["tags"] = original["tags"]
+    CURRENT_STAGE = "task_registration"
     registered = aws("ecs", "register-task-definition", payload=request)["taskDefinition"]
+    CURRENT_STAGE = "post_registration_field_gate"
     assert_fields(registered, expected)
     described = definition(registered["taskDefinitionArn"])
     assert_fields(described["taskDefinition"], expected)
@@ -167,7 +220,9 @@ def deploy(sha, auth, execute=False):
         raise ValueError("task_tag_drift")
     if service_snapshot(live_service()) != snapshot:
         raise ValueError("service_drift_after_register")
+    CURRENT_STAGE = "service_update"
     aws("ecs", "update-service", "--cluster", CLUSTER, "--service", SERVICE, "--task-definition", registered["taskDefinitionArn"])
+    CURRENT_STAGE = "rollout_verification"
     deadline = time.monotonic() + 900
     while time.monotonic() < deadline:
         current = live_service()
@@ -203,7 +258,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     try:
         deploy(args.sha, controls("config/reporting-web-auth.json"), execute=args.execute)
-    except Exception:
+    except Exception as error:
         # AWS failures can contain injected configuration. Never echo exception details.
-        print(json.dumps({"deployed": False, "error": "web_deployment_failed"}))
+        print(json.dumps(failure_event(error)))
         raise SystemExit(1)

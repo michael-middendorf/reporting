@@ -2,6 +2,8 @@ import copy
 import importlib.util
 import pathlib
 import unittest
+import json
+import types
 from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("web", pathlib.Path(__file__).with_name("deploy-reporting-web.py"))
@@ -20,6 +22,30 @@ def fixture():
             "volumes": [{"name": "tmp"}], "placementConstraints": []}
 
 class FieldGate(unittest.TestCase):
+    def test_aws_failures_emit_only_operation_and_code(self):
+        secret_text = "synthetic-never-emit-credential"
+        for stderr, expected in [
+            (f"An error occurred (ClientException) when calling the RegisterTaskDefinition operation: {secret_text}", "ClientException"),
+            (f"An error occurred (SensitiveCredential123) when calling the RegisterTaskDefinition operation: {secret_text}", "UnclassifiedServiceError"),
+            (f"Parameter validation failed: {secret_text}", "CliValidationError"),
+            (f"Error parsing parameter '--cli-input-json': {secret_text}", "CliInputError"),
+            (secret_text, "UnclassifiedCliError"),
+        ]:
+            result = types.SimpleNamespace(returncode=1, stderr=stderr, stdout=secret_text)
+            with patch.object(web.subprocess, "run", return_value=result):
+                with self.assertRaises(web.AwsOperationFailure) as raised:
+                    web.aws("ecs", "register-task-definition", payload={"synthetic": secret_text})
+            event = web.failure_event(raised.exception)
+            self.assertEqual(event["operation"], "ecs:register-task-definition")
+            self.assertEqual(event["aws_error_code"], expected)
+            self.assertNotIn(secret_text, json.dumps(event))
+            self.assertNotIn("SensitiveCredential123", json.dumps(event))
+
+    def test_unknown_guard_and_parser_details_are_not_emitted(self):
+        for error in [ValueError("secret_lowercase"), RuntimeError("synthetic account details"), json.JSONDecodeError("bad", "secret-input", 0)]:
+            self.assertEqual(set(web.failure_event(error)), {"deployed", "error", "stage"})
+        self.assertEqual(web.failure_event(ValueError("task_field_drift"))["guard_reason"], "task_field_drift")
+
     def test_only_image_and_controls_change(self):
         original = fixture()
         updated = web.candidate(original, "new", {"SSO_ONLY": "true", "SSO_CUTOVER_AT": "2026-01-01T00:00:00Z"})
