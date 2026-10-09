@@ -808,7 +808,7 @@ describe("monthly AC annualization", () => {
     assert.equal(owner.giftAmount, 90);
   });
 
-  it("counts Wagner's Mission Fund monthlies in full while the Circle is still active", () => {
+  it("counts only Wagner's $25 Mission Fund for the full year", () => {
     const merged = prepareGifts(
       [
         postedGift({
@@ -890,20 +890,26 @@ describe("monthly AC annualization", () => {
       amount: number;
       acIncrease?: boolean;
       fullMonthly?: boolean;
+      newMonthly?: number;
     };
     const mission20 = merged.find((g: { id?: number | string }) => g.id === "rg-3853") as {
       amount: number;
       acIncrease?: boolean;
       fullMonthly?: boolean;
+      priorMonthly?: number;
+      newMonthly?: number;
     };
     assert.ok(mission25);
     assert.equal(mission25.acIncrease, false);
     assert.equal(mission25.fullMonthly, true);
-    assert.equal(mission25.amount, 26.06);
+    assert.equal(mission25.amount, 25);
+    assert.equal(mission25.newMonthly, 25);
     assert.ok(mission20);
-    assert.equal(mission20.acIncrease, false);
-    assert.equal(mission20.fullMonthly, true);
-    assert.equal(mission20.amount, 20.91);
+    assert.equal(mission20.acIncrease, true);
+    assert.equal(mission20.fullMonthly, false);
+    assert.equal(mission20.amount, 9.81);
+    assert.equal(mission20.priorMonthly, 11.1);
+    assert.equal(mission20.newMonthly, 20.91);
 
     const { owner, rows } = run(
       [donationNote({
@@ -919,10 +925,59 @@ describe("monthly AC annualization", () => {
     const raised = rows.find((r) => r.bucket === "donation" && r.giftId === "rg-3853");
     assert.ok(raised);
     assert.equal(raised.needsReview, undefined);
-    assert.equal(raised.amount, 250.92);
-    assert.equal(raised.acIncrease, false);
-    assert.equal(owner.giftAmount, 250.92);
+    assert.equal(raised.amount, 117.72);
+    assert.equal(raised.acIncrease, true);
+    assert.equal(owner.giftAmount, 117.72);
     assert.equal(owner.gifts, 1);
+    assert.equal(rows.some((r) => r.giftId === "rg-3835"), false);
+  });
+
+  it("does not count another donor's $25 Mission Fund in full beside a Circle", () => {
+    const merged = prepareGifts(
+      [
+        postedGift({
+          id: 1,
+          contactId: 99999,
+          giftDate: "8/1/2026",
+          amount: 11.1,
+          segment: "Annunciation Circle",
+        }),
+      ],
+      [
+        {
+          id: 1,
+          contactId: 99999,
+          startDate: "2026-01-01T00:00:00",
+          amount: 11.1,
+          frequency: "Monthly",
+          status: "UpToDate",
+          segment: "Annunciation Circle",
+          designations: [{ project: "Annunciation Circle", amountDesignated: 11.1 }],
+        },
+        {
+          id: 2,
+          contactId: 99999,
+          startDate: "2026-08-17T00:00:00",
+          amount: 26.06,
+          frequency: "Monthly",
+          status: "UpToDate",
+          segment: "Main Donation Page",
+          designations: [
+            { project: "AMU Mission Fund", amountDesignated: 25 },
+            { project: "Donor Paid Costs", amountDesignated: 1.06 },
+          ],
+        },
+      ],
+    );
+    const mission = merged.find((g: { id?: number | string }) => g.id === "rg-2") as {
+      amount: number;
+      acIncrease?: boolean;
+      fullMonthly?: boolean;
+    };
+    assert.ok(mission);
+    assert.equal(mission.acIncrease, true);
+    assert.equal(mission.fullMonthly, false);
+    assert.equal(mission.amount, 14.96);
   });
 
   it("still counts only the increase when a cancelled gift sits beside an active Circle", () => {
