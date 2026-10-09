@@ -287,9 +287,7 @@ describe("athletics coaching access", () => {
       assert.equal(canAccessReport(email, "athletics-coaching"), true, email);
       assert.equal(canAccessReport(email, "athletics"), false, email);
       assert.deepEqual(coachSportKeys(email), sports, email);
-      // DST-3015: Joseph Patterson is also on the Majors and Minors list.
-      const expected = email === "joseph.patterson@avemaria.edu" ? ["athletics-coaching", "majors"] : ["athletics-coaching"];
-      assert.deepEqual(reportsForEmail(email), expected, email);
+      assert.deepEqual(reportsForEmail(email), ["athletics-coaching"], email);
       assert.equal(canAccessAthleticsGiving(email), false, email);
       for (const sport of SPORTS) {
         assert.equal(canAccessSport(email, sport.key), sports.includes(sport.key), `${email} ${sport.key}`);
@@ -675,7 +673,6 @@ describe("marketing (Pursuit of Wisdom) grant for Camille Kaczanowski", () => {
 describe("majors (DST-3015 Majors and Minors) grant", () => {
   const LISTED = [
     "Roger.Nutt@avemaria.edu",
-    "joseph.patterson@avemaria.edu",
     "daniel.schreck@avemaria.edu",
     "adam.kinnick@avemaria.edu",
     "seana.mcguire@avemaria.edu",
@@ -698,6 +695,10 @@ describe("majors (DST-3015 Majors and Minors) grant", () => {
     for (const email of ["camillec.kaczanowski@avemaria.edu", "luke.fier@avemaria.edu", "someone@avemaria.edu", "roger.nutt@my.avemaria.edu"]) {
       assert.equal(canAccessReport(email, "majors"), false, email);
     }
+  });
+
+  it("keeps Joseph Patterson off majors (DST-3015: removed, athletics access unchanged)", () => {
+    assert.equal(canAccessReport("joseph.patterson@avemaria.edu", "majors"), false);
   });
 
   it("gives hub admins majors and is not a strict report", () => {

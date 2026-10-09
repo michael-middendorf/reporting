@@ -143,7 +143,6 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
   // DST-3015: Majors and Minors (Academic Affairs). Aggregate counts only.
   majors: [
     "roger.nutt@avemaria.edu",
-    "joseph.patterson@avemaria.edu",
     "daniel.schreck@avemaria.edu",
     "adam.kinnick@avemaria.edu",
     "seana.mcguire@avemaria.edu",
