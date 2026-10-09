@@ -687,7 +687,7 @@ function PointsPageInner() {
         if (g.contactId == null || g.contactId === "") return "";
         return donorNameByContact.get(String(g.contactId)) || "";
       },
-    });
+    }) as { rows: GiftRow[]; widened: boolean };
   }, [model.rows, giftOwner, giftQuery, donorNameByContact]);
   const listedGifts = giftList.rows;
   const galaGifts = useMemo(

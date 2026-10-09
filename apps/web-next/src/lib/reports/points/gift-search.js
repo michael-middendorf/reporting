@@ -62,6 +62,11 @@ function amountTokenMatches(raw, gift) {
  * Filter the counted gift rows already returned by listedGiftRows.
  * A blank query keeps the selected MA. A query with no MA searches everyone.
  * A query that misses the selected MA returns matches for the other MAs.
+ *
+ * @template T
+ * @param {T[]} gifts
+ * @param {{ owner?: string | null, query?: string, nameOf?: (gift: T) => string }} [opts]
+ * @returns {{ rows: T[], widened: boolean }}
  */
 export function filterListedGifts(gifts, { owner = null, query = "", nameOf = (g) => g?.contactName || "" } = {}) {
   const q = String(query || "").trim();
