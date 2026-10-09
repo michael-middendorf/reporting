@@ -81,10 +81,17 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 
 - Ask census is off the census page.
 
+## Archive files
+
+- The Files tab on /census is the official workbook download (`Downloads/Census (1).zip` or a later Census folder zip). Publish with `scripts/publish-census-archive.py`. Objects live at `cache/census/archive/` in the report data bucket. Do not commit the workbooks or sheet previews.
+- Do not edit the Drive census folder to build this tab. Read the local zip only.
+- Fall 2026 on Summary through FA26 LOA stays the live dashboard. Files opens each saved workbook on its own sheet tabs, with Fall 2026 first.
+
 ## Do not
 
 - Treat returning FTCA freshmen as the FA25 new-student FTCA pool.
 - Count spring admits as Incoming on Summary.
 - Put managers/band in the Athletes column (sport table) or as Athlete on Census Raw. They stay Associated.
-- Commit `data/*.json` or athletics WIP.
+- Commit `data/*.json`, census archive workbooks, or athletics WIP.
+- Edit files in the Drive census folder.
 - Invent Pell / first-gen / income — not on these lists.
