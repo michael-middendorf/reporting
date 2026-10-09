@@ -348,3 +348,33 @@
 }
 .ac-info-wrap:hover .ac-info-tip,
 .ac-info:focus + .ac-info-tip { opacity: 1; }
+
+.ac-mailing { margin: 0 0 28px; }
+.ac-mailing h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: normal;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--ac-border);
+}
+.ac-mailing-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: flex-end;
+}
+.ac-mailing-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--ac-dim);
+}
+.ac-mailing-fields input {
+  width: auto;
+  max-width: none;
+  flex: none;
+}
+.ac-mailing .ac-table { min-width: 1100px; }
+.ac-mailing .ac-table thead th { cursor: default; }

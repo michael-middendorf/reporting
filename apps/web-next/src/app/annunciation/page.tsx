@@ -14,6 +14,7 @@ import {
   type AnnunciationRetentionPoint,
   type AnnunciationSnapshot,
 } from "@/lib/reports/annunciation/shape";
+import { NewMemberList } from "./NewMemberList";
 import "@/styles/annunciation.css";
 
 type Payload = Partial<AnnunciationSnapshot> & { error?: string };
@@ -301,6 +302,8 @@ function AnnunciationInner() {
               </ul>
             </section>
           )}
+
+          <NewMemberList members={members} />
 
           {stats && recentMonthly.length > 0 && (
             <section className="ac-analytics">

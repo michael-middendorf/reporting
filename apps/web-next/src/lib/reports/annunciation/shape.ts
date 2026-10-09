@@ -26,6 +26,23 @@ export type AnnunciationMember = {
   recurringStatus: string | null;
   /** ISO date (YYYY-MM-DD) the member was first detected in the circle, or null for baseline members. */
   firstSeen: string | null;
+  /** Mailing fields. Optional so a snapshot from before they were published still typechecks. */
+  firstName?: string | null;
+  lastName?: string | null;
+  prefix?: string | null;
+  suffix?: string | null;
+  secondaryFirstName?: string | null;
+  secondaryLastName?: string | null;
+  secondaryPrefix?: string | null;
+  secondarySuffix?: string | null;
+  formalContactName?: string | null;
+  informalName?: string | null;
+  address1?: string | null;
+  address2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postal?: string | null;
+  country?: string | null;
 };
 
 export type AnnunciationProjectTotals = {
