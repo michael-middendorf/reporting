@@ -83,9 +83,9 @@ Load this before re-tracing sources. Live lists are gitignored JSON under `data/
 
 ## Archive files
 
-- The Files tab on /census is the official workbook download (`Downloads/Census (1).zip` or a later Census folder zip). Publish with `scripts/publish-census-archive.py`. Objects live at `cache/census/archive/` in the report data bucket. Do not commit the workbooks or sheet previews.
+- Saved censuses sit under the census title on /census as year buttons (Live Fall 2026, then Fall 2026 through Fall 2011 and the spring censuses). Source is the local Census folder zip. Publish with `scripts/publish-census-archive.py`. Objects live at `cache/census/archive/` in the report data bucket. Do not commit the workbooks or sheet previews.
 - Do not edit the Drive census folder to build this tab. Read the local zip only.
-- Fall 2026 on Summary through FA26 LOA stays the live dashboard. Files opens each saved workbook on its own sheet tabs, with Fall 2026 first.
+- Live Fall 2026 is the button that shows Summary through FA26 LOA. Each other year opens that saved workbook on its own sheet tabs.
 
 ## Do not
 

@@ -61,7 +61,7 @@ function fmtFte(n: number | null | undefined): string {
   return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
 
-type Tab = "summary" | "historical" | "ug" | "grad" | "attrition" | "ftca" | "raw" | "unretained" | "loa" | "files";
+type Tab = "summary" | "historical" | "ug" | "grad" | "attrition" | "ftca" | "raw" | "unretained" | "loa";
 
 type CensusPageData = CensusSnapshot & {
   reportStudents?: ReportStudent[];
@@ -79,6 +79,7 @@ export function CensusDashboard() {
   const [data, setData] = useState<CensusPageData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("summary");
+  const [savedCensus, setSavedCensus] = useState("");
   const [filters, setFilters] = useState<ReportFilters>(DEFAULT_FILTERS);
   const [downloading, setDownloading] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -355,7 +356,9 @@ export function CensusDashboard() {
         </div>
         {exportError && <p className="export-error">Excel export failed: {exportError}</p>}
 
-        {data.pending.length > 0 && (
+        <CensusArchive selected={savedCensus} onSelected={setSavedCensus} />
+
+        {savedCensus === "" && data.pending.length > 0 && (
           <div className="pending">
             <h2>Still to add</h2>
             <ul>
@@ -366,7 +369,7 @@ export function CensusDashboard() {
           </div>
         )}
 
-        <div className="kpis">
+        {savedCensus === "" && <div className="kpis">
           <Kpi label="All students" value={fmtN(k.allStudents)} def={KPI_DEFS.allStudents} />
           <Kpi label="UG degree-seeking" value={fmtN(k.ugStudents)} def={KPI_DEFS.ugStudents} />
           <Kpi
@@ -393,19 +396,19 @@ export function CensusDashboard() {
             def={KPI_DEFS.testScores}
             flip
           />
-        </div>
+        </div>}
 
-        {tab !== "files" && (
+        {savedCensus === "" && (
           <FilterBar filters={filters} onChange={setFilters} sports={sports} majors={majors} religions={religions} />
         )}
-        {tab !== "files" && filters.retention === "unretained" && (
+        {savedCensus === "" && filters.retention === "unretained" && (
           <p className="filter-note">
             Unretained is on. Census Report, All Not Retained, and exports use FA25 students who did not return.
             Summary and Census Raw stay Fall 2026 enrolled.
           </p>
         )}
 
-        <div className="tabs">
+        {savedCensus === "" && <div className="tabs">
           {(
             [
               ["summary", "Summary"],
@@ -417,7 +420,6 @@ export function CensusDashboard() {
               ["raw", "Census Raw"],
               ["unretained", "All Not Retained"],
               ["loa", "FA26 LOA"],
-              ["files", "Files"],
             ] as [Tab, string][]
           ).map(([id, label]) => (
             <button
@@ -429,11 +431,11 @@ export function CensusDashboard() {
               {label}
             </button>
           ))}
-        </div>
+        </div>}
 
-        {tab === "summary" && <SummaryTab data={summaryData} />}
-        {tab === "historical" && <HistoricalTab data={summaryData} />}
-        {tab === "ug" && (
+        {savedCensus === "" && tab === "summary" && <SummaryTab data={summaryData} />}
+        {savedCensus === "" && tab === "historical" && <HistoricalTab data={summaryData} />}
+        {savedCensus === "" && tab === "ug" && (
           <CensusReport
             data={summaryData}
             extras={extras}
@@ -441,8 +443,8 @@ export function CensusDashboard() {
             filters={filters}
           />
         )}
-        {tab === "grad" && <GraduateTab year={data.historical.years[0] ?? 2026} blocks={gradBlocks} />}
-        {tab === "attrition" && (
+        {savedCensus === "" && tab === "grad" && <GraduateTab year={data.historical.years[0] ?? 2026} blocks={gradBlocks} />}
+        {savedCensus === "" && tab === "attrition" && (
           <AttritionTab
             data={summaryData}
             extras={ftcaExtras}
@@ -452,11 +454,10 @@ export function CensusDashboard() {
             }}
           />
         )}
-        {tab === "ftca" && <FtcaRawSheet rows={filteredFtca} />}
-        {tab === "raw" && <RawDataSheet students={filteredAll} alumniIds={alumniIds} />}
-        {tab === "unretained" && <UnretainedSheet students={filteredUnretained} />}
-        {tab === "files" && <CensusArchive />}
-        {tab === "loa" && (
+        {savedCensus === "" && tab === "ftca" && <FtcaRawSheet rows={filteredFtca} />}
+        {savedCensus === "" && tab === "raw" && <RawDataSheet students={filteredAll} alumniIds={alumniIds} />}
+        {savedCensus === "" && tab === "unretained" && <UnretainedSheet students={filteredUnretained} />}
+        {savedCensus === "" && tab === "loa" && (
           <LoaSheet
             rows={filteredLoaFall}
             title="Fall 2026 Leave of Absence"
