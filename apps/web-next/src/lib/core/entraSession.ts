@@ -1,6 +1,6 @@
 /**
  * Server-only: exchange a Microsoft auth code at core and return the verified
- * campus email. Never import from client code.
+ * campus email and original authentication context. Never import from client code.
  */
 
 /** Core's session cookie name (avemaria-api app/utils/user_sessions/cookie.py). */
@@ -47,7 +47,7 @@ function coreHeaders(token: string): Record<string, string> {
 }
 
 /**
- * Exchange the Microsoft code at core and return the email core verified.
+ * Exchange the Microsoft code at core and return the email and original Entra context core verified.
  *
  * Core mints a core session (7 days sliding / 30 days absolute) as a side
  * effect. Reporting does not use core sessions, so that token is used for
@@ -55,13 +55,13 @@ function coreHeaders(token: string): Record<string, string> {
  * every failure after the mint. The token and the code are never logged,
  * stored or sent to the browser.
  */
-export async function emailFromEntraCode(input: {
+export async function identityFromEntraCode(input: {
   coreApiUrl: string;
   code: string;
   codeVerifier: string;
   redirectUri: string;
   nonce: string;
-}): Promise<string> {
+}): Promise<{ email: string; authContext: { method: "entra"; created_at: string } }> {
   const base = input.coreApiUrl.trim().replace(/\/+$/, "");
   if (!base) throw new EntraSignInError(null);
 
@@ -105,15 +105,17 @@ export async function emailFromEntraCode(input: {
       await me.arrayBuffer().catch(() => undefined);
       throw new EntraSignInError(me.status);
     }
-    let body: { email?: unknown };
+    let body: { email?: unknown; auth_context?: unknown };
     try {
-      body = (await me.json()) as { email?: unknown };
+      body = (await me.json()) as { email?: unknown; auth_context?: unknown };
     } catch {
       throw new EntraSignInError(me.status);
     }
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
     if (!email) throw new EntraSignInError(me.status);
-    return email;
+    const context = originalEntraContext(body.auth_context);
+    if (!context) throw new EntraSignInError(me.status);
+    return { email, authContext: context };
   } finally {
     try {
       const revoke = await fetch(`${base}/user-sessions/current`, {
@@ -131,4 +133,23 @@ export async function emailFromEntraCode(input: {
       console.error("[entra] core session revoke failed");
     }
   }
+}
+
+/** Accept only actual aware ISO evidence, preserving Core's original precision/offset. */
+export function originalEntraContext(value: unknown): { method: "entra"; created_at: string } | null {
+  if (!value || typeof value !== "object") return null;
+  const context = value as { method?: unknown; created_at?: unknown };
+  if (context.method !== "entra" || typeof context.created_at !== "string") return null;
+  const parts = context.created_at.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/);
+  if (!parts) return null;
+  const [, year, month, day, hour, minute, second, zone] = parts;
+  const y = Number(year), m = Number(month), d = Number(day);
+  const leap = y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (m < 1 || m > 12 || d < 1 || d > days[m - 1] ||
+      Number(hour) > 23 || Number(minute) > 59 || Number(second) > 59) return null;
+  if (zone !== "Z" && (Number(zone.slice(1, 3)) > 23 || Number(zone.slice(4)) > 59)) return null;
+  const issued = Date.parse(context.created_at);
+  if (!Number.isFinite(issued) || issued > Date.now() + 60_000) return null;
+  return { method: "entra", created_at: context.created_at };
 }

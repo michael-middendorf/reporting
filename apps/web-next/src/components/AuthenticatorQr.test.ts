@@ -128,11 +128,11 @@ test("live enrollment screens render the shared setup and the retired page does 
   for (const source of [hub, coaching]) {
     const flat = source.replace(/\s+/g, " ");
     assert.match(flat, /AuthenticatorSetup/);
-    assert.match(flat, /Scan this code/);
-    assert.match(flat, /type the key/);
+    assert.match(flat, /MicrosoftAuthenticatorInstructions/);
+
     assert.doesNotMatch(source, /otpauth:\/\//);
   }
-  assert.match(hub, /passkey on Security/);
+  assert.match(hub, /existing passkey/);
   assert.match(aspiredu, /redirect\(/);
   assert.doesNotMatch(aspiredu, /AuthenticatorSetup/);
   assert.doesNotMatch(aspiredu, /Copy key/);

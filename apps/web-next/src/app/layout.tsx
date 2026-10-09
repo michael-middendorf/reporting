@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { SessionProvider } from "@/components/SessionProvider";
 
 export const metadata: Metadata = {
   title: "AMU Reporting",
@@ -19,7 +20,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body><SessionProvider>{children}</SessionProvider></body>
     </html>
   );
 }

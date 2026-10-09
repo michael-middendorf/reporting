@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AccessGate } from "@/components/AccessGate";
+import { MicrosoftAuthenticatorInstructions } from "@/components/MicrosoftAuthenticatorInstructions";
 import { AuthenticatorSetup } from "@/components/AuthenticatorQr";
 import { apiFetch } from "@/lib/api";
 
@@ -90,16 +91,11 @@ export default function CoachingMfaPage() {
         <section className="ath-coach-band ath-mfa">
           <h1>Authenticator code</h1>
           <p>
-            You are already signed in with your reporting email link. Named athlete academics need a
-            6-digit code from an authenticator app.
+            Named athlete academics require an additional 6-digit code from Microsoft Authenticator.
           </p>
           {secret ? (
             <div className="ath-mfa-key">
-              <p>
-                {otpauth
-                  ? "Scan this code in Google Authenticator, Authy, or 1Password. If you cannot scan, type the key below."
-                  : "Add this key in Google Authenticator, Authy, or 1Password."}
-              </p>
+              <MicrosoftAuthenticatorInstructions setup hasQr={Boolean(otpauth)} />
               <AuthenticatorSetup
                 secret={secret}
                 otpauth={otpauth}
@@ -110,6 +106,7 @@ export default function CoachingMfaPage() {
               />
             </div>
           ) : null}
+          {enrolled && !secret ? <MicrosoftAuthenticatorInstructions setup={false} /> : null}
           {(enrolled || secret) && (
             <form className="ath-mfa-form" onSubmit={(event) => void submit(event)}>
               <label htmlFor="coaching-totp">6-digit code</label>
@@ -126,7 +123,7 @@ export default function CoachingMfaPage() {
               />
               <p>
                 <button className="ath-primary" type="submit" disabled={busy || code.length !== 6}>
-                  Continue
+                  Verify
                 </button>
               </p>
             </form>

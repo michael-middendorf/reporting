@@ -1,5 +1,6 @@
 "use client";
 import { useSyncExternalStore } from "react";
+import styles from "@/app/auth.module.css";
 function subscribeSearch(onChange: () => void) {
   window.addEventListener("popstate", onChange);
   return () => window.removeEventListener("popstate", onChange);
@@ -11,11 +12,12 @@ export function SsoLogin({ enabled, href, returnParam = "from" }: { enabled: boo
   const safe = path?.startsWith("/") && !path.startsWith("//") && !/[\\\u0000-\u001f\u007f]/.test(path);
   const destination = safe ? href + "?" + returnParam + "=" + encodeURIComponent(path!) : href;
   const failed = query.get("microsoft") === "failed" || !!query.get("error");
-  return <main className="mx-auto max-w-md px-6 py-20">
-    <h1 className="text-2xl font-semibold">Sign in</h1>
-    <p className="mt-4">Use your Ave Maria University Microsoft account.</p>
-    {failed && <p role="alert" className="mt-4">Microsoft sign-in did not complete. Please try again.</p>}
-    {enabled ? <a className="mt-6 block rounded bg-blue-900 px-4 py-3 text-center font-semibold text-white" href={destination}>Sign in with Microsoft</a>
-      : <p role="alert" className="mt-6">Microsoft sign-in is temporarily unavailable. Please contact IT.</p>}
+  return <main className={styles.card}>
+    <div className={styles.eyebrow}>Ave Maria University</div>
+    <h1>AMU Reporting</h1>
+    <p className={styles.copy}>Use your regular Ave Maria University staff Microsoft account.</p>
+    {failed && <p role="alert" className={`${styles.status} err`}>Microsoft sign-in did not complete. Try again with your regular University staff account, or contact IT.</p>}
+    {enabled ? <a className={styles.microsoftLink} href={destination}>Sign in with Microsoft</a>
+      : <p role="alert" className={`${styles.status} err`}>Microsoft sign-in is temporarily unavailable. Please contact IT.</p>}
   </main>;
 }

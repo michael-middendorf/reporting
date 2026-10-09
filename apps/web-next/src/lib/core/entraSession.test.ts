@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { EntraSignInError, emailFromEntraCode, sessionTokenFromSetCookie } from "./entraSession";
+import { EntraSignInError, identityFromEntraCode, sessionTokenFromSetCookie } from "./entraSession";
 
+const ORIGINAL = new Date(Date.now()-1000).toISOString().replace("Z", "123+00:00");
 const INPUT = {
   coreApiUrl: "https://core.test",
   code: "code",
@@ -40,7 +41,7 @@ function minted(): Response {
 }
 
 function me(email: string): Response {
-  return new Response(JSON.stringify({ id: "u", email }), {
+  return new Response(JSON.stringify({ id: "u", email, auth_context: {method:"entra", created_at: ORIGINAL} }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
@@ -63,10 +64,10 @@ describe("sessionTokenFromSetCookie", () => {
   });
 });
 
-describe("emailFromEntraCode", () => {
+describe("identityFromEntraCode", () => {
   it("returns the lower-cased email and revokes the core session", async () => {
     stubFetch({ exchange: minted, me: () => me(" Someone@AveMaria.edu ") });
-    assert.equal(await emailFromEntraCode(INPUT), "someone@avemaria.edu");
+    assert.deepEqual(await identityFromEntraCode(INPUT), {email:"someone@avemaria.edu",authContext:{method:"entra",created_at:ORIGINAL}});
     const meCall = calls.find((c) => c.url.endsWith("/users/me"));
     assert.equal(meCall?.cookie, "session_token=core-tok");
     const revoke = calls.find((c) => c.method === "DELETE");
@@ -78,19 +79,19 @@ describe("emailFromEntraCode", () => {
 
   it("still revokes when /users/me fails", async () => {
     stubFetch({ exchange: minted, me: () => new Response("{}", { status: 401 }) });
-    await assert.rejects(emailFromEntraCode(INPUT), EntraSignInError);
+    await assert.rejects(identityFromEntraCode(INPUT), EntraSignInError);
     assert.ok(calls.some((c) => c.method === "DELETE"));
   });
 
   it("still revokes when /users/me has no email", async () => {
     stubFetch({ exchange: minted, me: () => new Response("{}", { status: 200 }) });
-    await assert.rejects(emailFromEntraCode(INPUT), EntraSignInError);
+    await assert.rejects(identityFromEntraCode(INPUT), EntraSignInError);
     assert.ok(calls.some((c) => c.method === "DELETE"));
   });
 
   it("does not call core again when the exchange is refused", async () => {
     stubFetch({ exchange: () => new Response('{"detail":"x"}', { status: 401 }) });
-    await assert.rejects(emailFromEntraCode(INPUT), (e: unknown) => {
+    await assert.rejects(identityFromEntraCode(INPUT), (e: unknown) => {
       assert.ok(e instanceof EntraSignInError);
       assert.equal(e.status, 401);
       return true;
@@ -100,7 +101,7 @@ describe("emailFromEntraCode", () => {
 
   it("ignores a token in the body and fails without the Set-Cookie", async () => {
     stubFetch({ exchange: () => new Response('{"token":"body-tok"}', { status: 201 }) });
-    await assert.rejects(emailFromEntraCode(INPUT), EntraSignInError);
+    await assert.rejects(identityFromEntraCode(INPUT), EntraSignInError);
     assert.equal(calls.length, 1);
   });
 
@@ -112,7 +113,7 @@ describe("emailFromEntraCode", () => {
       if (String(input).endsWith("/from-entra")) body = JSON.parse(String(init?.body));
       return wrapped(input, init);
     }) as typeof fetch;
-    await emailFromEntraCode(INPUT);
+    await identityFromEntraCode(INPUT);
     assert.deepEqual(body, {
       code: "code",
       code_verifier: INPUT.codeVerifier,
@@ -120,4 +121,16 @@ describe("emailFromEntraCode", () => {
       nonce: INPUT.nonce,
     });
   });
+});
+
+it("rejects missing, non-Entra, malformed and future Core proof even with rollout disabled and still revokes", async () => {
+  const flag=process.env.SSO_ONLY; process.env.SSO_ONLY="false";
+  try {
+    for(const context of [undefined,null,{method:"otp",created_at:ORIGINAL},{method:"entra",created_at:"invalid"},{method:"entra",created_at:"2026-02-30T00:00:00Z"},{method:"entra",created_at:"2026-01-01T25:00:00Z"},{method:"entra",created_at:"2026-01-01T00:00:00"},{method:"entra",created_at:new Date(Date.now()+120000).toISOString()}]) {
+      calls=[];
+      stubFetch({exchange:minted,me:()=>new Response(JSON.stringify({email:"person@example.invalid",auth_context:context}),{status:200})});
+      await assert.rejects(identityFromEntraCode(INPUT),EntraSignInError);
+      assert.equal(calls.filter(c=>c.method==="DELETE").length,1);
+    }
+  } finally { if(flag===undefined)delete process.env.SSO_ONLY;else process.env.SSO_ONLY=flag; }
 });

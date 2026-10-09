@@ -18,6 +18,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+
+      - name: Select deployment scope
+        id: scope
+        env:
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: python3 scripts/reporting-deploy-scope.py
+
+      - name: Test web deployment boundaries
+        run: python3 -m unittest discover -s scripts -p 'test_reporting_*.py'
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -25,6 +36,7 @@ jobs:
           cache: npm
 
       - name: Install JS deps
+        if: steps.scope.outputs.scope == 'full'
         run: |
           npm ci
           npm ci --prefix apps/web-next
@@ -34,6 +46,7 @@ jobs:
       # uv is not on the runner by default, so the sst deploy step below fails every
       # Python package build ("uv build failed") without this.
       - name: Install uv (for SST Python function builds)
+        if: steps.scope.outputs.scope == 'full'
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
@@ -45,19 +58,26 @@ jobs:
           aws-region: us-east-2
 
       - name: Type-check infrastructure
+        if: steps.scope.outputs.scope == 'full'
         run: npm run build --prefix infra
 
       - name: Synthesize infrastructure
+        if: steps.scope.outputs.scope == 'full'
         run: timeout 5m npm run synth --prefix infra -- --strict
 
       - name: Deploy ECS
+        if: steps.scope.outputs.scope == 'full'
         working-directory: infra
         # Dockerfile.web performs the production Next.js build as part of the
         # CDK image asset; do not build it a second time in the runner.
         run: npx cdk deploy AmuReportingEcs --require-approval never
 
+      - name: Deploy only Reporting web
+        if: steps.scope.outputs.scope == 'web'
+        run: python3 scripts/deploy-reporting-web.py --sha "$GITHUB_SHA" --execute
+
       - name: Deploy SST runtime (publishers)
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && steps.scope.outputs.scope == 'full'
         # The publisher crons (Annunciation, Enrollment, Housing, Virtuous)
         # and the on-demand report Lambdas (Institute/MAS/Alumni) live in the
         # SST stack, separate from the ECS web app above.

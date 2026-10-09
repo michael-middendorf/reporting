@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { canLogin, sessionDecisionAtComplete } from "@/lib/access";
-import { EntraSignInError, emailFromEntraCode } from "@/lib/core/entraSession";
+import { EntraSignInError, identityFromEntraCode } from "@/lib/core/entraSession";
 import {
   ENTRA_COOKIES,
   MICROSOFT_FAILED_PATH,
@@ -67,23 +67,20 @@ export async function GET(req: NextRequest) {
   const secret = (process.env.AUTH_SECRET || "").trim();
   if (!secret) return fail("auth_not_configured");
 
-  let email: string;
+  let identity: Awaited<ReturnType<typeof identityFromEntraCode>>;
   try {
-    email = (
-      await emailFromEntraCode({
-        coreApiUrl: config.coreApiUrl,
-        code,
-        codeVerifier: verifier,
-        redirectUri: entraRedirectUri(),
-        nonce,
-      })
-    )
-      .trim()
-      .toLowerCase();
+    identity = await identityFromEntraCode({
+      coreApiUrl: config.coreApiUrl,
+      code,
+      codeVerifier: verifier,
+      redirectUri: entraRedirectUri(),
+      nonce,
+    });
   } catch (e) {
     return fail("core_exchange", { status: e instanceof EntraSignInError ? e.status : null });
   }
 
+  const { email, authContext } = identity;
   if (!canLogin(email)) return fail("not_permitted");
 
   const signIn = signInAfterVerification(
@@ -94,6 +91,7 @@ export async function GET(req: NextRequest) {
     // Marks the session (or the mfa_pending token) auth: "entra" with a fresh
     // iat. requireCyberAccess accepts only these sessions.
     "entra",
+    authContext.created_at,
   );
   const dest =
     signIn.kind === "mfa_pending"

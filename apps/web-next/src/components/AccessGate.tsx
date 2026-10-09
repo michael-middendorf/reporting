@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import type { ReportId } from "@/lib/access";
-import { apiFetch, fetchMe, setBearer } from "@/lib/api";
+import { apiFetch, setBearer } from "@/lib/api";
+import { useCurrentSession } from "./SessionProvider";
 import {
   isDepartmentHub,
   reportCrumbs,
@@ -21,20 +22,13 @@ export function AccessGate({
   children: ReactNode;
 }) {
   const neededKey = (Array.isArray(report) ? report : [report]).join(",");
-  const [state, setState] = useState<"loading" | "ok" | "denied">("loading");
+  const me = useCurrentSession();
   useEffect(() => {
-    const needed = neededKey.split(",") as ReportId[];
-    fetchMe().then((me) => {
-      if (!me.authenticated) {
-        window.location.href = "/";
-        return;
-      }
-      const allowed = me.reports || [];
-      setState(needed.some((r) => allowed.includes(r)) ? "ok" : "denied");
-    });
-  }, [neededKey]);
-  if (state === "loading") return <p className="rc-loading">Loading…</p>;
-  if (state === "denied")
+    if (me?.authenticated === false) window.location.replace(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+  }, [me]);
+  if (!me?.authenticated) return <p className="rc-loading">Loading…</p>;
+  const needed = neededKey.split(",") as ReportId[];
+  if (!needed.some((r) => (me.reports || []).includes(r)))
     return (
       <div className="rc-denied">
         <p>You do not have access to this report.</p>

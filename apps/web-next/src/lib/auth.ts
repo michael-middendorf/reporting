@@ -138,14 +138,14 @@ export function createMfaPendingToken(
   email: string,
   signingKey: string,
   ttlMinutes = MFA_PENDING_TTL_MINUTES,
-  options?: { auth?: SessionAuthMethod },
+  options?: { auth?: SessionAuthMethod; authCreatedAt?: string },
 ) {
   const payload: Record<string, unknown> = {
     email: normalizeEmail(email),
     exp: Math.floor(Date.now() / 1000) + Math.max(ttlMinutes, 1) * 60,
     type: "mfa_pending",
     auth_method: options?.auth === "entra" ? "entra" : null,
-    auth_created_at: new Date().toISOString(),
+    auth_created_at: options?.authCreatedAt ?? new Date().toISOString(),
   };
   // Carried through /auth/mfa so a Microsoft sign-in that also needs TOTP or a
   // passkey still ends in an auth: "entra" session (see mint-session.ts).

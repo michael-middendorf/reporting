@@ -43,10 +43,11 @@ export function signInAfterVerification(
    * `auth` claim (and on the mfa_pending token so /auth/mfa keeps it).
    */
   auth: SessionAuthMethod = "magic",
+  authCreatedAt?: string,
 ): VerifiedSignIn {
   const secure = cookieSecureFromRequest(req);
   if (decision === "mfa_pending") {
-    const pending = createMfaPendingToken(email, secret, MFA_PENDING_TTL_MINUTES, { auth });
+    const pending = createMfaPendingToken(email, secret, MFA_PENDING_TTL_MINUTES, { auth, authCreatedAt });
     return {
       kind: "mfa_pending",
       redirect: MFA_PAGE_PATH,
@@ -60,7 +61,7 @@ export function signInAfterVerification(
   }
 
   const ttlDays = reportingSessionTtlDays();
-  const session = createSessionToken(email, secret, ttlDays, { auth });
+  const session = createSessionToken(email, secret, ttlDays, { auth, authCreatedAt });
   return {
     kind: "session",
     session,

@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { startAuthentication, type PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
+import { MicrosoftAuthenticatorInstructions } from "@/components/MicrosoftAuthenticatorInstructions";
 import { AuthenticatorSetup } from "@/components/AuthenticatorQr";
 import { apiFetch, setBearer } from "@/lib/api";
 import styles from "../../auth.module.css";
@@ -120,20 +121,7 @@ export default function AuthMfaPage() {
       ) : null}
       {secret ? (
         <>
-          <p className={styles.copy}>
-            {otpauth ? (
-              <>
-                Scan this code in Google Authenticator, Authy, or 1Password. If you cannot scan, type the
-                key below. After you sign in, you can add a passkey on Security so the next sign-in can
-                skip the 6-digit code.
-              </>
-            ) : (
-              <>
-                Add this key in Google Authenticator, Authy, or 1Password. After you sign in, you can add a
-                passkey on Security so the next sign-in can skip the 6-digit code.
-              </>
-            )}
-          </p>
+          <MicrosoftAuthenticatorInstructions setup hasQr={Boolean(otpauth)} />
           <div className={styles.keyBox}>
             <AuthenticatorSetup
               secret={secret}
@@ -148,11 +136,10 @@ export default function AuthMfaPage() {
           </div>
         </>
       ) : enrolled ? (
-        <p className={styles.copy}>
-          {hasPasskey
-            ? "Use your passkey, or enter a 6-digit authenticator code."
-            : "Enter a 6-digit code from your authenticator app. After sign-in you can set up a passkey on Security."}
-        </p>
+        <>
+          <MicrosoftAuthenticatorInstructions setup={false} />
+          {hasPasskey && <p className={styles.copy}>You can also use your existing passkey.</p>}
+        </>
       ) : null}
       {hasPasskey && enrolled ? (
         <button type="button" disabled={busy} onClick={() => void signInWithPasskey()}>
@@ -175,7 +162,7 @@ export default function AuthMfaPage() {
             required
           />
           <button type="submit" disabled={busy || code.length !== 6} className={hasPasskey ? styles.secondary : undefined}>
-            Continue
+            Verify
           </button>
         </form>
       )}

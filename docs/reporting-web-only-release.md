@@ -1,0 +1,15 @@
+# Reporting web release boundary
+
+Ticket: Michael Middendorf directly requested Microsoft-only Reporting and clearer Microsoft Authenticator instructions. He confirmed no Services ticket exists for this rollout.
+
+The web-only push path builds the existing Dockerfile.web for linux/amd64 in the existing CDK ECR repository. It clones the live Reporting web task definition and changes only its image and the two controls in config/reporting-web-auth.json. Initial source controls remain SSO_ONLY=false and SSO_CUTOVER_AT empty. A separately reviewed activation commit must set true and an original-authentication UTC cutoff after normal Microsoft and existing MFA acceptance. Core global MFA and other applications are unchanged.
+
+The script defaults to metadata-only dry-run. Only --execute builds or pushes an image, registers a task, or updates the service. Existing immutable source tags are reused on retries. The registered task, existing tags, service/network settings and running immutable digest are checked without printing environment values or secret references. Roles, secret references, sidecars, storage and resources are preserved. The old task-definition ARN is reported as bounded rollback metadata.
+
+The path classifier uses the complete push before/after range. The initial bootstrap is pinned to the reviewed 80ca93b72f996b94678ed5ea991c2d1abb5601e0 base and exact Git-LF content hashes of its deployment/infrastructure/doc files. Missing or mismatched bootstrap proof blocks the workflow. Later web changes skip CDK and SST; publisher inputs copied from the web tree require the existing full deployment path. Unknown infrastructure changes retain that full path. Manual dispatch retains the existing full CDK path and is not authorized as a recovery shortcut for this web release.
+
+Direct web task updates deliberately change the CloudFormation service task-definition reference. Workers, seven scheduled jobs and publisher stacks are untouched. The web auth JSON is also used by IaC so a future full deployment preserves reviewed auth controls. Any future CDK deployment still requires a fresh actual resource-change review; the web-only path is not permission to publish workers or change IAM.
+
+Before activation, the prior accepted task can be restored, retaining existing data and MFA factors. After activation, rollback must preserve SSO_ONLY=true and its approved cutoff: clone an accepted SSO-capable web image with the active controls and otherwise identical current settings. Reverting controls or using an email-only image would reopen retired authentication and is not an acceptable security rollback.
+
+Verification: offline field, stability, secret-collision, dry-run, post-registration drift and classifier tests; infrastructure type-check; real production Docker build occurs in the sanctioned workflow before task registration. No local Docker daemon is available. No production deployment, config mutation, account or factor changes were performed while preparing these source files.

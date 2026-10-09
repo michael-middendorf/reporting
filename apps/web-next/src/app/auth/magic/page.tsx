@@ -2,8 +2,9 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { apiFetch, setBearer } from "@/lib/api";
+import { completeSessionSignIn } from "@/lib/session-lifecycle";
 import styles from "../../auth.module.css";
 
 /** Survives React Strict Mode remount. useRef does not. */
@@ -33,17 +34,12 @@ function tokenFromHash(): string | null {
 
 const subscribeNoop = () => () => {};
 
-function goTo(dest: string, router: { replace: (href: string) => void }) {
-  if (dest === "/auth/mfa") {
-    window.location.replace(dest);
-    return;
-  }
-  router.replace(dest);
+function goTo(dest: string) {
+  completeSessionSignIn(dest, (path) => window.location.replace(path));
 }
 
 function MagicInner() {
   const params = useSearchParams();
-  const router = useRouter();
   // The #token= fragment is captured once on the first client render (the effect
   // below strips it from the address bar), so the token is derived instead of
   // being copied into state from the effect.
@@ -61,7 +57,7 @@ function MagicInner() {
       if (!magicToken) return;
 
       if (completed.has(magicToken)) {
-        goTo(lastRedirect.get(magicToken) || "/", router);
+        goTo(lastRedirect.get(magicToken) || "/");
         return;
       }
 
@@ -69,7 +65,7 @@ function MagicInner() {
       if (existing) {
         await existing;
         if (completed.has(magicToken)) {
-          goTo(lastRedirect.get(magicToken) || "/", router);
+          goTo(lastRedirect.get(magicToken) || "/");
         }
         return;
       }
@@ -102,7 +98,7 @@ function MagicInner() {
         completed.add(magicToken);
         lastRedirect.set(magicToken, dest);
         setStatus({ kind: "ok", text: "Signed in. Redirecting…" });
-        router.replace(dest);
+        goTo(dest);
       } catch (err) {
         const raw = err instanceof Error ? err.message : String(err);
         setStatus({ kind: "err", text: friendlyMagicError(raw) });
@@ -112,7 +108,7 @@ function MagicInner() {
         release();
       }
     },
-    [router],
+    [],
   );
 
   useEffect(() => {

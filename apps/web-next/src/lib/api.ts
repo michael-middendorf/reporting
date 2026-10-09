@@ -33,19 +33,26 @@ export type AuthMe = {
 };
 
 export async function fetchMe(): Promise<AuthMe> {
+  return await readAuthSession() ?? { authenticated: false };
+}
+
+/** Verification outages must not erase an already displayed session. */
+export async function readAuthSession(): Promise<AuthMe | null> {
   try {
-    let res = await apiFetch("/api/auth/me");
+    let res = await apiFetch("/api/auth/me", { cache: "no-store" });
     // The server reads a Bearer header before the HttpOnly cookie. A stale
     // tab-scoped token (expired, or from before an AUTH_SECRET change) would
     // hide a valid cookie session, e.g. one set by Microsoft sign-in, which
     // never puts a token in sessionStorage. Drop it and retry on the cookie.
     if (res.status === 401 && getBearer()) {
       setBearer(null);
-      res = await apiFetch("/api/auth/me");
+      res = await apiFetch("/api/auth/me", { cache: "no-store" });
     }
-    if (!res.ok) return { authenticated: false };
-    return (await res.json()) as AuthMe;
+    if (res.status === 401) return { authenticated: false };
+    if (!res.ok) return null;
+    const me = await res.json() as AuthMe;
+    return me.authenticated === true && typeof me.email === "string" ? me : null;
   } catch {
-    return { authenticated: false };
+    return null;
   }
 }

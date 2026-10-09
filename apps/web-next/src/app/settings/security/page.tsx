@@ -118,8 +118,7 @@ export default function SecurityPage() {
         <main className={styles.content}>
           <h1>Security</h1>
           <p className={styles.lead}>
-            A passkey replaces the 6-digit authenticator code at sign-in. You still click the email
-            link first.
+            A passkey replaces the 6-digit authenticator code after your initial Microsoft sign-in.
           </p>
           <section className={styles.panel}>
             <h2>Authenticator app</h2>

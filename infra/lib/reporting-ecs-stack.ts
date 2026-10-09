@@ -13,6 +13,9 @@ import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
 import * as secrets from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
 import * as path from "node:path";
+import * as fs from "node:fs";
+const webAuth = JSON.parse(fs.readFileSync(path.join(__dirname, "../../config/reporting-web-auth.json"), "utf8")) as { SSO_ONLY: string; SSO_CUTOVER_AT: string };
+if (Object.keys(webAuth).sort().join(",") !== "SSO_CUTOVER_AT,SSO_ONLY" || !["true", "false"].includes(webAuth.SSO_ONLY) || (webAuth.SSO_ONLY === "false" ? webAuth.SSO_CUTOVER_AT !== "" : !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/.test(webAuth.SSO_CUTOVER_AT) || !Number.isFinite(Date.parse(webAuth.SSO_CUTOVER_AT)) || new Date(webAuth.SSO_CUTOVER_AT).toISOString().slice(0, 19) !== webAuth.SSO_CUTOVER_AT.slice(0, 19) || Date.parse(webAuth.SSO_CUTOVER_AT) > Date.now())) throw new Error("Invalid reporting web auth config");
 
 const account = "905418447941";
 const region = "us-east-2";
@@ -285,7 +288,7 @@ export class ReportingEcsStack extends cdk.Stack {
     }));
     task.addVolume({ name: "tmp" });
     task.addVolume({ name: "next-cache" });
-    task.addContainer("web", { image: ecs.ContainerImage.fromDockerImageAsset(webImage), portMappings: [{ containerPort: 3000 }], logging: ecs.LogDrivers.awsLogs({ logGroup: webLogs, streamPrefix: "web" }), environment: { SSO_ONLY: "false", SSO_CUTOVER_AT: "", DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke", APP_BASE_URL: reportingDomainUrl, ENTRA_TENANT_ID: "7f4bc07b-d9b5-43c4-a1d6-bce660187973", ENTRA_CLIENT_ID: "66a8909d-d22e-41bf-9092-4dbe06e393b0", CORE_API_URL: "https://core.avemaria.edu", MAGIC_NONCE_TABLE: magicNonceTableName, ASPIREDU_SESSION_TABLE: aspireduSessionTableName, CYBER_REGISTER_TABLE: cyberRegisterTableName, ASPIREDU_USER_POOL_ID: aspireduUserPool.userPoolId, ASPIREDU_USER_POOL_CLIENT_ID: aspireduClient.userPoolClientId, ASPIREDU_COGNITO_DOMAIN: aspireduDomain.baseUrl(), ASPIREDU_CALLBACK_URL: aspireduCallbackUrl, ASPIREDU_CALLBACK_URLS: [aspireduCallbackUrl, aspireduDomainCallbackUrl].join(","), ASPIREDU_ALLOWED_EMAILS: aspireduAllowedEmails, ...onDemandFns, ...aspireduFns }, secrets: runtimeSecrets(secret, resendSecret, xaiSecret), readonlyRootFilesystem: true, user: "node" }).addMountPoints(
+    task.addContainer("web", { image: ecs.ContainerImage.fromDockerImageAsset(webImage), portMappings: [{ containerPort: 3000 }], logging: ecs.LogDrivers.awsLogs({ logGroup: webLogs, streamPrefix: "web" }), environment: { ...webAuth, DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke", APP_BASE_URL: reportingDomainUrl, ENTRA_TENANT_ID: "7f4bc07b-d9b5-43c4-a1d6-bce660187973", ENTRA_CLIENT_ID: "66a8909d-d22e-41bf-9092-4dbe06e393b0", CORE_API_URL: "https://core.avemaria.edu", MAGIC_NONCE_TABLE: magicNonceTableName, ASPIREDU_SESSION_TABLE: aspireduSessionTableName, CYBER_REGISTER_TABLE: cyberRegisterTableName, ASPIREDU_USER_POOL_ID: aspireduUserPool.userPoolId, ASPIREDU_USER_POOL_CLIENT_ID: aspireduClient.userPoolClientId, ASPIREDU_COGNITO_DOMAIN: aspireduDomain.baseUrl(), ASPIREDU_CALLBACK_URL: aspireduCallbackUrl, ASPIREDU_CALLBACK_URLS: [aspireduCallbackUrl, aspireduDomainCallbackUrl].join(","), ASPIREDU_ALLOWED_EMAILS: aspireduAllowedEmails, ...onDemandFns, ...aspireduFns }, secrets: runtimeSecrets(secret, resendSecret, xaiSecret), readonlyRootFilesystem: true, user: "node" }).addMountPoints(
       { sourceVolume: "tmp", containerPath: "/tmp", readOnly: false },
       { sourceVolume: "next-cache", containerPath: "/app/.next/cache", readOnly: false },
     );

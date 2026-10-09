@@ -36,3 +36,22 @@ describe("signInAfterVerification", () => {
     assert.match(r.setCookies[3], /Max-Age=0/);
   });
 });
+
+it("preserves original Core timestamp in both signed mint branches and actual MFA completion", async()=>{
+ const original=new Date(Date.now()-1000).toISOString().replace("Z","123+00:00");
+ for(const kind of ["session","mfa_pending"] as const) {
+  const result=signInAfterVerification(REQ,EMAIL,SECRET,kind,"entra",original);
+  if(result.kind==="session") assert.equal(verifySessionToken(result.session,SECRET).auth_created_at,original);
+  else {
+   const token=result.setCookies[0].split(";")[0].split("=")[1];
+   assert.equal(verifyMfaPendingToken(token,SECRET).auth_created_at,original);
+   const {jsonWithReportingSession}=await import("./mint-session");
+   const old=process.env.AUTH_SECRET;process.env.AUTH_SECRET=SECRET;
+   try {
+    const response=jsonWithReportingSession(new Request("https://reporting.avemaria.edu/auth/mfa",{headers:{cookie:MFA_PENDING_COOKIE+"="+token}}),EMAIL);
+    const body=await response.json();assert.equal(verifySessionToken(body.session,SECRET).auth_created_at,original);
+    assert.equal(verifySessionToken(body.session,SECRET).mfa,true);
+   } finally {if(old===undefined)delete process.env.AUTH_SECRET;else process.env.AUTH_SECRET=old;}
+  }
+ }
+});

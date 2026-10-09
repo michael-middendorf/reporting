@@ -11,6 +11,7 @@ import {
 import { GET as start } from "../route";
 import { GET as callback } from "./route";
 
+const ORIGINAL = new Date(Date.now()-1000).toISOString().replace("Z","123+00:00");
 const SECRET = "entra-callback-test-hmac-key";
 const TENANT = "7f4bc07b-d9b5-43c4-a1d6-bce660187973";
 const CLIENT = "66a8909d-d22e-41bf-9092-4dbe06e393b0";
@@ -23,7 +24,7 @@ type Call = { url: string; method: string; body: unknown };
 let calls: Call[] = [];
 const realFetch = globalThis.fetch;
 
-function stubCore(opts: { exchangeStatus?: number; email?: string }) {
+function stubCore(opts: { exchangeStatus?: number; email?: string; context?: unknown }) {
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const method = init?.method ?? "GET";
@@ -36,7 +37,7 @@ function stubCore(opts: { exchangeStatus?: number; email?: string }) {
       });
     }
     if (url.endsWith("/users/me")) {
-      return new Response(JSON.stringify({ email: opts.email ?? PLAIN_USER }), { status: 200 });
+      return new Response(JSON.stringify({ email: opts.email ?? PLAIN_USER, auth_context: Object.hasOwn(opts,"context") ? opts.context : {method:"entra",created_at:ORIGINAL} }), { status: 200 });
     }
     if (url.endsWith("/user-sessions/current")) return new Response(null, { status: 204 });
     throw new Error(`unexpected ${url}`);
@@ -227,6 +228,7 @@ describe("GET /api/auth/microsoft/callback success", () => {
     const parsed = verifySessionToken(decodeURIComponent(session), SECRET);
     assert.equal(parsed.email, PLAIN_USER);
     assert.equal(parsed.mfa, false);
+    assert.equal(parsed.auth_created_at, ORIGINAL);
     assert.equal(parsed.auth, "entra", "Microsoft sign-in is marked for requireCyberAccess");
     assert.ok(typeof parsed.iat === "number" && Math.abs(parsed.iat - Date.now() / 1000) < 60, "fresh iat");
     assert.ok(setCookies(res).some((c) => c.startsWith(`${MFA_PENDING_COOKIE}=;`)), "pending cleared");
@@ -253,8 +255,20 @@ describe("GET /api/auth/microsoft/callback success", () => {
     assert.ok(pending);
     const pendingClaims = verifyMfaPendingToken(decodeURIComponent(pending), SECRET);
     assert.equal(pendingClaims.email, MFA_USER);
+    assert.equal(pendingClaims.auth_created_at, ORIGINAL);
     assert.equal(pendingClaims.auth, "entra", "carried through /auth/mfa");
     const session = setCookies(res).find((c) => c.startsWith(`${SESSION_COOKIE_NAME}=`));
     assert.match(String(session), new RegExp(`^${SESSION_COOKIE_NAME}=; .*Max-Age=0`), "hub session cleared, not minted");
   });
+});
+
+it("actual inactive callback rejects bad Core proof without writing or deleting existing normal/pending cookies",async()=>{
+ const flag=process.env.SSO_ONLY;process.env.SSO_ONLY="false";
+ try {
+  for(const context of [undefined,{method:"otp",created_at:ORIGINAL},{method:"entra",created_at:"2026-02-30T00:00:00Z"},{method:"entra",created_at:new Date(Date.now()+120000).toISOString()}]) {
+   calls=[];stubCore({email:PLAIN_USER,context});
+   const response=await callback(callbackRequest("?code=c&state=the-state",{...GOOD_COOKIES,[SESSION_COOKIE_NAME]:"existing",[MFA_PENDING_COOKIE]:"existing-pending"}));
+   assertFailed(response);assert.equal(calls.filter(call=>call.method==="DELETE").length,1);
+  }
+ }finally{if(flag===undefined)delete process.env.SSO_ONLY;else process.env.SSO_ONLY=flag;}
 });

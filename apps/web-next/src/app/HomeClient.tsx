@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense } from "react";
 import type { ReportId } from "@/lib/access";
-import { apiFetch, fetchMe, setBearer } from "@/lib/api";
+import { apiFetch, setBearer } from "@/lib/api";
+import { useCurrentSession } from "@/components/SessionProvider";
 import LoginClient from "./login/LoginClient";
 import styles from "./home.module.css";
 
@@ -78,19 +79,10 @@ const REPORTS: {
 ];
 
 export default function HomeClient({ microsoftEnabled }: { microsoftEnabled: boolean }) {
-  const [email, setEmail] = useState("");
-  const [allowed, setAllowed] = useState<ReportId[]>([]);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    fetchMe().then((me) => {
-      if (me.authenticated) {
-        setEmail(me.email || "");
-        setAllowed(me.reports || []);
-      }
-      setReady(true);
-    });
-  }, []);
+  const me = useCurrentSession();
+  const email = me?.authenticated ? me.email || "" : "";
+  const allowed = me?.authenticated ? me.reports || [] : [];
+  const ready = me !== null;
 
   async function logout() {
     await apiFetch("/api/auth/logout", { method: "POST" });
