@@ -128,7 +128,7 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
   aspiredu:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu,daniel.davy@avemaria.edu,michaelene.hayward@avemaria.edu,maria.t.gomez@avemaria.edu,alexandra.r.baalman@avemaria.edu,julie.musselman@avemaria.edu",
   marketing:
-    "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu,zena.weist@avemaria.edu,susan.gallagher@avemaria.edu",
+    "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu,zena.weist@avemaria.edu,susan.gallagher@avemaria.edu,camillec.kaczanowski@avemaria.edu",
   // DST-2830: MGO Analysis and Management is Leslie and Jim only (admins via isAdmin).
   // Do not add other Advancement users here.
   "mgo-analysis": "leslie.sonnen@avemaria.edu,jim.thomas@avemaria.edu",

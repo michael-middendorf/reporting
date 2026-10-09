@@ -639,3 +639,29 @@ describe("MGO Analysis grant (DST-2830)", () => {
     assert.equal(canAccessReport(leslie, "athletics-coaching"), false);
   });
 });
+
+describe("marketing (Pursuit of Wisdom) grant for Camille Kaczanowski", () => {
+  const CAMILLE = "CamilleC.Kaczanowski@avemaria.edu";
+
+  it("lets Camille sign in and open Marketing (POW) only", () => {
+    assert.equal(canLogin(CAMILLE), true);
+    assert.equal(isAdmin(CAMILLE), false);
+    assert.equal(canAccessReport(CAMILLE, "marketing"), true);
+    assert.equal(canAccessReport(CAMILLE, "enrollment"), false);
+    assert.equal(canAccessReport(CAMILLE, "census"), false);
+    assert.equal(canAccessReport(CAMILLE, "athletics"), false);
+    assert.equal(canAccessReport(CAMILLE, "athletics-coaching"), false);
+    assert.equal(canAccessReport(CAMILLE, "housing"), false);
+    assert.equal(canAccessReport(CAMILLE, "institute"), false);
+    assert.equal(canAccessReport(CAMILLE, "advancement"), false);
+    assert.equal(canAccessReport(CAMILLE, "chapel"), false);
+    assert.equal(canAccessReport(CAMILLE, "points"), false);
+    assert.equal(canAccessReport(CAMILLE, "portfolios"), false);
+    assert.equal(canAccessReport(CAMILLE, "annunciation"), false);
+    assert.equal(canAccessReport(CAMILLE, "aspiredu"), false);
+    assert.equal(canAccessReport(CAMILLE, "business-office"), false);
+    assert.equal(canAccessReport(CAMILLE, "cybersecurity"), false);
+    assert.equal(needsMfaAtSignIn(CAMILLE), false);
+    assert.deepEqual(reportsForEmail(CAMILLE), ["marketing"]);
+  });
+});
