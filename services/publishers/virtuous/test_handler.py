@@ -74,6 +74,53 @@ class RecurringGiftQueryTests(unittest.TestCase):
         self.assertEqual(by_id[1817]["amount"], 25)
 
 
+class DonorNameTests(unittest.TestCase):
+    def test_gift_contacts_are_not_dropped_by_the_oldest_id_cap(self):
+        notes = [{"contactId": 10}, {"contactId": 20}]
+        gifts = [{"contactId": 130061}, {"contactId": 40}]
+        recurring = [{"contactId": 130922}]
+        ids = handler.contact_ids_for_refresh(notes, gifts, recurring, max_contacts=3)
+        self.assertEqual(ids[:3], [40, 130061, 130922])
+        self.assertNotIn(10, ids)
+        self.assertNotIn(20, ids)
+
+    def test_note_contacts_fill_the_remaining_cap(self):
+        notes = [{"contactId": 10}, {"contactId": 20}, {"contactId": 30}]
+        gifts = [{"contactId": 130061}]
+        ids = handler.contact_ids_for_refresh(notes, gifts, [], max_contacts=3)
+        self.assertEqual(ids, [130061, 10, 20])
+
+    def test_stamp_writes_the_household_name_onto_a_nameless_gift(self):
+        gifts = [{"id": 452674, "contactId": 32771, "amount": 51.01}]
+        contacts = [{
+            "id": 32771,
+            "name": "Vern and Linda Brownell",
+            "contactIndividuals": [
+                {"firstName": "Vern", "lastName": "Brownell"},
+                {"firstName": "Linda", "lastName": "Brownell"},
+            ],
+        }]
+        stamped = handler.stamp_contact_names(gifts, contacts)
+        self.assertEqual(stamped, 1)
+        self.assertEqual(gifts[0]["contactName"], "Vern and Linda Brownell")
+
+    def test_stamp_keeps_a_name_already_on_the_gift(self):
+        gifts = [{"id": 1, "contactId": 5, "contactName": "Anthony and Cynthia Lesniewski"}]
+        contacts = [{"id": 5, "name": "Vanguard Charitable"}]
+        self.assertEqual(handler.stamp_contact_names(gifts, contacts), 0)
+        self.assertEqual(gifts[0]["contactName"], "Anthony and Cynthia Lesniewski")
+
+    def test_display_name_uses_individuals_when_the_household_name_is_blank(self):
+        self.assertEqual(
+            handler.contact_display_name({
+                "contactIndividuals": [
+                    {"firstName": "Andres", "lastName": "Jimenez"},
+                ],
+            }),
+            "Andres Jimenez",
+        )
+
+
 class PassthroughGiftTests(unittest.TestCase):
     def test_passthrough_query_requires_a_passthrough_contact(self):
         body = handler._passthrough_gift_query(dt.date(2026, 6, 1), dt.date(2026, 10, 2))
