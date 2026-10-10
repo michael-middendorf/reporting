@@ -14,12 +14,17 @@ function cellClass(value: string): string {
   return /^-?[\d,]+(\.\d+)?%?$/.test(value.trim()) ? "num" : "";
 }
 
-export function CensusArchive() {
+export function CensusArchive({
+  selected,
+  onSelected,
+}: {
+  selected: string;
+  onSelected: (key: string) => void;
+}) {
   const [manifest, setManifest] = useState<ArchiveManifest | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [term, setTerm] = useState("");
-  const [fileId, setFileId] = useState("");
-  const [sheet, setSheet] = useState(0);
+  const [filePick, setFilePick] = useState<{ key: string; id: string } | null>(null);
+  const [sheetPick, setSheetPick] = useState<{ fileId: string; sheet: number }>({ fileId: "", sheet: 0 });
   const [preview, setPreview] = useState<ArchiveSheet | null>(null);
   const [previewKey, setPreviewKey] = useState("");
   const [previewError, setPreviewError] = useState<{ key: string; message: string } | null>(null);
@@ -35,16 +40,10 @@ export function CensusArchive() {
         const json = (await res.json()) as ArchiveManifest & { error?: string };
         if (!alive) return;
         if (!res.ok) {
-          setError(json.error || "Census files are unavailable");
+          setError(json.error || "Saved censuses are unavailable");
           return;
         }
         setManifest(json);
-        const groups = groupArchive(json.files || []);
-        const first = groups[0];
-        if (first) {
-          setTerm(first.key);
-          setFileId(first.files[0]?.id || "");
-        }
       } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : String(e));
       }
@@ -55,8 +54,12 @@ export function CensusArchive() {
   }, []);
 
   const groups = useMemo(() => groupArchive(manifest?.files || []), [manifest]);
-  const group = groups.find((item) => item.key === term) || groups[0];
-  const file = group?.files.find((item) => item.id === fileId) || group?.files[0];
+  const group = groups.find((item) => item.key === selected);
+  const file =
+    filePick && filePick.key === selected
+      ? group?.files.find((item) => item.id === filePick.id) || group?.files[0]
+      : group?.files[0];
+  const sheet = sheetPick.fileId === file?.id ? sheetPick.sheet : 0;
 
   useEffect(() => {
     if (!file || file.kind !== "workbook") return;
@@ -117,146 +120,145 @@ export function CensusArchive() {
     }
   }
 
-  if (error) return <p className="export-error">{error}</p>;
-  if (!manifest) return <p className="archive-note">Loading census files…</p>;
-  if (!groups.length) {
-    return <p className="archive-note">No census files are published yet.</p>;
-  }
-
   const wide = (preview?.colCount || 0) > 8 || (preview?.rowCount || 0) > 40;
-  const openingSheet = file?.kind === "workbook" && !sheetReady && !sheetError;
+  const openingSheet = Boolean(selected && file?.kind === "workbook" && !sheetReady && !sheetError);
 
   return (
     <div className="archive">
       <div className="sheet-head">
-        <h2>Census files</h2>
+        <h2>Saved censuses</h2>
         <p className="sheet-n">
-          Saved workbooks from the census folder. The other tabs stay the live Fall 2026 census.
+          Official workbooks from the census folder, Fall 2011 through Spring 2026. Live Fall 2026 stays the dashboard below.
         </p>
       </div>
-      <div className="archive-bar">
-        <label>
-          Census
-          <select
-            aria-label="Census"
-            value={group?.key || ""}
-            onChange={(e) => {
-              const next = groups.find((item) => item.key === e.target.value);
-              setTerm(e.target.value);
-              setFileId(next?.files[0]?.id || "");
-              setSheet(0);
-              setQuery("");
-            }}
-          >
-            {groups.map((item) => (
-              <option key={item.key} value={item.key}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        {group && group.files.length > 1 && (
-          <label>
-            File
-            <select
-              aria-label="File"
-              value={file?.id || ""}
-              onChange={(e) => {
-                setFileId(e.target.value);
-                setSheet(0);
-                setQuery("");
-              }}
-            >
-              {group.files.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} ({formatBytes(item.bytes)})
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        {file && (
-          <button type="button" className="download" disabled={downloading} onClick={() => download(file)}>
-            {downloading ? "Downloading…" : "Download"}
+      {error && <p className="export-error">{error}</p>}
+      {!manifest && !error && <p className="archive-note">Loading saved censuses…</p>}
+      {manifest && groups.length === 0 && <p className="archive-note">No saved censuses are published yet.</p>}
+      {groups.length > 0 && (
+        <div className="saved-chips" role="tablist" aria-label="Saved censuses">
+          <button type="button" className={selected === "" ? "active" : ""} onClick={() => onSelected("")}>
+            Live Fall 2026
           </button>
-        )}
-      </div>
-      {downloadError && <p className="export-error">{downloadError}</p>}
-      {file && group && group.files.length === 1 && (
-        <p className="archive-note">
-          {file.folder ? `${file.folder} / ` : ""}
-          {file.name} · {formatBytes(file.bytes)}
-        </p>
-      )}
-      {file?.note && <p className="archive-note">{file.note}</p>}
-
-      {file?.kind === "workbook" && file.sheets.length > 0 && (
-        <div className="tabs archive-sheets">
-          {file.sheets.map((name, index) => (
+          {groups.map((item) => (
             <button
-              key={`${file.id}-${name}-${index}`}
+              key={item.key}
               type="button"
-              className={sheet === index ? "active" : ""}
+              className={selected === item.key ? "active" : ""}
               onClick={() => {
-                setSheet(index);
                 setQuery("");
+                onSelected(item.key);
               }}
             >
-              {name}
+              {item.label}
             </button>
           ))}
         </div>
       )}
 
-      {file?.kind === "pdf" && (
-        <p className="archive-note">This census is a PDF. Download it to open the report.</p>
-      )}
-      {file && file.kind === "other" && (
-        <p className="archive-note">
-          This file opens in its own program. Download {file.name} to view it.
-        </p>
-      )}
-      {openingSheet && <p className="archive-note">Opening sheet…</p>}
-      {sheetError && <p className="export-error">{sheetError}</p>}
-
-      {sheetReady && preview && (
-        <div className="sheet">
-          <div className="sheet-head">
-            <h2>{preview.name}</h2>
-            <p className="sheet-n">
-              {preview.rowCount.toLocaleString()} rows
-              {preview.truncated ? " · sheet cut off after the published row limit" : ""}
-            </p>
-          </div>
-          {preview.rowCount > 30 && (
-            <input
-              className="sheet-search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search this sheet"
-              aria-label="Search this sheet"
-            />
-          )}
-          {rows.length === 0 ? (
-            <p className="archive-note">{query ? "No matching rows." : "This sheet is empty."}</p>
-          ) : (
-            <div className={wide ? "sheet-list" : "sheet-table"}>
-              <table>
-                <tbody>
-                  {rows.map((row, rowIndex) => (
-                    <tr key={rowIndex}>
-                      {row.map((cell, colIndex) => (
-                        <td key={colIndex} className={cellClass(cell)}>
-                          {cell}
-                        </td>
-                      ))}
-                    </tr>
+      {selected !== "" && group && (
+        <>
+          <div className="archive-bar">
+            {group.files.length > 1 && (
+              <label>
+                File
+                <select
+                  aria-label="File"
+                  value={file?.id || ""}
+                  onChange={(e) => {
+                    setFilePick({ key: selected, id: e.target.value });
+                    setQuery("");
+                  }}
+                >
+                  {group.files.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name} ({formatBytes(item.bytes)})
+                    </option>
                   ))}
-                </tbody>
-              </table>
+                </select>
+              </label>
+            )}
+            {file && (
+              <button type="button" className="download" disabled={downloading} onClick={() => download(file)}>
+                {downloading ? "Downloading…" : "Download"}
+              </button>
+            )}
+          </div>
+          {downloadError && <p className="export-error">{downloadError}</p>}
+          {file && group.files.length === 1 && (
+            <p className="archive-note">
+              {file.folder ? `${file.folder} / ` : ""}
+              {file.name} · {formatBytes(file.bytes)}
+            </p>
+          )}
+          {file?.note && <p className="archive-note">{file.note}</p>}
+
+          {file?.kind === "workbook" && file.sheets.length > 0 && (
+            <div className="tabs archive-sheets">
+              {file.sheets.map((name, index) => (
+                <button
+                  key={`${file.id}-${name}-${index}`}
+                  type="button"
+                  className={sheet === index ? "active" : ""}
+                  onClick={() => {
+                    setSheetPick({ fileId: file.id, sheet: index });
+                    setQuery("");
+                  }}
+                >
+                  {name}
+                </button>
+              ))}
             </div>
           )}
-        </div>
+
+          {file?.kind === "pdf" && (
+            <p className="archive-note">This census is a PDF. Download it to open the report.</p>
+          )}
+          {file && file.kind === "other" && (
+            <p className="archive-note">This file opens in its own program. Download {file.name} to view it.</p>
+          )}
+          {openingSheet && <p className="archive-note">Opening sheet…</p>}
+          {sheetError && <p className="export-error">{sheetError}</p>}
+
+          {sheetReady && preview && (
+            <div className="sheet">
+              <div className="sheet-head">
+                <h2>{preview.name}</h2>
+                <p className="sheet-n">
+                  {preview.rowCount.toLocaleString()} rows
+                  {preview.truncated ? " · sheet cut off after the published row limit" : ""}
+                </p>
+              </div>
+              {preview.rowCount > 30 && (
+                <input
+                  className="sheet-search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search this sheet"
+                  aria-label="Search this sheet"
+                />
+              )}
+              {rows.length === 0 ? (
+                <p className="archive-note">{query ? "No matching rows." : "This sheet is empty."}</p>
+              ) : (
+                <div className={wide ? "sheet-list" : "sheet-table"}>
+                  <table>
+                    <tbody>
+                      {rows.map((row, rowIndex) => (
+                        <tr key={rowIndex}>
+                          {row.map((cell, colIndex) => (
+                            <td key={colIndex} className={cellClass(cell)}>
+                              {cell}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
