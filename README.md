@@ -53,6 +53,7 @@ sources/_catalog.json
 | `erez` | housing_occupancy | HousingRefresh (eRezLife assignments) |
 | `qlik` | housing_occupancy | HousingRefresh (mirror of eRez occupancy during cutover) |
 | `institute` | q1–q6 (Slate query dumps) | InstituteRefresh |
+| `acceptance-letters` | `manifest.json` + `exports/<generatedAt>.json` (PowerFAIDS acceptance letter packages, contract v2; own KMS key, read only by the virtual acceptance letters app, not a dataset folder) | PowerFAIDS nightly job (derived export, `docs/acceptance-letters-extract.md`) |
 
 Each dataset keeps ~3 dated days. Report pages read `_latest` (or invoke on-read processors for MAS/alumni/institute derived views). Raw sources stay the contract; MAS also writes a short-lived `cache/mas/` snapshot so the portal stays under CloudFront’s 60s origin limit. Housing writes `cache/housing/residents.json` for the same reason.
 

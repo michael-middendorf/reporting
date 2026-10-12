@@ -215,6 +215,118 @@ NEED_EXTRACT_COLUMNS: tuple[str, ...] = (
 )
 NEED_EXTRACT_PARAMS: tuple[str, ...] = ("today",)
 
+# ---------------------------------------------------------------------------
+# Acceptance letters extract (DST-3070, derived, NOT a raw dataset). Published to
+# sources/acceptance-letters/ under its own KMS key for the virtual acceptance
+# letters app. Several small result sets are joined in Python
+# (acceptance.build_export), so each statement below is a plain scoped read for
+# ONE award year, named by the bound parameter award_year_name (an extract-owned
+# parameter, see handler.acceptance_extract; it is not a run parameter).
+#
+# Same rules as the need extract: every column (selected or joined on) is
+# already selected by a DATASETS query, because the SQL login's column grants
+# are generated from those queries. test_handler.py enforces this. Students
+# whose alternate_id is not a PowerCampus ID are excluded in SQL, so an
+# SSN-shaped alternate_id never leaves the database.
+# ---------------------------------------------------------------------------
+
+ACCEPT_AWARD_YEAR_PARAM = "award_year_name"
+
+_ACCEPT_YEAR_SAY = (
+    "SELECT say.stu_award_year_token FROM dbo.stu_award_year AS say "
+    "JOIN dbo.award_year_defn AS ayd ON ayd.award_year_token = say.award_year_token "
+    "WHERE ayd.award_year_name = %(award_year_name)s"
+)
+_ACCEPT_YEAR = (
+    "SELECT ayd.award_year_token FROM dbo.award_year_defn AS ayd "
+    "WHERE ayd.award_year_name = %(award_year_name)s"
+)
+
+ACCEPT_AWARD_YEAR = (
+    "SELECT ayd.award_year_token FROM dbo.award_year_defn AS ayd "
+    "WHERE ayd.award_year_name = %(award_year_name)s "
+    "OPTION (MAXDOP 1)"
+)
+
+# Every student row (any year) that carries a campus_id found in the award year
+# population, so a campus_id shared by two PowerFAIDS students is caught even
+# when only one of them has a row for this award year.
+ACCEPT_STUDENT_IDS = (
+    f"SELECT {CAMPUS_ID_EXPR}, s.student_token "
+    "FROM dbo.student AS s "
+    f"WHERE s.alternate_id LIKE {_CAMPUS_ID_PATTERN} "
+    "AND s.alternate_id IN (SELECT s2.alternate_id FROM dbo.student AS s2 "
+    "JOIN dbo.stu_award_year AS say ON say.student_token = s2.student_token "
+    "JOIN dbo.award_year_defn AS ayd ON ayd.award_year_token = say.award_year_token "
+    "WHERE ayd.award_year_name = %(award_year_name)s) "
+    "OPTION (MAXDOP 1)"
+)
+
+ACCEPT_STUDENTS = (
+    f"SELECT {CAMPUS_ID_EXPR}, s.student_token, say.stu_award_year_token, "
+    "say.packaging_status, say.date_withdrew "
+    "FROM dbo.student AS s "
+    "JOIN dbo.stu_award_year AS say ON say.student_token = s.student_token "
+    "JOIN dbo.award_year_defn AS ayd ON ayd.award_year_token = say.award_year_token "
+    f"WHERE s.alternate_id LIKE {_CAMPUS_ID_PATTERN} "
+    "AND ayd.award_year_name = %(award_year_name)s "
+    "OPTION (MAXDOP 1)"
+)
+
+ACCEPT_AWARDS = (
+    "SELECT sa.stu_award_token, sa.stu_award_year_token, sa.fund_ay_token, sa.status, "
+    "sa.actual_amt, sa.created_dt, sa.modified_dt "
+    "FROM dbo.stu_award AS sa "
+    f"WHERE sa.stu_award_year_token IN ({_ACCEPT_YEAR_SAY}) "
+    "OPTION (MAXDOP 1)"
+)
+
+ACCEPT_FUNDS = (
+    "SELECT f.fund_token, f.fund_short_name, f.fund_long_name, f.fund_type, f.fund_source, "
+    "f.fund_family "
+    "FROM dbo.funds AS f "
+    f"WHERE f.award_year_token IN ({_ACCEPT_YEAR}) "
+    "OPTION (MAXDOP 1)"
+)
+
+ACCEPT_SCHEDULE = (
+    "SELECT sat.stu_award_token, sat.poe_token, sat.scheduled_amount "
+    "FROM dbo.stu_award_transactions AS sat "
+    f"WHERE sat.stu_award_year_token IN ({_ACCEPT_YEAR_SAY}) "
+    "OPTION (MAXDOP 1)"
+)
+
+ACCEPT_POE = (
+    "SELECT p.poe_token, p.attend_desc "
+    "FROM dbo.poe AS p "
+    f"WHERE p.award_year_token IN ({_ACCEPT_YEAR}) "
+    "OPTION (MAXDOP 1)"
+)
+
+ACCEPT_COSTS = (
+    "SELECT sd.stu_award_year_token, sd.tot_tuition_fees, sd.tot_room_board, "
+    "sd.tot_books_supplies, sd.tot_transportation, sd.tot_other_budget "
+    "FROM dbo.stu_ay_sum_data AS sd "
+    f"WHERE sd.stu_award_year_token IN ({_ACCEPT_YEAR_SAY}) "
+    "OPTION (MAXDOP 1)"
+)
+
+ACCEPT_SOURCE = "acceptance-letters"
+ACCEPT_DATASET = "export"
+
+# (result name, sql, bound parameter names). The result names are the contract
+# with acceptance.build_export.
+ACCEPT_STATEMENTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("award_year", ACCEPT_AWARD_YEAR, (ACCEPT_AWARD_YEAR_PARAM,)),
+    ("students", ACCEPT_STUDENTS, (ACCEPT_AWARD_YEAR_PARAM,)),
+    ("student_ids", ACCEPT_STUDENT_IDS, (ACCEPT_AWARD_YEAR_PARAM,)),
+    ("awards", ACCEPT_AWARDS, (ACCEPT_AWARD_YEAR_PARAM,)),
+    ("funds", ACCEPT_FUNDS, (ACCEPT_AWARD_YEAR_PARAM,)),
+    ("schedule", ACCEPT_SCHEDULE, (ACCEPT_AWARD_YEAR_PARAM,)),
+    ("poe", ACCEPT_POE, (ACCEPT_AWARD_YEAR_PARAM,)),
+    ("costs", ACCEPT_COSTS, (ACCEPT_AWARD_YEAR_PARAM,)),
+)
+
 DATASETS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("award_years", AWARD_YEARS, ()),
     ("periods_of_enrollment", PERIODS_OF_ENROLLMENT, ("min_date",)),
@@ -235,4 +347,5 @@ ALL_STATEMENTS: tuple[str, ...] = (
     VERSION_CHECK,
     *(sql for _, sql, _ in DATASETS),
     NEED_EXTRACT,
+    *(sql for _, sql, _ in ACCEPT_STATEMENTS),
 )

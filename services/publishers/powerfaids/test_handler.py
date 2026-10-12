@@ -65,6 +65,10 @@ class FakeCursor:
         elif "@@VERSION" in sql:
             self.description = [("server_version",), ("database_name",)]
             self._rows = [("Microsoft SQL Server 2019\nStandard", "FakeDb")]
+        elif sql in self.conn.scripted:
+            columns, rows = self.conn.scripted[sql]
+            self.description = [(c,) for c in columns]
+            self._rows = list(rows)
         else:
             self.description = [("COL_A",), ("COL_B",)]
             self._rows = [(i, f"v{i}") for i in range(self.conn.rows_per_query)]
@@ -81,8 +85,9 @@ class FakeCursor:
 
 
 class FakeConnection:
-    def __init__(self, *, fail_on=None, session_row=(1, 5000, -5), rows_per_query=3):
+    def __init__(self, *, fail_on=None, session_row=(1, 5000, -5), rows_per_query=3, scripted=None):
         self.executed: list[tuple] = []
+        self.scripted = scripted or {}
         self.fail_on = fail_on or {}
         self.session_row = session_row
         self.rows_per_query = rows_per_query
@@ -354,6 +359,8 @@ class CampusIdMaskTests(unittest.TestCase):
 
 NEED_KMS_KEY = "arn:aws:kms:us-east-2:000000000000:key/11111111-1111-1111-1111-111111111111"
 NEED_LABEL = f"{queries.NEED_EXTRACT_SOURCE}/{queries.NEED_EXTRACT_DATASET}"
+ACCEPT_KMS_KEY = "arn:aws:kms:us-east-2:000000000000:key/22222222-2222-2222-2222-222222222222"
+ACCEPT_LABEL = f"{queries.ACCEPT_SOURCE}/{queries.ACCEPT_DATASET}"
 
 
 def _table_columns(sql):
@@ -449,10 +456,12 @@ class NeedExtractHandlerTests(unittest.TestCase):
             self.assertEqual(c.kwargs["kms_key_id"], KMS_KEY)
         self.assertTrue(manifest["ok"])
         self.assertEqual(manifest["derived_failed"], [])
-        self.assertEqual(len(manifest["derived"]), 1)
+        # The acceptance letters extract is also listed (skipped here: its key is unset).
+        self.assertEqual([d["dataset"] for d in manifest["derived"]], [NEED_LABEL, ACCEPT_LABEL])
         self.assertEqual(manifest["derived"][0]["dataset"], NEED_LABEL)
         self.assertTrue(manifest["derived"][0]["ok"])
         self.assertEqual(manifest["derived"][0]["record_count"], 3)
+        self.assertEqual(manifest["derived"][1]["skipped"], "KMS key not set")
 
     def test_blank_need_key_skips_without_failing(self):
         for value in ("", "   "):
@@ -632,6 +641,295 @@ class WriteOrderTests(unittest.TestCase):
                 self.assertEqual(manifest["derived_failed"], [NEED_LABEL])
                 self.assertFalse(manifest["derived"][0]["ok"])
                 self.assertIn("AccessDenied", manifest["derived"][0]["error"])
+
+
+ACCEPT_MANIFEST_KEY = "sources/acceptance-letters/manifest.json"
+
+
+def _scripted_accept_results():
+    """Scripted result sets for the six acceptance statements (synthetic, one student)."""
+    cols = {
+        "students": ("campus_id", "student_token", "stu_award_year_token", "packaging_status", "date_withdrew"),
+        "awards": ("stu_award_token", "stu_award_year_token", "fund_ay_token", "status", "actual_amt", "created_dt", "modified_dt"),
+        "funds": ("fund_token", "fund_short_name", "fund_long_name", "fund_type", "fund_source", "fund_family"),
+        "schedule": ("stu_award_token", "poe_token", "scheduled_amount"),
+        "poe": ("poe_token", "attend_desc"),
+        "costs": ("stu_award_year_token", "tot_tuition_fees", "tot_room_board", "tot_books_supplies", "tot_transportation", "tot_other_budget"),
+    }
+    cols["award_year"] = ("award_year_token",)
+    cols["student_ids"] = ("campus_id", "student_token")
+    rows = {
+        "award_year": [(5,)],
+        "student_ids": [("P000000001", 11)],
+        "students": [("P000000001", 11, 100, None, None)],
+        "awards": [(1, 100, 7, "A", 10000, datetime(2026, 10, 1, 9, 0), None)],
+        "funds": [(7, "AMUSCH", "Ave Maria Scholarship", "G", "I", "Academic")],
+        "schedule": [(1, 50, 5000), (1, 51, 5000)],
+        "poe": [(50, "FALL"), (51, "SPRING")],
+        "costs": [(100, 33240, 15704, 1320, None, 0)],
+    }
+    return {sql: (cols[name], rows[name]) for name, sql, _ in queries.ACCEPT_STATEMENTS}
+
+
+class AcceptQueryTests(unittest.TestCase):
+    def test_not_raw_datasets_and_listed_for_guard_tests(self):
+        raw = [sql for _, sql, _ in queries.DATASETS]
+        for name, sql, _ in queries.ACCEPT_STATEMENTS:
+            with self.subTest(statement=name):
+                self.assertNotIn(sql, raw)
+                self.assertIn(sql, queries.ALL_STATEMENTS)
+
+    def test_every_statement_passes_guard_and_exclusions(self):
+        for name, sql, _ in queries.ACCEPT_STATEMENTS:
+            with self.subTest(statement=name):
+                self.assertEqual(mssql.guard_select(sql), sql)
+                self.assertRegex(sql, r"OPTION \(MAXDOP 1\)$")
+                self.assertEqual(
+                    mssql.excluded_column_hits(sql, queries.EXCLUDED_COLUMN_SUBSTRINGS, queries.WHOLE_IDENTIFIER_TOKENS), []
+                )
+
+    def test_bound_parameters_only(self):
+        for name, sql, param_names in queries.ACCEPT_STATEMENTS:
+            with self.subTest(statement=name):
+                self.assertEqual(set(re.findall(r"%\((\w+)\)s", sql)), set(param_names))
+                self.assertEqual(sql.count("%"), len(re.findall(r"%\((\w+)\)s", sql)))
+                self.assertEqual(param_names, ("award_year_name",))
+        # Extract-owned: not a shared run parameter, so the raw run manifest is unchanged.
+        self.assertNotIn("award_year_name", handler.window_params(7))
+
+    def test_only_already_granted_columns(self):
+        granted = set()
+        for _, sql, _ in queries.DATASETS:
+            granted |= _table_columns(sql)
+        for name, sql, _ in queries.ACCEPT_STATEMENTS:
+            with self.subTest(statement=name):
+                used = _table_columns(sql)
+                self.assertGreaterEqual(len(used), 2)
+                self.assertEqual(sorted(used - granted), [])
+
+    def test_student_ids_query_masks_and_filters_campus_ids(self):
+        sql = queries.ACCEPT_STUDENT_IDS
+        self.assertTrue(sql.startswith(f"SELECT {queries.CAMPUS_ID_EXPR}, "))
+        self.assertIn("WHERE s.alternate_id LIKE 'P[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' ", sql)
+        self.assertNotRegex(sql.split(" FROM ", 1)[0], r"alternate_id\s*,")
+
+    def test_students_query_masks_and_filters_campus_ids(self):
+        sql = queries.ACCEPT_STUDENTS
+        self.assertTrue(sql.startswith(f"SELECT {queries.CAMPUS_ID_EXPR}, "))
+        self.assertIn("WHERE s.alternate_id LIKE 'P[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' ", sql)
+        self.assertNotRegex(sql, r"s\.alternate_id\s*,")
+
+    def test_result_names_are_the_contract_with_the_transform(self):
+        self.assertEqual(
+            [name for name, _, _ in queries.ACCEPT_STATEMENTS],
+            ["award_year", "students", "student_ids", "awards", "funds", "schedule", "poe", "costs"],
+        )
+
+
+class AcceptHandlerTests(unittest.TestCase):
+    def _run(self, *, env=None, fail_on=None, scripted=None, publish=_fake_publish, dry=False):
+        conn = FakeConnection(fail_on=fail_on, scripted=_scripted_accept_results() if scripted is None else scripted)
+        with mock.patch.object(queries, "DATASETS", FAKE_DATASETS), mock.patch.object(
+            mssql, "publish_dataset", side_effect=publish
+        ) as pub, mock.patch.object(mssql, "put_json") as put:
+            try:
+                result = run(conn, env={f"{PREFIX}_ACCEPT_KMS_KEY_ID": ACCEPT_KMS_KEY, **(env or {})})
+            except mssql.PartialFailure as exc:
+                result = exc
+        return conn, pub, put, result
+
+    def _manifest(self, put):
+        return next(c.args[1] for c in reversed(put.call_args_list) if c.args[0].endswith("_runs/latest.json"))
+
+    def _accept_entry(self, manifest):
+        return next(d for d in manifest["derived"] if d["dataset"] == ACCEPT_LABEL)
+
+    def test_published_data_then_manifest_under_own_key_after_raw(self):
+        conn, pub, put, result = self._run()
+        self.assertTrue(result["ok"])
+        accept_puts = [c for c in put.call_args_list if c.args[0].startswith("sources/acceptance-letters/")]
+        keys = [c.args[0] for c in accept_puts]
+        self.assertEqual(len(keys), 2)
+        self.assertRegex(keys[0], r"^sources/acceptance-letters/exports/2026-09-29T073000Z\.json$")
+        self.assertEqual(keys[1], ACCEPT_MANIFEST_KEY)
+        for c in accept_puts:
+            self.assertEqual(c.kwargs["kms_key_id"], ACCEPT_KMS_KEY)
+        data = accept_puts[0].args[1]
+        manifest_obj = accept_puts[1].args[1]
+        self.assertEqual(manifest_obj["dataKey"], keys[0])
+        self.assertEqual((manifest_obj["schemaVersion"], manifest_obj["success"]), (2, True))
+        self.assertEqual(manifest_obj["summary"]["packages"], 1)
+        self.assertEqual(len(data["packages"]), 1)
+        self.assertEqual(data["packages"][0]["status"], "draft")  # no PACKAGED_STATUSES yet
+        # Never goes through publish_dataset (no jsonl, no _latest pointer).
+        self.assertNotIn("acceptance-letters", [c.kwargs["source"] for c in pub.call_args_list])
+        # Statements bind the extract-owned award year, with the default.
+        bound = {sql: params for sql, params in conn.executed}
+        for _, sql, _ in queries.ACCEPT_STATEMENTS:
+            self.assertEqual(bound[sql], {"award_year_name": "2027-2028"})
+        # Run manifest: raw prefix and raw key, extract recorded, shared params unchanged.
+        manifest = self._manifest(put)
+        entry = self._accept_entry(manifest)
+        self.assertTrue(entry["ok"])
+        self.assertEqual(entry["record_count"], 1)
+        self.assertEqual(entry["objects"], keys)
+        self.assertEqual(manifest["derived_failed"], [])
+        self.assertNotIn("award_year_name", manifest["params"])
+        for c in put.call_args_list:
+            if c.args[0].startswith(f"sources/{SOURCE}/_runs/"):
+                self.assertEqual(c.kwargs["kms_key_id"], KMS_KEY)
+
+    def test_award_year_env_override(self):
+        conn, _, _, result = self._run(env={"ACCEPT_AWARD_YEAR_NAME": "2028-2029"})
+        self.assertTrue(result["ok"])
+        bound = {sql: params for sql, params in conn.executed}
+        self.assertEqual(bound[queries.ACCEPT_STUDENTS], {"award_year_name": "2028-2029"})
+
+    def test_bad_award_year_is_a_recorded_failure_not_a_raw_failure(self):
+        for bad in ("2027", "2027/2028", "next year"):
+            with self.subTest(bad=bad):
+                conn, _, put, result = self._run(env={"ACCEPT_AWARD_YEAR_NAME": bad})
+                self.assertTrue(result["ok"])
+                manifest = self._manifest(put)
+                self.assertTrue(manifest["ok"])
+                self.assertEqual(manifest["derived_failed"], [ACCEPT_LABEL])
+                self.assertIn("ACCEPT_AWARD_YEAR_NAME", self._accept_entry(manifest)["error"])
+                self.assertNotIn(queries.ACCEPT_STUDENTS, [sql for sql, _ in conn.executed])
+
+    def test_blank_or_unset_key_skips_with_warning_without_failing(self):
+        for value in ("", "   "):
+            with self.subTest(value=value):
+                conn, _, put, result = self._run(env={f"{PREFIX}_ACCEPT_KMS_KEY_ID": value})
+                self.assertTrue(result["ok"])
+                manifest = self._manifest(put)
+                self.assertEqual(self._accept_entry(manifest)["skipped"], "KMS key not set")
+                self.assertEqual(manifest["derived_failed"], [])
+                self.assertNotIn(queries.ACCEPT_STUDENTS, [sql for sql, _ in conn.executed])
+                self.assertFalse([c for c in put.call_args_list if c.args[0].startswith("sources/acceptance-letters/")])
+
+    def test_query_failure_recorded_without_failing_raw_and_writes_nothing(self):
+        conn, _, put, result = self._run(fail_on={"dbo.stu_ay_sum_data": RuntimeError("boom")})
+        self.assertTrue(result["ok"])
+        manifest = self._manifest(put)
+        self.assertEqual(manifest["derived_failed"], [ACCEPT_LABEL])
+        self.assertIn("boom", self._accept_entry(manifest)["error"])
+        self.assertFalse([c for c in put.call_args_list if c.args[0].startswith("sources/acceptance-letters/")])
+
+    def test_undefined_award_year_is_a_recorded_failure_and_writes_nothing(self):
+        scripted = _scripted_accept_results()
+        scripted[queries.ACCEPT_AWARD_YEAR] = (("award_year_token",), [])
+        conn, _, put, result = self._run(scripted=scripted)
+        self.assertTrue(result["ok"])
+        self.assertEqual(self._manifest(put)["derived_failed"], [ACCEPT_LABEL])
+        self.assertIn("expected exactly 1", self._accept_entry(self._manifest(put))["error"])
+        self.assertFalse([c for c in put.call_args_list if c.args[0].startswith("sources/acceptance-letters/")])
+
+    def test_transform_failure_recorded_without_failing_raw(self):
+        # Result sets missing the columns the transform needs.
+        conn, _, put, result = self._run(scripted={sql: (("X",), [(1,)]) for _, sql, _ in queries.ACCEPT_STATEMENTS})
+        self.assertTrue(result["ok"])
+        self.assertEqual(self._manifest(put)["derived_failed"], [ACCEPT_LABEL])
+
+    def test_skipped_when_a_raw_dataset_fails(self):
+        conn, _, put, result = self._run(fail_on={"FAKE_WIN": RuntimeError("raw boom")})
+        self.assertIsInstance(result, mssql.PartialFailure)
+        entry = self._accept_entry(self._manifest(put))
+        self.assertEqual(entry["skipped"], "raw datasets failed")
+        self.assertNotIn(queries.ACCEPT_STUDENTS, [sql for sql, _ in conn.executed])
+
+    def test_dry_run_writes_nothing(self):
+        conn = FakeConnection(scripted=_scripted_accept_results())
+        with mock.patch.object(mssql, "publish_dataset") as pub, mock.patch.object(mssql, "put_json") as put:
+            result = run(conn, env={f"{UPPER}_DRY_RUN": "1", f"{PREFIX}_ACCEPT_KMS_KEY_ID": ACCEPT_KMS_KEY})
+        self.assertTrue(result["dry_run"])
+        pub.assert_not_called()
+        put.assert_not_called()
+        self.assertNotIn(queries.ACCEPT_STUDENTS, [sql for sql, _ in conn.executed])
+
+    def test_error_is_redacted(self):
+        conn, _, put, _ = self._run(fail_on={"dbo.funds": RuntimeError("login failed for fake_user / fake-password-value")})
+        error = self._accept_entry(self._manifest(put))["error"]
+        self.assertNotIn("fake-password-value", error)
+
+    def test_unknown_statement_parameter_fails_before_connecting(self):
+        bad = mssql.DerivedDataset(
+            source="x", dataset="y", sql="", param_names=(), kms_key_id=ACCEPT_KMS_KEY,
+            statements=(("one", queries.ACCEPT_STUDENTS, ("award_year_name",)),), build=lambda r: None,
+        )
+        connects = []
+        with self.assertRaises(ValueError):
+            mssql.run_publisher(
+                SOURCE, FAKE_DATASETS, handler.window_params(7), env_prefix=PREFIX, kms_key_id=KMS_KEY,
+                app_name=APP_NAME, env={**ENV}, connect=lambda s: connects.append(s), now_utc=NIGHT,
+                watchdog_factory=NoopWatchdog, derived=(bad,),
+            )
+        self.assertEqual(connects, [])
+
+    def test_unsafe_statement_fails_before_connecting(self):
+        bad = mssql.DerivedDataset(
+            source="x", dataset="y", sql="", param_names=(), kms_key_id=ACCEPT_KMS_KEY,
+            statements=(("one", "SELECT t.a FROM dbo.t AS t", ()),), build=lambda r: None,
+        )
+        connects = []
+        with self.assertRaises(mssql.UnsafeQueryError):
+            mssql.run_publisher(
+                SOURCE, FAKE_DATASETS, handler.window_params(7), env_prefix=PREFIX, kms_key_id=KMS_KEY,
+                app_name=APP_NAME, env={**ENV}, connect=lambda s: connects.append(s), now_utc=NIGHT,
+                watchdog_factory=NoopWatchdog, derived=(bad,),
+            )
+        self.assertEqual(connects, [])
+
+
+class AcceptWriteOrderTests(unittest.TestCase):
+    """Real put_json path with a recording fake S3 client: data object, then manifest, then run manifest."""
+
+    DAY = NIGHT.date().isoformat()
+    DATA = "sources/acceptance-letters/exports/2026-09-29T073000Z.json"
+
+    def _run(self, fail_keys=()):
+        client = RecordingS3(fail_keys)
+        conn = FakeConnection(scripted=_scripted_accept_results())
+        fixed_now = mock.Mock(wraps=datetime)
+        fixed_now.now.return_value = NIGHT
+        with mock.patch.object(queries, "DATASETS", FAKE_DATASETS), mock.patch(
+            "common.s3util.s3", return_value=client
+        ), mock.patch("common.sources.s3", return_value=client), mock.patch(
+            "common.sources.datetime", fixed_now
+        ), mock.patch.object(mssql, "_now", return_value=NIGHT.isoformat()), mock.patch.dict(
+            "os.environ", {"DATA_BUCKET": "fake-bucket"}
+        ):
+            result = run(conn, env={f"{PREFIX}_ACCEPT_KMS_KEY_ID": ACCEPT_KMS_KEY})
+        return client, [p["Key"] for p in client.puts], result
+
+    def test_data_then_manifest_then_run_manifest_with_own_key(self):
+        client, keys, result = self._run()
+        self.assertTrue(result["ok"])
+        accept_keys = [k for k in keys if k.startswith("sources/acceptance-letters/")]
+        self.assertEqual(accept_keys, [self.DATA, ACCEPT_MANIFEST_KEY])
+        self.assertLess(keys.index(ACCEPT_MANIFEST_KEY), keys.index(f"sources/{SOURCE}/_runs/dt={self.DAY}/manifest.json"))
+        for p in client.puts:
+            if p["Key"].startswith("sources/acceptance-letters/"):
+                self.assertEqual(p["SSEKMSKeyId"], ACCEPT_KMS_KEY)
+                self.assertEqual(p["ServerSideEncryption"], "aws:kms")
+        body = json.loads(next(p["Body"] for p in client.puts if p["Key"] == ACCEPT_MANIFEST_KEY))
+        self.assertEqual(body["dataKey"], self.DATA)
+
+    def test_failed_data_write_means_no_manifest_and_a_recorded_failure(self):
+        client, keys, result = self._run(fail_keys=(self.DATA,))
+        self.assertTrue(result["ok"])
+        self.assertFalse([k for k in keys if k.startswith("sources/acceptance-letters/")])
+        run_manifest = json.loads(next(p["Body"] for p in client.puts if p["Key"].endswith("_runs/latest.json")))
+        self.assertTrue(run_manifest["ok"])
+        self.assertEqual(run_manifest["derived_failed"], [ACCEPT_LABEL])
+        self.assertEqual(keys[-2:], [f"sources/{SOURCE}/_runs/dt={self.DAY}/manifest.json", f"sources/{SOURCE}/_runs/latest.json"])
+
+    def test_failed_manifest_write_leaves_previous_manifest_untouched(self):
+        client, keys, result = self._run(fail_keys=(ACCEPT_MANIFEST_KEY,))
+        self.assertTrue(result["ok"])
+        self.assertIn(self.DATA, keys)
+        self.assertNotIn(ACCEPT_MANIFEST_KEY, keys)
+        run_manifest = json.loads(next(p["Body"] for p in client.puts if p["Key"].endswith("_runs/latest.json")))
+        self.assertEqual(run_manifest["derived_failed"], [ACCEPT_LABEL])
 
 
 if __name__ == "__main__":
