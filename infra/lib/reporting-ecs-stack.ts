@@ -604,10 +604,10 @@ function acceptanceLettersExtract(scope: Construct, powerfaidsTaskRole: iam.Role
     conditions: { ArnNotEquals: { "aws:PrincipalArn": [powerfaidsTaskRole.roleArn, virtualAcceptanceTaskRoleArn, breakGlassUserArn] } },
   }));
 
-  // Writer: the PowerFAIDS task role. S3 SSE-KMS PutObject needs GenerateDataKey; Encrypt is
-  // granted too so the role can always write under the key it owns.
+  // Writer: the PowerFAIDS task role. S3 SSE-KMS PutObject needs GenerateDataKey; Encrypt and
+  // Decrypt are granted too, matching the need extract writer that is proven in production.
   powerfaidsTaskRole.addToPolicy(new iam.PolicyStatement({
-    actions: ["kms:Encrypt", "kms:GenerateDataKey"],
+    actions: ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey"],
     resources: [key.keyArn],
     conditions: { StringEquals: { "kms:ViaService": `s3.${region}.amazonaws.com` } },
   }));
