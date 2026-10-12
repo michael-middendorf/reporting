@@ -18,6 +18,7 @@ members = [
   "services/publishers/advancement-overview",
   "services/publishers/mgo-top-prospects",
   "services/publishers/mgo-analysis",
+  "services/publishers/ty-letters",
   "services/publishers/portfolios",
   "services/publishers/stained-glass-windows",
   "services/publishers/fall-appeal",

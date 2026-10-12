@@ -43,6 +43,12 @@ const REPORTS: {
     report: "mgo-analysis",
   },
   {
+    href: "/advancement/ty-letters",
+    title: "Thank-You Letters",
+    desc: "Donor cards for recent gifts of $1,000 or more: contact details, giving history, and who sent the letter.",
+    report: "ty-letters",
+  },
+  {
     href: "/advancement/portfolios",
     title: "Portfolios",
     desc: "MGO and MA books by pipeline stage, last gift, and last activity.",
