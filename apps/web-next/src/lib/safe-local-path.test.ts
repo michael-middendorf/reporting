@@ -26,6 +26,9 @@ const HOSTILE = [
   "/\n/evil.com",
   "/a\u0000b",
   "/a\u007fb",
+  "/..%2f/evil",
+  "/a%2f..%2f..",
+  "/..%5C/evil",
 ];
 
 describe("safeLocalPath", () => {
@@ -60,6 +63,38 @@ describe("safeLocalPath", () => {
     // Dots inside a segment, or in the query, are fine.
     assert.equal(safeLocalPath("/files/report.v2"), "/files/report.v2");
     assert.equal(safeLocalPath("/x?path=../y"), "/x?path=../y");
+  });
+
+  it("rejects percent-encoded / or \\ in the path, any case", () => {
+    for (const raw of [
+      "/..%2f/evil",
+      "/..%2F/evil",
+      "/a%2f..%2f..",
+      "/a%2F..%2F..",
+      "/%2fevil.com",
+      "/%2F%2Fevil.com",
+      "/..%5c/evil",
+      "/..%5C/evil",
+      "/a%5cb",
+      "/census%2fx?term=FA26",
+    ]) {
+      assert.equal(safeLocalPath(raw), "/", raw);
+      assert.equal(entraReturnPath(raw), null, raw);
+      assert.equal(carriedReturnPath(raw), null, raw);
+    }
+  });
+
+  it("leaves dots and encoded values in the query and fragment alone", () => {
+    for (const raw of [
+      "/census?file=..%2f..%2fx",
+      "/census?path=a%2Fb%5Cc",
+      "/x?path=../y&v=1.2",
+      "/advancement/points#a%2fb",
+      "/files/report.v2?q=%2e%2e",
+    ]) {
+      assert.equal(safeLocalPath(raw), raw, raw);
+      assert.equal(carriedReturnPath(raw), raw, raw);
+    }
   });
 
   it("caps the length", () => {

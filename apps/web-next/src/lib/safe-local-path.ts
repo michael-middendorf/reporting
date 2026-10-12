@@ -14,13 +14,20 @@ const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
 // normalizes to "//evil.com", so dot segments are never a valid return path.
 const DOT_SEGMENT = /(^|\/)(\.|%2e){1,2}(\/|$)/i;
 
+// Percent-encoded "/" or "\" in the path portion. "/..%2f/evil" and
+// "/a%2f..%2f.." hide dot segments from DOT_SEGMENT, and no page route takes
+// an encoded separator in its path (dynamic segments are slugs or
+// [A-Za-z0-9_-] keys). The query and fragment are not checked.
+const ENCODED_SEPARATOR = /%(2f|5c)/i;
+
 const PARSE_BASE = "https://reporting.invalid";
 
 /**
  * Coerce an untrusted path to a same-origin path, or "/".
  * Accepts only a single leading "/". Rejects protocol-relative ("//evil.com"),
  * backslash tricks ("/\\evil.com", "/a\\b"), control characters, dot
- * segments ("/..//evil.com"), anything the URL parser would move off-origin
+ * segments ("/..//evil.com"), percent-encoded "/" or "\" in the path
+ * ("/..%2f/evil"), anything the URL parser would move off-origin
  * or normalize to "//", and anything longer than SAFE_LOCAL_PATH_MAX_LENGTH.
  */
 export function safeLocalPath(raw: string | null | undefined): string {
@@ -30,7 +37,9 @@ export function safeLocalPath(raw: string | null | undefined): string {
   if (raw.startsWith("//") || raw.startsWith("/\\")) return "/";
   if (raw.includes("\\")) return "/";
   if (CONTROL_CHARS.test(raw)) return "/";
-  if (DOT_SEGMENT.test(raw.split(/[?#]/)[0])) return "/";
+  const pathname = raw.split(/[?#]/)[0];
+  if (DOT_SEGMENT.test(pathname)) return "/";
+  if (ENCODED_SEPARATOR.test(pathname)) return "/";
   try {
     const parsed = new URL(raw, PARSE_BASE);
     if (parsed.origin !== PARSE_BASE || parsed.pathname.startsWith("//")) return "/";

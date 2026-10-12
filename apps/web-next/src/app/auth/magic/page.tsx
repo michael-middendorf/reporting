@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStor
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { apiFetch, setBearer } from "@/lib/api";
+import { safeLocalPath } from "@/lib/safe-local-path";
 import { completeSessionSignIn } from "@/lib/session-lifecycle";
 import styles from "../../auth.module.css";
 
@@ -87,7 +88,9 @@ function MagicInner() {
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
         if (data.mfaRequired) {
           setBearer(null);
-          const dest = data.redirect || "/auth/mfa";
+          // /auth/mfa?next=... from the server; re-checked so a bad value
+          // can only ever land on "/".
+          const dest = safeLocalPath(data.redirect || "/auth/mfa");
           completed.add(magicToken);
           lastRedirect.set(magicToken, dest);
           window.location.replace(dest);

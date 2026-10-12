@@ -8,6 +8,7 @@ import {
   verifySessionToken,
 } from "@/lib/auth";
 import { claimMagicNonce } from "@/lib/magic-nonce";
+import { carriedReturnPath } from "@/lib/safe-local-path";
 import { appendSetCookies, signInAfterVerification } from "@/lib/sign-in-after-verification";
 
 export const runtime = "nodejs";
@@ -30,15 +31,20 @@ export async function POST(req: Request) {
   let email: string;
   let nonce: string;
   let exp: number;
+  let returnPath: string | null;
   try {
     const payload = verifyMagicToken(token, secret) as {
       email: string;
       nonce?: string;
       exp?: number;
+      next: string | null;
     };
     email = payload.email;
     nonce = String(payload.nonce || "");
     exp = payload.exp ?? 0;
+    // Signed into the token at request time; re-validated here (and again by
+    // mfaPagePath / mfaReturnRedirect) so only same-origin paths survive.
+    returnPath = carriedReturnPath(payload.next);
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Invalid token" },
@@ -82,14 +88,16 @@ export async function POST(req: Request) {
     }
   }
 
-  const signIn = signInAfterVerification(req, email, secret, decision);
+  // MFA users get /auth/mfa?next=<returnPath>; the return path is only used
+  // after /auth/mfa verifies the second factor (mfaReturnRedirect).
+  const signIn = signInAfterVerification(req, email, secret, decision, "magic", undefined, returnPath);
   if (signIn.kind === "mfa_pending") {
     const res = NextResponse.json({ ok: true, mfaRequired: true, redirect: signIn.redirect });
     appendSetCookies(res, signIn.setCookies);
     return res;
   }
 
-  const res = NextResponse.json({ ok: true, email, redirect: "/", session: signIn.session });
+  const res = NextResponse.json({ ok: true, email, redirect: returnPath ?? "/", session: signIn.session });
   appendSetCookies(res, signIn.setCookies);
   return res;
 }

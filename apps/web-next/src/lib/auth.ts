@@ -1,4 +1,5 @@
 import { ssoSessionAccepted } from "./sso-policy";
+import { carriedReturnPath } from "./safe-local-path";
 import { createHmac, timingSafeEqual, randomBytes } from "crypto";
 
 export const SESSION_COOKIE_NAME = "amu_reporting_session";
@@ -65,24 +66,42 @@ export function verifySignedToken(token: string, signingKey: string): Record<str
   return payload;
 }
 
-export function createMagicToken(email: string, signingKey: string, ttlMinutes: number) {
+/**
+ * Signed, single-use (nonce) magic-link token. `returnPath` is the untrusted
+ * page to land on after sign-in; it is kept in the signed payload as `next`
+ * only when carriedReturnPath accepts it, so the emailed URL carries no
+ * separate redirect parameter that could be edited.
+ */
+export function createMagicToken(
+  email: string,
+  signingKey: string,
+  ttlMinutes: number,
+  returnPath?: string | null,
+) {
+  const next = carriedReturnPath(returnPath);
   return createSignedToken(
     {
       email: normalizeEmail(email),
       exp: Math.floor(Date.now() / 1000) + Math.max(ttlMinutes, 1) * 60,
       nonce: randomBytes(16).toString("base64url"),
       type: "magic",
+      ...(next ? { next } : {}),
     },
     signingKey,
   );
 }
 
+/**
+ * Verified magic-link payload. `next` is re-validated with carriedReturnPath
+ * (null when absent, unsafe, the default, or a sign-in page).
+ */
 export function verifyMagicToken(token: string, signingKey: string) {
   const p = verifySignedToken(token, signingKey);
   if (p.type !== "magic") throw new Error("Invalid token type");
   const email = normalizeEmail(String(p.email || ""));
   if (!isValidEmail(email)) throw new Error("Invalid token email");
-  return { ...p, email };
+  const next = carriedReturnPath(typeof p.next === "string" ? p.next : null);
+  return { ...p, email, next };
 }
 
 /**
