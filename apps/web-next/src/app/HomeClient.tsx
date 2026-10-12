@@ -36,7 +36,7 @@ const REPORTS: {
     id: "housing",
     href: "/housing",
     title: "Housing",
-    desc: "Residence occupancy, floor maps, move-ins, and verification for the current session.",
+    desc: "Capacity Quest and Residence Life: occupancy, floor maps, move-ins, and verification.",
   },
   {
     id: "institute",

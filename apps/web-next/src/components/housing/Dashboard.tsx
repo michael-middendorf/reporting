@@ -11,18 +11,13 @@ import {
   isIsoDate,
 } from "@/lib/reports/housing/model";
 import type { OccIndex } from "@/lib/reports/housing/model";
-import type {
-  ResidentsPayload,
-  RoomVerificationState,
-  StudyAbroad,
-} from "@/lib/reports/housing/types";
+import type { ResidentsPayload, RoomVerificationState } from "@/lib/reports/housing/types";
 import { Floors } from "./Floors";
 import { Moveins } from "./Moveins";
-import { Overview } from "./Overview";
 import { Verification } from "./Verification";
 import styles from "./housing.module.css";
 
-type View = "overview" | "floor" | "movein" | "verify";
+type View = "floor" | "movein" | "verify";
 type FloorMode = "chart" | "list";
 
 type UrlState = {
@@ -43,7 +38,7 @@ function readUrlState(search: string): UrlState {
   const viewParam = params.get("view");
   const modeParam = params.get("mode");
   return {
-    view: viewParam === "floor" || viewParam === "movein" || viewParam === "verify" ? viewParam : "overview",
+    view: viewParam === "movein" || viewParam === "verify" ? viewParam : "floor",
     hall: hallParam && META[hallParam] ? hallParam : "JPII",
     floor: floorParam ? Number(floorParam) : null,
     asof: asofParam && isIsoDate(asofParam) ? asofParam : null,
@@ -68,7 +63,6 @@ export function HousingDashboard() {
 function HousingDashboardView({ initial }: { initial: UrlState }) {
   const [payload, setPayload] = useState<ResidentsPayload | null>(null);
   const [error, setError] = useState("");
-  const [studyAbroad, setStudyAbroad] = useState<StudyAbroad | null>(null);
   const [edits, setEdits] = useState<RoomVerificationState["edits"]>({});
   const [view, setView] = useState<View>(initial.view);
   const [hall, setHall] = useState(initial.hall);
@@ -79,7 +73,7 @@ function HousingDashboardView({ initial }: { initial: UrlState }) {
 
   useEffect(() => {
     const params = new URLSearchParams();
-    if (view !== "overview") params.set("view", view);
+    if (view !== "floor") params.set("view", view);
     if (view === "floor") {
       params.set("hall", hall);
       params.set("mode", mode);
@@ -109,12 +103,6 @@ function HousingDashboardView({ initial }: { initial: UrlState }) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load housing data");
       }
     })();
-    apiFetch("/api/study-abroad")
-      .then((r) => r.json())
-      .then((d: StudyAbroad) => {
-        if (!cancelled && !d.error) setStudyAbroad(d);
-      })
-      .catch(() => undefined);
     apiFetch("/api/room-verification")
       .then((r) => r.json())
       .then((d: { state?: RoomVerificationState }) => {
@@ -173,7 +161,6 @@ function HousingDashboardView({ initial }: { initial: UrlState }) {
 
       <nav className={styles.nav}>
         {([
-          ["overview", "Stats"],
           ["floor", "Housing"],
           ["movein", "Move-ins"],
           ["verify", "Verification"],
@@ -192,17 +179,6 @@ function HousingDashboardView({ initial }: { initial: UrlState }) {
       {error && <div className={styles.wrap}><p className={styles.error}>{error}</p></div>}
       {!error && !payload && <div className={styles.wrap}><p>Loading housing assignments…</p></div>}
 
-      {!error && payload && view === "overview" && (
-        <Overview
-          residents={residents}
-          charts={HALL_CHARTS}
-          occ={occ}
-          edits={edits}
-          withdrawn={payload.withdrawn}
-          studyAbroad={studyAbroad}
-          cachedAt={payload.cached_at}
-        />
-      )}
       {!error && payload && view === "floor" && (
         <Floors
           occ={occ}
