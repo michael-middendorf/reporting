@@ -1,6 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { CANONICAL_APP_URL } from "@/lib/public-url";
-import { entraReturnPath } from "@/lib/safe-local-path";
+import { entraReturnPath, withNextParam } from "@/lib/safe-local-path";
 
 export { entraReturnPath };
 
@@ -29,6 +29,17 @@ export const ENTRA_CALLBACK_PATH = "/api/auth/microsoft/callback";
 
 /** Where every callback failure lands. LoginClient shows a message for it. */
 export const MICROSOFT_FAILED_PATH = "/login?microsoft=failed";
+
+/**
+ * Where a failed Microsoft callback sends the user: MICROSOFT_FAILED_PATH,
+ * plus &next= when the stored return path is a safe same-origin path other
+ * than "/" or a sign-in page, so "Sign in with Microsoft" on the login page
+ * still returns them to the page they started from. Unsafe values are
+ * dropped (bare failure URL), never coerced.
+ */
+export function entraFailureLoginPath(rawReturnPath: string | null | undefined): string {
+  return withNextParam(MICROSOFT_FAILED_PATH, rawReturnPath);
+}
 
 export const ENTRA_COOKIES = {
   state: "amu_reporting_entra_state",

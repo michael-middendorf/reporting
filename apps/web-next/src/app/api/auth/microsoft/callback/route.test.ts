@@ -77,9 +77,9 @@ function cookieValue(res: Response, name: string): string | null {
   return null;
 }
 
-function assertFailed(res: Response) {
+function assertFailed(res: Response, location = "/login?microsoft=failed") {
   assert.equal(res.status, 302);
-  assert.equal(res.headers.get("location"), "/login?microsoft=failed");
+  assert.equal(res.headers.get("location"), location);
   const cookies = setCookies(res);
   for (const name of Object.keys(GOOD_COOKIES).concat("amu_reporting_entra_from")) {
     assert.ok(
@@ -138,6 +138,14 @@ describe("GET /api/auth/microsoft", () => {
     for (const c of setCookies(res)) {
       assert.match(c, /Path=\/api\/auth\/microsoft; Max-Age=600; HttpOnly; Secure; SameSite=Lax$/);
     }
+  });
+
+  it("keeps a safe next on the /login fallback when sign-in is off", async () => {
+    env.NODE_ENV = "development";
+    const ok = await start(new NextRequest("http://localhost:3001/api/auth/microsoft?next=%2Fcensus%3Fx%3D1"));
+    assert.equal(ok.headers.get("location"), "/login?next=%2Fcensus%3Fx%3D1");
+    const bad = await start(new NextRequest("http://localhost:3001/api/auth/microsoft?next=%2F%2Fevil.example"));
+    assert.equal(bad.headers.get("location"), "/login");
   });
 
   it("drops an unsafe next instead of storing it", async () => {
@@ -201,6 +209,30 @@ describe("GET /api/auth/microsoft/callback failures", () => {
     assertFailed(await callback(callbackRequest("?code=c&state=the-state")));
     assert.ok(calls.some((c) => c.method === "DELETE" && c.url.endsWith("/user-sessions/current")));
   });
+
+  it("carries the saved return path as next on every failure, still clearing every cookie", async () => {
+    const withFrom = { ...GOOD_COOKIES, amu_reporting_entra_from: "/census?term=FA26" };
+    const expected = "/login?microsoft=failed&next=%2Fcensus%3Fterm%3DFA26";
+    stubCore({});
+    assertFailed(await callback(callbackRequest("?error=access_denied&state=the-state", withFrom)), expected);
+    assertFailed(await callback(callbackRequest("?code=c&state=other-state", withFrom)), expected);
+    assertFailed(await callback(callbackRequest("?state=the-state", withFrom)), expected);
+    stubCore({ exchangeStatus: 401 });
+    assertFailed(await callback(callbackRequest("?code=c&state=the-state", withFrom)), expected);
+    stubCore({ email: "nobody@avemaria.edu" });
+    assertFailed(await callback(callbackRequest("?code=c&state=the-state", withFrom)), expected);
+    env.ENTRA_CLIENT_ID = "";
+    assertFailed(await callback(callbackRequest("?code=c&state=the-state", withFrom)), expected);
+  });
+
+  it("drops a hostile, default, or /login saved path from the failure redirect", async () => {
+    stubCore({});
+    for (const from of ["//evil.example", "/\\evil.example", "/..//evil.example", "https://evil.example", "/", "/login?next=%2Fx"]) {
+      assertFailed(
+        await callback(callbackRequest("?error=access_denied&state=the-state", { ...GOOD_COOKIES, amu_reporting_entra_from: from })),
+      );
+    }
+  });
 });
 
 describe("GET /api/auth/microsoft/callback success", () => {
@@ -250,7 +282,8 @@ describe("GET /api/auth/microsoft/callback success", () => {
       callbackRequest("?code=c&state=the-state", { ...GOOD_COOKIES, amu_reporting_entra_from: "/aspiredu" }),
     );
     assert.equal(res.status, 302);
-    assert.equal(res.headers.get("location"), "/auth/mfa");
+    // The saved path rides along as next; MFA itself is still required.
+    assert.equal(res.headers.get("location"), "/auth/mfa?next=%2Faspiredu");
     const pending = cookieValue(res, MFA_PENDING_COOKIE);
     assert.ok(pending);
     const pendingClaims = verifyMfaPendingToken(decodeURIComponent(pending), SECRET);

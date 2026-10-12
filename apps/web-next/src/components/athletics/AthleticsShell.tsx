@@ -147,7 +147,8 @@ export function AthleticsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetchMe().then((me) => {
       if (!me.authenticated) {
-        window.location.href = "/login";
+        // Same return-path pattern as AccessGate and the session watcher.
+        window.location.replace(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
         return;
       }
       const reports = me.reports || [];

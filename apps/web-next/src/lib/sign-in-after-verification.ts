@@ -11,13 +11,22 @@ import {
   sessionCookie,
   type SessionAuthMethod,
 } from "@/lib/auth";
+import { withNextParam } from "@/lib/safe-local-path";
 
 export const MFA_PAGE_PATH = "/auth/mfa";
+
+/**
+ * /auth/mfa, plus ?next=<encoded> when `returnPath` is a safe same-origin
+ * path worth keeping (carriedReturnPath). Unsafe values are dropped.
+ */
+export function mfaPagePath(returnPath?: string | null): string {
+  return withNextParam(MFA_PAGE_PATH, returnPath);
+}
 
 export type SignInDecision = "session" | "mfa_pending";
 
 export type VerifiedSignIn =
-  | { kind: "mfa_pending"; redirect: typeof MFA_PAGE_PATH; setCookies: string[] }
+  | { kind: "mfa_pending"; redirect: string; setCookies: string[] }
   | { kind: "session"; session: string; setCookies: string[] };
 
 /**
@@ -44,13 +53,19 @@ export function signInAfterVerification(
    */
   auth: SessionAuthMethod = "magic",
   authCreatedAt?: string,
+  /**
+   * Untrusted page to return to after sign-in (the Microsoft `from` cookie).
+   * Only used for mfa_pending, re-validated by mfaPagePath. Callers send
+   * session users there themselves.
+   */
+  returnPath?: string | null,
 ): VerifiedSignIn {
   const secure = cookieSecureFromRequest(req);
   if (decision === "mfa_pending") {
     const pending = createMfaPendingToken(email, secret, MFA_PENDING_TTL_MINUTES, { auth, authCreatedAt });
     return {
       kind: "mfa_pending",
-      redirect: MFA_PAGE_PATH,
+      redirect: mfaPagePath(returnPath),
       setCookies: [
         mfaPendingCookie(pending, MFA_PENDING_TTL_MINUTES * 60, secure),
         clearSessionCookie(secure),

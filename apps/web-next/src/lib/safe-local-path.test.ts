@@ -1,6 +1,32 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { SAFE_LOCAL_PATH_MAX_LENGTH, entraReturnPath, safeLocalPath } from "./safe-local-path";
+import {
+  SAFE_LOCAL_PATH_MAX_LENGTH,
+  carriedReturnPath,
+  entraReturnPath,
+  safeLocalPath,
+  withNextParam,
+} from "./safe-local-path";
+
+// Every value here must never survive as a return path.
+const HOSTILE = [
+  "//evil.com",
+  "///evil.com",
+  "/\\evil.com",
+  "/\\/evil.com",
+  "/..//evil.com",
+  "/./evil.com",
+  "/%2e%2e//evil.com",
+  "/a/../..//evil.com",
+  "https://evil.com",
+  "http:/evil.com",
+  "javascript:alert(1)",
+  "evil.com",
+  "/\t/evil.com",
+  "/\n/evil.com",
+  "/a\u0000b",
+  "/a\u007fb",
+];
 
 describe("safeLocalPath", () => {
   it("keeps same-origin paths", () => {
@@ -27,6 +53,15 @@ describe("safeLocalPath", () => {
     }
   });
 
+  it("rejects dot segments that normalize to //evil.com", () => {
+    for (const raw of ["/..//evil.com", "/./evil.com", "/%2e%2e//evil.com", "/%2E/x", "/a/../..//evil.com", "/.."]) {
+      assert.equal(safeLocalPath(raw), "/", raw);
+    }
+    // Dots inside a segment, or in the query, are fine.
+    assert.equal(safeLocalPath("/files/report.v2"), "/files/report.v2");
+    assert.equal(safeLocalPath("/x?path=../y"), "/x?path=../y");
+  });
+
   it("caps the length", () => {
     const ok = `/${"a".repeat(SAFE_LOCAL_PATH_MAX_LENGTH - 1)}`;
     assert.equal(safeLocalPath(ok), ok);
@@ -42,5 +77,44 @@ describe("entraReturnPath", () => {
     assert.equal(entraReturnPath("https://evil.example"), null);
     assert.equal(entraReturnPath(""), null);
     assert.equal(entraReturnPath(null), null);
+  });
+
+  it("drops every hostile value", () => {
+    for (const raw of HOSTILE) assert.equal(entraReturnPath(raw), null, JSON.stringify(raw));
+  });
+});
+
+describe("carriedReturnPath", () => {
+  it("keeps a safe path with its query and fragment", () => {
+    assert.equal(carriedReturnPath("/enrollment?term=FA26&x=1"), "/enrollment?term=FA26&x=1");
+    assert.equal(carriedReturnPath("/advancement/points?tab=1#x"), "/advancement/points?tab=1#x");
+  });
+
+  it("drops hostile values", () => {
+    for (const raw of HOSTILE) assert.equal(carriedReturnPath(raw), null, JSON.stringify(raw));
+  });
+
+  it("drops the default and sign-in pages", () => {
+    for (const raw of ["/", "/?x=1", "/login", "/login?next=%2Fx", "/login/", "/login/anything", "/auth/mfa", "/auth/magic?token=t", null, undefined, ""]) {
+      assert.equal(carriedReturnPath(raw), null, String(raw));
+    }
+  });
+
+  it("keeps paths that only start with the same letters", () => {
+    assert.equal(carriedReturnPath("/loginhelp"), "/loginhelp");
+    assert.equal(carriedReturnPath("/authors"), "/authors");
+  });
+});
+
+describe("withNextParam", () => {
+  it("appends an encoded next with ? or &", () => {
+    assert.equal(withNextParam("/auth/mfa", "/census?a=1&b=2"), "/auth/mfa?next=%2Fcensus%3Fa%3D1%26b%3D2");
+    assert.equal(withNextParam("/login?microsoft=failed", "/census"), "/login?microsoft=failed&next=%2Fcensus");
+  });
+
+  it("returns the base unchanged for hostile, default, or sign-in paths", () => {
+    for (const raw of [...HOSTILE, "/", "/login?x=1", "/auth/mfa", null, undefined]) {
+      assert.equal(withNextParam("/auth/mfa", raw), "/auth/mfa", JSON.stringify(raw));
+    }
   });
 });

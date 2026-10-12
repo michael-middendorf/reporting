@@ -10,11 +10,18 @@ export const SAFE_LOCAL_PATH_MAX_LENGTH = 2048;
 // URL parser and turn "/\t/evil.com" into "//evil.com".
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
 
+// "." or ".." path segments, plain or percent-encoded. "/..//evil.com"
+// normalizes to "//evil.com", so dot segments are never a valid return path.
+const DOT_SEGMENT = /(^|\/)(\.|%2e){1,2}(\/|$)/i;
+
+const PARSE_BASE = "https://reporting.invalid";
+
 /**
  * Coerce an untrusted path to a same-origin path, or "/".
  * Accepts only a single leading "/". Rejects protocol-relative ("//evil.com"),
- * backslash tricks ("/\\evil.com", "/a\\b"), control characters, and
- * anything longer than SAFE_LOCAL_PATH_MAX_LENGTH.
+ * backslash tricks ("/\\evil.com", "/a\\b"), control characters, dot
+ * segments ("/..//evil.com"), anything the URL parser would move off-origin
+ * or normalize to "//", and anything longer than SAFE_LOCAL_PATH_MAX_LENGTH.
  */
 export function safeLocalPath(raw: string | null | undefined): string {
   if (typeof raw !== "string" || !raw) return "/";
@@ -23,6 +30,13 @@ export function safeLocalPath(raw: string | null | undefined): string {
   if (raw.startsWith("//") || raw.startsWith("/\\")) return "/";
   if (raw.includes("\\")) return "/";
   if (CONTROL_CHARS.test(raw)) return "/";
+  if (DOT_SEGMENT.test(raw.split(/[?#]/)[0])) return "/";
+  try {
+    const parsed = new URL(raw, PARSE_BASE);
+    if (parsed.origin !== PARSE_BASE || parsed.pathname.startsWith("//")) return "/";
+  } catch {
+    return "/";
+  }
   return raw;
 }
 
@@ -33,4 +47,30 @@ export function safeLocalPath(raw: string | null | undefined): string {
 export function entraReturnPath(raw: string | null | undefined): string | null {
   if (typeof raw !== "string" || !raw) return null;
   return safeLocalPath(raw) === raw ? raw : null;
+}
+
+/**
+ * Return path worth carrying as ?next= across a sign-in step, or null.
+ * Unsafe values are dropped (same rule as entraReturnPath). The default "/"
+ * and sign-in pages themselves (/login, /auth/*) are dropped too: carrying
+ * them adds nothing and could loop the user back into sign-in.
+ */
+export function carriedReturnPath(raw: string | null | undefined): string | null {
+  const path = entraReturnPath(raw);
+  if (!path) return null;
+  const pathname = path.split(/[?#]/)[0];
+  if (pathname === "/") return null;
+  if (pathname === "/login" || pathname.startsWith("/login/")) return null;
+  if (pathname === "/auth" || pathname.startsWith("/auth/")) return null;
+  return path;
+}
+
+/**
+ * `base` with `next=<encoded return path>` appended when carriedReturnPath
+ * keeps it, else `base` unchanged. `base` is one of our own fixed paths.
+ */
+export function withNextParam(base: string, raw: string | null | undefined): string {
+  const path = carriedReturnPath(raw);
+  if (!path) return base;
+  return `${base}${base.includes("?") ? "&" : "?"}next=${encodeURIComponent(path)}`;
 }

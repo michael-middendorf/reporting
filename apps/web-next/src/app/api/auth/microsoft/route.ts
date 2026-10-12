@@ -10,6 +10,7 @@ import {
   pkceChallenge,
   readEntraConfig,
 } from "@/lib/entra";
+import { withNextParam } from "@/lib/safe-local-path";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,14 +23,16 @@ export const runtime = "nodejs";
  */
 export async function GET(req: NextRequest) {
   const config = readEntraConfig();
+  const rawNext = req.nextUrl.searchParams.get("next");
   if (!config) {
+    // Sign-in is off: back to /login, keeping a safe ?next= (re-validated).
     return new Response(null, {
       status: 302,
-      headers: { Location: "/login", "Cache-Control": "no-store" },
+      headers: { Location: withNextParam("/login", rawNext), "Cache-Control": "no-store" },
     });
   }
 
-  const from = entraReturnPath(req.nextUrl.searchParams.get("next"));
+  const from = entraReturnPath(rawNext);
   const state = createUrlSafeToken();
   const nonce = createUrlSafeToken();
   const verifier = createPkceVerifier();

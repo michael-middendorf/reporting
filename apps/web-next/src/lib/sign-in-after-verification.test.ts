@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MFA_PENDING_COOKIE, SESSION_COOKIE_NAME, verifyMfaPendingToken, verifySessionToken } from "./auth";
-import { signInAfterVerification } from "./sign-in-after-verification";
+import { mfaPagePath, signInAfterVerification } from "./sign-in-after-verification";
 
 const SECRET = "sign-in-after-verification-test-key";
 const EMAIL = "someone@avemaria.edu";
@@ -34,6 +34,25 @@ describe("signInAfterVerification", () => {
     assert.match(r.setCookies[1], new RegExp(`^${SESSION_COOKIE_NAME}=; Path=/; Max-Age=0`));
     assert.match(r.setCookies[2], /Path=\/aspiredu/);
     assert.match(r.setCookies[3], /Max-Age=0/);
+  });
+
+  it("mfa_pending: carries a safe return path to /auth/mfa as next, drops hostile ones", () => {
+    const ok = signInAfterVerification(REQ, EMAIL, SECRET, "mfa_pending", "entra", undefined, "/census?term=FA26");
+    assert.equal(ok.kind, "mfa_pending");
+    if (ok.kind === "mfa_pending") assert.equal(ok.redirect, "/auth/mfa?next=%2Fcensus%3Fterm%3DFA26");
+    for (const raw of ["//evil.com", "/\\evil.com", "/..//evil.com", "https://evil.com", "/a\tb", "/", "/login?x=1", "/auth/mfa"]) {
+      const r = signInAfterVerification(REQ, EMAIL, SECRET, "mfa_pending", "entra", undefined, raw);
+      if (r.kind === "mfa_pending") assert.equal(r.redirect, "/auth/mfa", JSON.stringify(raw));
+    }
+  });
+});
+
+describe("mfaPagePath", () => {
+  it("is /auth/mfa with an encoded next only for safe paths", () => {
+    assert.equal(mfaPagePath(), "/auth/mfa");
+    assert.equal(mfaPagePath(null), "/auth/mfa");
+    assert.equal(mfaPagePath("/aspiredu"), "/auth/mfa?next=%2Faspiredu");
+    assert.equal(mfaPagePath("//evil.com"), "/auth/mfa");
   });
 });
 

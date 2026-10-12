@@ -1,6 +1,7 @@
 import { currentMfaPendingContext } from "@/lib/auth";
 import { ssoOnlyEnabled } from "@/lib/sso-policy";
 import { NextResponse } from "next/server";
+import { carriedReturnPath } from "@/lib/safe-local-path";
 import { clearAspireduSessionCookie } from "@/lib/aspiredu-auth";
 import {
   clearMfaPendingCookie,
@@ -25,6 +26,22 @@ function firstFactorAuth(req: Request, email: string): SessionAuthMethod {
   return "magic";
 }
 
+/**
+ * Where /auth/mfa sends the user once this session is minted. The page passes
+ * its own ?next= on the verify request URL; re-validated here and dropped
+ * (to "/") when unsafe, the default, or a sign-in page. Only read after the
+ * second factor has been verified, so it cannot skip MFA.
+ */
+export function mfaReturnRedirect(req: Request): string {
+  let raw: string | null = null;
+  try {
+    raw = new URL(req.url).searchParams.get("next");
+  } catch {
+    raw = null;
+  }
+  return carriedReturnPath(raw) ?? "/";
+}
+
 export function jsonWithReportingSession(
   req: Request,
   email: string,
@@ -43,7 +60,7 @@ export function jsonWithReportingSession(
     authCreatedAt: context?.createdAt,
   });
   const secure = cookieSecureFromRequest(req);
-  const res = NextResponse.json({ ok: true, email, redirect: "/", session, ...body });
+  const res = NextResponse.json({ ok: true, email, redirect: mfaReturnRedirect(req), session, ...body });
   res.headers.append("Set-Cookie", sessionCookie(session, ttlDays * 86400, secure));
   res.headers.append("Set-Cookie", clearMfaPendingCookie(secure));
   res.headers.append("Set-Cookie", clearAspireduSessionCookie("/aspiredu"));

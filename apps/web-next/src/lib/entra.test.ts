@@ -8,6 +8,7 @@ import {
   createPkceVerifier,
   entraConfigFrom,
   entraCookie,
+  entraFailureLoginPath,
   entraRedirectUri,
   pkceChallenge,
   timingSafeEqualString,
@@ -106,6 +107,29 @@ describe("entra cookies", () => {
     assert.equal(cleared.length, 4);
     for (const c of cleared) {
       assert.match(c, /^amu_reporting_entra_(state|verifier|nonce|from)=; Path=\/api\/auth\/microsoft; Max-Age=0; Expires=/);
+    }
+  });
+});
+
+describe("entraFailureLoginPath", () => {
+  it("is the bare failure path when there is nothing worth carrying", () => {
+    for (const raw of [undefined, null, "", "/", "/login", "/login?microsoft=failed", "/login/x", "/auth/mfa"]) {
+      assert.equal(entraFailureLoginPath(raw), "/login?microsoft=failed", String(raw));
+    }
+  });
+
+  it("carries a safe saved path, query included, as next", () => {
+    assert.equal(entraFailureLoginPath("/census?term=FA26&x=1"), "/login?microsoft=failed&next=%2Fcensus%3Fterm%3DFA26%26x%3D1");
+    const loc = new URL(entraFailureLoginPath("/athletics/coaching?sport=mbb"), "https://reporting.avemaria.edu");
+    assert.equal(loc.origin, "https://reporting.avemaria.edu");
+    assert.equal(loc.pathname, "/login");
+    assert.equal(loc.searchParams.get("microsoft"), "failed");
+    assert.equal(loc.searchParams.get("next"), "/athletics/coaching?sport=mbb");
+  });
+
+  it("drops off-origin and malformed saved paths", () => {
+    for (const raw of ["//evil.com", "/\\evil.com", "/..//evil.com", "/%2e%2e//evil.com", "https://evil.com", "evil.com", "/\t/evil.com", "/a\nb", "/a\u0000b", "/a\u007fb"]) {
+      assert.equal(entraFailureLoginPath(raw), "/login?microsoft=failed", JSON.stringify(raw));
     }
   });
 });

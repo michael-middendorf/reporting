@@ -5,7 +5,18 @@ import { startAuthentication, type PublicKeyCredentialRequestOptionsJSON } from 
 import { MicrosoftAuthenticatorInstructions } from "@/components/MicrosoftAuthenticatorInstructions";
 import { AuthenticatorSetup } from "@/components/AuthenticatorQr";
 import { apiFetch, setBearer } from "@/lib/api";
+import { carriedReturnPath, withNextParam } from "@/lib/safe-local-path";
 import styles from "../../auth.module.css";
+
+/**
+ * This page's own ?next= (set by the Microsoft callback), re-validated.
+ * Null when missing, unsafe, "/" or a sign-in page. Read at call time from
+ * the address bar so the page needs no Suspense boundary.
+ */
+function returnPathFromAddressBar(): string | null {
+  if (typeof window === "undefined") return null;
+  return carriedReturnPath(new URLSearchParams(window.location.search).get("next"));
+}
 
 export default function AuthMfaPage() {
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
@@ -42,7 +53,10 @@ export default function AuthMfaPage() {
           error?: string;
         };
         if (response.status === 401) {
-          window.location.replace("/");
+          // No (or an expired) mfa_pending cookie: start over at sign-in,
+          // keeping the return path when there is one.
+          const next = returnPathFromAddressBar();
+          window.location.replace(next ? withNextParam("/login", next) : "/");
           return;
         }
         if (!response.ok) throw new Error(body.error || "Could not check authenticator status");
@@ -61,9 +75,19 @@ export default function AuthMfaPage() {
     window.setTimeout(() => setCopied(false), 2000);
   }
 
-  function finishSignIn(session?: string) {
+  /** Verify endpoint URL carrying this page's validated ?next= for the server. */
+  function verifyUrl(path: string) {
+    return withNextParam(path, returnPathFromAddressBar());
+  }
+
+  /**
+   * Only called after the server verified the second factor and minted the
+   * session. Goes to the server's re-validated redirect, re-checked here, or
+   * "/" when there is none.
+   */
+  function finishSignIn(session?: string, redirect?: string) {
     if (session) setBearer(session);
-    window.location.replace("/");
+    window.location.replace(carriedReturnPath(redirect) ?? "/");
   }
 
   async function submitCode(event: FormEvent) {
@@ -71,13 +95,13 @@ export default function AuthMfaPage() {
     setBusy(true);
     setError("");
     try {
-      const response = await apiFetch("/api/auth/mfa/verify", {
+      const response = await apiFetch(verifyUrl("/api/auth/mfa/verify"), {
         method: "POST",
         body: JSON.stringify({ code }),
       });
-      const body = (await response.json()) as { error?: string; session?: string };
+      const body = (await response.json()) as { error?: string; session?: string; redirect?: string };
       if (!response.ok) throw new Error(body.error || "That code is not valid");
-      finishSignIn(body.session);
+      finishSignIn(body.session, body.redirect);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "That code is not valid");
       setBusy(false);
@@ -94,13 +118,13 @@ export default function AuthMfaPage() {
         throw new Error(optionsBody.error || "Could not start passkey sign-in");
       }
       const assertion = await startAuthentication({ optionsJSON: optionsBody.optionsJSON });
-      const verifyRes = await apiFetch("/api/auth/passkey/auth-verify", {
+      const verifyRes = await apiFetch(verifyUrl("/api/auth/passkey/auth-verify"), {
         method: "POST",
         body: JSON.stringify(assertion),
       });
-      const verifyBody = (await verifyRes.json()) as { error?: string; session?: string };
+      const verifyBody = (await verifyRes.json()) as { error?: string; session?: string; redirect?: string };
       if (!verifyRes.ok) throw new Error(verifyBody.error || "Could not verify that passkey");
-      finishSignIn(verifyBody.session);
+      finishSignIn(verifyBody.session, verifyBody.redirect);
     } catch (err: unknown) {
       const name = err instanceof Error ? err.name : "";
       if (name === "NotAllowedError") {
