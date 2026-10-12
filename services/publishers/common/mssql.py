@@ -32,7 +32,9 @@ Operational limits (run_publisher):
     derived failure is recorded in the manifest ("derived", "derived_failed")
     but never marks a raw dataset failed or fails the run. A derived extract
     may reshape its rows in Python (transform) and write one small sidecar
-    JSON next to its dataset (sidecar), both under its own KMS key.
+    JSON next to its dataset (sidecar), both under its own KMS key. A derived
+    extract that joins several result sets in Python (statements + build)
+    writes its own JSON objects in order, under its own KMS key.
   * Every object written (data, meta, _latest, run manifests) is encrypted
     with the source's own KMS key, and the shared catalog is not refreshed.
 """
@@ -44,7 +46,7 @@ import os
 import re
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable, Iterator, Mapping, Sequence
 
@@ -558,6 +560,15 @@ Rows = list[dict[str, Any]]
 
 
 @dataclass(frozen=True)
+class DerivedOutput:
+    """What a multi-statement derived extract writes: (key, JSON payload) in write order."""
+
+    objects: tuple[tuple[str, Any], ...]
+    record_count: int
+    prefix: str
+
+
+@dataclass(frozen=True)
 class DerivedDataset:
     """A narrow extract published under its own source prefix and KMS key.
 
@@ -573,6 +584,18 @@ class DerivedDataset:
         KMS key env var is unset and that must count as a failure, not a
         skip). It is recorded as a derived failure with this message, nothing
         is queried, and sql is not guarded.
+
+    Multi-statement mode (statements non-empty; sql is ignored and should be
+    empty; transform and sidecar are not used):
+      * statements: (name, sql, param_names) run in order on the one session.
+        Every statement goes through guard_select before connecting.
+      * extra_params: bound parameters owned by this extract. They are looked
+        up after the shared run params and never added to the run manifest.
+      * build(results) -> DerivedOutput: results maps each statement name to
+        its rows. The returned objects are written with put_json, in order,
+        under kms_key_id (so a manifest object can be written last). An
+        exception, or a failed write, is recorded as a derived failure and the
+        remaining objects are not written.
     """
 
     source: str
@@ -583,6 +606,9 @@ class DerivedDataset:
     transform: Callable[[Rows], Rows] | None = None
     sidecar: Callable[[Rows, dict[str, Any]], tuple[str, Any]] | None = None
     unavailable: str = ""
+    statements: tuple[Dataset, ...] = ()
+    build: Callable[[dict[str, Rows]], DerivedOutput] | None = None
+    extra_params: Mapping[str, Any] = field(default_factory=dict)
 
     @property
     def label(self) -> str:
@@ -629,6 +655,14 @@ def run_publisher(
             raise ValueError(f"{source}/{name}: unknown parameter(s) {', '.join(unknown)}")
     for d in derived:
         if d.unavailable:
+            continue
+        if d.statements:
+            known = {**params, **d.extra_params}
+            for stmt_name, stmt_sql, stmt_params in d.statements:
+                guard_select(stmt_sql)
+                unknown = [p for p in stmt_params if p not in known]
+                if unknown:
+                    raise ValueError(f"{source} derived {d.label}/{stmt_name}: unknown parameter(s) {', '.join(unknown)}")
             continue
         guard_select(d.sql)
         unknown = [p for p in d.param_names if p not in params]
@@ -792,6 +826,29 @@ def _publish_derived(
             watchdog.check()
             if not reader.is_open:
                 reader.open()
+            if d.statements:
+                known = {**params, **d.extra_params}
+                fetched: dict[str, Rows] = {}
+                for stmt_name, stmt_sql, stmt_params in d.statements:
+                    stmt_bound = {name: known[name] for name in stmt_params}
+                    fetched[stmt_name] = reader.fetch_all(stmt_sql, stmt_bound or None, check_deadline=watchdog.check)
+                query_seconds = round(time.monotonic() - t0, 3)
+                if d.build is None:
+                    raise RuntimeError(f"{d.label}: statements require a build hook")
+                output = d.build(fetched)
+                for key, payload in output.objects:  # in order: data first, manifest last
+                    put_json(key, payload, kms_key_id=d.kms_key_id)
+                entry.update(
+                    ok=True,
+                    record_count=output.record_count,
+                    prefix=output.prefix,
+                    query_seconds=query_seconds,
+                    objects=[key for key, _ in output.objects],
+                )
+                print(f"{source} derived {d.label}: {output.record_count} rows in {query_seconds}s", flush=True)
+                entry["duration_seconds"] = round(time.monotonic() - t0, 3)
+                results.append(entry)
+                continue
             bound = {name: params[name] for name in d.param_names}
             query_rows = reader.fetch_all(d.sql, bound or None, check_deadline=watchdog.check)
             query_seconds = round(time.monotonic() - t0, 3)
