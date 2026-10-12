@@ -6,11 +6,15 @@ import unittest
 from typing import Any
 
 from handler import (
+    ADDRESS_BATCH,
     ATHLETICS_PROJECT_CODES,
+    CONTACT_QUERY_PATH,
     EVENT_NAME_CONTAINS,
     SEGMENTS,
+    attach_addresses,
     build_snapshot,
     designation_query,
+    fetch_contact_addresses,
     fiscal_year_label,
     fiscal_year_window,
     fund_rows,
@@ -157,6 +161,61 @@ class NormalizeTests(unittest.TestCase):
         raw = _des(amount=100, gift_date="9/1/2026", project="Football Program", code="6552FB")
         raw["amountDesignated"] = None
         self.assertIsNone(normalize_row(raw))
+
+
+class _AddressClient:
+    def __init__(self):
+        self.calls: list[tuple[str, dict[str, Any], int]] = []
+
+    def paged_query(self, path: str, body: dict[str, Any], page_size: int = 1000) -> list[dict[str, Any]]:
+        self.calls.append((path, body, page_size))
+        rows = []
+        for group in body["groups"]:
+            contact_id = group["conditions"][0]["value"]
+            address = "" if contact_id == "10" else f"{contact_id} Main St"
+            rows.append({"id": int(contact_id), "address": address})
+        return rows
+
+
+class AddressTests(unittest.TestCase):
+    def test_contact_query_batches_and_blanks_empty_addresses(self):
+        client = _AddressClient()
+        ids = [10, "11", 11, None, ""]
+        found = fetch_contact_addresses(client, ids)
+        self.assertEqual(found, {"10": None, "11": "11 Main St"})
+        self.assertEqual(len(client.calls), 1)
+        path, body, page_size = client.calls[0]
+        self.assertEqual(path, CONTACT_QUERY_PATH)
+        self.assertEqual(page_size, 2)
+        self.assertEqual(
+            [group["conditions"][0] for group in body["groups"]],
+            [
+                {"parameter": "Contact Id", "operator": "Is", "value": "10"},
+                {"parameter": "Contact Id", "operator": "Is", "value": "11"},
+            ],
+        )
+
+    def test_address_lookup_splits_past_the_batch_size(self):
+        client = _AddressClient()
+        fetch_contact_addresses(client, list(range(ADDRESS_BATCH + 1)))
+        self.assertEqual(len(client.calls), 2)
+        self.assertEqual(len(client.calls[0][1]["groups"]), ADDRESS_BATCH)
+        self.assertEqual(len(client.calls[1][1]["groups"]), 1)
+
+    def test_snapshot_stamps_the_donor_address_on_each_gift(self):
+        snap = build_snapshot(
+            [_des(amount=100, gift_date="9/1/2026", project="Football Program", code="6552FB", contact_id=11)],
+            today=dt.date(2026, 9, 14),
+            generated_at="2026-09-14T18:00:00Z",
+            addresses={"11": "11 Main St"},
+        )
+        self.assertEqual(snap["gifts"][0]["address"], "11 Main St")
+
+    def test_missing_address_lookup_leaves_the_field_empty(self):
+        row = normalize_row(_des(amount=100, gift_date="9/1/2026", project="Football Program", code="6552FB"))
+        assert row is not None
+        attach_addresses([row], None)
+        self.assertIsNone(row["address"])
 
 
 class TotalsTests(unittest.TestCase):

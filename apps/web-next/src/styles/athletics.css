@@ -681,6 +681,22 @@ a.ath-coach-scorecard:hover {
 }
 .ath-giving-tabs button.is-active { background: var(--ath-green); border-color: var(--ath-green); color: #fff; }
 .ath-giving .ath-empty { margin: 0; padding: 18px 14px; color: var(--ath-muted); }
+.ath-giving-table td.ath-giving-donor {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  max-width: 280px;
+  vertical-align: top;
+}
+.ath-giving-donor-name { display: block; font-weight: 650; }
+.ath-giving-donor-address {
+  display: block;
+  margin-top: 2px;
+  color: var(--ath-muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+}
 
 .ath-alert, .ath-loading, .ath-state { margin: 24px; padding: 20px; border-radius: 8px; background: #fff; }
 .ath-page > .ath-alert, .ath-page > .ath-loading { margin: 0; }

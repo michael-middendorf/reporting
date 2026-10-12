@@ -650,7 +650,9 @@ export default $config({
     const athleticsGiving = new sst.aws.Function("AthleticsGivingData", {
       handler: "services/publishers/athletics-giving/handler.handler",
       runtime: "python3.12",
-      timeout: "5 minutes",
+      // Designation query plus one Contact Query batch per 20 donors.
+      // Stay under the 15-minute schedule.
+      timeout: "10 minutes",
       memory: "1024 MB",
       link: [data],
       python: { uv: true },

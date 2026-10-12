@@ -9,8 +9,8 @@ const snapshot = {
   items: [
     {
       gifts: [
-        { donorName: "Tagged Donor", contactId: 7, contactUrl: "https://x/7", anonymousDonor: true, amount: 5 },
-        { donorName: "Public Donor", contactId: 8, contactUrl: "https://x/8", anonymousDonor: false, amount: 6 },
+        { donorName: "Tagged Donor", contactId: 7, contactUrl: "https://x/7", address: "1 Secret St", anonymousDonor: true, amount: 5 },
+        { donorName: "Public Donor", contactId: 8, contactUrl: "https://x/8", address: "2 Public St", anonymousDonor: false, amount: 6 },
         { donorName: "Old Cache Row", contactId: 9, amount: 7 },
       ],
     },
@@ -30,10 +30,12 @@ describe("anonymous donor redaction", () => {
     const [tagged, pub, old] = out.items[0].gifts;
     assert.equal(tagged.donorName, ANONYMOUS_LABEL);
     assert.equal(tagged.contactUrl, null);
+    assert.equal(tagged.address, null);
     assert.equal(tagged.contactId, 7);
     assert.equal(tagged.amount, 5);
     assert.equal(pub.donorName, "Public Donor");
     assert.equal(pub.contactUrl, "https://x/8");
+    assert.equal(pub.address, "2 Public St");
     assert.equal(old.donorName, ANONYMOUS_LABEL);
     assert.equal(out.gifts[0].contactName, ANONYMOUS_LABEL);
     assert.equal(snapshot.items[0].gifts[0].donorName, "Tagged Donor");

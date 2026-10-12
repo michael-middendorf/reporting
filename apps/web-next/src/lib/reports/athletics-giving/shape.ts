@@ -28,6 +28,8 @@ export type AthleticsGivingGift = {
   contactId: number | string | null;
   contactName: string | null;
   contactUrl: string | null;
+  /** Primary Virtuous contact address. Absent on snapshots published before addresses shipped. */
+  address?: string | null;
   amountDesignated: number;
   project: string | null;
   projectCode: string | null;
@@ -348,7 +350,7 @@ export function filterGifts(gifts: AthleticsGivingGift[], filters: GivingFilters
     if (filters.fund !== "all" && (gift.projectCode || gift.project || "") !== filters.fund) return false;
     if (!needle) return true;
     const sport = sportForGift(gift);
-    return [gift.contactName, gift.project, gift.segment, gift.projectCode, sport.label]
+    return [gift.contactName, gift.address, gift.project, gift.segment, gift.projectCode, sport.label]
       .join(" ")
       .toLowerCase()
       .includes(needle);
@@ -454,10 +456,11 @@ export function fundsFromGifts(gifts: AthleticsGivingGift[]): AthleticsGivingFun
 
 export function giftExportRows(gifts: AthleticsGivingGift[]): (string | number)[][] {
   return [
-    ["Gift Date", "Donor", "Amount", "Fund", "Project Code", "Sport", "Segment", "Gift Type", "Gift ID"],
+    ["Gift Date", "Donor", "Address", "Amount", "Fund", "Project Code", "Sport", "Segment", "Gift Type", "Gift ID"],
     ...gifts.map((gift) => [
       gift.giftDate || "",
       gift.contactName || "",
+      gift.address || "",
       gift.amountDesignated,
       gift.project || "",
       gift.projectCode || "",
