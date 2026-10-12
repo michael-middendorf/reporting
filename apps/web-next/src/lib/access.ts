@@ -24,6 +24,7 @@ export const REPORT_IDS = [
   "cybersecurity",
   "business-office",
   "majors",
+  "ty-letters",
 ] as const;
 
 export type ReportId = (typeof REPORT_IDS)[number];
@@ -37,9 +38,22 @@ export type ReportId = (typeof REPORT_IDS)[number];
  * place, so it is limited to the Qualified Individual pair (Michael and Keith
  * Brooks of SKB Cyber, on his AMU account). Cole and Regina are hub admins but
  * must not see it.
+ *
+ * ty-letters: thank-you letter donor cards (DST-3062) show donor addresses,
+ * phones and full giving history, and record who marked each letter Sent. The
+ * Office of the President asked that only these people see it: Julie
+ * Musselman, Michaelene Hayward, Mark Middendorf and Jim Thomas, plus Michael
+ * for support. Other Advancement users and Cole/Regina do not get it.
  */
 export const STRICT_REPORTS: Partial<Record<ReportId, readonly string[]>> = {
   cybersecurity: ["michael.t.middendorf@avemaria.edu", "keith.brooks@avemaria.edu"],
+  "ty-letters": [
+    "julie.musselman@avemaria.edu",
+    "michaelene.hayward@avemaria.edu",
+    "mark.middendorf@avemaria.edu",
+    "jim.thomas@avemaria.edu",
+    "michael.t.middendorf@avemaria.edu",
+  ],
 };
 
 const STRICT_SETS: Partial<Record<ReportId, Set<string>>> = Object.fromEntries(
@@ -135,6 +149,8 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
   "mgo-analysis": "leslie.sonnen@avemaria.edu,jim.thomas@avemaria.edu",
   // Strict report: STRICT_REPORTS above is the grant. Keep this empty.
   cybersecurity: "",
+  // Strict report (DST-3062): STRICT_REPORTS above is the grant. Keep this empty.
+  "ty-letters": "",
   // DST-2983: Business Office sees every athletics team plus the unassigned
   // departments. Coaching leadership also opens this report (all teams, no
   // unassigned) through canAccessReport below; coaches see only their own
@@ -171,6 +187,8 @@ const ENV_KEYS: Record<ReportId, string> = {
   // Not read: allowedEmailsForReport() returns STRICT_REPORTS only for strict
   // reports. Named so the Record stays total; do not set it anywhere.
   cybersecurity: "",
+  // Not read: strict report, same as cybersecurity.
+  "ty-letters": "",
   // Optional, additive like the others. Unset is fine.
   "business-office": "BUSINESS_OFFICE_ALLOWED_EMAILS",
   // Optional, additive like the others. Unset is fine.

@@ -30,6 +30,7 @@ const reportingOriginHeaderValue = "9796ae3e6c84e98ba520f802cf5cf5db";
 const magicNonceTableName = "amu-reporting-magic-link-nonces";
 const aspireduSessionTableName = "amu-reporting-aspiredu-sessions";
 const cyberRegisterTableName = "amu-reporting-cyber-register";
+const tyLetterSentTableName = "amu-reporting-ty-letter-sent";
 const aspireduCallbackUrl = `${reportingUrl}/aspiredu/api/auth/callback`;
 // Custom domain, registered alongside the CloudFront hostname so both work
 // through cutover. Cognito rejects any redirect_uri not on the callback list.
@@ -116,6 +117,17 @@ export class ReportingEcsStack extends cdk.Stack {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
       encryptionKey: cyberKey,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      deletionProtection: true,
+    });
+    // Thank-you letter donor cards (DST-3062): one item per Virtuous gift id
+    // holding the shared Sent flag (sent, sentBy, sentAt). Staff emails and gift
+    // ids only, no donor data, so the AWS-owned key is enough.
+    const tyLetterSentTable = new dynamodb.Table(this, "TyLetterSent", {
+      tableName: tyLetterSentTableName,
+      partitionKey: { name: "giftId", type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
       deletionProtection: true,
@@ -271,6 +283,13 @@ export class ReportingEcsStack extends cdk.Stack {
       actions: ["dynamodb:GetItem", "dynamodb:Query", "dynamodb:PutItem", "dynamodb:UpdateItem"],
       resources: [cyberRegisterTable.tableArn],
     }));
+    // Thank-you letter Sent flags: read a page of gift ids, set or clear one.
+    // No Scan, Query, PutItem, DeleteItem or BatchWrite.
+    task.addToTaskRolePolicy(new iam.PolicyStatement({
+      sid: "TyLetterSentItems",
+      actions: ["dynamodb:GetItem", "dynamodb:BatchGetItem", "dynamodb:UpdateItem"],
+      resources: [tyLetterSentTable.tableArn],
+    }));
     task.addToTaskRolePolicy(new iam.PolicyStatement({
       sid: "CyberRegisterKmsViaDynamoDb",
       actions: ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey"],
@@ -288,7 +307,7 @@ export class ReportingEcsStack extends cdk.Stack {
     }));
     task.addVolume({ name: "tmp" });
     task.addVolume({ name: "next-cache" });
-    task.addContainer("web", { image: ecs.ContainerImage.fromDockerImageAsset(webImage), portMappings: [{ containerPort: 3000 }], logging: ecs.LogDrivers.awsLogs({ logGroup: webLogs, streamPrefix: "web" }), environment: { ...webAuth, DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke", APP_BASE_URL: reportingDomainUrl, ENTRA_TENANT_ID: "7f4bc07b-d9b5-43c4-a1d6-bce660187973", ENTRA_CLIENT_ID: "66a8909d-d22e-41bf-9092-4dbe06e393b0", CORE_API_URL: "https://core.avemaria.edu", MAGIC_NONCE_TABLE: magicNonceTableName, ASPIREDU_SESSION_TABLE: aspireduSessionTableName, CYBER_REGISTER_TABLE: cyberRegisterTableName, ASPIREDU_USER_POOL_ID: aspireduUserPool.userPoolId, ASPIREDU_USER_POOL_CLIENT_ID: aspireduClient.userPoolClientId, ASPIREDU_COGNITO_DOMAIN: aspireduDomain.baseUrl(), ASPIREDU_CALLBACK_URL: aspireduCallbackUrl, ASPIREDU_CALLBACK_URLS: [aspireduCallbackUrl, aspireduDomainCallbackUrl].join(","), ASPIREDU_ALLOWED_EMAILS: aspireduAllowedEmails, ...onDemandFns, ...aspireduFns }, secrets: runtimeSecrets(secret, resendSecret, xaiSecret), readonlyRootFilesystem: true, user: "node" }).addMountPoints(
+    task.addContainer("web", { image: ecs.ContainerImage.fromDockerImageAsset(webImage), portMappings: [{ containerPort: 3000 }], logging: ecs.LogDrivers.awsLogs({ logGroup: webLogs, streamPrefix: "web" }), environment: { ...webAuth, DATA_BUCKET: "amu-reporting-production-reportdatabucket-rncvucke", APP_BASE_URL: reportingDomainUrl, ENTRA_TENANT_ID: "7f4bc07b-d9b5-43c4-a1d6-bce660187973", ENTRA_CLIENT_ID: "66a8909d-d22e-41bf-9092-4dbe06e393b0", CORE_API_URL: "https://core.avemaria.edu", MAGIC_NONCE_TABLE: magicNonceTableName, ASPIREDU_SESSION_TABLE: aspireduSessionTableName, CYBER_REGISTER_TABLE: cyberRegisterTableName, TY_LETTER_SENT_TABLE: tyLetterSentTableName, ASPIREDU_USER_POOL_ID: aspireduUserPool.userPoolId, ASPIREDU_USER_POOL_CLIENT_ID: aspireduClient.userPoolClientId, ASPIREDU_COGNITO_DOMAIN: aspireduDomain.baseUrl(), ASPIREDU_CALLBACK_URL: aspireduCallbackUrl, ASPIREDU_CALLBACK_URLS: [aspireduCallbackUrl, aspireduDomainCallbackUrl].join(","), ASPIREDU_ALLOWED_EMAILS: aspireduAllowedEmails, ...onDemandFns, ...aspireduFns }, secrets: runtimeSecrets(secret, resendSecret, xaiSecret), readonlyRootFilesystem: true, user: "node" }).addMountPoints(
       { sourceVolume: "tmp", containerPath: "/tmp", readOnly: false },
       { sourceVolume: "next-cache", containerPath: "/app/.next/cache", readOnly: false },
     );
