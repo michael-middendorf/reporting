@@ -499,6 +499,14 @@
   color: var(--text);
 }
 
+.pending {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--dim);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .datebar {
   display: flex;
   align-items: center;

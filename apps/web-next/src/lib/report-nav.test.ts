@@ -186,6 +186,16 @@ describe("reportCrumbs", () => {
       { href: "/", label: "Reports" },
       { href: "/housing", label: "Housing" },
     ]);
+    assert.deepEqual(reportCrumbs("/housing/capacity-quest"), [
+      { href: "/", label: "Reports" },
+      { href: "/housing", label: "Housing" },
+      { href: "/housing/capacity-quest", label: "Capacity Quest" },
+    ]);
+    assert.deepEqual(reportCrumbs("/housing/residence-life"), [
+      { href: "/", label: "Reports" },
+      { href: "/housing", label: "Housing" },
+      { href: "/housing/residence-life", label: "Residence Life" },
+    ]);
     assert.deepEqual(reportCrumbs("/athletics"), [
       { href: "/", label: "Reports" },
       { href: "/athletics", label: "Athletics" },
@@ -289,6 +299,12 @@ describe("isDepartmentHub", () => {
     // Only AccessGate reads this; with an empty nav it just means "no tab strip".
     assert.equal(isDepartmentHub("/aspiredu"), true);
     assert.equal(isDepartmentHub("/aspiredu/students/Uz27vGaesOsAbCdEfGhIjKlICN4U"), false);
+  });
+
+  it("hides tabs on the Housing chooser and shows them inside a dashboard", () => {
+    assert.equal(isDepartmentHub("/housing"), true);
+    assert.equal(isDepartmentHub("/housing/capacity-quest"), false);
+    assert.equal(isDepartmentHub("/housing/residence-life"), false);
   });
 
   it("hides tabs on the Athletics department hub", () => {

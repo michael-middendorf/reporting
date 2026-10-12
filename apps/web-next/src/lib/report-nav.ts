@@ -94,6 +94,11 @@ export const CYBERSECURITY_NAV: ReportNavItem[] = [
   { href: "/cybersecurity/board-packet", label: "Board Packet", report: "cybersecurity" },
 ];
 
+export const HOUSING_NAV: ReportNavItem[] = [
+  { href: "/housing/capacity-quest", label: "Capacity Quest", report: "housing" },
+  { href: "/housing/residence-life", label: "Residence Life", report: "housing" },
+];
+
 export function navForReports(nav: ReportNavItem[], reports: ReportId[]): ReportNavItem[] {
   return nav.filter((item) => !item.report || reports.includes(item.report));
 }
@@ -135,7 +140,7 @@ export const REPORT_FOLDERS: ReportFolder[] = [
     nav: ASPIREDU_NAV,
   },
   { href: "/institute", label: "The Institute", match: ["/institute"] },
-  { href: "/housing", label: "Housing", match: ["/housing"] },
+  { href: "/housing", label: "Housing", match: ["/housing"], nav: HOUSING_NAV },
   { href: "/census", label: "Census", match: ["/census"] },
   // DST-3015: Academic Affairs report with its own grant list. Not under
   // /aspiredu, whose crumb and MFA gate belong to the student records page.
