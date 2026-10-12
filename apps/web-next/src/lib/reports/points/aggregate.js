@@ -1,8 +1,8 @@
 /**
  * aggregate.js — rollups over scored rows. Pure functions.
- * Produces the per-MA / per-day / per-week / per-bucket structures the UI needs,
- * plus tier assignment (average points per weekday), a spreadsheet-style weekly
- * grid, gift-dollar totals, and personal-best / best-week records.
+ * Produces the per-MA / per-day / per-week / per-month / per-bucket structures
+ * the UI needs, plus tier assignment (average points per weekday), a
+ * spreadsheet-style weekly grid, gift-dollar totals, and personal-best records.
  */
 import { MA_ROSTER, BUCKETS, TRACKER_LAYOUT, tierFor } from "./config.js";
 
@@ -256,6 +256,91 @@ function tallyRow(target, r) {
   if (r.bucket === "email") target.emails += 1;
 }
 
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"];
+const ROSTER_NAMES = new Set(MA_ROSTER.map((m) => m.name));
+
+function monthKeyFromDay(day) {
+  const match = String(day || "").match(/^(\d{4})-(\d{2})/);
+  return match ? `${match[1]}-${match[2]}` : "";
+}
+
+function monthShortLabel(key) {
+  const month = Number(String(key).slice(5, 7));
+  return MONTH_SHORT[month - 1] || key;
+}
+
+function blankMonth(key) {
+  return {
+    key,
+    points: 0,
+    conversations: 0,
+    dials: 0,
+    gifts: 0,
+    giftAmount: 0,
+    obituaries: 0,
+    addresses: 0,
+    letters: 0,
+    meetings: 0,
+    events: 0,
+    emails: 0,
+    weekdays: new Set(),
+  };
+}
+
+/**
+ * Team totals for each calendar month, using the same rules as the Points tab.
+ * A phone conversation also counts as a dial. Avg/wkdy divides points by
+ * weekdays that had activity. A quiet month between the first and last month
+ * is included as zeros. Removed, Incoming, and off-roster rows are skipped.
+ * @param {any[]} rows
+ */
+export function monthTotals(rows) {
+  const byMonth = new Map();
+  for (const r of rows || []) {
+    if (!r || r.removed || r.folded) continue;
+    if (r.needsReview) continue;
+    if (r.bucket === "possible" || r.bucket === "commitment" || r.bucket === "general") continue;
+    if (!ROSTER_NAMES.has(r.owner)) continue;
+    const key = monthKeyFromDay(r.day);
+    if (!key) continue;
+    const rec = byMonth.get(key) || blankMonth(key);
+    tallyRow(rec, r);
+    if (r.weekday) rec.weekdays.add(r.day);
+    byMonth.set(key, rec);
+  }
+  const keys = [...byMonth.keys()].sort();
+  if (!keys.length) return [];
+  const filled = [];
+  let [y, m] = keys[0].split("-").map(Number);
+  const [endY, endM] = keys[keys.length - 1].split("-").map(Number);
+  while (y < endY || (y === endY && m <= endM)) {
+    const key = `${y}-${String(m).padStart(2, "0")}`;
+    filled.push(byMonth.get(key) || blankMonth(key));
+    m += 1;
+    if (m === 13) {
+      m = 1;
+      y += 1;
+    }
+  }
+  const multiYear = keys[0].slice(0, 4) !== keys[keys.length - 1].slice(0, 4);
+  return filled.map((rec) => {
+    const weekdays = rec.weekdays.size;
+    const name = monthShortLabel(rec.key);
+    return {
+      key: rec.key,
+      label: multiYear ? `${name} ${rec.key.slice(0, 4)}` : name,
+      points: rec.points,
+      avgPerWeekday: weekdays ? rec.points / weekdays : 0,
+      weekdays,
+      conversations: rec.conversations,
+      dials: rec.dials,
+      convRate: rec.dials ? rec.conversations / rec.dials : 0,
+      gifts: rec.gifts,
+      giftAmount: rec.giftAmount,
+    };
+  });
+}
+
 /**
  * Build the full aggregate model from scored rows within [start, end].
  * Gift count and dollars both come from bucket "donation" rows with amount > 0.
@@ -360,6 +445,7 @@ export function aggregate(rows, { start, end, flags } = {}) {
     possibleGifts,
     reviewGifts,
     weekGrid,
+    months: monthTotals(scored),
     bests,
   };
 }
