@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MA_NAMES, SETTINGS, evalStartDate, tierFor } from "./config.js";
-import { applyPassthroughCredit, assignedNotesFromFlags, contactDisplayName, eventPointsForHours, galaSecuringNotes, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, isPendingGalaSiteTicket, outreachBeforeGift, parseDate, passthroughContactIds, portfolioOwnersFromSnapshot, prepareGifts, priorAcMonthly, scoreAll, scoreGift, scoreTrackedEvents } from "./points.js";
+import { applyPassthroughCredit, assignedNotesFromFlags, contactDisplayName, eventPointsForHours, galaSecuringNotes, giftKindOf, isGalaGift, isMgoAttributedGift, isMonthlyRecurring, isPendingGalaSiteTicket, outreachBeforeGift, parseDate, passthroughContactIds, portfolioOwnersFromSnapshot, prepareGifts, priorAcMonthly, rosterDonorOwner, scoreAll, scoreGift, scoreTrackedEvents, selfRecurringCounts } from "./points.js";
 import { galaSiteGiftId, mergeGalaSiteTickets, uniqueEmailContactIndex, uniquePersonNameMatch } from "./gala-site-tickets.js";
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "./counted-gifts.js";
 import { aggregate, daysOfWeek, isTaskListRow, listedGiftRows, maGalaGifts, rowMatchesTracker, trackerBreakdown, trackerSpec, weekKey, weekLabel } from "./aggregate.js";
@@ -32,7 +32,7 @@ type OwnerRec = {
 type Model = {
   totals: { gifts: number; giftAmount: number; points: number; unmatched: number };
   tableOwners: OwnerRec[];
-  gifts: Array<{ amount?: number; owner?: string; giftId?: unknown; contactId?: unknown; mgoAssigned?: boolean; removed?: boolean }>;
+  gifts: Array<{ amount?: number; owner?: string; source?: string; giftId?: unknown; contactId?: unknown; mgoAssigned?: boolean; removed?: boolean }>;
   possibleGifts?: Array<{
     owner?: string;
     giftId?: unknown;
@@ -469,6 +469,182 @@ describe("MA points require a posted gift with dollars", () => {
     assert.equal(model.totals.giftAmount, 0);
     assert.equal(model.gifts.length, 0);
     assert.equal(rows.length, 0);
+  });
+});
+
+describe("an officer's own gift", () => {
+  it("counts Natalia's gift on her list when nobody else reached her", () => {
+    const { model, owner, rows } = run(
+      [],
+      [postedGift({
+        id: 450930,
+        contactId: 61533,
+        contactName: "Natalia Abrams",
+        giftDate: "8/9/2026",
+        amount: 10.61,
+      })],
+      NATALIA,
+    );
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 10.61);
+    assert.equal(owner.points, 100);
+    assert.equal(model.gifts[0].owner, NATALIA);
+    assert.equal(model.gifts[0].source, "self");
+    assert.equal(rows.some((r) => r.needsReview), false);
+  });
+
+  it("drops her gift from before her start date", () => {
+    const { owner } = run(
+      [],
+      [postedGift({
+        contactId: 61533,
+        contactName: "Natalia Abrams",
+        giftDate: "3/2/2026",
+        amount: 20,
+      })],
+      NATALIA,
+    );
+    assert.equal(owner.gifts, 0);
+    assert.equal(owner.giftAmount, 0);
+    assert.equal(owner.points, 0);
+  });
+
+  it("keeps the gift with the officer who logged the contact", () => {
+    const { model } = run(
+      [donationNote({
+        createdByUser: "Elena Barnes",
+        type: "Mission Advancement Call | Conversation",
+        noteDate: "8/1/2026",
+        contactId: 61533,
+        contactName: "Natalia Abrams",
+        id: 9,
+      })],
+      [postedGift({
+        contactId: 61533,
+        contactName: "Natalia Abrams",
+        giftDate: "8/9/2026",
+        amount: 10.61,
+      })],
+      "Elena Barnes",
+    );
+    assert.equal(model.gifts.length, 1);
+    assert.equal(model.gifts[0].owner, "Elena Barnes");
+    assert.equal(model.gifts[0].source, "contact");
+  });
+
+  it("annualizes her own new monthly gift onto Raised", () => {
+    const { owner, rows } = run(
+      [],
+      [postedGift({
+        contactId: 6531,
+        contactName: "Alanna McCann",
+        giftDate: "9/23/2026",
+        amount: 5.46,
+        frequency: "Monthly",
+      })],
+      ALANNA,
+    );
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 65.52);
+    assert.equal(owner.points, 100);
+    assert.equal(rows.some((r) => r.needsReview), false);
+  });
+
+  it("matches Betsy by nickname and Joseph by his work email", () => {
+    assert.equal(rosterDonorOwner({
+      id: 61947,
+      contactName: "Grant and Elizabeth Scaletty",
+      contactIndividuals: [
+        { firstName: "Grant", lastName: "Scaletty", nickname: "Grant" },
+        {
+          firstName: "Elizabeth",
+          lastName: "Scaletty",
+          nickname: "Betsy",
+          contactMethods: [{ value: "btlaville@gmail.com" }],
+        },
+      ],
+    }), "Betsy Scaletty");
+    assert.equal(rosterDonorOwner({
+      id: 60840,
+      contactName: "Joseph and Maggie Blaso",
+      contactIndividuals: [
+        {
+          firstName: "Joseph",
+          lastName: "Blaso",
+          nickname: "Joseph",
+          contactMethods: [{ value: "joseph.c.blaso@avemaria.edu" }],
+        },
+        { firstName: "Maggie", lastName: "Blaso", nickname: "Maggie" },
+      ],
+    }), "Joseph Blaso");
+  });
+
+  it("does not treat another Sean Kelly household as the officer", () => {
+    assert.equal(rosterDonorOwner({
+      id: 128398,
+      contactName: "Sean and Lynda Kelly",
+      email: "eskelly@hotmail.com",
+      contactIndividuals: [
+        { firstName: "Sean", lastName: "Kelly", nickname: "Sean" },
+        { firstName: "Lynda", lastName: "Kelly", nickname: "Lynda" },
+      ],
+    }), null);
+    assert.equal(rosterDonorOwner({
+      id: 21910,
+      contactName: "Sean E. Kelly",
+      contactIndividuals: [
+        {
+          firstName: "Sean",
+          lastName: "Kelly",
+          nickname: "Sean",
+          contactMethods: [{ value: "sean.kelly@my.avemaria.edu" }],
+        },
+      ],
+    }), null);
+    assert.equal(rosterDonorOwner({
+      id: 8908,
+      contactName: "Sean Kelly",
+      email: "sean.e.kelly@avemaria.edu",
+    }), "Sean Kelly");
+  });
+
+  it("credits the stamped officer on a couple household", () => {
+    const { owner } = run(
+      [],
+      [postedGift({
+        contactId: 61947,
+        contactName: "Grant and Elizabeth Scaletty",
+        selfOwner: "Betsy Scaletty",
+        giftDate: "10/6/2026",
+        amount: 5.46,
+      })],
+      "Betsy Scaletty",
+    );
+    assert.equal(owner.gifts, 1);
+    assert.equal(owner.giftAmount, 5.46);
+    assert.equal(owner.points, 100);
+  });
+
+  it("leaves a monthly commitment out when it started before the officer's start date", () => {
+    assert.equal(selfRecurringCounts({
+      contactId: 130642,
+      startDate: "2026-05-04",
+      frequency: "Monthly",
+      amount: 5.46,
+    }, "Caleb Metzen"), false);
+    assert.equal(selfRecurringCounts({
+      contactId: 130642,
+      startDate: "2026-10-08",
+      frequency: "Monthly",
+      amount: 10.61,
+    }, "Caleb Metzen"), true);
+    assert.equal(selfRecurringCounts({
+      contactId: 6531,
+      startDate: "2026-09-23",
+      frequency: "Monthly",
+      amount: 5.46,
+    }, ALANNA), true);
+    assert.equal(selfRecurringCounts({ priorOnly: true, startDate: "2026-10-08" }, "Caleb Metzen"), false);
   });
 });
 

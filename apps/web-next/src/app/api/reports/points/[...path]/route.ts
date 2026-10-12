@@ -3,7 +3,7 @@ import { requireReportAccess } from "@/lib/s3-proxy";
 import { loadSourceRows, loadSourceRowsOptional } from "@/lib/sources";
 import { COUNTED_SPREADSHEET_GIFTS, matchCountedSpreadsheetGift } from "@/lib/reports/points/counted-gifts.js";
 import { projectProfiles } from "@/lib/reports/points/profiles.js";
-import { applyPassthroughCredit, contactDisplayName, giftSolicitor, passthroughContactIds, portfolioOwnersFromSnapshot, prepareGifts } from "@/lib/reports/points/scoring";
+import { applyPassthroughCredit, contactDisplayName, giftSolicitor, passthroughContactIds, portfolioOwnersFromSnapshot, prepareGifts, rosterDonorOwner, selfRecurringCounts } from "@/lib/reports/points/scoring";
 import { GALA_SITE_TICKETS, isGalaVirtuousGift, mergeGalaSiteTickets } from "@/lib/reports/points/gala-site-tickets.js";
 import { isMissingSource, readJson } from "@/lib/sources";
 
@@ -84,6 +84,7 @@ const GIFT_FIELDS = [
   "galaSite",
   "inVirtuous",
   "emailMatch",
+  "selfOwner",
 ] as const;
 
 /** Serve points payloads from sources/virtuous/{contact_notes,events}. */
@@ -138,9 +139,21 @@ export async function GET(req: Request, ctx: Ctx) {
         const name = contactDisplayName(r);
         if (Number.isFinite(cid) && name) names.set(cid, name);
       }
+      const selfOwners = new Map<number, string>();
+      for (const c of contacts?.rows || []) {
+        const owner = rosterDonorOwner(c);
+        const cid = Number(c.id ?? c.contactId);
+        if (owner && Number.isFinite(cid)) selfOwners.set(cid, owner);
+      }
+      const donorOwner = (r: Record<string, unknown>) => {
+        const cid = Number(r.contactId);
+        if (Number.isFinite(cid) && selfOwners.has(cid)) return selfOwners.get(cid) || null;
+        return rosterDonorOwner(r);
+      };
       const posted = gifts.rows.filter((r) => {
         if (contactIds.has(Number(r.contactId))) return true;
         if (passthroughContactIds(r).some((id) => contactIds.has(id))) return true;
+        if (donorOwner(r)) return true;
         return onTracker(r, names) || isGalaVirtuousGift(r);
       });
       const namedPosted = posted.map((r) => {
@@ -150,7 +163,11 @@ export async function GET(req: Request, ctx: Ctx) {
         return { ...credited, contactName };
       });
       const recRows = (recurring?.rows || [])
-        .filter((r) => contactIds.has(Number(r.contactId)) || onTracker(r, names))
+        .filter((r) => {
+          if (contactIds.has(Number(r.contactId)) || onTracker(r, names)) return true;
+          const owner = donorOwner(r);
+          return !!owner && selfRecurringCounts(r, owner);
+        })
         .map((r) => {
           const cid = Number(r.contactId);
           const contactName = contactDisplayName(r) || names.get(cid) || "";
@@ -161,6 +178,10 @@ export async function GET(req: Request, ctx: Ctx) {
         contacts?.rows || [],
         await galaSiteTickets(),
       );
+      for (const row of prepared) {
+        const owner = donorOwner(row);
+        if (owner) row.selfOwner = owner;
+      }
       const kept = prepared.map((r) => {
         const lean: Record<string, unknown> = {};
         for (const k of GIFT_FIELDS) lean[k] = r[k];
