@@ -44,8 +44,11 @@ from typing import Any
 
 CACHE_KEY = os.environ.get("ATHLETICS_GIVING_CACHE_KEY") or "athletics-giving/latest.json"
 GIFT_DESIGNATION_QUERY_PATH = "/api/GiftDesignation/Query"
+CONTACT_QUERY_PATH = "/api/Contact/Query"
 RETRYABLE = {429, 500, 502, 503, 504}
 CONTACT_VIEW = "https://app.virtuoussoftware.com/Generosity/Contact/View"
+# Contact Id only supports Is, so addresses are looked up in OR batches.
+ADDRESS_BATCH = 20
 
 SEGMENTS = (
     "Athletics Fundraising",
@@ -251,6 +254,55 @@ def contact_url(contact_id: Any) -> str | None:
     return f"{CONTACT_VIEW}/{contact_id}"
 
 
+def fetch_contact_addresses(client: Any, contact_ids: list[Any]) -> dict[str, str | None]:
+    """Primary Virtuous address string for each contact, keyed by contact id.
+
+    GiftDesignation rows have no address. Slim Contact Query returns the
+    primary address as one string (street, city, state, postal).
+    """
+    unique: list[str] = []
+    seen: set[str] = set()
+    for raw in contact_ids:
+        if raw is None or raw == "":
+            continue
+        key = str(raw).strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        unique.append(key)
+    found: dict[str, str | None] = {}
+    for start in range(0, len(unique), ADDRESS_BATCH):
+        batch = unique[start : start + ADDRESS_BATCH]
+        body = {
+            "groups": [
+                {
+                    "conditions": [
+                        {"parameter": "Contact Id", "operator": "Is", "value": contact_id},
+                    ]
+                }
+                for contact_id in batch
+            ]
+        }
+        rows = client.paged_query(CONTACT_QUERY_PATH, body, page_size=len(batch))
+        for row in rows:
+            contact_id = row.get("id")
+            if contact_id is None:
+                continue
+            text = str(row.get("address") or "").strip() or None
+            found[str(contact_id)] = text
+    return found
+
+
+def attach_addresses(rows: list[dict[str, Any]], addresses: dict[str, str | None] | None) -> None:
+    lookup = addresses or {}
+    for row in rows:
+        contact_id = row.get("contactId")
+        if contact_id is None or contact_id == "":
+            row["address"] = None
+            continue
+        row["address"] = lookup.get(str(contact_id))
+
+
 def normalize_row(raw: dict[str, Any]) -> dict[str, Any] | None:
     gift_day = parse_gift_date(raw.get("giftDate") or raw.get("giftDateFormatted"))
     amount = parse_money(raw.get("amountDesignated"))
@@ -359,6 +411,7 @@ def build_snapshot(
     today: dt.date,
     generated_at: str,
     anonymous_ids: frozenset[str] | None = None,
+    addresses: dict[str, str | None] | None = None,
 ) -> dict[str, Any]:
     fy, fy_start, fy_end = fiscal_year_window(today)
     since = previous_fiscal_year_start(fy_start)
@@ -368,6 +421,7 @@ def build_snapshot(
     for row in rows:
         contact = {str(row["contactId"])} if row.get("contactId") is not None else set()
         row["anonymousDonor"] = is_anonymous_donor(contact, anonymous_ids)
+    attach_addresses(rows, addresses)
     rows = [
         row
         for row in rows
@@ -431,11 +485,19 @@ def handler(event: dict[str, Any] | None = None, context: Any = None) -> dict[st
     raw = client.paged_query(GIFT_DESIGNATION_QUERY_PATH, designation_query(since))
     from common.anonymous_donors import anonymous_contact_ids
 
+    contact_ids = [row.get("contactId") for row in raw]
+    unique_contacts = {str(cid) for cid in contact_ids if cid}
+    print(
+        f"  athletics giving looking up addresses for {len(unique_contacts)} contacts…",
+        flush=True,
+    )
+    addresses = fetch_contact_addresses(client, contact_ids)
     snapshot = build_snapshot(
         raw,
         today=today,
         generated_at=now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         anonymous_ids=anonymous_contact_ids(client),
+        addresses=addresses,
     )
     from common.s3util import put_json
 

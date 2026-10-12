@@ -17,9 +17,10 @@ export function canSeeAnonymousDonorNames(email: string): boolean {
 }
 
 const NAME_KEYS = ["donorName", "contactName"] as const;
-// contactUrl links into Virtuous. contactId stays: it is an opaque internal id
-// that client-side aggregation (sponsor detection, donor counts) keys on.
-const ID_KEYS = ["contactUrl"] as const;
+// contactUrl links into Virtuous. address is the donor's mailing address.
+// contactId stays: it is an opaque internal id that client-side aggregation
+// (sponsor detection, donor counts) keys on.
+const ID_KEYS = ["contactUrl", "address"] as const;
 
 function redactRow(row: Record<string, unknown>): Record<string, unknown> {
   if (row.anonymousDonor === false) return row;

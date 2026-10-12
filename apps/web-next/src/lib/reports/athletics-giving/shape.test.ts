@@ -285,9 +285,25 @@ describe("athletics giving shape", () => {
 
   it("excel rows include sport and amount for the filtered gifts", () => {
     const rows = giftExportRows(SAMPLE.gifts);
-    assert.equal(rows[0]?.[5], "Sport");
-    assert.equal(rows[1]?.[5], "Ultimate Frisbee");
-    assert.equal(rows[2]?.[2], 1000);
+    assert.equal(rows[0]?.[2], "Address");
+    assert.equal(rows[0]?.[6], "Sport");
+    assert.equal(rows[1]?.[6], "Ultimate Frisbee");
+    assert.equal(rows[2]?.[3], 1000);
+  });
+
+  it("search and excel include the donor address", () => {
+    const gifts = [{ ...SAMPLE.gifts[1]!, address: "9531 E Stanhope Rd Kensington, MD 20895" }];
+    const hit = filterGifts(gifts, {
+      start: null,
+      end: null,
+      sportKey: "all",
+      event: "all",
+      fund: "all",
+      search: "kensington",
+    });
+    assert.equal(hit.length, 1);
+    const rows = giftExportRows(gifts);
+    assert.equal(rows[1]?.[2], "9531 E Stanhope Rd Kensington, MD 20895");
   });
 
   it("event dropdown lists tournament segments and filters funds to that event", () => {

@@ -404,7 +404,7 @@ export function GivingClient() {
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search donor, fund, or sport"
+                placeholder="Search donor, address, fund, or sport"
               />
               <span>
                 {visible.length} row{visible.length === 1 ? "" : "s"}
@@ -441,14 +441,9 @@ function GiftTable({ rows }: { rows: AthleticsGivingGift[] }) {
           {rows.map((row, index) => (
             <tr key={`${row.giftId ?? "x"}-${row.projectCode ?? ""}-${index}`}>
               <td>{formatGiftDate(row.giftDate)}</td>
-              <td>
-                {row.contactUrl ? (
-                  <a href={row.contactUrl} target="_blank" rel="noreferrer">
-                    {row.contactName || "Unnamed donor"}
-                  </a>
-                ) : (
-                  row.contactName || "Unnamed donor"
-                )}
+              <td className="ath-giving-donor">
+                <span className="ath-giving-donor-name">{row.contactName || "Unnamed donor"}</span>
+                <span className="ath-giving-donor-address">{row.address || "—"}</span>
               </td>
               <td>{usdExact(row.amountDesignated)}</td>
               <td>
