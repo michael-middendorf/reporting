@@ -15,6 +15,9 @@ import { maskEmail, pendingAspireduEmail, signedInAspireduEmail } from "./mfa-pe
 const DANIEL = "daniel.davy@avemaria.edu";
 const MARIA = "maria.t.gomez@avemaria.edu";
 const ALEXANDRA = "alexandra.r.baalman@avemaria.edu";
+const RICHARD = "richard.dittus@avemaria.edu";
+const JENIFER = "jenifer.lecompte@avemaria.edu";
+const DIANA = "diana.tsai@avemaria.edu";
 const DAN = "dan.donaldson@avemaria.edu";
 const ERIC = "eric.vanheusen@avemaria.edu";
 const COACH = "coach.a@avemaria.edu";
@@ -40,6 +43,13 @@ describe("needsMfaAtSignIn / complete branching", () => {
     assert.equal(needsMfaAtSignIn(ALEXANDRA), true);
     assert.equal(sessionDecisionAtComplete(ALEXANDRA, false), "mfa_pending");
     assert.equal(sessionDecisionAtComplete(ALEXANDRA, true), "mfa_pending");
+  });
+  it("sends DST-3059 Academic Affairs grantees through pending MFA", () => {
+    for (const email of [RICHARD, JENIFER, DIANA]) {
+      assert.equal(needsMfaAtSignIn(email), true);
+      assert.equal(sessionDecisionAtComplete(email, false), "mfa_pending");
+      assert.equal(sessionDecisionAtComplete(email, true), "mfa_pending");
+    }
   });
 
   it("sends coaching leadership and mapped coaches through hub MFA", () => {
@@ -154,6 +164,10 @@ describe("Academic Affairs API auth is session + ACL, not an MFA cookie", () => 
     assert.equal("mfa" in authorizeAcademicAffairsApi(MARIA), false);
     assert.deepEqual(authorizeAcademicAffairsApi(ALEXANDRA), { ok: true, email: ALEXANDRA });
     assert.equal("mfa" in authorizeAcademicAffairsApi(ALEXANDRA), false);
+    for (const email of [RICHARD, JENIFER, DIANA]) {
+      assert.deepEqual(authorizeAcademicAffairsApi(email), { ok: true, email });
+      assert.equal("mfa" in authorizeAcademicAffairsApi(email), false);
+    }
   });
 });
 

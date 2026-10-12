@@ -529,6 +529,66 @@ describe("aspiredu grant for Alexandra Baalman", () => {
   });
 });
 
+describe("aspiredu grant for Richard Dittus (DST-3059)", () => {
+  const RICHARD = "Richard.Dittus@avemaria.edu";
+
+  it("lets Richard sign in and open Academic Affairs, not other reports", () => {
+    assert.equal(canLogin(RICHARD), true);
+    assert.equal(isAdmin(RICHARD), false);
+    assert.equal(canAccessReport(RICHARD, "aspiredu"), true);
+    assert.equal(canAccessReport(RICHARD, "census"), false);
+    assert.equal(canAccessReport(RICHARD, "enrollment"), false);
+    assert.equal(canAccessReport(RICHARD, "athletics"), false);
+    assert.equal(canAccessReport(RICHARD, "housing"), false);
+    assert.equal(canAccessReport(RICHARD, "institute"), false);
+    assert.equal(canAccessReport(RICHARD, "advancement"), false);
+    assert.equal(canAccessReport(RICHARD, "chapel"), false);
+    assert.equal(canAccessReport(RICHARD, "points"), false);
+    assert.equal(canAccessReport(RICHARD, "annunciation"), false);
+    assert.deepEqual(reportsForEmail(RICHARD), ["aspiredu"]);
+  });
+});
+
+describe("aspiredu grant for Jenifer LeCompte (DST-3059)", () => {
+  const JENIFER = "Jenifer.LeCompte@avemaria.edu";
+
+  it("lets Jenifer sign in and open Academic Affairs, not other reports", () => {
+    assert.equal(canLogin(JENIFER), true);
+    assert.equal(isAdmin(JENIFER), false);
+    assert.equal(canAccessReport(JENIFER, "aspiredu"), true);
+    assert.equal(canAccessReport(JENIFER, "census"), false);
+    assert.equal(canAccessReport(JENIFER, "enrollment"), false);
+    assert.equal(canAccessReport(JENIFER, "athletics"), false);
+    assert.equal(canAccessReport(JENIFER, "housing"), false);
+    assert.equal(canAccessReport(JENIFER, "institute"), false);
+    assert.equal(canAccessReport(JENIFER, "advancement"), false);
+    assert.equal(canAccessReport(JENIFER, "chapel"), false);
+    assert.equal(canAccessReport(JENIFER, "points"), false);
+    assert.equal(canAccessReport(JENIFER, "annunciation"), false);
+    assert.deepEqual(reportsForEmail(JENIFER), ["aspiredu"]);
+  });
+});
+
+describe("aspiredu grant for Diana Tsai (DST-3059)", () => {
+  const DIANA = "Diana.Tsai@avemaria.edu";
+
+  it("lets Diana sign in and open Academic Affairs, not other reports", () => {
+    assert.equal(canLogin(DIANA), true);
+    assert.equal(isAdmin(DIANA), false);
+    assert.equal(canAccessReport(DIANA, "aspiredu"), true);
+    assert.equal(canAccessReport(DIANA, "census"), false);
+    assert.equal(canAccessReport(DIANA, "enrollment"), false);
+    assert.equal(canAccessReport(DIANA, "athletics"), false);
+    assert.equal(canAccessReport(DIANA, "housing"), false);
+    assert.equal(canAccessReport(DIANA, "institute"), false);
+    assert.equal(canAccessReport(DIANA, "advancement"), false);
+    assert.equal(canAccessReport(DIANA, "chapel"), false);
+    assert.equal(canAccessReport(DIANA, "points"), false);
+    assert.equal(canAccessReport(DIANA, "annunciation"), false);
+    assert.deepEqual(reportsForEmail(DIANA), ["aspiredu"]);
+  });
+});
+
 describe("Fall Appeal viewers", () => {
   const people = [
     "cassandra.l.bournos@avemaria.edu",
