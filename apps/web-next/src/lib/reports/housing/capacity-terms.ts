@@ -1,6 +1,8 @@
-/** Capacity Quest terms. Fall 2026 is the live Stats sheet. Later terms stay listed until their eRez sessions and planning numbers are on file. */
+/** Capacity Quest terms. Fall 2026 is the live assignment sheet. Later terms are projections from that pull. */
 
 export type CapacityTermId = "fa26" | "sp27" | "fa27";
+
+export type CapacityKind = "live" | "projection";
 
 export type CapacitySessions = {
   domestic: string;
@@ -10,36 +12,29 @@ export type CapacitySessions = {
 export type CapacityTerm = {
   id: CapacityTermId;
   label: string;
-  /** Live occupancy and planning constants exist for this term. */
-  ready: boolean;
+  /** Live occupancy, or a projection from the Fall 2026 pull. */
+  kind: CapacityKind;
   sessions: CapacitySessions | null;
-  /** Shown in place of the sheet when `ready` is false. */
-  pending: string | null;
 };
 
 export const CAPACITY_TERMS: readonly CapacityTerm[] = [
   {
     id: "fa26",
     label: "Fall 2026",
-    ready: true,
+    kind: "live",
     sessions: { domestic: "2026FALL01", ireland: "2026FALL03Ireland" },
-    pending: null,
   },
   {
     id: "sp27",
     label: "Spring 2027",
-    ready: false,
+    kind: "projection",
     sessions: null,
-    pending:
-      "Spring 2027 is on this dashboard. Figures wait on the eRez session id and the planning numbers for this term: melt, retention, eligible returners, and the incoming goal.",
   },
   {
     id: "fa27",
     label: "Fall 2027",
-    ready: false,
+    kind: "projection",
     sessions: null,
-    pending:
-      "Fall 2027 is on this dashboard. Figures wait on the eRez session id and the planning numbers for this term: melt, retention, eligible returners, and the incoming goal.",
   },
 ];
 

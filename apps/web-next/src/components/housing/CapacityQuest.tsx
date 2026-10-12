@@ -10,6 +10,7 @@ import {
 import { HALL_CHARTS, indexOccupancy } from "@/lib/reports/housing/model";
 import type { OccIndex } from "@/lib/reports/housing/model";
 import type { ResidentsPayload, RoomVerificationState, StudyAbroad } from "@/lib/reports/housing/types";
+import { CapacityProjection, PriestRoomsNote } from "./CapacityProjection";
 import { Overview } from "./Overview";
 import styles from "./housing.module.css";
 
@@ -87,7 +88,7 @@ function CapacityQuestView({ initialTerm }: { initialTerm: CapacityTermId }) {
           <div className={styles.eyebrow}>Ave Maria University · Housing</div>
           <h1>Capacity Quest</h1>
           <div className={styles.sub}>
-            {term.ready ? (
+            {term.kind === "live" ? (
               <>
                 {term.label}
                 {term.sessions
@@ -100,7 +101,10 @@ function CapacityQuestView({ initialTerm }: { initialTerm: CapacityTermId }) {
                 </span>
               </>
             ) : (
-              <>{term.label} · planning numbers not on file</>
+              <>
+                {term.label} · projected from the Fall 2026 pull
+                {payload?.cached_at ? ` · as of ${payload.cached_at}` : ""}
+              </>
             )}
           </div>
         </div>
@@ -120,17 +124,17 @@ function CapacityQuestView({ initialTerm }: { initialTerm: CapacityTermId }) {
         ))}
       </nav>
 
-      {term.ready && error && (
+      {error && (
         <div className={styles.wrap}>
           <p className={styles.error}>{error}</p>
         </div>
       )}
-      {term.ready && !error && !payload && (
+      {!error && !payload && (
         <div className={styles.wrap}>
           <p>Loading housing assignments…</p>
         </div>
       )}
-      {term.ready && !error && payload && (
+      {!error && payload && term.kind === "live" && (
         <Overview
           residents={residents}
           charts={HALL_CHARTS}
@@ -141,16 +145,12 @@ function CapacityQuestView({ initialTerm }: { initialTerm: CapacityTermId }) {
           cachedAt={payload.cached_at}
         />
       )}
-      {!term.ready && (
-        <div className={styles.wrap}>
-          <div className={styles.panel}>
-            <div className={styles.ph}>
-              <span className={styles.pt}>{term.label}</span>
-            </div>
-            <p className={styles.pending}>{term.pending}</p>
-          </div>
-        </div>
+      {!error && payload && term.kind === "projection" && (
+        <CapacityProjection termId={term.id} residents={residents} cachedAt={payload.cached_at} />
       )}
+      <div className={styles.follow}>
+        <PriestRoomsNote />
+      </div>
     </div>
   );
 }

@@ -16,18 +16,16 @@ describe("capacity terms", () => {
 
   it("keeps Fall 2026 on the live eRez sessions", () => {
     const fall = capacityTermById("fa26");
-    assert.equal(fall.ready, true);
+    assert.equal(fall.kind, "live");
     assert.equal(fall.sessions?.domestic, "2026FALL01");
     assert.equal(fall.sessions?.ireland, "2026FALL03Ireland");
-    assert.equal(fall.pending, null);
   });
 
-  it("leaves Spring 2027 and Fall 2027 without figures", () => {
+  it("projects Spring 2027 and Fall 2027 from the fall pull, with no spring session", () => {
     for (const id of ["sp27", "fa27"] as const) {
       const term = capacityTermById(id);
-      assert.equal(term.ready, false);
+      assert.equal(term.kind, "projection");
       assert.equal(term.sessions, null);
-      assert.match(term.pending || "", /eRez session id/);
     }
   });
 
