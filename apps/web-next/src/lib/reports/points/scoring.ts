@@ -18,6 +18,8 @@ const points = require("./points.js") as {
   giftSolicitor: (record: unknown) => string | null;
   isMgoAttributedGift: (record: unknown) => boolean;
   contactDisplayName: (record: unknown) => string;
+  rosterDonorOwner: (record: unknown) => string | null;
+  selfRecurringCounts: (record: unknown, owner: string | null) => boolean;
   passthroughContactIds: (record: unknown) => number[];
   applyPassthroughCredit: (record: unknown, names?: Map<number, string> | null) => unknown;
 };
@@ -133,5 +135,7 @@ export const EVENT_POINTS_PER_HOUR = config.EVENT_POINTS_PER_HOUR;
 export const TRACKED_EVENT_TYPES = config.TRACKED_EVENT_TYPES;
 export const RETIRED_TRACKED_EVENT_TYPES = config.RETIRED_TRACKED_EVENT_TYPES;
 export const contactDisplayName = points.contactDisplayName;
+export const rosterDonorOwner = points.rosterDonorOwner;
+export const selfRecurringCounts = points.selfRecurringCounts;
 export const passthroughContactIds = points.passthroughContactIds;
 export const applyPassthroughCredit = points.applyPassthroughCredit;

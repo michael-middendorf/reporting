@@ -29,6 +29,72 @@ export function isWeekday(d) {
 
 const rosterSet = new Set(MA_NAMES);
 const startByOwner = new Map(MA_ROSTER.map((m) => [m.name, m.startDate || null]));
+const rosterByEmail = new Map(
+  MA_ROSTER.map((m) => [String(m.email || "").trim().toLowerCase(), m.name]),
+);
+const rosterByName = new Map(
+  MA_ROSTER.map((m) => [normalizePersonName(m.name), m.name]),
+);
+
+function normalizePersonName(value) {
+  return String(value || "").toLowerCase().replace(/[.]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function addRosterEmail(hits, value) {
+  const email = String(value || "").trim().toLowerCase();
+  if (!email.includes("@")) return;
+  const owner = rosterByEmail.get(email);
+  if (owner) hits.add(owner);
+}
+
+/**
+ * The roster officer who is this donor, or null.
+ * A household named exactly like the officer counts. So does a roster email
+ * on the contact, and a nickname that is not the legal first name
+ * ("Betsy Scaletty" on Grant and Elizabeth Scaletty). Another household that
+ * only shares a first and last name does not.
+ */
+export function rosterDonorOwner(record) {
+  if (!record || typeof record !== "object") return null;
+  const stamped = String(record.selfOwner || "").replace(/\s+/g, " ").trim();
+  if (stamped && rosterSet.has(stamped)) return stamped;
+  const hits = new Set();
+  addRosterEmail(hits, record.email);
+  const people = record.contactIndividuals || record.individuals || [];
+  for (const person of Array.isArray(people) ? people : []) {
+    if (!person || typeof person !== "object") continue;
+    addRosterEmail(hits, person.email);
+    for (const method of person.contactMethods || []) addRosterEmail(hits, method?.value);
+    const first = normalizePersonName(person.firstName);
+    const last = normalizePersonName(person.lastName);
+    const nick = normalizePersonName(person.nickname);
+    if (nick && last && nick !== first) {
+      const owner = rosterByName.get(`${nick} ${last}`);
+      if (owner) hits.add(owner);
+    }
+  }
+  for (const candidate of [contactDisplayName(record), record.contactName, record.name]) {
+    const owner = rosterByName.get(normalizePersonName(candidate));
+    if (owner) hits.add(owner);
+  }
+  if (hits.size !== 1) return null;
+  return [...hits][0];
+}
+
+/**
+ * An officer's own monthly commitment counts with the other gifts.
+ * One that started before that officer's roster start stays out, so later
+ * installments are not folded into a date the scorer drops.
+ */
+export function selfRecurringCounts(record, owner) {
+  if (!owner || !rosterSet.has(owner)) return false;
+  if (record?.priorOnly) return false;
+  const start = startByOwner.get(owner);
+  if (!start) return true;
+  const day = isoDay(parseDate(record.startDate || record.recurringGiftDate || record.giftDate));
+  if (!day) return true;
+  return day >= start;
+}
 function contactKey(id) {
   if (id == null || id === "") return null;
   const s = String(id).trim();
@@ -1089,6 +1155,9 @@ function markAssist(gift) {
  * An Incoming assignment also credits it, and that assigned owner wins over
  * another MA's qualifying contact on the same gift. Direct Solicitation (MGO)
  * uses the same 90-day contact rule as any other gift.
+ * An officer's own gift counts for that officer when no other officer reached
+ * the donor first. The household, a roster email, or a distinct nickname
+ * identifies the officer.
  * `countedGifts` is accepted and ignored so older callers keep working.
  *
  * `flags` is the shared review-flags map (same object aggregate uses).
@@ -1177,6 +1246,23 @@ export function scoreAll({ notes = [], gifts = [], flags = {}, portfolios = {} }
           scoredGifts.push(credited);
           continue;
         }
+      }
+    }
+    const selfOwner = rosterDonorOwner(g);
+    if (selfOwner) {
+      const assigned = assignedOwnerForGift(g, selfOwner, flags);
+      const owner = assigned || selfOwner;
+      const r = scoreGift(g, owner, owner);
+      if (r) {
+        const credited = {
+          ...r,
+          source: assigned ? "assigned" : "self",
+          contactName: r.contactName || contactDisplayName(g),
+          mgoAssigned: isMgoAttributedGift(g) ? true : undefined,
+        };
+        rows.push(credited);
+        scoredGifts.push(credited);
+        continue;
       }
     }
     if (isMgoAttributedGift(g)) {
