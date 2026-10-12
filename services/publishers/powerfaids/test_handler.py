@@ -656,7 +656,11 @@ def _scripted_accept_results():
         "poe": ("poe_token", "attend_desc"),
         "costs": ("stu_award_year_token", "tot_tuition_fees", "tot_room_board", "tot_books_supplies", "tot_transportation", "tot_other_budget"),
     }
+    cols["award_year"] = ("award_year_token",)
+    cols["student_ids"] = ("campus_id", "student_token")
     rows = {
+        "award_year": [(5,)],
+        "student_ids": [("P000000001", 11)],
         "students": [("P000000001", 11, 100, None, None)],
         "awards": [(1, 100, 7, "A", 10000, datetime(2026, 10, 1, 9, 0), None)],
         "funds": [(7, "AMUSCH", "Ave Maria Scholarship", "G", "I", "Academic")],
@@ -700,8 +704,14 @@ class AcceptQueryTests(unittest.TestCase):
         for name, sql, _ in queries.ACCEPT_STATEMENTS:
             with self.subTest(statement=name):
                 used = _table_columns(sql)
-                self.assertGreater(len(used), 2)
+                self.assertGreaterEqual(len(used), 2)
                 self.assertEqual(sorted(used - granted), [])
+
+    def test_student_ids_query_masks_and_filters_campus_ids(self):
+        sql = queries.ACCEPT_STUDENT_IDS
+        self.assertTrue(sql.startswith(f"SELECT {queries.CAMPUS_ID_EXPR}, "))
+        self.assertIn("WHERE s.alternate_id LIKE 'P[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' ", sql)
+        self.assertNotRegex(sql.split(" FROM ", 1)[0], r"alternate_id\s*,")
 
     def test_students_query_masks_and_filters_campus_ids(self):
         sql = queries.ACCEPT_STUDENTS
@@ -712,7 +722,7 @@ class AcceptQueryTests(unittest.TestCase):
     def test_result_names_are_the_contract_with_the_transform(self):
         self.assertEqual(
             [name for name, _, _ in queries.ACCEPT_STATEMENTS],
-            ["students", "awards", "funds", "schedule", "poe", "costs"],
+            ["award_year", "students", "student_ids", "awards", "funds", "schedule", "poe", "costs"],
         )
 
 
@@ -803,6 +813,15 @@ class AcceptHandlerTests(unittest.TestCase):
         manifest = self._manifest(put)
         self.assertEqual(manifest["derived_failed"], [ACCEPT_LABEL])
         self.assertIn("boom", self._accept_entry(manifest)["error"])
+        self.assertFalse([c for c in put.call_args_list if c.args[0].startswith("sources/acceptance-letters/")])
+
+    def test_undefined_award_year_is_a_recorded_failure_and_writes_nothing(self):
+        scripted = _scripted_accept_results()
+        scripted[queries.ACCEPT_AWARD_YEAR] = (("award_year_token",), [])
+        conn, _, put, result = self._run(scripted=scripted)
+        self.assertTrue(result["ok"])
+        self.assertEqual(self._manifest(put)["derived_failed"], [ACCEPT_LABEL])
+        self.assertIn("expected exactly 1", self._accept_entry(self._manifest(put))["error"])
         self.assertFalse([c for c in put.call_args_list if c.args[0].startswith("sources/acceptance-letters/")])
 
     def test_transform_failure_recorded_without_failing_raw(self):

@@ -60,7 +60,7 @@ current consumer rejects this export until its follow-up PR lands.
 Every business rule is a named constant in
 `services/publishers/powerfaids/acceptance_rules.py`, each marked "Confirm with
 Financial Aid before LIVE_LETTERS_ENABLED". `acceptance.py` is mechanics only.
-SQL is in `queries.py` (`ACCEPT_*`): six scoped reads for one award year, only
+SQL is in `queries.py` (`ACCEPT_*`): eight scoped reads for one award year, only
 columns already selected by a raw dataset query (so the SQL login's column grants
 cover them), and students without a PowerCampus-shaped `alternate_id` are filtered
 in SQL so an SSN-shaped value never leaves the database.
@@ -70,7 +70,10 @@ Summary of the rules as built:
 - Population: `dbo.student` with a `P` + 9 digit `alternate_id` and a
   `stu_award_year` row for the award year. One package per student. If two students
   (or two award year rows) share a `campus_id`, neither is emitted and they are
-  counted.
+  counted. The check also looks at student rows that have no row for the award year
+  (`ACCEPT_STUDENT_IDS`). The award year must be defined exactly once in
+  `award_year_defn`; otherwise the run records a failure and writes nothing, so an
+  empty snapshot is never published as a success.
 - Status: `withdrawn` if `date_withdrew` is set; `approved` only if
   `packaging_status` is in `PACKAGED_STATUSES` and the package has no notes;
   otherwise `draft`.
@@ -101,12 +104,16 @@ fractional values. The transform multiplies by 100 using `Decimal`.
 ## What the 2027-2028 data looks like today (2026-10-12 pull)
 
 Counts only: 6,961 `stu_award_year` rows; `packaging_status` is null on all of them;
-none withdrawn; no student has more than one row; no duplicate `campus_id`; 219 rows
-have no PowerCampus ID and are excluded. 41 awards, all status `A`, all fund type `G`
+none withdrawn; no student has more than one row; 219 rows have no PowerCampus ID
+and are excluded in SQL (so `studentsExcludedNoCampusId` stays 0 in production). One
+`campus_id` is shared by two PowerFAIDS student tokens (only one has a 2027-2028
+row), so that student gets no package until the duplicate is resolved. 41 awards, all status `A`, all fund type `G`
 with fund source `F` (federal grants, so category `grant`, none `scholarship`), every
 award has a Fall and a Spring scheduled row. 5,261 rows have no tuition budget yet.
-Expected output right now: every package is `draft` (or carries "no cost of
-attendance"), none `approved`.
+Replaying the transform on those rows (aggregates only, 2026-10-12): 6,741 packages,
+all `draft`, 0 approved, 5,042 with the `no cost of attendance` note, 41 awards (all
+category `grant`, so nothing is featured), 1,699 On campus and 5,042 Commuter, 1
+student excluded as a duplicate `campus_id`, no award skipped.
 
 ## What Financial Aid must confirm before LIVE_LETTERS_ENABLED
 

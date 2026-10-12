@@ -22,6 +22,8 @@ YEAR = "2027-2028"
 def base_results():
     """One student (SAY 100) with a scheduled scholarship, a loan and costs; one fund per type."""
     return {
+        "award_year": [{"award_year_token": 5}],
+        "student_ids": [{"campus_id": "P000000001", "student_token": 11}],
         "students": [
             {"campus_id": "P000000001", "student_token": 11, "stu_award_year_token": 100,
              "packaging_status": None, "date_withdrew": None},
@@ -225,6 +227,22 @@ class AwardTests(unittest.TestCase):
         featured = {a["code"]: a["featured"] for a in package["awards"]}
         self.assertEqual(featured, {"AMUSCH": True, "DLSUB": False})  # 10000 beats 5500
 
+    def test_featured_tie_on_label_and_amount_is_deterministic(self):
+        results = base_results()
+        for fund in results["funds"]:
+            fund.update(fund_type="G", fund_source="I", fund_family="Academic", fund_long_name="Same", fund_short_name="SAME")
+        results["awards"][1]["actual_amt"] = Decimal("10000")
+        results["schedule"][2]["scheduled_amount"] = Decimal("5000")
+        results["schedule"][3]["scheduled_amount"] = Decimal("5000")
+        versions = set()
+        for order in (1, -1):
+            r = copy.deepcopy(results)
+            r["awards"] = r["awards"][::order]
+            package = only_package(r)
+            self.assertEqual(sum(a["featured"] for a in package["awards"]), 1)
+            versions.add(package["sourceVersion"])
+        self.assertEqual(len(versions), 1)
+
     def test_featured_tie_breaks_on_label_and_never_a_loan(self):
         results = base_results()
         results["funds"][1].update(fund_type="G", fund_source="I", fund_family="Athletic", fund_long_name="Aardvark Award")
@@ -323,6 +341,8 @@ class StatusTests(unittest.TestCase):
 class PopulationTests(unittest.TestCase):
     def two_students(self, second_id):
         results = base_results()
+        if second_id:
+            results["student_ids"].append({"campus_id": second_id, "student_token": 12})
         results["students"].append(
             {"campus_id": second_id, "student_token": 12, "stu_award_year_token": 101,
              "packaging_status": None, "date_withdrew": None}
@@ -336,6 +356,27 @@ class PopulationTests(unittest.TestCase):
         self.assertEqual(manifest["summary"]["packages"], 0)
         self.assertEqual(manifest["summary"]["campusIdsDuplicate"], 1)
         self.assertEqual(manifest["summary"]["studentsExcludedDuplicate"], 2)
+
+    def test_campus_id_shared_with_a_student_outside_the_award_year_emits_neither(self):
+        results = base_results()
+        results["student_ids"].append({"campus_id": "P000000001", "student_token": 99})  # no row for this year
+        _, _, data, _, manifest = build(results)
+        self.assertEqual(data["packages"], [])
+        self.assertEqual(manifest["summary"]["campusIdsDuplicate"], 1)
+        self.assertEqual(manifest["summary"]["studentsExcludedDuplicate"], 1)
+
+    def test_same_token_listed_twice_is_not_a_duplicate(self):
+        results = base_results()
+        results["student_ids"].append({"campus_id": "P000000001", "student_token": 11})
+        self.assertEqual(len(build(results)[2]["packages"]), 1)
+
+    def test_award_year_must_be_defined_exactly_once(self):
+        for rows in ([], [{"award_year_token": 5}, {"award_year_token": 6}]):
+            with self.subTest(rows=len(rows)):
+                results = base_results()
+                results["award_year"] = rows
+                with self.assertRaises(ValueError):
+                    acceptance.build_export(results, NOW, YEAR)
 
     def test_unique_ids_both_emitted_sorted(self):
         results = self.two_students("P000000000")

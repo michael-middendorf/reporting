@@ -2,7 +2,7 @@
 
 Mechanics only. Every business rule (statuses, categories, cost lines, housing,
 units) is a named constant in acceptance_rules.py for Financial Aid to review.
-Input is the six result sets in queries.ACCEPT_STATEMENTS. Output is the data
+Input is the result sets in queries.ACCEPT_STATEMENTS. Output is the data
 object, the manifest, and their S3 keys (mssql.DerivedOutput), data first.
 Student rows are never logged; summary counts only.
 """
@@ -151,15 +151,18 @@ def _build_awards(
                 "springCents": spring,
                 "featured": False,
                 "_annual": total,
+                "_token": str(row.get("stu_award_token")),
             }
         )
     scholarships = [a for a in awards if a["category"] == "scholarship"]
     if scholarships:
-        top = min(scholarships, key=lambda a: (-a["_annual"], a["label"]))
+        top = min(scholarships, key=lambda a: (-a["_annual"], a["label"], a["_token"]))
         top["featured"] = True
-    awards.sort(key=lambda a: (a["category"], a["code"], a["label"], a["status"], a["fallCents"], a["springCents"]))
+    awards.sort(
+        key=lambda a: (a["category"], a["code"], a["label"], a["status"], a["fallCents"], a["springCents"], a["featured"])
+    )
     for a in awards:
-        del a["_annual"]
+        del a["_annual"], a["_token"]
     return awards
 
 
@@ -180,9 +183,16 @@ def _build_costs(cost_row: dict[str, Any] | None, notes: list[str]) -> tuple[lis
 
 
 def build_export(results: dict[str, Rows], now: datetime, award_year: str) -> mssql.DerivedOutput:
-    """Join the six result sets into the data object and manifest (contract v2)."""
+    """Join the result sets into the data object and manifest (contract v2)."""
     now = now.astimezone(timezone.utc)
     counts = _Counts()
+
+    # An award year that is not defined exactly once would publish an empty
+    # "success" snapshot, so stop (a recorded derived failure, no manifest written).
+    if len(results["award_year"]) != 1:
+        raise ValueError(
+            f"award year {award_year} is defined {len(results['award_year'])} time(s) in PowerFAIDS; expected exactly 1"
+        )
 
     funds = {r["fund_token"]: r for r in results["funds"]}
     poe = {r["poe_token"]: r.get("attend_desc") for r in results["poe"]}
@@ -198,6 +208,11 @@ def build_export(results: dict[str, Rows], now: datetime, award_year: str) -> ms
 
     # Uniqueness: a campus_id shared by two students (or two award-year rows)
     # is ambiguous, so none of them is emitted.
+    # The check also covers student rows that have no row for this award year.
+    tokens_by_campus: dict[str, set[Any]] = defaultdict(set)
+    for r in results["student_ids"]:
+        if r.get("campus_id") is not None:
+            tokens_by_campus[str(r["campus_id"])].add(r["student_token"])
     by_campus: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for r in results["students"]:
         campus_id = r.get("campus_id")
@@ -209,7 +224,7 @@ def build_export(results: dict[str, Rows], now: datetime, award_year: str) -> ms
     packages: list[dict[str, Any]] = []
     for campus_id in sorted(by_campus):
         rows = by_campus[campus_id]
-        if len(rows) > 1:
+        if len(rows) > 1 or len(tokens_by_campus[campus_id] | {rows[0]["student_token"]}) > 1:
             counts["campusIdsDuplicate"] += 1
             counts["studentsExcludedDuplicate"] += len(rows)
             continue

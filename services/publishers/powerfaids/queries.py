@@ -242,6 +242,26 @@ _ACCEPT_YEAR = (
     "WHERE ayd.award_year_name = %(award_year_name)s"
 )
 
+ACCEPT_AWARD_YEAR = (
+    "SELECT ayd.award_year_token FROM dbo.award_year_defn AS ayd "
+    "WHERE ayd.award_year_name = %(award_year_name)s "
+    "OPTION (MAXDOP 1)"
+)
+
+# Every student row (any year) that carries a campus_id found in the award year
+# population, so a campus_id shared by two PowerFAIDS students is caught even
+# when only one of them has a row for this award year.
+ACCEPT_STUDENT_IDS = (
+    f"SELECT {CAMPUS_ID_EXPR}, s.student_token "
+    "FROM dbo.student AS s "
+    f"WHERE s.alternate_id LIKE {_CAMPUS_ID_PATTERN} "
+    "AND s.alternate_id IN (SELECT s2.alternate_id FROM dbo.student AS s2 "
+    "JOIN dbo.stu_award_year AS say ON say.student_token = s2.student_token "
+    "JOIN dbo.award_year_defn AS ayd ON ayd.award_year_token = say.award_year_token "
+    "WHERE ayd.award_year_name = %(award_year_name)s) "
+    "OPTION (MAXDOP 1)"
+)
+
 ACCEPT_STUDENTS = (
     f"SELECT {CAMPUS_ID_EXPR}, s.student_token, say.stu_award_year_token, "
     "say.packaging_status, say.date_withdrew "
@@ -297,7 +317,9 @@ ACCEPT_DATASET = "export"
 # (result name, sql, bound parameter names). The result names are the contract
 # with acceptance.build_export.
 ACCEPT_STATEMENTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("award_year", ACCEPT_AWARD_YEAR, (ACCEPT_AWARD_YEAR_PARAM,)),
     ("students", ACCEPT_STUDENTS, (ACCEPT_AWARD_YEAR_PARAM,)),
+    ("student_ids", ACCEPT_STUDENT_IDS, (ACCEPT_AWARD_YEAR_PARAM,)),
     ("awards", ACCEPT_AWARDS, (ACCEPT_AWARD_YEAR_PARAM,)),
     ("funds", ACCEPT_FUNDS, (ACCEPT_AWARD_YEAR_PARAM,)),
     ("schedule", ACCEPT_SCHEDULE, (ACCEPT_AWARD_YEAR_PARAM,)),
