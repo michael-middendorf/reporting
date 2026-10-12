@@ -891,6 +891,7 @@ table.grid tr.grand td { font-weight: 600; color: var(--navy); background: var(-
 .week-block h3 { margin: 0 0 8px; font-size: 1.05rem; }
 .week-scroll { overflow-x: auto; }
 .insight-matrix th, .insight-matrix td { white-space: nowrap; }
+.month-totals th, .month-totals td { white-space: nowrap; }
 .insight-best { background: var(--gold-soft); color: var(--navy); font-weight: 500; }
 .insight-head { margin: 22px 0 10px; }
 .panel > .insight-head:first-of-type { margin-top: 0; }

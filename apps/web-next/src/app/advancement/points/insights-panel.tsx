@@ -22,6 +22,18 @@ type Conversation = {
   email: number;
   more: "phone" | "email" | "tie" | "none";
 };
+export type MonthTotal = {
+  key: string;
+  label: string;
+  points: number;
+  avgPerWeekday: number;
+  weekdays: number;
+  conversations: number;
+  dials: number;
+  convRate: number;
+  gifts: number;
+  giftAmount: number;
+};
 export type InsightsModel = {
   donors: number;
   findings: string[];
@@ -38,6 +50,75 @@ export type InsightsModel = {
 
 const money = (n: number | undefined) => `$${Math.round(n || 0).toLocaleString("en-US")}`;
 const pct = (n: number | null | undefined) => (n == null ? "—" : `${Math.round(n * 100)}%`);
+const rate = (n: number) => `${(n * 100).toFixed(1)}%`;
+
+function MonthTable({ rows }: { rows: MonthTotal[] }) {
+  const total = rows.reduce(
+    (sum, row) => {
+      sum.points += row.points;
+      sum.conversations += row.conversations;
+      sum.dials += row.dials;
+      sum.gifts += row.gifts;
+      sum.giftAmount += row.giftAmount;
+      sum.weekdays += row.weekdays;
+      return sum;
+    },
+    { points: 0, conversations: 0, dials: 0, gifts: 0, giftAmount: 0, weekdays: 0 },
+  );
+  return (
+    <>
+      <h3 className="insight-head">Monthly totals</h3>
+      <p className="footnote">
+        Team points, conversations, dials, and raised dollars for each month in the selected dates.
+        Avg/wkdy divides points by weekdays that had activity.
+      </p>
+      <div className="week-scroll">
+        <table className="grid month-totals">
+          <thead>
+            <tr>
+              <th>Months</th>
+              <th>Points</th>
+              <th>Avg/wkdy</th>
+              <th>Convers</th>
+              <th>Dials</th>
+              <th>Conv Rate</th>
+              <th>Gifts</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.key}>
+                <td>{row.label}</td>
+                <td className="pts tabular">{row.points.toLocaleString("en-US")}</td>
+                <td className="tabular">{row.weekdays ? Math.round(row.avgPerWeekday).toLocaleString("en-US") : "—"}</td>
+                <td className="tabular">{row.conversations.toLocaleString("en-US")}</td>
+                <td className="tabular">{row.dials.toLocaleString("en-US")}</td>
+                <td className="tabular">{row.dials ? rate(row.convRate) : "—"}</td>
+                <td className="tabular">{row.gifts.toLocaleString("en-US")}</td>
+                <td className="pts tabular">{money(row.giftAmount)}</td>
+              </tr>
+            ))}
+            {rows.length > 1 ? (
+              <tr className="grand">
+                <td>Total</td>
+                <td className="pts tabular">{total.points.toLocaleString("en-US")}</td>
+                <td className="tabular">
+                  {total.weekdays ? Math.round(total.points / total.weekdays).toLocaleString("en-US") : "—"}
+                </td>
+                <td className="tabular">{total.conversations.toLocaleString("en-US")}</td>
+                <td className="tabular">{total.dials.toLocaleString("en-US")}</td>
+                <td className="tabular">{total.dials ? rate(total.conversations / total.dials) : "—"}</td>
+                <td className="tabular">{total.gifts.toLocaleString("en-US")}</td>
+                <td className="pts tabular">{money(total.giftAmount)}</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
 
 function SummaryTable({ groups }: { groups: Group[] }) {
   return (
@@ -162,14 +243,15 @@ function Matrix({ groups, channels }: { groups: Group[]; channels: Channel[] }) 
   );
 }
 
-export function InsightsPanel({ insights }: { insights: InsightsModel }) {
+export function InsightsPanel({ insights, months = [] }: { insights: InsightsModel; months?: MonthTotal[] }) {
   const hasRows = insights.generations.length > 0 || insights.relationships.length > 0 || insights.donorTags.length > 0 || (insights.campaigns || []).length > 0;
   return (
     <section className="section" aria-labelledby="insights-heading">
       <h2 id="insights-heading">
-        Insights <span className="section-hint">who gave, which campaign, and which contact came before the gift</span>
+        Insights <span className="section-hint">monthly totals, who gave, which campaign, and which contact came before the gift</span>
       </h2>
       <div className="panel">
+        {months.length > 0 ? <MonthTable rows={months} /> : null}
         {hasRows ? null : <p className="footnote">No counted gifts in this range.</p>}
 
         {insights.generations.length > 0 ? (

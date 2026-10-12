@@ -38,7 +38,7 @@ import {
 import type { FlagInput, ReviewFlag } from "@/lib/reports/points/flags";
 import type { TrackedEvent } from "@/lib/reports/points/tracked-events";
 import "@/styles/points.css";
-import { InsightsPanel } from "./insights-panel";
+import { InsightsPanel, type MonthTotal } from "./insights-panel";
 import { buildInsights } from "@/lib/reports/points/insights.js";
 import { matchingMonth, monthBounds, monthOptions } from "@/lib/reports/points/month-range.js";
 import { filterListedGifts } from "@/lib/reports/points/gift-search.js";
@@ -563,6 +563,7 @@ function PointsPageInner() {
       possibleGifts: PossibleGiftRow[];
       reviewGifts: GiftRow[];
       weekGrid: WeekGridRow[];
+      months: MonthTotal[];
       bests: Bests;
     };
   }, [rows, range, selectedWeek, dateFrom, dateTo, flags]);
@@ -2558,7 +2559,7 @@ function PointsPageInner() {
           )}
 
           {tab === "insights" ? (
-            error ? null : raw ? <InsightsPanel insights={insights} /> : <p className="footnote">Loading donor records…</p>
+            error ? null : raw ? <InsightsPanel insights={insights} months={model.months} /> : <p className="footnote">Loading donor records…</p>
           ) : null}
 
           {undo ? (

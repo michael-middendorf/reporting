@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { InsightsPanel } from "../../../app/advancement/points/insights-panel";
+import { aggregate, monthTotals } from "./aggregate.js";
 import { POINTS_MAP } from "./config.js";
 import { CHANNELS, buildInsights, campaignOf } from "./insights.js";
 import { ageFromPerson, projectProfile, projectProfiles } from "./profiles.js";
@@ -195,6 +196,7 @@ describe("gift insights", () => {
     assert.doesNotMatch(html, /Birth year is on file/);
     assert.match(html, /Phone vs email conversations/);
     assert.match(html, /No phone or email conversations in this range/);
+    assert.doesNotMatch(html, /Monthly totals/);
   });
 
   it("counts phone and email conversation notes by generation", () => {
@@ -285,5 +287,134 @@ describe("gift insights", () => {
     assert.match(html, /Reached by campaign/);
     assert.match(html, /Fall Appeal/);
     assert.match(html, /Annunciation Circle/);
+  });
+});
+
+describe("monthly totals", () => {
+  const june1 = new Date(2026, 5, 1);
+  const june2 = new Date(2026, 5, 2);
+  const june6 = new Date(2026, 5, 6);
+  const july6 = new Date(2026, 6, 6);
+
+  function row(extra: Record<string, unknown>) {
+    return {
+      owner: "Alanna McCann",
+      points: 1,
+      amount: 0,
+      weekday: true,
+      bucket: "dial",
+      ...extra,
+    };
+  }
+
+  it("rolls team points, dials, conversations, and gifts by month", () => {
+    const months = monthTotals([
+      row({ date: june1, day: "2026-06-01", bucket: "conversation", points: 10 }),
+      row({ date: june2, day: "2026-06-02", bucket: "dial", points: 1 }),
+      row({ date: june6, day: "2026-06-06", weekday: false, bucket: "conversation", points: 10 }),
+      row({ owner: "Sean Kelly", date: july6, day: "2026-07-06", bucket: "donation", points: 100, amount: 250, giftId: "1" }),
+      row({ owner: "Not An Officer", date: june1, day: "2026-06-01", bucket: "conversation", points: 10 }),
+      row({ date: june1, day: "2026-06-01", bucket: "possible", points: 0, amount: 40 }),
+      row({ date: june2, day: "2026-06-02", bucket: "dial", points: 1, removed: true }),
+    ]);
+    assert.equal(months.length, 2);
+    assert.equal(months[0].label, "June");
+    assert.equal(months[0].points, 21);
+    assert.equal(months[0].conversations, 2);
+    assert.equal(months[0].dials, 3);
+    assert.equal(months[0].weekdays, 2);
+    assert.equal(months[0].avgPerWeekday, 21 / 2);
+    assert.equal(months[0].convRate, 2 / 3);
+    assert.equal(months[1].label, "July");
+    assert.equal(months[1].gifts, 1);
+    assert.equal(months[1].giftAmount, 250);
+    assert.equal(months[1].points, 100);
+  });
+
+  it("fills a quiet month between the first and last", () => {
+    const months = monthTotals([
+      row({ day: "2026-06-01", points: 5 }),
+      row({ day: "2026-08-03", points: 8 }),
+    ]);
+    assert.deepEqual(months.map((month) => month.label), ["June", "July", "Aug"]);
+    assert.equal(months[1].points, 0);
+    assert.equal(months[1].weekdays, 0);
+    assert.equal(months[1].avgPerWeekday, 0);
+    assert.equal(months[2].points, 8);
+  });
+
+  it("adds the year when the table crosses a calendar year", () => {
+    const months = monthTotals([
+      row({ day: "2026-12-01", points: 4 }),
+      row({ day: "2027-01-04", points: 6 }),
+    ]);
+    assert.equal(months[0].label, "Dec 2026");
+    assert.equal(months[1].label, "Jan 2027");
+  });
+
+  it("matches the Points tab totals for the same rows", () => {
+    const rows = [
+      row({ date: june1, day: "2026-06-01", bucket: "conversation", points: 10 }),
+      row({ date: june2, day: "2026-06-02", bucket: "dial", points: 1 }),
+      row({ owner: "Sean Kelly", date: july6, day: "2026-07-06", bucket: "donation", points: 100, amount: 250, giftId: "1" }),
+      row({ date: new Date(2026, 7, 3), day: "2026-08-03", noteId: "gone", bucket: "dial", points: 1 }),
+    ];
+    const model = aggregate(rows, { flags: { gone: { status: "removed" } } });
+    const months = model.months;
+    assert.equal(months.reduce((sum, month) => sum + month.points, 0), model.totals.points);
+    assert.equal(months.reduce((sum, month) => sum + month.conversations, 0), model.totals.conversations);
+    assert.equal(months.reduce((sum, month) => sum + month.dials, 0), model.totals.dials);
+    assert.equal(months.reduce((sum, month) => sum + month.gifts, 0), model.totals.gifts);
+    assert.equal(months.reduce((sum, month) => sum + month.giftAmount, 0), model.totals.giftAmount);
+    assert.equal(months.reduce((sum, month) => sum + month.weekdays, 0), model.totals.weekdays);
+    assert.equal(months.find((month) => month.key === "2026-08"), undefined);
+  });
+
+  it("renders the month table above the other insight sections", () => {
+    const insights = buildInsights({ profiles: [], gifts: [], notes: [] });
+    const html = renderToStaticMarkup(
+      <InsightsPanel
+        insights={insights}
+        months={[
+          {
+            key: "2026-06",
+            label: "June",
+            points: 7267,
+            avgPerWeekday: 382.4,
+            weekdays: 19,
+            conversations: 154,
+            dials: 1292,
+            convRate: 154 / 1292,
+            gifts: 5,
+            giftAmount: 875,
+          },
+          {
+            key: "2026-10",
+            label: "Oct",
+            points: 1914,
+            avgPerWeekday: 957,
+            weekdays: 2,
+            conversations: 36,
+            dials: 251,
+            convRate: 36 / 251,
+            gifts: 3,
+            giftAmount: 10510,
+          },
+        ]}
+      />,
+    );
+    assert.ok(html.indexOf("Monthly totals") < html.indexOf("Phone vs email conversations"));
+    assert.match(html, /Months/);
+    assert.match(html, /Avg\/wkdy/);
+    assert.match(html, /Convers/);
+    assert.match(html, /Conv Rate/);
+    assert.match(html, /June/);
+    assert.match(html, /7,267/);
+    assert.match(html, /382/);
+    assert.match(html, /11\.9%/);
+    assert.match(html, /\$875/);
+    assert.match(html, /\$10,510/);
+    assert.match(html, /9,181/);
+    assert.match(html, /\$11,385/);
   });
 });
