@@ -11,7 +11,7 @@ const region = process.env.AWS_REGION || "us-east-2";
  * Server-only DynamoDB access for the thank-you letter Sent flags (DST-3062).
  *
  * IAM (infra/lib/reporting-ecs-stack.ts, sid TyLetterSentItems): the web task
- * role has only GetItem, BatchGetItem and UpdateItem on this table, so this
+ * role has only BatchGetItem and UpdateItem on this table, so this
  * module never uses PutItem, DeleteItem, Query or Scan. One item per gift id:
  * { giftId, sent, sentBy, sentAt, updatedBy, updatedAt }. Staff emails and gift
  * ids only, no donor data.
@@ -67,7 +67,11 @@ async function getMany(giftIds: string[]): Promise<Map<string, SentFlag>> {
       const res = await doc().send(
         new BatchGetCommand({
           RequestItems: {
-            [table]: { Keys: keys, ProjectionExpression: "giftId, sent, sentBy, sentAt" },
+            [table]: {
+              Keys: keys,
+              ProjectionExpression: "#g, #s, #b, #a",
+              ExpressionAttributeNames: { "#g": "giftId", "#s": "sent", "#b": "sentBy", "#a": "sentAt" },
+            },
           },
         }),
       );

@@ -162,6 +162,19 @@ describe("POST /api/ty-letters-sent", () => {
     assert.equal(writes.length, 0);
   });
 
+  it("404 for a gift id that is not on the published cards", async () => {
+    const res = await POST(req(ALLOWED[0], { method: "POST", body: { giftId: "9999", sent: true } }));
+    assert.equal(res.status, 404);
+    assert.equal(((await res.json()) as { error: string }).error, "Unknown gift");
+    assert.equal(writes.length, 0);
+  });
+
+  it("503 when no snapshot is published", async () => {
+    Object.assign(tyLettersCache, { read: async () => null });
+    assert.equal((await POST(req(ALLOWED[0], { method: "POST", body: OK }))).status, 503);
+    assert.equal(writes.length, 0);
+  });
+
   it("503 when the table is not configured", async () => {
     delete env.TY_LETTER_SENT_TABLE;
     assert.equal((await POST(req(ALLOWED[0], { method: "POST", body: OK }))).status, 503);

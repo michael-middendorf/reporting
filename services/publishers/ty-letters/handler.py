@@ -75,6 +75,10 @@ SEGMENT_HIST_RE = re.compile(r"-HIST_[A-Za-z0-9]+$")
 # BUDGET_S (or earlier when the Lambda context says less time is left), which
 # leaves room for in-flight requests, the contact pull and the S3 write.
 BUDGET_S = 600.0
+# Cards for gifts this recent are rebuilt every run even when cached, so gifts
+# entered late (dated on or before the thanked gift) show up while letters
+# are still being written.
+REFRESH_DAYS = 14
 RESERVE_S = 240.0
 CONCURRENCY = 3
 DONOR_BATCH = 5
@@ -383,6 +387,7 @@ def build_asof(
     asof = [g for g in by_id.values() if cutoff is None or (gift_date(g) and gift_date(g) <= cutoff)]
 
     total = Decimal("0")
+    counted: list[int] = []
     eligible: list[tuple[dict[str, Any], Decimal]] = []
     for g in asof:
         gid = gift_id(g)
@@ -393,15 +398,23 @@ def build_asof(
             continue
         amount = credited_amount(g, donor_id)
         total += amount
+        counted.append(gid)
         if reversing or amount == 0:
             continue
         eligible.append((g, amount))
 
-    by_recent = sorted(eligible, key=lambda pair: _recency_key(pair[0]), reverse=True)
+    thanked_id = gift_id(thanked)
+
+    def recency(g: dict[str, Any]) -> tuple[dt.date, int, int]:
+        # On the thanked gift's own date it sorts as the most recent, so it is
+        # always the Latest row of its own card.
+        return (gift_date(g) or dt.date.min, 1 if gift_id(g) == thanked_id else 0, gift_id(g))
+
+    by_recent = sorted(eligible, key=lambda pair: recency(pair[0]), reverse=True)
     latest = by_recent[0][0] if by_recent else None
     second = by_recent[1][0] if len(by_recent) > 1 else None
-    first = min(eligible, key=lambda pair: _recency_key(pair[0]))[0] if eligible else None
-    largest = max(eligible, key=lambda pair: (pair[1], _recency_key(pair[0])))[0] if eligible else None
+    first = min(eligible, key=lambda pair: recency(pair[0]))[0] if eligible else None
+    largest = max(eligible, key=lambda pair: (pair[1], recency(pair[0])))[0] if eligible else None
 
     def row(g: dict[str, Any] | None) -> dict[str, Any] | None:
         return gift_row(g, donor_id) if g is not None else None
@@ -414,6 +427,9 @@ def build_asof(
             "first": row(first),
         },
         "totalGiving": _to_float(total),
+        # Gift ids that went into this card, so a later reversal of any of them
+        # invalidates the cached card.
+        "historyGiftIds": sorted(counted),
     }
 
 
@@ -599,12 +615,33 @@ def cached_asof(previous: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
     return out
 
 
-def _cache_hit(card: dict[str, Any] | None, gift: dict[str, Any]) -> bool:
+def _cache_valid(card: dict[str, Any] | None, gift: dict[str, Any], reversed_ids: set[int]) -> bool:
+    """A cached card is still correct: same donor, the thanked gift was not
+    modified, and no gift counted on it has since been reversed."""
     if not card:
         return False
     if str(card.get("donorContactId")) != str(donor_contact_id(gift)):
         return False
-    return (card.get("giftModified") or None) == (gift.get("modifiedDateTimeUtc") or None)
+    if (card.get("giftModified") or None) != (gift.get("modifiedDateTimeUtc") or None):
+        return False
+    history = card.get("historyGiftIds")
+    if not isinstance(history, list):
+        return False
+    return not any(_int_id(i) in reversed_ids for i in history)
+
+
+def needs_build(
+    card: dict[str, Any] | None,
+    gift: dict[str, Any],
+    reversed_ids: set[int],
+    today: dt.date,
+) -> bool:
+    """Build when the cache is invalid, and always for gifts dated within
+    REFRESH_DAYS of today."""
+    if not _cache_valid(card, gift, reversed_ids):
+        return True
+    day = gift_date(gift)
+    return day is not None and day >= today - dt.timedelta(days=REFRESH_DAYS)
 
 
 class Budget:
@@ -628,9 +665,12 @@ def build_asof_for_gifts(
     history_fn: Callable[[Any, list[int]], dict[int, list[dict[str, Any]]]] = fetch_history,
     concurrency: int = CONCURRENCY,
     donor_batch: int = DONOR_BATCH,
+    errors: list[str] | None = None,
 ) -> dict[int, dict[str, Any]]:
     """As-of parts for uncached gifts, newest gifts first. Stops starting new
-    donor batches once the budget is spent; unbuilt gifts are left out."""
+    donor batches once the budget is spent; unbuilt gifts are left out. A
+    failed batch is logged (size and error class only), appended to
+    ``errors``, and its gifts are left out too."""
     by_donor: dict[int, list[dict[str, Any]]] = {}
     for g in sorted(todo, key=_recency_key, reverse=True):
         by_donor.setdefault(donor_contact_id(g) or 0, []).append(g)
@@ -655,7 +695,13 @@ def build_asof_for_gifts(
                 break
             done, pending = concurrent.futures.wait(pending, return_when=concurrent.futures.FIRST_COMPLETED)
             for f in done:
-                history = f.result()
+                try:
+                    history = f.result()
+                except Exception as exc:  # noqa: BLE001
+                    log(f"  WARNING history batch failed donors={len(futures[f])} error={type(exc).__name__}")
+                    if errors is not None:
+                        errors.append(type(exc).__name__)
+                    continue
                 for donor in futures[f]:
                     for g in by_donor[donor]:
                         built[gift_id(g)] = build_asof(donor, g, history.get(donor, []), reversed_ids)
@@ -671,7 +717,12 @@ def assemble(
     window_start: dt.date,
     window_end: dt.date,
     generated_at: str,
+    reversed_ids: set[int] | None = None,
+    failed_batches: int = 0,
 ) -> dict[str, Any]:
+    """Cards from this run's builds, falling back to a still-valid cached card
+    (for example a recent card whose refresh did not run in time)."""
+    reversed_ids = reversed_ids or set()
     cache = cached_asof(previous)
     cards: list[dict[str, Any]] = []
     pending = 0
@@ -681,8 +732,12 @@ def assemble(
         part = built.get(gid)
         if part is None:
             hit = cache.get(str(gid))
-            if _cache_hit(hit, g):
-                part = {"rows": hit["rows"], "totalGiving": hit.get("totalGiving", 0.0)}
+            if _cache_valid(hit, g, reversed_ids):
+                part = {
+                    "rows": hit["rows"],
+                    "totalGiving": hit.get("totalGiving", 0.0),
+                    "historyGiftIds": hit.get("historyGiftIds") or [],
+                }
         if part is None:
             pending += 1
             continue
@@ -695,6 +750,7 @@ def assemble(
             **contact_fields(contacts.get(donor), g, donor),
             "rows": part["rows"],
             "totalGiving": part["totalGiving"],
+            "historyGiftIds": part.get("historyGiftIds") or [],
             "batch": _text(g.get("batch")) or None,
             "giftModified": g.get("modifiedDateTimeUtc") or None,
             "virtuousGiftUrl": f"{GIFT_VIEW}/{gid}",
@@ -706,7 +762,7 @@ def assemble(
         "windowStart": window_start.isoformat(),
         "windowEnd": window_end.isoformat(),
         "minAmount": _to_float(MIN_AMOUNT),
-        "partial": pending > 0,
+        "partial": pending > 0 or failed_batches > 0,
         "pending": pending,
         "cards": cards,
     }
@@ -739,13 +795,14 @@ def run(
     log(f"  window gifts pulled={len(raw)} eligible={len(gifts)} reversedDropped={dropped_reversed}")
 
     cache = cached_asof(previous)
-    todo = [g for g in gifts if not _cache_hit(cache.get(str(gift_id(g))), g)]
+    todo = [g for g in gifts if needs_build(cache.get(str(gift_id(g))), g, reversed_ids, today)]
     log(f"  cached={len(gifts) - len(todo)} toBuild={len(todo)}")
-    built = build_asof_for_gifts(client, todo, reversed_ids, budget)
+    errors: list[str] = []
+    built = build_asof_for_gifts(client, todo, reversed_ids, budget, errors=errors)
     donors = {donor_contact_id(g) for g in gifts if donor_contact_id(g)}
     contacts = fetch_contacts(client, donors)
     generated_at = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    return assemble(
+    snapshot = assemble(
         window_gifts=gifts,
         previous=previous,
         built=built,
@@ -753,7 +810,13 @@ def run(
         window_start=window_start,
         window_end=today,
         generated_at=generated_at,
+        reversed_ids=reversed_ids,
+        failed_batches=len(errors),
     )
+    if gifts and not snapshot["cards"]:
+        # Publishing an empty snapshot would blank the page; fail loudly instead.
+        raise RuntimeError(f"no cards built for {len(gifts)} window gifts (failed batches={len(errors)})")
+    return snapshot
 
 
 def read_previous() -> dict[str, Any] | None:

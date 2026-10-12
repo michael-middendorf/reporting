@@ -47,6 +47,8 @@ export type TyLetterCard = {
   totalGiving: number;
   batch: string | null;
   giftModified?: string | null;
+  /** Gift ids counted on this card; the publisher rebuilds it if one is later reversed. */
+  historyGiftIds?: number[];
   virtuousGiftUrl?: string | null;
   /** Merged in by /api/ty-letters-data from DynamoDB. */
   sent?: boolean;

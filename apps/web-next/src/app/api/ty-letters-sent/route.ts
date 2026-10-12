@@ -3,6 +3,7 @@ import { currentUserEmail } from "@/lib/auth";
 import { requireReportAccess } from "@/lib/s3-proxy";
 import { isGiftId } from "@/lib/reports/ty-letters/shape";
 import { sentStore, sentTableName } from "@/lib/reports/ty-letters/sent-store";
+import { tyLettersCache } from "../ty-letters-data/route";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -43,6 +44,15 @@ export async function POST(req: Request) {
   if (!body) return json({ error: "Invalid JSON body" }, 400);
   if (!isGiftId(body.giftId)) return json({ error: "giftId must be digits only" }, 400);
   if (typeof body.sent !== "boolean") return json({ error: "sent must be true or false" }, 400);
+
+  // Only gifts on the published cards can be flagged, so the table cannot be
+  // filled with arbitrary ids.
+  const snap = await tyLettersCache.read();
+  if (!snap || !Array.isArray(snap.cards)) {
+    return json({ error: "Thank-you letter cards are not published yet." }, 503);
+  }
+  const giftId = body.giftId;
+  if (!snap.cards.some((c) => c.giftId === giftId)) return json({ error: "Unknown gift" }, 404);
 
   const flag = await sentStore.setSent(body.giftId, body.sent, email);
   console.log(
