@@ -1,7 +1,9 @@
 """Housing occupancy + residents payload (ported from housing-dashboard/serve.py).
 
 Source of truth is the eRezLife assignment API (not Qlik housing_erez_life.csv).
-Qlik/Slate still supply gender, deposits, and the optional roster.
+Qlik and Slate supply gender for incoming students. Returning students whose
+gender is still blank are filled from PowerCampus demographics. Deposits and
+the optional roster still come from Qlik and Slate.
 """
 from __future__ import annotations
 
@@ -463,6 +465,65 @@ def _result_is_complete(result: dict) -> bool:
     return any(r.get("session_id") == TARGET_SESSION for r in result.get("records", []))
 
 
+# PowerCampus stores the calendar year of the term, so within one year Spring
+# is earlier than Summer, and Summer is earlier than Fall. Junk years such as
+# 5565 and 2101 must not outrank a real term. 2030 leaves room for the next
+# few academic years.
+_GENDER_MIN_YEAR = 1990
+_GENDER_MAX_YEAR = 2030
+_TERM_RANK = {"WINTER": 0, "SPRING": 1, "SUMMER": 2, "FALL": 3}
+_pc_gender_cache: dict[str, str] | None = None
+
+
+def _fm(value: object) -> str:
+    g = str(value or "").strip()[:1].upper()
+    return g if g in ("F", "M") else ""
+
+
+def _gender_from_demographics(rows: list[dict]) -> dict[str, str]:
+    """Latest F or M per PEOPLE_CODE_ID. Skips U, blank, and nonsense years."""
+    latest: dict[str, tuple[tuple[int, int], str]] = {}
+    for r in rows:
+        pid = str(r.get("PEOPLE_CODE_ID") or "").strip().upper()
+        g = _fm(r.get("GENDER"))
+        if not pid or not g:
+            continue
+        year_s = str(r.get("ACADEMIC_YEAR") or "").strip()
+        if not year_s.isdigit():
+            continue
+        year = int(year_s)
+        if year < _GENDER_MIN_YEAR or year > _GENDER_MAX_YEAR:
+            continue
+        term = str(r.get("ACADEMIC_TERM") or "").strip().upper()
+        key = (year, _TERM_RANK.get(term, 0))
+        prev = latest.get(pid)
+        if prev is None or key >= prev[0]:
+            latest[pid] = (key, g)
+    return {pid: gender for pid, (_, gender) in latest.items()}
+
+
+def _resident_gender(slate: object, pcid: str, admissions: dict, pc_gender: dict) -> str:
+    """Slate or admissions F/M wins. PowerCampus fills a blank."""
+    return _fm(slate) or _fm(admissions.get(pcid, "")) or pc_gender.get(pcid, "")
+
+
+def _powercampus_gender() -> dict[str, str]:
+    global _pc_gender_cache
+    if _pc_gender_cache is not None:
+        return _pc_gender_cache
+    try:
+        from common.raw_load import load_jsonl_dataset
+
+        rows, _meta = load_jsonl_dataset("powercampus", "demographics")
+        found = _gender_from_demographics(rows)
+        print(f"  → PowerCampus gender: {len(found)} students")
+    except Exception as exc:
+        print(f"  ⚠  PowerCampus gender lookup failed: {exc}")
+        found = {}
+    _pc_gender_cache = found
+    return found
+
+
 def _build_gender_lookup() -> dict:
     try:
         rows = _qlik_fetch("admissions_report_housing.csv", _ADMISSIONS_GENDER_FIELDS)
@@ -479,10 +540,11 @@ def _build_gender_lookup() -> dict:
         return {}
 
 
-def _enrich_gender(records: list[dict], lookup: dict) -> list[dict]:
+def _enrich_gender(records: list[dict], lookup: dict, pc_gender: dict | None = None) -> list[dict]:
+    pc_gender = pc_gender or {}
     for r in records:
         sid = (r.get("student_id", "") or "").strip().upper()
-        r["gender"] = lookup.get(sid, "")
+        r["gender"] = _resident_gender("", sid, lookup, pc_gender)
     return records
 
 
@@ -526,7 +588,7 @@ def _build_housing_result(records: list[dict], include_gender: bool = False) -> 
         if dropped:
             print(f"  → excluded {dropped} withdrawn student(s) from occupancy")
     if include_gender:
-        _enrich_gender(fa26, _build_gender_lookup())
+        _enrich_gender(fa26, _build_gender_lookup(), _powercampus_gender())
     return {
         "records": fa26,
         "session": TARGET_SESSION,
@@ -785,6 +847,7 @@ def _build_cloud_residents(erez_records: list[dict]) -> dict:
         gender_lookup = _build_gender_lookup()
     except Exception:
         gender_lookup = {}
+    pc_gender = _powercampus_gender()
     reg_p, reg_e = _parse_registration()
     ea = _parse_early_arrivals()
     residents, candidates, excluded = [], [], 0
@@ -818,7 +881,7 @@ def _build_cloud_residents(erez_records: list[dict]) -> dict:
             first = str(look.get("first") or "").strip()
             last = str(look.get("last") or "").strip()
         name = (first + " " + last).strip() or _name_from_email(email) or pcid
-        gender = (s.get("Gender") or "").strip()[:1].upper() or gender_lookup.get(pcid, "")
+        gender = _resident_gender(s.get("Gender"), pcid, gender_lookup, pc_gender)
         # Slate roster when the query includes birthdate; deposit extract otherwise.
         birthdate = _row_birthdate(s) or birth_by_pcid.get(pcid, "")
         move_in = DEFAULT_NEW if inc else DEFAULT_RETURN
