@@ -188,14 +188,16 @@ describe("gift insights", () => {
     assert.match(html, /Insights/);
     assert.match(html, /Boomer/);
     assert.match(html, /Faculty\/Staff/);
-    assert.match(html, /Handwritten note \/ letter/);
     assert.match(html, /Giving history/);
     assert.match(html, /\$400/);
     assert.doesNotMatch(html, /the most of any generation/);
     assert.doesNotMatch(html, /Same dates as the Points tab/);
     assert.doesNotMatch(html, /Birth year is on file/);
-    assert.match(html, /Phone vs email conversations/);
-    assert.match(html, /No phone or email conversations in this range/);
+    assert.doesNotMatch(html, /Phone vs email conversations/);
+    assert.doesNotMatch(html, /Dollars by generation and contact type/);
+    assert.doesNotMatch(html, /Dollars by relationship and contact type/);
+    assert.doesNotMatch(html, /Best contact/);
+    assert.doesNotMatch(html, /Handwritten note \/ letter/);
     assert.doesNotMatch(html, /Monthly totals/);
   });
 
@@ -243,11 +245,9 @@ describe("gift insights", () => {
     assert.equal(insights.conversations.find((row) => row.id === "millennial")?.label, "Millennial");
 
     const html = renderToStaticMarkup(<InsightsPanel insights={insights} />);
-    assert.match(html, /Phone vs email conversations/);
-    assert.match(html, /Phone conversation/);
-    assert.match(html, /Email conversation/);
-    assert.match(html, /Gen X/);
-    assert.match(html, /Tie/);
+    assert.doesNotMatch(html, /Phone vs email conversations/);
+    assert.doesNotMatch(html, /Phone conversation/);
+    assert.doesNotMatch(html, /Email conversation/);
     assert.match(html, /No counted gifts in this range/);
     assert.doesNotMatch(html, /the most of any generation/);
     assert.doesNotMatch(html, /Email reach-out/);
@@ -285,8 +285,12 @@ describe("gift insights", () => {
     assert.equal(ac.best?.label, "Handwritten note / letter");
     const html = renderToStaticMarkup(<InsightsPanel insights={insights} />);
     assert.match(html, /Reached by campaign/);
+    assert.match(html, /Counted gifts by Virtuous campaign/);
     assert.match(html, /Fall Appeal/);
     assert.match(html, /Annunciation Circle/);
+    assert.doesNotMatch(html, /Dollars by campaign and contact type/);
+    assert.doesNotMatch(html, /Best contact/);
+    assert.doesNotMatch(html, /the contact that came before the gift/);
   });
 });
 
@@ -403,7 +407,10 @@ describe("monthly totals", () => {
         ]}
       />,
     );
-    assert.ok(html.indexOf("Monthly totals") < html.indexOf("Phone vs email conversations"));
+    assert.match(html, /Monthly totals/);
+    assert.doesNotMatch(html, /Phone vs email conversations/);
+    assert.doesNotMatch(html, /Dollars by generation and contact type/);
+    assert.ok(html.indexOf("Monthly totals") < html.indexOf("No counted gifts"));
     assert.match(html, /Months/);
     assert.match(html, /Avg\/wkdy/);
     assert.match(html, /Convers/);
