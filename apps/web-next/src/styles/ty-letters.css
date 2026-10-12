@@ -1,0 +1,81 @@
+/* Thank-you letter donor cards (DST-3062). Builds on ac-* (annunciation.css) and mga-* (mgo-analysis.css). */
+
+.tyl-controls input[type="date"],
+.tyl-controls input[type="number"] {
+  min-width: 160px;
+  padding: 8px 10px;
+  border: 1px solid var(--ac-border);
+  border-radius: 8px;
+  background: var(--ac-card);
+  color: var(--ac-text);
+  font-size: 14px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.tyl-note { margin-bottom: 16px; }
+
+.tyl-card {
+  border: 1px solid var(--ac-border);
+  border-radius: 10px;
+  background: var(--ac-card);
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.tyl-card .ac-table-wrap { margin-top: 10px; }
+
+.tyl-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px 16px;
+  font-size: 13px;
+  color: var(--ac-dim);
+}
+
+.tyl-gift a { color: inherit; }
+
+.tyl-badge {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 2px 8px;
+  border: 1px solid var(--ac-border);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--ac-text);
+}
+
+.tyl-sent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ac-text);
+  font-size: 13px;
+}
+
+.tyl-sent-by { color: var(--ac-dim); font-size: 12px; }
+
+.tyl-table th,
+.tyl-table td { vertical-align: top; }
+
+.tyl-strong { font-weight: 600; }
+.tyl-nowrap { white-space: nowrap; }
+.tyl-address { min-width: 180px; }
+
+.tyl-total td {
+  font-weight: 700;
+  border-top: 2px solid var(--ac-border);
+}
+
+@media print {
+  .tyl-page .ac-refresh,
+  .tyl-page .mga-controls,
+  .tyl-page .ac-toolbar,
+  .tyl-page .mga-foot { display: none; }
+  .tyl-card { border-color: #999; margin-bottom: 12px; }
+  .tyl-card .ac-table-wrap { overflow: visible; }
+}

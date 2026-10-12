@@ -477,6 +477,29 @@ export default $config({
       permissions: reportDataPerms,
     });
 
+    // DST-3062 thank-you letter donor cards. Fixed function name so operators can
+    // invoke it by name (an empty event) after a deploy or to finish a partial
+    // run; the web route is cache-only and never invokes it.
+    const tyLetters = new sst.aws.Function("TyLettersData", {
+      name: `${$app.name}-${$app.stage}-TyLettersData`,
+      handler: "services/publishers/ty-letters/handler.handler",
+      runtime: "python3.12",
+      timeout: "15 minutes",
+      memory: "1024 MB",
+      // A failed run waits for the next tick instead of retrying.
+      retries: 0,
+      link: [data],
+      python: { uv: true },
+      copyFiles: commonFiles,
+      environment: {
+        DATA_BUCKET: data.name,
+        API_KEY: virtuousApiKey.value,
+        VIRTUOUS_API_KEY: virtuousApiKey.value,
+        TY_LETTERS_CACHE_KEY: "ty-letters/latest.json",
+      },
+      permissions: reportDataPerms,
+    });
+
     const fallAppeal = new sst.aws.Function("FallAppealData", {
       handler: "services/publishers/fall-appeal/handler.handler",
       runtime: "python3.12",
@@ -971,6 +994,15 @@ export default $config({
       function: mgoAnalysis,
     });
 
+    // Early morning Eastern (5:35, 6:35 and 7:35 during daylight time). The
+    // first tick builds new cards; later ticks finish a partial run (new donors
+    // stop at about 10 minutes) and otherwise cost a handful of requests, since
+    // each card's as-of history is cached by gift id.
+    new sst.aws.Cron("TyLettersRefresh", {
+      schedule: "cron(35 9,10,11 * * ? *)",
+      function: tyLetters,
+    });
+
     new sst.aws.Cron("StainedGlassWindowsRefresh", {
       schedule: "rate(15 minutes)",
       function: stainedGlassWindows,
@@ -1072,6 +1104,7 @@ export default $config({
       mgoTopProspects: mgoTopProspects.name,
       portfolios: portfolios.name,
       mgoAnalysis: mgoAnalysis.name,
+      tyLetters: tyLetters.name,
       stainedGlassWindows: stainedGlassWindows.name,
       fallAppeal: fallAppeal.name,
       springAppeal: springAppeal.name,

@@ -128,7 +128,8 @@ export default function HomeClient({ microsoftEnabled }: { microsoftEnabled: boo
       (allowed.includes("chapel") ||
         allowed.includes("points") ||
         allowed.includes("portfolios") ||
-        allowed.includes("mgo-analysis"))
+        allowed.includes("mgo-analysis") ||
+        allowed.includes("ty-letters"))
     ) {
       return true;
     }
