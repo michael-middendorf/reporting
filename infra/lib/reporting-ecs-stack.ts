@@ -284,10 +284,10 @@ export class ReportingEcsStack extends cdk.Stack {
       resources: [cyberRegisterTable.tableArn],
     }));
     // Thank-you letter Sent flags: read a page of gift ids, set or clear one.
-    // No Scan, Query, PutItem, DeleteItem or BatchWrite.
+    // No GetItem, Scan, Query, PutItem, DeleteItem or BatchWrite.
     task.addToTaskRolePolicy(new iam.PolicyStatement({
       sid: "TyLetterSentItems",
-      actions: ["dynamodb:GetItem", "dynamodb:BatchGetItem", "dynamodb:UpdateItem"],
+      actions: ["dynamodb:BatchGetItem", "dynamodb:UpdateItem"],
       resources: [tyLetterSentTable.tableArn],
     }));
     task.addToTaskRolePolicy(new iam.PolicyStatement({
