@@ -233,7 +233,8 @@ def build_export(results: dict[str, Rows], now: datetime, award_year: str) -> ms
         notes: list[str] = []
         awards = _build_awards(awards_by_say.get(say_token, []), funds, schedule, counts, notes)
         costs, housing = _build_costs(costs_by_say.get(say_token), notes)
-        notes = list(dict.fromkeys(notes))
+        # Sorted so note order (SQL row order) can never change sourceVersion on its own.
+        notes = sorted(set(notes))
         if row.get("date_withdrew") is not None:
             status = "withdrawn"
         elif str(row.get("packaging_status") or "").strip() in rules.PACKAGED_STATUSES and not notes:
