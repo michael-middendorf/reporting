@@ -349,6 +349,7 @@ export class ReportingEcsStack extends cdk.Stack {
       const { taskRole, container } = isolatedSqlSource(this, src, { vpc, cluster, workerImage, ecsPrivateSubnets });
       if (src.source === "powerfaids") {
         scholarshipNeedExtract(this, taskRole, container);
+        acceptanceLettersExtract(this, taskRole, container);
       }
       if (src.source === "greatplains") {
         athleticsFinanceExtract(this, taskRole, container, task.taskRole);
@@ -570,6 +571,72 @@ function scholarshipNeedExtract(scope: Construct, powerfaidsTaskRole: iam.Role, 
     ],
   });
   new cdk.CfnOutput(scope, "ScholarshipNeedKeyArn", { value: key.keyArn });
+}
+
+// Acceptance letters extract (DST-3070): the nightly PowerFAIDS job joins several scoped reads
+// in Python and writes sources/acceptance-letters/exports/<generatedAt>.json and then
+// sources/acceptance-letters/manifest.json under its own KMS key. The raw sources/powerfaids/
+// prefix and its key are unchanged and stay closed to the letters app. The only reader is the
+// virtual acceptance letters app (DST-2608) task role; it lives in the same account but is owned
+// by that app's stack, so it is imported (mutable) and this stack only attaches the read policy.
+// Output is JSON objects written once each, with no prune step, so the writer gets PutObject
+// only (no Get, Delete or ListBucket). Keep virtualAcceptanceTaskRoleArn in sync with that stack.
+const virtualAcceptanceTaskRoleArn = `arn:aws:iam::${account}:role/dst-2608-virtual-acceptance-TaskRole-IDUz1y5V6W8f`;
+const acceptanceLettersPrefix = "sources/acceptance-letters";
+
+function acceptanceLettersExtract(scope: Construct, powerfaidsTaskRole: iam.Role, container: ecs.ContainerDefinition) {
+  const key = new kms.Key(scope, "AcceptanceLettersKey", {
+    alias: "alias/amu-reporting-acceptance-letters",
+    description: `Encrypts ${acceptanceLettersPrefix}/ in the reporting data bucket`,
+    enableKeyRotation: true,
+    removalPolicy: cdk.RemovalPolicy.RETAIN,
+    pendingWindow: cdk.Duration.days(30),
+  });
+  // Same pattern as the need key: root administers (CDK default), and data-plane use is denied
+  // to everyone except the writer (PowerFAIDS task role), the one reader (virtual acceptance
+  // letters task role) and the break-glass user.
+  key.addToResourcePolicy(new iam.PolicyStatement({
+    sid: "DenyDataUseExceptWriterReaderBreakGlass",
+    effect: iam.Effect.DENY,
+    principals: [new iam.AnyPrincipal()],
+    actions: ["kms:Decrypt", "kms:Encrypt", "kms:ReEncrypt*", "kms:GenerateDataKey*"],
+    resources: ["*"],
+    conditions: { ArnNotEquals: { "aws:PrincipalArn": [powerfaidsTaskRole.roleArn, virtualAcceptanceTaskRoleArn, breakGlassUserArn] } },
+  }));
+
+  // Writer: the PowerFAIDS task role. S3 SSE-KMS PutObject needs GenerateDataKey; Encrypt is
+  // granted too so the role can always write under the key it owns.
+  powerfaidsTaskRole.addToPolicy(new iam.PolicyStatement({
+    actions: ["kms:Encrypt", "kms:GenerateDataKey"],
+    resources: [key.keyArn],
+    conditions: { StringEquals: { "kms:ViaService": `s3.${region}.amazonaws.com` } },
+  }));
+  powerfaidsTaskRole.addToPolicy(new iam.PolicyStatement({
+    actions: ["s3:PutObject"],
+    resources: [`${dataBucketArn}/${acceptanceLettersPrefix}/*`],
+  }));
+  container.addEnvironment("PF_ACCEPT_KMS_KEY_ID", key.keyArn);
+
+  // Reader: read objects under sources/acceptance-letters/ and decrypt with this key through S3.
+  // No ListBucket (the app reads manifest.json by key, then the dataKey it names), no other
+  // prefix, no other key.
+  const consumerRole = iam.Role.fromRoleArn(scope, "VirtualAcceptanceTaskRole", virtualAcceptanceTaskRoleArn, { mutable: true });
+  new iam.Policy(scope, "AcceptanceLettersReadPolicy", {
+    policyName: "amu-reporting-acceptance-letters-read",
+    roles: [consumerRole],
+    statements: [
+      new iam.PolicyStatement({
+        actions: ["s3:GetObject"],
+        resources: [`${dataBucketArn}/${acceptanceLettersPrefix}/*`],
+      }),
+      new iam.PolicyStatement({
+        actions: ["kms:Decrypt"],
+        resources: [key.keyArn],
+        conditions: { StringEquals: { "kms:ViaService": `s3.${region}.amazonaws.com` } },
+      }),
+    ],
+  });
+  new cdk.CfnOutput(scope, "AcceptanceLettersKeyArn", { value: key.keyArn });
 }
 
 // Athletics finance extract (DST-2983): unrestricted (00) income statement totals for the
