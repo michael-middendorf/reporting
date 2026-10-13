@@ -16,6 +16,7 @@ export const ADVANCEMENT_NAV: ReportNavItem[] = [
   { href: "/advancement/mgo-top-prospects", label: "MGO Top Prospects", report: "advancement" },
   { href: "/advancement/mgo-analysis", label: "MGO Analysis", report: "mgo-analysis" },
   { href: "/advancement/ty-letters", label: "Thank-You Letters", report: "ty-letters" },
+  { href: "/advancement/gala", label: "Chancellor's Gala", report: "gala" },
   { href: "/advancement/portfolios", label: "Portfolios", report: "portfolios" },
   { href: "/annunciation", label: "Annunciation Circle", report: "annunciation" },
   { href: "/advancement/appeals?campaign=fall-2026", label: "Appeals", report: "advancement" },

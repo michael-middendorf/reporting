@@ -15,6 +15,7 @@
     "test:mgo-top-prospects": "npx tsx --test src/lib/reports/mgo-top-prospects/shape.test.ts",
     "test:mgo-analysis": "npx tsx --test src/lib/reports/mgo-analysis/shape.test.ts",
     "test:ty-letters": "npx tsx --test src/lib/reports/ty-letters/shape.test.ts src/app/api/ty-letters-data/route.test.ts",
+    "test:gala": "npx tsx --test src/lib/reports/gala/shape.test.ts src/app/api/gala-data/route.test.ts",
     "test:portfolios": "npx tsx --test src/lib/reports/portfolios/shape.test.ts src/lib/reports/portfolios/scope.test.ts",
     "test:institute": "npx tsx --test src/lib/reports/institute/process.test.ts",
     "test:stained-glass-windows": "npx tsx --test src/lib/reports/stained-glass-windows/shape.test.ts",

@@ -1115,6 +1115,44 @@ export default $config({
       function: galaTickets,
     });
 
+    // DST-3095 Chancellor's Gala report. Pulls the giving admin gala feed with a
+    // bearer token read from Secrets Manager at run time (never in env). The
+    // secret grant is scoped to this one secret name and is separate from the
+    // GalaTickets grant above. Fixed function name so operators can invoke it
+    // by name after a deploy; the web route is cache-only.
+    const galaReport = new sst.aws.Function("GalaReportData", {
+      name: `${$app.name}-${$app.stage}-GalaReportData`,
+      handler: "services/publishers/gala-report/handler.handler",
+      runtime: "python3.12",
+      timeout: "5 minutes",
+      memory: "512 MB",
+      // A failed run waits for the next hourly tick instead of retrying.
+      retries: 0,
+      link: [data],
+      python: { uv: true },
+      copyFiles: commonFiles,
+      environment: {
+        DATA_BUCKET: data.name,
+        GALA_REPORT_FEED_URL: "https://giving.avemaria.edu/api/internal/gala-report",
+        GALA_REPORT_FEED_SECRET_ID: "amu/giving/gala-report-feed",
+      },
+      permissions: [
+        ...reportDataPerms,
+        {
+          actions: ["secretsmanager:GetSecretValue"],
+          resources: [
+            "arn:aws:secretsmanager:us-east-2:905418447941:secret:amu/giving/gala-report-feed-??????",
+          ],
+        },
+      ],
+    });
+
+    // Hourly except 4am to 10am UTC (midnight to 6am Eastern during daylight time).
+    new sst.aws.Cron("GalaReportRefresh", {
+      schedule: "cron(0 0-3,11-23 * * ? *)",
+      function: galaReport,
+    });
+
     // DST-627. The public POW production export returns HMAC keys plus
     // aggregates, never plaintext identities.
     new sst.aws.Cron("PursuitOfWisdomRefresh", {
@@ -1156,6 +1194,7 @@ export default $config({
       athleticsCoachingFundraising: athleticsCoachingFundraising.name,
       athleticsGiving: athleticsGiving.name,
       galaTickets: galaTickets.name,
+      galaReport: galaReport.name,
     };
   },
 });

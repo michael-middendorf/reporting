@@ -49,6 +49,12 @@ const REPORTS: {
     report: "ty-letters",
   },
   {
+    href: "/advancement/gala",
+    title: "Chancellor's Gala",
+    desc: "Live gala revenue, commitments, expenses and net",
+    report: "gala",
+  },
+  {
     href: "/advancement/portfolios",
     title: "Portfolios",
     desc: "MGO and MA books by pipeline stage, last gift, and last activity.",

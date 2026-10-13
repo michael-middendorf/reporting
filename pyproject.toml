@@ -27,6 +27,7 @@ members = [
   "services/publishers/athletics-giving",
   "services/publishers/pursuit-of-wisdom",
   "services/publishers/gala-tickets",
+  "services/publishers/gala-report",
   "services/publishers/security",
 ]
 

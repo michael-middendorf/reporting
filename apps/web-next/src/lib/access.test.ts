@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   REPORT_IDS,
+  STRICT_REPORTS,
   canAccessReport,
   canLogin,
   isAdmin,
@@ -479,6 +480,7 @@ describe("Academic Affairs grant for Julie Musselman (DST-2907)", () => {
       "annunciation",
       "aspiredu",
       "ty-letters",
+      "gala",
     ]);
   });
 
@@ -634,6 +636,7 @@ describe("full Advancement grants", () => {
       "portfolios",
       "annunciation",
       "mgo-analysis",
+      "gala",
     ]);
   });
 
@@ -651,6 +654,7 @@ describe("full Advancement grants", () => {
       "annunciation",
       "aspiredu",
       "ty-letters",
+      "gala",
     ]);
     assert.deepEqual(reportsForEmail("Jim.Thomas@avemaria.edu"), [
       "advancement",
@@ -820,5 +824,52 @@ describe("ty-letters (DST-3062 thank-you letter donor cards) strict grant", () =
       if (prev === undefined) delete process.env.ADVANCEMENT_ALLOWED_EMAILS;
       else process.env.ADVANCEMENT_ALLOWED_EMAILS = prev;
     }
+  });
+});
+
+describe("gala (DST-3095 Chancellor's Gala) strict grant", () => {
+  const LISTED = [
+    "zena.weist@avemaria.edu",
+    "Susan.Gallagher@avemaria.edu",
+    "mark.middendorf@avemaria.edu",
+    "leslie.sonnen@avemaria.edu",
+    "stephanie.hayner@avemaria.edu",
+    "julie.musselman@avemaria.edu",
+    "michael.t.middendorf@avemaria.edu",
+    "cole.j.cantu@avemaria.edu",
+    "regina.m.pirolli@avemaria.edu",
+  ];
+  it("lets in exactly the nine listed people", () => {
+    for (const email of LISTED) {
+      assert.equal(canAccessReport(email, "gala"), true, email);
+      assert.equal(reportsForEmail(email).includes("gala"), true, email);
+    }
+    assert.equal(STRICT_REPORTS.gala?.length, 9);
+    assert.equal(isStrictReport("gala"), true);
+  });
+  it("keeps out other Advancement users and non-AMU-staff addresses", () => {
+    for (const email of [
+      "becca.kennedy@avemaria.edu",
+      "jim.thomas@avemaria.edu",
+      "cassandra.l.bournos@avemaria.edu",
+      "michaelene.hayward@avemaria.edu",
+      "zena.weist@my.avemaria.edu",
+      "outsider@avemaria.edu",
+    ]) {
+      assert.equal(canAccessReport(email, "gala"), false, email);
+    }
+  });
+  it("ignores the env var path", () => {
+    const prev = process.env.ADVANCEMENT_ALLOWED_EMAILS;
+    process.env.ADVANCEMENT_ALLOWED_EMAILS = "outsider@avemaria.edu";
+    try {
+      assert.equal(canAccessReport("outsider@avemaria.edu", "gala"), false);
+    } finally {
+      if (prev === undefined) delete process.env.ADVANCEMENT_ALLOWED_EMAILS;
+      else process.env.ADVANCEMENT_ALLOWED_EMAILS = prev;
+    }
+  });
+  it("does not add MFA at sign-in", () => {
+    assert.equal(needsMfaAtSignIn("stephanie.hayner@avemaria.edu"), false);
   });
 });

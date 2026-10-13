@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "asOf": "2026-10-13T12:00:00.000Z",
+  "event": { "key": "chancellors-gala-2027", "segmentCode": "FYE27_GALA_1EV", "eventDate": "2027-01-30" },
+  "categories": {
+    "sponsorship":  { "actual": 72000,     "commitment": 105000,    "actualPlusCommitment": 177000,    "giftCount": 11, "askCount": 4 },
+    "underwriting": { "actual": 22000,     "commitment": 225000,    "actualPlusCommitment": 247000,    "giftCount": 2,  "askCount": 2 },
+    "tickets":      { "actual": 131775,    "commitment": 10000,     "actualPlusCommitment": 141775,    "giftCount": 90, "askCount": 1 },
+    "match":        { "actual": 247769.67, "commitment": 252230.33, "actualPlusCommitment": 500000,    "giftCount": 1,  "askCount": 1 },
+    "paddleRaise":  { "actual": 25000,     "commitment": 133000,    "actualPlusCommitment": 158000,    "giftCount": 1,  "askCount": 3 },
+    "otherGifts":   { "actual": 10158.91,  "commitment": 0,         "actualPlusCommitment": 10158.91,  "giftCount": 6,  "askCount": 0 }
+  },
+  "gross": { "actual": 508703.58, "actualPlusCommitment": 1233933.91 },
+  "expenses": {
+    "committed": 0,
+    "paid": 0,
+    "lineCount": 0,
+    "byCategory": []
+  },
+  "netAfterExpenses": { "actual": 508703.58, "actualPlusCommitment": 1233933.91 },
+  "seats": { "sold": 168, "comp": 62, "reserved": 111 },
+  "dataQuality": [
+    { "code": "asks_uncategorized", "message": "Gift asks included without a category split", "count": 4, "amount": 225000 },
+    { "code": "ach_processing", "message": "ACH payments still processing (counted as actual)", "count": 3, "amount": 13000 },
+    { "code": "gifts_unlabeled", "message": "Gala gifts with no 'gift for' label (counted by premium tier)", "count": 2, "amount": 1125 }
+  ]
+}

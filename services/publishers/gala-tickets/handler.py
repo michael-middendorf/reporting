@@ -1,6 +1,7 @@
 """Daily Chancellor's Gala ticket pull for MA Points.
 
-Stripe checkouts on portal chancellors-gala are not posted to Virtuous.
+Most Stripe payments on portal chancellors-gala do reach Virtuous via the giving
+sync, so do not add this file to Virtuous gift totals.
 This publisher writes points/gala-site-tickets.json. The Points gifts API
 reads that object and falls back to the committed September snapshot.
 

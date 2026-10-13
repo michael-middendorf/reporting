@@ -129,7 +129,8 @@ export default function HomeClient({ microsoftEnabled }: { microsoftEnabled: boo
         allowed.includes("points") ||
         allowed.includes("portfolios") ||
         allowed.includes("mgo-analysis") ||
-        allowed.includes("ty-letters"))
+        allowed.includes("ty-letters") ||
+        allowed.includes("gala"))
     ) {
       return true;
     }

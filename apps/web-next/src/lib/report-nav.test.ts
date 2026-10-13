@@ -346,3 +346,17 @@ describe("Business Office nav (DST-2983)", () => {
     assert.equal(isDepartmentHub("/business-office"), true);
   });
 });
+
+describe("Chancellor's Gala nav (DST-3095)", () => {
+  it("shows the Gala tab only with the gala report", () => {
+    const gala = item(ADVANCEMENT_NAV, "/advancement/gala");
+    assert.equal(gala.report, "gala");
+    assert.equal(gala.label, "Chancellor's Gala");
+    assert.equal(navForReports(ADVANCEMENT_NAV, ["advancement"]).some((n) => n.href === "/advancement/gala"), false);
+    assert.deepEqual(navForReports(ADVANCEMENT_NAV, ["gala"]).map((n) => n.href), ["/advancement/gala"]);
+    assert.deepEqual(
+      reportCrumbs("/advancement/gala").map((c) => c.label),
+      ["Reports", "Advancement", "Chancellor's Gala"],
+    );
+  });
+});
