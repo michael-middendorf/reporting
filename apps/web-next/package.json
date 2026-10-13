@@ -17,7 +17,7 @@
     "test:ty-letters": "npx tsx --test src/lib/reports/ty-letters/shape.test.ts src/app/api/ty-letters-data/route.test.ts",
     "test:gala": "npx tsx --test src/lib/reports/gala/shape.test.ts src/app/api/gala-data/route.test.ts",
     "test:portfolios": "npx tsx --test src/lib/reports/portfolios/shape.test.ts src/lib/reports/portfolios/scope.test.ts",
-    "test:institute": "npx tsx --test src/lib/reports/institute/process.test.ts",
+    "test:institute": "npx tsx --test src/lib/reports/institute/process.test.ts src/app/api/institute-data/route.test.ts",
     "test:stained-glass-windows": "npx tsx --test src/lib/reports/stained-glass-windows/shape.test.ts",
     "test:fall-appeal": "npx tsx --test src/lib/reports/fall-appeal/shape.test.ts src/lib/reports/fall-appeal/email-import.test.ts src/lib/reports/appeals/imports.test.ts",
     "test:year-end-appeal": "npx tsx --test src/lib/reports/year-end-appeal/shape.test.ts",
