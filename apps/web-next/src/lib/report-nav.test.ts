@@ -3,7 +3,6 @@ import { describe, it } from "node:test";
 import {
   ADVANCEMENT_NAV,
   ASPIREDU_NAV,
-  ATHLETICS_NAV,
   BUSINESS_OFFICE_NAV,
   ENROLLMENT_NAV,
   POINTS_NAV,
@@ -114,8 +113,11 @@ describe("reportNavActive", () => {
     assert.equal(reportNavActive(method, POINTS_NAV, "/advancement/points/methodology"), true);
   });
 
-  it("gives Academic Affairs no tab strip (one Students page)", () => {
-    assert.deepEqual(ASPIREDU_NAV, []);
+  it("defines Academic Affairs navigation with Students and Honors Freshmen (DST-3065)", () => {
+    assert.deepEqual(ASPIREDU_NAV, [
+      { href: "/aspiredu", label: "Students", exact: true },
+      { href: "/aspiredu/honors", label: "Honors Freshmen" },
+    ]);
   });
 });
 
@@ -157,6 +159,11 @@ describe("reportCrumbs", () => {
     assert.deepEqual(reportCrumbs("/aspiredu"), [
       { href: "/", label: "Reports" },
       { href: "/aspiredu", label: "Academic Affairs" },
+    ]);
+    assert.deepEqual(reportCrumbs("/aspiredu/honors"), [
+      { href: "/", label: "Reports" },
+      { href: "/aspiredu", label: "Academic Affairs" },
+      { href: "/aspiredu/honors", label: "Honors Freshmen" },
     ]);
     // DST-3015: its own folder, so the crumb never links majors-only users to /aspiredu.
     assert.deepEqual(reportCrumbs("/majors"), [
@@ -295,9 +302,11 @@ describe("isDepartmentHub", () => {
     assert.equal(isDepartmentHub("/enrollment/admissions"), false);
   });
 
-  it("hides tabs on Academic Affairs, which has no nav", () => {
-    // Only AccessGate reads this; with an empty nav it just means "no tab strip".
-    assert.equal(isDepartmentHub("/aspiredu"), true);
+  it("keeps tabs when the folder URL is itself a report (Enrollment, Academic Affairs)", () => {
+    assert.equal(isDepartmentHub("/enrollment"), false);
+    assert.equal(isDepartmentHub("/enrollment/admissions"), false);
+    assert.equal(isDepartmentHub("/aspiredu"), false);
+    assert.equal(isDepartmentHub("/aspiredu/honors"), false);
     assert.equal(isDepartmentHub("/aspiredu/students/Uz27vGaesOsAbCdEfGhIjKlICN4U"), false);
   });
 
