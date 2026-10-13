@@ -94,6 +94,16 @@ TRANSCRIPTGPA = (
     "OPTION (MAXDOP 1)"
 )
 
+TRANSCRIPTDETAIL = (
+    "SELECT td.PEOPLE_CODE, td.PEOPLE_ID, td.PEOPLE_CODE_ID, td.ACADEMIC_YEAR, "
+    "td.ACADEMIC_TERM, td.ACADEMIC_SESSION, td.EVENT_ID, td.EVENT_SUB_KEY, "
+    "td.SECTION, td.EVENT_MED_NAME, td.CREDITS, td.MID_TERM_GRADE, "
+    "td.FINAL_GRADE, td.GRADE_SUBMITTED, td.ADD_DROP_WAIT, td.TRANSCRIPT_SEQ "
+    "FROM dbo.TRANSCRIPTDETAIL AS td "
+    "WHERE td.ACADEMIC_YEAR >= %(min_year)s "
+    "OPTION (MAXDOP 1)"
+)
+
 # All association codes in the window. Codes of interest downstream: HONORS,
 # HHMAMA (Mary's Marines), FSP-NS, INSCH (Institute Scholarship).
 ASSOCIATION = (
@@ -397,6 +407,7 @@ DATASETS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("demographics", DEMOGRAPHICS, ("min_year",)),
     ("residency", RESIDENCY, ("min_year",)),
     ("transcriptgpa", TRANSCRIPTGPA, ("min_year",)),
+    ("transcriptdetail", TRANSCRIPTDETAIL, ("min_year",)),
     ("association", ASSOCIATION, ("min_year",)),
     ("transcriptdegree", TRANSCRIPTDEGREE, ("min_graduation_date",)),
     ("people", PEOPLE, ("min_year",)),

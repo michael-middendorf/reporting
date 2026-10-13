@@ -92,3 +92,28 @@ const censusCache = createCensusCache({
 export async function loadProfileCensus(): Promise<ProfileSources["census"]> {
   return censusCache.load();
 }
+
+export type PowerCampusTranscriptDetailRow = {
+  PEOPLE_CODE?: string;
+  PEOPLE_ID?: string;
+  PEOPLE_CODE_ID?: string;
+  ACADEMIC_YEAR?: string;
+  ACADEMIC_TERM?: string;
+  ACADEMIC_SESSION?: string;
+  EVENT_ID?: string;
+  EVENT_SUB_KEY?: string;
+  SECTION?: string;
+  EVENT_MED_NAME?: string;
+  CREDITS?: string | number;
+  MID_TERM_GRADE?: string;
+  FINAL_GRADE?: string;
+  GRADE_SUBMITTED?: string;
+  ADD_DROP_WAIT?: string;
+  TRANSCRIPT_SEQ?: string | number;
+};
+
+export async function loadTranscriptDetails(): Promise<{ rows: PowerCampusTranscriptDetailRow[]; asOf: string | null } | null> {
+  const result = await loadSourceRowsOptional<PowerCampusTranscriptDetailRow>("powercampus", "transcriptdetail");
+  if (!result) return null;
+  return { rows: result.rows, asOf: result.latest.pulled_at ?? result.latest.dt ?? null };
+}

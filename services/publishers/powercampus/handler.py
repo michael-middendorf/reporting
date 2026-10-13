@@ -175,7 +175,7 @@ def handler(
         reader.open()
         if dry_run:
             return _dry_run(reader, params, log_target)
-        return _publish_all(reader, settings, params, years_back, log_target, watchdog)
+        return _publish_all(reader, settings, params, years_back, log_target, watchdog, now_utc=now_utc)
     finally:
         reader.close()
         watchdog.cancel()
@@ -188,8 +188,9 @@ def _publish_all(
     years_back: int,
     log_target: str,
     watchdog: Any,
+    now_utc: datetime | None = None,
 ) -> dict[str, Any]:
-    started = _now()
+    started = (now_utc or datetime.now(timezone.utc)).isoformat()
     started_mono = time.monotonic()
     results: list[dict[str, Any]] = []
     reconnects = 0

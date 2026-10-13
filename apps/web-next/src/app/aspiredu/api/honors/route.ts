@@ -3,7 +3,7 @@ import { authorizeAcademicAffairsApi } from "@/lib/aspiredu-api-auth";
 import { aspireduPrivateHeaders } from "@/lib/aspiredu-auth";
 import { currentUserEmail } from "@/lib/auth";
 import { invokeProcessor } from "@/lib/process-invoke";
-import { loadProfileCensus } from "@/lib/reports/aspiredu/profile-sources";
+import { loadProfileCensus, loadTranscriptDetails } from "@/lib/reports/aspiredu/profile-sources";
 import { HONORS_FA2026_FRESHMEN_PCIDS } from "@/lib/reports/aspiredu/honors-roster";
 import { buildHonorsReportData } from "@/lib/reports/aspiredu/honors-report";
 import { isAspireduCallerDenied } from "@/lib/reports/athletics-coaching/academics";
@@ -68,7 +68,19 @@ export async function GET(req: Request) {
     console.warn("aspiredu honors API: census load failed", censusError);
   }
 
-  const reportData = buildHonorsReportData(students, census?.students ?? null, asOf);
+  let pcDetails = null;
+  try {
+    pcDetails = await loadTranscriptDetails();
+  } catch (pcError) {
+    console.warn("aspiredu honors API: transcriptdetail load failed", pcError);
+  }
+
+  const reportData = buildHonorsReportData(
+    students,
+    census?.students ?? null,
+    pcDetails?.rows ?? null,
+    pcDetails?.asOf || asOf,
+  );
 
   return NextResponse.json({ ok: true, ...reportData }, { headers });
 }

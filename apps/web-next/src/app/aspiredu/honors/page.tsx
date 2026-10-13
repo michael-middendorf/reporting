@@ -177,7 +177,14 @@ export default function HonorsFreshmenGpaPage() {
                   <div className={s.kpiCard}>
                     <span className={s.kpiLabel}>Cohort Provisional GPA</span>
                     <span className={s.kpiValue}>{formatGpa(summary.cohortGpa)}</span>
-                    <span className={s.kpiSub}>4.0 unweighted scale</span>
+                    <span className={s.kpiSub}>4.0 scale (credit weighted)</span>
+                  </div>
+                  <div className={s.kpiCard}>
+                    <span className={s.kpiLabel}>PowerCampus Match</span>
+                    <span className={s.kpiValue}>
+                      {summary.powercampusMatchedCount} / {summary.studentCount}
+                    </span>
+                    <span className={s.kpiSub}>official SIS midterm</span>
                   </div>
                   <div className={s.kpiCard}>
                     <span className={s.kpiLabel}>Cohort Avg Grade</span>
@@ -185,11 +192,16 @@ export default function HonorsFreshmenGpaPage() {
                     <span className={s.kpiSub}>course grade avg</span>
                   </div>
                   <div className={s.kpiCard}>
+                    <span className={s.kpiLabel}>Total Credits</span>
+                    <span className={s.kpiValue}>{summary.totalCredits}</span>
+                    <span className={s.kpiSub}>enrolled credit hours</span>
+                  </div>
+                  <div className={s.kpiCard}>
                     <span className={s.kpiLabel}>Graded Courses</span>
                     <span className={s.kpiValue}>
                       {summary.totalGradedCourses} / {summary.totalCourses}
                     </span>
-                    <span className={s.kpiSub}>with current percent</span>
+                    <span className={s.kpiSub}>with current grade</span>
                   </div>
                   <div className={s.kpiCard}>
                     <span className={s.kpiLabel}>GPA &ge; 3.8</span>
@@ -281,6 +293,8 @@ export default function HonorsFreshmenGpaPage() {
                       <th>Student</th>
                       <th>Curriculum</th>
                       <th className={s.num}>Provisional GPA</th>
+                      <th>Source</th>
+                      <th className={s.num}>Credits</th>
                       <th className={s.num}>Avg Grade</th>
                       <th className={s.num}>Courses</th>
                       <th className={s.num}>Missing Work</th>
@@ -301,7 +315,7 @@ export default function HonorsFreshmenGpaPage() {
                     })}
                     {filteredStudents.length === 0 && (
                       <tr>
-                        <td colSpan={8} className={s.statusMessage}>
+                        <td colSpan={10} className={s.statusMessage}>
                           No students match the selected filter or search criteria.
                         </td>
                       </tr>
@@ -360,6 +374,26 @@ function StudentRowGroup({
         <td className={s.num}>
           <span className={pillStyle}>{gpaStr}</span>
         </td>
+        <td>
+          <span
+            className={`${s.sourcePill} ${
+              student.gradeSource === "powercampus"
+                ? s.sourcePowercampus
+                : student.gradeSource === "canvas"
+                ? s.sourceCanvas
+                : s.sourceNone
+            }`}
+          >
+            {student.gradeSource === "powercampus"
+              ? "PowerCampus"
+              : student.gradeSource === "canvas"
+              ? "Canvas"
+              : "Pending"}
+          </span>
+        </td>
+        <td className={s.num}>
+          {student.gradedCredits} / {student.totalCredits}
+        </td>
         <td className={s.num}>{formatPct(student.avgGrade)}</td>
         <td className={s.num}>
           {student.gradedCourses} / {student.totalCourses}
@@ -375,16 +409,19 @@ function StudentRowGroup({
       </tr>
       {isExpanded && (
         <tr className={s.courseDetailsRow}>
-          <td colSpan={8}>
+          <td colSpan={10}>
             <div className={s.courseDetailsContent}>
               <table className={s.courseTable}>
                 <thead>
                   <tr>
                     <th>Course</th>
                     <th>Code / Section</th>
+                    <th className={s.num}>Credits</th>
                     <th className={s.num}>Grade %</th>
                     <th>Letter</th>
                     <th className={s.num}>Points</th>
+                    <th className={s.num}>QP</th>
+                    <th>Source</th>
                     <th className={s.num}>Missing Work</th>
                     <th className={s.num}>Absences</th>
                     <th>Last Access</th>
@@ -395,9 +432,20 @@ function StudentRowGroup({
                     <tr key={`${course.courseSisId || course.course}-${idx}`}>
                       <td>{course.course}</td>
                       <td>{course.courseSisId || "-"}</td>
+                      <td className={s.num}>{course.credits !== null ? course.credits : "-"}</td>
                       <td className={s.num}>{formatPct(course.grade)}</td>
-                      <td><strong>{course.letter}</strong></td>
+                      <td><strong>{course.midtermGrade || course.letter}</strong></td>
                       <td className={s.num}>{course.gpaPoints !== null ? course.gpaPoints.toFixed(1) : "-"}</td>
+                      <td className={s.num}>{course.qualityPoints !== null ? course.qualityPoints.toFixed(1) : "-"}</td>
+                      <td>
+                        <span
+                          className={`${s.sourcePill} ${
+                            course.source === "powercampus" ? s.sourcePowercampus : s.sourceCanvas
+                          }`}
+                        >
+                          {course.source === "powercampus" ? "PowerCampus" : "Canvas"}
+                        </span>
+                      </td>
                       <td className={s.num}>
                         {course.missingAssignments > 0 ? (
                           <span style={{ color: "#9b1c1c", fontWeight: 600 }}>{course.missingAssignments}</span>
@@ -411,7 +459,7 @@ function StudentRowGroup({
                   ))}
                   {student.courses.length === 0 && (
                     <tr>
-                      <td colSpan={8} style={{ textAlign: "center", padding: "12px", color: "#666" }}>
+                      <td colSpan={11} style={{ textAlign: "center", padding: "12px", color: "#666" }}>
                         No courses recorded for this student in the snapshot.
                       </td>
                     </tr>

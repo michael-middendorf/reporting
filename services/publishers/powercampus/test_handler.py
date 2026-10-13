@@ -367,6 +367,7 @@ class HandlerTests(unittest.TestCase):
         self.assertTrue(all(c.kwargs["source"] == "powercampus" for c in pub.call_args_list))
         by_sql = {sql: params for sql, params in conn.executed}
         self.assertEqual(by_sql[queries.ACADEMIC], {"min_year": "2019"})
+        self.assertEqual(by_sql[queries.TRANSCRIPTDETAIL], {"min_year": "2019"})
         self.assertEqual(by_sql[queries.TRANSCRIPTDEGREE], {"min_graduation_date": date(2018, 9, 29)})
         self.assertIsNone(by_sql[queries.ACADEMIC_CALENDAR])
         keys = [c.args[0] for c in put.call_args_list]
