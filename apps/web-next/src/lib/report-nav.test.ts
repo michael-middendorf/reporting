@@ -3,7 +3,6 @@ import { describe, it } from "node:test";
 import {
   ADVANCEMENT_NAV,
   ASPIREDU_NAV,
-  ATHLETICS_NAV,
   BUSINESS_OFFICE_NAV,
   ENROLLMENT_NAV,
   POINTS_NAV,

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { AccessGate, ReportTopBar } from "@/components/AccessGate";
 import { ASPIREDU_NAV } from "@/lib/report-nav";
 import { apiFetch } from "@/lib/api";
@@ -25,11 +25,11 @@ function gpaClass(gpa: number | null): string {
 }
 
 function formatGpa(gpa: number | null): string {
-  return gpa !== null ? gpa.toFixed(2) : "—";
+  return gpa !== null ? gpa.toFixed(2) : "-";
 }
 
 function formatPct(pct: number | null): string {
-  return pct !== null ? `${pct.toFixed(1)}%` : "—";
+  return pct !== null ? `${pct.toFixed(1)}%` : "-";
 }
 
 function DownloadButton() {
@@ -79,34 +79,38 @@ export default function HonorsFreshmenGpaPage() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [expandedPcids, setExpandedPcids] = useState<Set<string>>(new Set());
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await apiFetch("/aspiredu/api/honors", { cache: "no-store" });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        setError(
-          res.status === 401
-            ? "Your session has expired. Return to Reports and sign in again."
-            : res.status === 403
-            ? "You do not have access to Honors student records."
-            : body?.error || "Unable to load Honors student data.",
-        );
-        return;
-      }
-      const json = (await res.json()) as { ok: boolean } & HonorsReportData;
-      setData(json);
-    } catch {
-      setError("Unable to reach the server. Check your connection.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    void loadData();
-  }, [loadData]);
+    let ignore = false;
+    async function fetchHonors() {
+      try {
+        const res = await apiFetch("/aspiredu/api/honors", { cache: "no-store" });
+        if (ignore) return;
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as { error?: string } | null;
+          setError(
+            res.status === 401
+              ? "Your session has expired. Return to Reports and sign in again."
+              : res.status === 403
+              ? "You do not have access to Honors student records."
+              : body?.error || "Unable to load Honors student data.",
+          );
+          return;
+        }
+        const json = (await res.json()) as { ok: boolean } & HonorsReportData;
+        if (ignore) return;
+        setData(json);
+      } catch {
+        if (!ignore) setError("Unable to reach the server. Check your connection.");
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+
+    void fetchHonors();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   function toggleExpand(pcid: string) {
     setExpandedPcids((prev) => {
@@ -352,7 +356,7 @@ function StudentRowGroup({
           )}
           <span className={s.subtle}>{student.pcid} {student.email ? `• ${student.email}` : ""}</span>
         </td>
-        <td>{student.curriculum || "—"}</td>
+        <td>{student.curriculum || "-"}</td>
         <td className={s.num}>
           <span className={pillStyle}>{gpaStr}</span>
         </td>
@@ -367,7 +371,7 @@ function StudentRowGroup({
             "0"
           )}
         </td>
-        <td className={s.num}>{student.totalAbsences ?? "—"}</td>
+        <td className={s.num}>{student.totalAbsences ?? "-"}</td>
       </tr>
       {isExpanded && (
         <tr className={s.courseDetailsRow}>
@@ -390,10 +394,10 @@ function StudentRowGroup({
                   {student.courses.map((course, idx) => (
                     <tr key={`${course.courseSisId || course.course}-${idx}`}>
                       <td>{course.course}</td>
-                      <td>{course.courseSisId || "—"}</td>
+                      <td>{course.courseSisId || "-"}</td>
                       <td className={s.num}>{formatPct(course.grade)}</td>
                       <td><strong>{course.letter}</strong></td>
-                      <td className={s.num}>{course.gpaPoints !== null ? course.gpaPoints.toFixed(1) : "—"}</td>
+                      <td className={s.num}>{course.gpaPoints !== null ? course.gpaPoints.toFixed(1) : "-"}</td>
                       <td className={s.num}>
                         {course.missingAssignments > 0 ? (
                           <span style={{ color: "#9b1c1c", fontWeight: 600 }}>{course.missingAssignments}</span>
@@ -401,8 +405,8 @@ function StudentRowGroup({
                           "0"
                         )}
                       </td>
-                      <td className={s.num}>{course.timesAbsent ?? "—"}</td>
-                      <td>{course.courseLastAccess || "—"}</td>
+                      <td className={s.num}>{course.timesAbsent ?? "-"}</td>
+                      <td>{course.courseLastAccess || "-"}</td>
                     </tr>
                   ))}
                   {student.courses.length === 0 && (

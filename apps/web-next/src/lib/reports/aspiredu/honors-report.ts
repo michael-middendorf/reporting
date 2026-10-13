@@ -13,7 +13,7 @@ import {
 } from "../athletics-coaching/academics";
 import type { CensusRawStudent } from "../census/lists-core";
 import { XlsxWorkbook, type CellStyle, type XlsxSheet } from "../census/xlsx";
-import { HONORS_FA2026_FRESHMEN_PCIDS, isHonorsFreshmanPcid } from "./honors-roster";
+import { HONORS_FA2026_FRESHMEN_PCIDS } from "./honors-roster";
 
 export type HonorsCourse = {
   course: string;
