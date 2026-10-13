@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AccessGate, ReportTopBar } from "@/components/AccessGate";
 import { apiFetch } from "@/lib/api";
 import {
@@ -110,6 +110,7 @@ export default function InstitutePage() {
 function InstituteDashboard() {
   const [payload, setPayload] = useState<InstitutePayload | null>(null);
   const [status, setStatus] = useState("Loading…");
+  const [refreshing, setRefreshing] = useState(false);
   const [F, setF] = useState<Filters | null>(null);
   const [sortK, setSortK] = useState<keyof Applicant>("last");
   const [sortDir, setSortDir] = useState(1);
@@ -117,9 +118,16 @@ function InstituteDashboard() {
   const [pSortK, setPSortK] = useState<keyof Prospect>("last");
   const [pSortDir, setPSortDir] = useState(1);
 
+  const applyPayload = useCallback((json: InstitutePayload) => {
+    const data = normalizeApplicants(json.q4 || []);
+    setF((prev) => prev || emptyFilters(defaultTerm(data)));
+    setPayload(json);
+    setStatus(json.source || "Cached");
+  }, []);
+
   useEffect(() => {
     let alive = true;
-    (async () => {
+    async function loadInitial() {
       try {
         const res = await apiFetch("/api/institute-data");
         const text = await res.text();
@@ -129,7 +137,7 @@ function InstituteDashboard() {
           json = JSON.parse(text) as InstitutePayload & { error?: string };
         } catch {
           setStatus(
-            "Failed to load Institute data — the live Slate pull timed out. Refresh the page.",
+            "Failed to load Institute data: the live Slate pull timed out. Refresh the page.",
           );
           return;
         }
@@ -137,18 +145,42 @@ function InstituteDashboard() {
           setStatus(json.error || res.statusText || "Data unavailable");
           return;
         }
-        const data = normalizeApplicants(json.q4 || []);
-        setF((prev) => prev || emptyFilters(defaultTerm(data)));
-        setPayload(json);
-        setStatus(json.source || "Cached");
+        applyPayload(json);
       } catch (e) {
-        if (alive) setStatus(`Failed to load — ${String(e)}`);
+        if (alive) setStatus(`Failed to load: ${String(e)}`);
       }
-    })();
+    }
+    void loadInitial();
     return () => {
       alive = false;
     };
-  }, []);
+  }, [applyPayload]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const res = await apiFetch("/api/institute-data?refresh=true");
+      const text = await res.text();
+      let json: InstitutePayload & { error?: string };
+      try {
+        json = JSON.parse(text) as InstitutePayload & { error?: string };
+      } catch {
+        setStatus(
+          "Failed to load Institute data: the live Slate pull timed out. Refresh the page.",
+        );
+        return;
+      }
+      if (!res.ok) {
+        setStatus(json.error || res.statusText || "Data unavailable");
+        return;
+      }
+      applyPayload(json);
+    } catch (e) {
+      setStatus(`Failed to load: ${String(e)}`);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   /* ---------- derived data (payload-scoped) ---------- */
   const DATA = useMemo(() => normalizeApplicants(payload?.q4 ?? []), [payload]);
@@ -181,8 +213,18 @@ function InstituteDashboard() {
         <ReportTopBar title="The Institute" nav={[]} />
         <div className="body">
           <div className="card">
-            <h3>The Institute — Admissions Pipeline</h3>
+            <h3>The Institute: Admissions Pipeline</h3>
             <p className="muted">{status}</p>
+            <div style={{ marginTop: 12 }}>
+              <button
+                type="button"
+                className="btn"
+                onClick={handleRefresh}
+                disabled={refreshing}
+              >
+                {refreshing ? "Retrying..." : "Retry"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -564,7 +606,20 @@ function InstituteDashboard() {
 
   return (
     <div className="institute-root">
-      <ReportTopBar title="The Institute" nav={[]} />
+      <ReportTopBar
+        title="The Institute"
+        nav={[]}
+        actions={
+          <button
+            type="button"
+            className="rc-btn"
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            {refreshing ? "Refreshing..." : "Refresh data"}
+          </button>
+        }
+      />
 
       <header className="top">
         <div className="wrap">
@@ -579,6 +634,7 @@ function InstituteDashboard() {
             Source: Slate service queries
             <br />
             Generated: <b>{payload.generated_at || ""}</b>
+            {refreshing && <span style={{ marginLeft: 8 }} className="muted">(refreshing...)</span>}
             <br />
             <span title="Whole dataset, ignoring the filters below. Applicants and AMU apps span every term; prospects are not tied to a term.">
               All terms: <b>{DATA.length}</b> applicants · <b>{(COUNTS.q2 || 0).toLocaleString()}</b> prospects ·{" "}

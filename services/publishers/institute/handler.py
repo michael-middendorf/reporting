@@ -7,6 +7,7 @@ InstituteProcess (no derived S3 object).
 
 from __future__ import annotations
 
+import gzip
 import json
 import os
 import ssl
@@ -69,9 +70,12 @@ def _fetch(qid: str, token: str, timeout: int, attempts: int = 3) -> object:
     last_exc: Exception | None = None
     for i in range(max(attempts, 1)):
         try:
-            req = Request(url, headers={"User-Agent": USER_AGENT})
+            req = Request(url, headers={"User-Agent": USER_AGENT, "Accept-Encoding": "gzip"})
             with urlopen(req, context=ctx, timeout=timeout) as r:
-                return json.loads(r.read().decode("utf-8"))
+                raw_bytes = r.read()
+                if r.info().get("Content-Encoding") == "gzip":
+                    raw_bytes = gzip.decompress(raw_bytes)
+                return json.loads(raw_bytes.decode("utf-8"))
         except HTTPError as exc:
             last_exc = exc
             if exc.code != 429 or i == attempts - 1:
@@ -195,12 +199,23 @@ def invoke_handler(event, context):  # noqa: ANN001, ARG001
     """On-demand entrypoint for the web app (synchronous Lambda invoke).
 
     Runs the six Slate queries live and RETURNS the built dashboard payload
-    instead of writing it to S3. The /api/institute-data route invokes this
-    per page load, so the dashboard always reflects current Slate data with no
-    cron or S3 cache. No DATA_BUCKET / S3 permissions needed.
+    instead of writing it to S3. Uses a 5-minute /tmp cache when available
+    unless force=True is passed in the event.
     """
+    force = bool((event or {}).get("force"))
+    cache_file = Path("/tmp/institute_lambda_payload.json")
+    if not force and cache_file.is_file():
+        try:
+            mtime = cache_file.stat().st_mtime
+            if time.time() - mtime < 300:  # 5 minutes
+                data = json.loads(cache_file.read_text(encoding="utf-8"))
+                _log(event="lambda_cache_hit", age_s=round(time.time() - mtime, 1))
+                return data
+        except Exception as exc:  # noqa: BLE001
+            _log(event="lambda_cache_read_error", error=str(exc))
+
     queries = _load_query_config()
-    _log(event="ondemand_start", queries=sorted(queries))
+    _log(event="ondemand_start", queries=sorted(queries), force=force)
 
     remaining_s = 60.0
     getter = getattr(context, "get_remaining_time_in_millis", None)
@@ -221,6 +236,11 @@ def invoke_handler(event, context):  # noqa: ANN001, ARG001
     data = build.payload(raws)
     data["source"] = "slate-live"
     data["errors"] = errors
+
+    try:
+        cache_file.write_text(json.dumps(data), encoding="utf-8")
+    except Exception as exc:  # noqa: BLE001
+        _log(event="lambda_cache_write_error", error=str(exc))
 
     _log(
         event="ondemand_done",
