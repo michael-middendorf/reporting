@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AccessGate, ReportTopBar } from "@/components/AccessGate";
+import { INSTITUTE_NAV } from "@/lib/report-nav";
 import { apiFetch } from "@/lib/api";
 import {
   Bars,
@@ -210,7 +211,7 @@ function InstituteDashboard() {
   if (status.startsWith("Failed") || (payload && (payload as { error?: string }).error)) {
     return (
       <div className="institute-root">
-        <ReportTopBar title="The Institute" nav={[]} />
+        <ReportTopBar title="The Institute" nav={INSTITUTE_NAV} />
         <div className="body">
           <div className="card">
             <h3>The Institute: Admissions Pipeline</h3>
@@ -233,7 +234,7 @@ function InstituteDashboard() {
   if (!payload || !F) {
     return (
       <div className="institute-root">
-        <ReportTopBar title="The Institute" nav={[]} />
+        <ReportTopBar title="The Institute" nav={INSTITUTE_NAV} />
         <div className="body">
           <div className="loadcard">
             <span className="spin" /> {status}
@@ -277,7 +278,7 @@ function InstituteDashboard() {
         current vs. where you should be now.
       </>
     ) : (
-      <>Click a stage to filter · no prior-cycle enrollment data for {F.term || "this selection"} — marker = full goal.</>
+      <>Click a stage to filter · no prior-cycle enrollment data for {F.term || "this selection"} (marker = full goal).</>
     );
 
   const gaugeDefs: { key: string; name: string; col: string; info: string }[] = [
@@ -453,7 +454,7 @@ function InstituteDashboard() {
     .sort((a, b) => b.v - a.v)
     .slice(0, 12);
 
-  /* ---------- recruiting calls workflow — FA27 KPI dials (q7) ---------- */
+  /* ---------- recruiting calls workflow: FA27 KPI dials (q7) ---------- */
   const RECR_COLORS = [COLORS.teal, COLORS.blue, COLORS.gold];
   const recruitingGauges: GaugeVM[] = (RECR.kpis ?? []).map((k, i) => {
     const scale = Math.max(k.value, k.goal) * 1.15;
@@ -600,7 +601,7 @@ function InstituteDashboard() {
   };
 
   /* ---------- table cell helpers ---------- */
-  const dash = <span className="muted">—</span>;
+  const dash = <span className="muted">-</span>;
   const yn = (v: boolean) => (v ? <span className="tick">✓</span> : <span className="muted">·</span>);
   const num = (v: number | null) => (v == null ? dash : v);
 
@@ -608,7 +609,7 @@ function InstituteDashboard() {
     <div className="institute-root">
       <ReportTopBar
         title="The Institute"
-        nav={[]}
+        nav={INSTITUTE_NAV}
         actions={
           <button
             type="button"
@@ -813,7 +814,7 @@ function InstituteDashboard() {
         </div>
 
         {/* ---------- applicants section ---------- */}
-        <div className="section-title">The Institute — Applicants</div>
+        <div className="section-title">The Institute: Applicants</div>
         <div className="grid">
           <div className="card span4">
             <h3>
@@ -829,7 +830,7 @@ function InstituteDashboard() {
                 <div className="stat" key={c.l}>
                   <InfoTip text={c.info} flip={c.flip} />
                   <div className="s-lbl">{c.l}</div>
-                  <div className="s-val">{c.v == null ? "—" : c.v}</div>
+                  <div className="s-val">{c.v == null ? "-" : c.v}</div>
                   <div className="s-n">{c.n}</div>
                 </div>
               ))}
@@ -932,7 +933,7 @@ function InstituteDashboard() {
               <h3>
                 FA27 KPIs{" "}
                 <span className="muted" style={{ fontWeight: 400 }}>
-                  — {(RECR.count ?? 0).toLocaleString()} in workflow
+                  : {(RECR.count ?? 0).toLocaleString()} in workflow
                 </span>
                 <InfoTip
                   wide
@@ -958,21 +959,21 @@ function InstituteDashboard() {
         <div className="grid">
           <div className="card span3">
             <h3>
-              AMU Undergraduate Pipeline <span className="muted">— {Q3.length}</span>
+              AMU Undergraduate Pipeline <span className="muted">: {Q3.length}</span>
               <InfoTip
                 wide
                 text="People in the broader AMU undergraduate admissions pipeline, grouped by current bin (Awaiting Interview, Award, Deposited, …). Not the recruiting-calls workflow."
               />
             </h3>
             <div className="chint">
-              Broader AMU admissions bins (Awaiting Interview, Award, Deposited, …) — not the
+              Broader AMU admissions bins (Awaiting Interview, Award, Deposited, …) (not the
               recruiting-calls workflow.
             </div>
             <Bars items={recItems} colorMap={(k) => binColor(k)} />
           </div>
           <div className="card span3">
             <h3>
-              Prospect Pool <span className="muted">— {(Q2S.total || 0).toLocaleString()}</span>
+              Prospect Pool <span className="muted">: {(Q2S.total || 0).toLocaleString()}</span>
               <InfoTip
                 wide
                 text="Top-of-funnel Institute prospects grouped by home state. Click a state to filter the prospects table below. These people have not yet entered the Institute applicant workflow."
@@ -988,14 +989,14 @@ function InstituteDashboard() {
           <div className="card span3">
             <h3>
               Purchased List{" "}
-              <span className="muted">— {purchasedCount.toLocaleString()}</span>
+              <span className="muted">: {purchasedCount.toLocaleString()}</span>
               <InfoTip
                 wide
                 text="Prospects already flagged PurchasedList=Y in Slate. AMU did not buy a large College Board FA27 list; any smaller purchased lists are already in this prospect pool. Use the table below to filter Yes and export a trip list."
               />
             </h3>
             <div className="chint">
-              Already in the prospect query — no separate College Board dump
+              Already in the prospect query (no separate College Board dump)
             </div>
             {purchasedItems.length ? (
               <Donut
@@ -1018,7 +1019,7 @@ function InstituteDashboard() {
             </h3>
             <div className="chint">
               Current occupancy of the Institute applicant workflow (Needed, Scheduled, Completed,
-              Denied, …) — not the recruiting-calls workflow.
+              Denied, …) (not the recruiting-calls workflow).
             </div>
             <Bars items={histItems} colorMap={(k) => binColor(k)} />
           </div>
@@ -1028,17 +1029,17 @@ function InstituteDashboard() {
         <div className="card tablecard">
           <div className="thead-row">
             <h3 style={{ margin: 0 }}>
-              Prospects <span className="muted">— {pRows.length} shown</span>
+              Prospects <span className="muted">: {pRows.length} shown</span>
               <InfoTip
                 wide
-                text="Institute prospect roster for recruitment trips. Filter by state or Purchased list, then download CSV. FERPA-protected — authorized staff only."
+                text="Institute prospect roster for recruitment trips. Filter by state or Purchased list, then download CSV. FERPA-protected: authorized staff only."
               />
             </h3>
             <div className="thead-actions">
               <button type="button" className="btn ghost" onClick={downloadProspects} disabled={!pRows.length}>
                 Download CSV
               </button>
-              <span className="ferpa">🔒 FERPA — authorized staff only · do not share externally</span>
+              <span className="ferpa">🔒 FERPA: authorized staff only · do not share externally</span>
             </div>
           </div>
           <div className="filters nested">
@@ -1149,7 +1150,7 @@ function InstituteDashboard() {
         <div className="grid">
           <div className="card span5">
             <h3>
-              Communications by Month <span className="muted">— {Q5.length}</span>
+              Communications by Month <span className="muted">: {Q5.length}</span>
               <InfoTip
                 wide
                 text="Logged recruiting interactions (calls, emails, visits, …) from the engagement query, counted by month of the interaction date."
@@ -1187,13 +1188,13 @@ function InstituteDashboard() {
         <div className="card tablecard">
           <div className="thead-row">
             <h3 style={{ margin: 0 }}>
-              Applicants <span className="muted">— {rows.length} shown</span>
+              Applicants <span className="muted">: {rows.length} shown</span>
               <InfoTip
                 wide
-                text="Institute applicant roster for the current filter. Click a column header to sort. FERPA-protected — authorized staff only."
+                text="Institute applicant roster for the current filter. Click a column header to sort. FERPA-protected: authorized staff only."
               />
             </h3>
-            <span className="ferpa">🔒 FERPA — authorized staff only · do not share externally</span>
+            <span className="ferpa">🔒 FERPA: authorized staff only · do not share externally</span>
           </div>
           <div className="tbl-scroll">
             <table>
@@ -1255,7 +1256,7 @@ function InstituteDashboard() {
         </div>
 
         <div className="foot">
-          The Institute — Admissions Pipeline. Data is served from the authenticated reporting API.
+          The Institute: Admissions Pipeline. Data is served from the authenticated reporting API.
           YoY goals are set in <code>INSTITUTE_GOALS</code> in <code>build.py</code>. Replaces the
           legacy Qlik &ldquo;Institute&rdquo; app.
         </div>

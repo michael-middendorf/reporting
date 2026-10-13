@@ -82,6 +82,12 @@ export const ASPIREDU_NAV: ReportNavItem[] = [
   { href: "/aspiredu/honors", label: "Honors Freshmen" },
 ];
 
+/** The Institute navigation: Admissions Pipeline (/institute) and Corporate Engagement (/institute/corporate). */
+export const INSTITUTE_NAV: ReportNavItem[] = [
+  { href: "/institute", label: "Admissions Pipeline", exact: true, report: "institute" },
+  { href: "/institute/corporate", label: "Corporate Engagement", report: "institute" },
+];
+
 export const MARKETING_NAV: ReportNavItem[] = [
   { href: "/marketing/pursuit-of-wisdom", label: "Pursuit of Wisdom", report: "marketing" },
 ];
@@ -143,7 +149,12 @@ export const REPORT_FOLDERS: ReportFolder[] = [
     match: ["/aspiredu"],
     nav: ASPIREDU_NAV,
   },
-  { href: "/institute", label: "The Institute", match: ["/institute"] },
+  {
+    href: "/institute",
+    label: "The Institute",
+    match: ["/institute"],
+    nav: INSTITUTE_NAV,
+  },
   { href: "/housing", label: "Housing", match: ["/housing"], nav: HOUSING_NAV },
   { href: "/census", label: "Census", match: ["/census"] },
   // DST-3015: Academic Affairs report with its own grant list. Not under

@@ -5,6 +5,7 @@ import {
   ASPIREDU_NAV,
   BUSINESS_OFFICE_NAV,
   ENROLLMENT_NAV,
+  INSTITUTE_NAV,
   POINTS_NAV,
   isDepartmentHub,
   navForReports,
@@ -366,6 +367,26 @@ describe("Chancellor's Gala nav (DST-3095)", () => {
     assert.deepEqual(
       reportCrumbs("/advancement/gala").map((c) => c.label),
       ["Reports", "Advancement", "Chancellor's Gala"],
+    );
+  });
+});
+
+describe("The Institute nav (DST-910 / DST-28)", () => {
+  it("defines navigation with Admissions Pipeline and Corporate Engagement", () => {
+    assert.equal(INSTITUTE_NAV.length, 2);
+    const admissions = item(INSTITUTE_NAV, "/institute");
+    assert.equal(admissions.label, "Admissions Pipeline");
+    assert.equal(admissions.report, "institute");
+
+    const corporate = item(INSTITUTE_NAV, "/institute/corporate");
+    assert.equal(corporate.label, "Corporate Engagement");
+    assert.equal(corporate.report, "institute");
+  });
+
+  it("builds breadcrumbs for Corporate Engagement", () => {
+    assert.deepEqual(
+      reportCrumbs("/institute/corporate").map((c) => c.label),
+      ["Reports", "The Institute", "Corporate Engagement"],
     );
   });
 });
