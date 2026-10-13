@@ -591,6 +591,46 @@ describe("aspiredu grant for Diana Tsai (DST-3059)", () => {
   });
 });
 
+describe("aspiredu grant for Teresa Ledesma (DST-3065)", () => {
+  const TERESA = "Teresa.Ledesma@avemaria.edu";
+
+  it("lets Teresa sign in and open Academic Affairs, not other reports", () => {
+    assert.equal(canLogin(TERESA), true);
+    assert.equal(isAdmin(TERESA), false);
+    assert.equal(canAccessReport(TERESA, "aspiredu"), true);
+    assert.equal(canAccessReport(TERESA, "census"), false);
+    assert.equal(canAccessReport(TERESA, "enrollment"), false);
+    assert.equal(canAccessReport(TERESA, "athletics"), false);
+    assert.equal(canAccessReport(TERESA, "housing"), false);
+    assert.equal(canAccessReport(TERESA, "institute"), false);
+    assert.equal(canAccessReport(TERESA, "advancement"), false);
+    assert.equal(canAccessReport(TERESA, "chapel"), false);
+    assert.equal(canAccessReport(TERESA, "points"), false);
+    assert.equal(canAccessReport(TERESA, "annunciation"), false);
+    assert.deepEqual(reportsForEmail(TERESA), ["aspiredu"]);
+  });
+});
+
+describe("aspiredu grant for Michael Breidenbach (DST-3065)", () => {
+  const BREIDENBACH = "Michael.Breidenbach@avemaria.edu";
+
+  it("lets Michael Breidenbach sign in and open Academic Affairs, not other reports", () => {
+    assert.equal(canLogin(BREIDENBACH), true);
+    assert.equal(isAdmin(BREIDENBACH), false);
+    assert.equal(canAccessReport(BREIDENBACH, "aspiredu"), true);
+    assert.equal(canAccessReport(BREIDENBACH, "census"), false);
+    assert.equal(canAccessReport(BREIDENBACH, "enrollment"), false);
+    assert.equal(canAccessReport(BREIDENBACH, "athletics"), false);
+    assert.equal(canAccessReport(BREIDENBACH, "housing"), false);
+    assert.equal(canAccessReport(BREIDENBACH, "institute"), false);
+    assert.equal(canAccessReport(BREIDENBACH, "advancement"), false);
+    assert.equal(canAccessReport(BREIDENBACH, "chapel"), false);
+    assert.equal(canAccessReport(BREIDENBACH, "points"), false);
+    assert.equal(canAccessReport(BREIDENBACH, "annunciation"), false);
+    assert.deepEqual(reportsForEmail(BREIDENBACH), ["aspiredu"]);
+  });
+});
+
 describe("Fall Appeal viewers", () => {
   const people = [
     "cassandra.l.bournos@avemaria.edu",

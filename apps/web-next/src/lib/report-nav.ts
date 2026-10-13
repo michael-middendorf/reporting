@@ -76,8 +76,11 @@ export const BUSINESS_OFFICE_NAV: ReportNavItem[] = [
   { href: "/business-office/athletics", label: "Athletics", report: "business-office" },
 ];
 
-/** Academic Affairs is one Students page (/aspiredu) plus profiles: no tab strip. */
-export const ASPIREDU_NAV: ReportNavItem[] = [];
+/** Academic Affairs navigation: Students (/aspiredu) and Honors Freshmen (/aspiredu/honors). */
+export const ASPIREDU_NAV: ReportNavItem[] = [
+  { href: "/aspiredu", label: "Students", exact: true },
+  { href: "/aspiredu/honors", label: "Honors Freshmen" },
+];
 
 export const MARKETING_NAV: ReportNavItem[] = [
   { href: "/marketing/pursuit-of-wisdom", label: "Pursuit of Wisdom", report: "marketing" },

@@ -157,7 +157,7 @@ const REPORT_ALLOWED: Record<ReportId, string> = {
   annunciation:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,cassandra.l.bournos@avemaria.edu,zena.weist@avemaria.edu,susan.gallagher@avemaria.edu,mark.middendorf@avemaria.edu,leslie.sonnen@avemaria.edu,julie.musselman@avemaria.edu,jim.thomas@avemaria.edu,becca.kennedy@avemaria.edu",
   aspiredu:
-    "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu,daniel.davy@avemaria.edu,michaelene.hayward@avemaria.edu,maria.t.gomez@avemaria.edu,alexandra.r.baalman@avemaria.edu,julie.musselman@avemaria.edu,richard.dittus@avemaria.edu,jenifer.lecompte@avemaria.edu,diana.tsai@avemaria.edu",
+    "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu,daniel.davy@avemaria.edu,michaelene.hayward@avemaria.edu,maria.t.gomez@avemaria.edu,alexandra.r.baalman@avemaria.edu,julie.musselman@avemaria.edu,richard.dittus@avemaria.edu,jenifer.lecompte@avemaria.edu,diana.tsai@avemaria.edu,teresa.ledesma@avemaria.edu,michael.breidenbach@avemaria.edu",
   marketing:
     "cole.j.cantu@avemaria.edu,regina.m.pirolli@avemaria.edu,michael.t.middendorf@avemaria.edu,zena.weist@avemaria.edu,susan.gallagher@avemaria.edu,camillec.kaczanowski@avemaria.edu",
   // DST-2830: MGO Analysis and Management is Leslie and Jim only (admins via isAdmin).

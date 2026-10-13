@@ -52,6 +52,14 @@ describe("needsMfaAtSignIn / complete branching", () => {
     }
   });
 
+  it("sends DST-3065 Honors grantees (Teresa Ledesma, Michael Breidenbach) through pending MFA", () => {
+    for (const email of ["teresa.ledesma@avemaria.edu", "michael.breidenbach@avemaria.edu"]) {
+      assert.equal(needsMfaAtSignIn(email), true);
+      assert.equal(sessionDecisionAtComplete(email, false), "mfa_pending");
+      assert.equal(sessionDecisionAtComplete(email, true), "mfa_pending");
+    }
+  });
+
   it("sends coaching leadership and mapped coaches through hub MFA", () => {
     const prevCoaches = process.env.ATHLETICS_COACHING_COACHES;
     process.env.ATHLETICS_COACHING_COACHES = JSON.stringify({ [COACH]: ["football"] });
